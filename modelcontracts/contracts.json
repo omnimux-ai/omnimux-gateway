@@ -1,0 +1,3732 @@
+{
+  "version": "167819a095979d90",
+  "models": {
+    "bigasr-auc": {
+      "model_id": "bigasr-auc",
+      "family": "audio",
+      "status": "documented",
+      "operations": [
+        "transcription"
+      ],
+      "output_formats": [
+        "text"
+      ],
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 3,
+        "model_ratio": 1.5,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported token usage; price is USD per 1M tokens",
+          "zh": "按上游返回的词元用量计费，单价为每百万词元美元价"
+        }
+      }
+    },
+    "claude-fable-5": {
+      "model_id": "claude-fable-5",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000
+    },
+    "claude-haiku-4-5": {
+      "model_id": "claude-haiku-4-5",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 200000,
+      "max_output_tokens": 64000
+    },
+    "claude-opus-4-6": {
+      "model_id": "claude-opus-4-6",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000
+    },
+    "claude-opus-4-7": {
+      "model_id": "claude-opus-4-7",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000
+    },
+    "claude-opus-4-8": {
+      "model_id": "claude-opus-4-8",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000
+    },
+    "claude-opus-5": {
+      "model_id": "claude-opus-5",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000
+    },
+    "claude-sonnet-4-6": {
+      "model_id": "claude-sonnet-4-6",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000
+    },
+    "claude-sonnet-5": {
+      "model_id": "claude-sonnet-5",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching",
+        "pdf_input"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000
+    },
+    "deepseek-flash": {
+      "model_id": "deepseek-flash",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "structured_output",
+        "deep_thinking",
+        "image_input",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 393216,
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 0.1470588235294118,
+        "model_ratio": 0.0735294117647059,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported token usage; the base unit price anchors the official retail price (USD per 1M tokens, off-peak input 1 CNY ÷ 6.8) and the model-specific group deepseek-flash-economy (0.6) scales it to the sell price. Peak hours double, cache hits priced separately.",
+          "zh": "按上游返回的词元用量计费；基准单价锚定官方零售价（美元/百万词元，空闲时段输入 1 元 ÷ 6.8），对外按模型专属分组 deepseek-flash-economy 倍率 0.6 折算出售价；高峰时段按官方规则翻倍，缓存命中单独计价。"
+        }
+      }
+    },
+    "deepseek-v4-flash": {
+      "model_id": "deepseek-v4-flash",
+      "family": "llm",
+      "status": "partial",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp"
+        ]
+      },
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 384000
+    },
+    "deepseek-v4-pro": {
+      "model_id": "deepseek-v4-pro",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text"
+      ],
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 384000
+    },
+    "doubao-asr-bigmodel": {
+      "model_id": "doubao-asr-bigmodel",
+      "family": "audio",
+      "status": "partial",
+      "operations": [
+        "transcription"
+      ],
+      "output_formats": [
+        "text"
+      ],
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 3,
+        "model_ratio": 1.5,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported token usage; price is USD per 1M tokens",
+          "zh": "按上游返回的词元用量计费，单价为每百万词元美元价"
+        }
+      }
+    },
+    "gemini-2.5-flash": {
+      "model_id": "gemini-2.5-flash",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-2.5-flash-lite": {
+      "model_id": "gemini-2.5-flash-lite",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-2.5-pro": {
+      "model_id": "gemini-2.5-pro",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3-flash": {
+      "model_id": "gemini-3-flash",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3-flash-preview": {
+      "model_id": "gemini-3-flash-preview",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3-pro": {
+      "model_id": "gemini-3-pro",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3-pro-preview": {
+      "model_id": "gemini-3-pro-preview",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.1-flash-image": {
+      "model_id": "gemini-3.1-flash-image",
+      "family": "image",
+      "status": "documented",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_sizes": [
+        "512",
+        "1K",
+        "2K",
+        "4K"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 14,
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 7340032
+      }
+    },
+    "gemini-3.1-flash-lite": {
+      "model_id": "gemini-3.1-flash-lite",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.1-flash-lite-image": {
+      "model_id": "gemini-3.1-flash-lite-image",
+      "family": "image",
+      "status": "documented",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_sizes": [
+        "1K"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 14,
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 7340032
+      }
+    },
+    "gemini-3.1-flash-lite-preview": {
+      "model_id": "gemini-3.1-flash-lite-preview",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.1-pro": {
+      "model_id": "gemini-3.1-pro",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.1-pro-preview": {
+      "model_id": "gemini-3.1-pro-preview",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.5-flash": {
+      "model_id": "gemini-3.5-flash",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.6-flash": {
+      "model_id": "gemini-3.6-flash",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.7-flash": {
+      "model_id": "gemini-3.7-flash",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536
+    },
+    "gemini-3.8-flash": {
+      "model_id": "gemini-3.8-flash",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 0.75,
+        "model_ratio": 0.375,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported token usage; price is USD per 1M tokens",
+          "zh": "按上游返回的词元用量计费，单价为每百万词元美元价"
+        }
+      }
+    },
+    "gemini-4-argon": {
+      "model_id": "gemini-4-argon",
+      "family": "llm",
+      "status": "partial",
+      "basis": "line_restricted",
+      "service_notes": "使用 Gemini 原生内容接口，输出为文字或结构化结果。支持独立系统指令、PNG 单图与多图、MP4 视频、视频与图片联合输入、PDF、结构化结果、流式返回、低思考档和单轮函数调用请求。函数调用结果由调用方执行。短素材示例不代表最大容量；音频准确性、其他格式、长素材、最大上下文和最大输出未建立服务承诺。",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "pdf"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4"
+        ]
+      },
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "model_ratio": 2,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charges use reported usage: USD 1.7 per 1M input tokens, USD 8.5 per 1M output tokens and USD 0.086 per 1M cached input tokens, with a USD 0.01/68 minimum per request rounded to the gateway billing unit. The official input anchor is USD 4 per 1M tokens; model-specific billing rules determine the effective selling price. Input includes reported tool-use input; output includes reported thinking. Cached tokens are an input subset, counted once.",
+          "zh": "按实际报告用量结算，每百万词元输入 1.7 美元、输出 8.5 美元、缓存读取 0.086 美元；每次最低 0.01/68 美元，按本站最小计费单位取整。官方输入基准为每百万词元 4 美元，实际售价由模型专属计费规则确定。输入包含已报告的工具输入，输出包含已报告的思考；缓存是输入子集，各计一次。"
+        }
+      }
+    },
+    "gemini-omni-1.1-flash-task": {
+      "model_id": "gemini-omni-1.1-flash-task",
+      "family": "video",
+      "status": "partial",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "reference_to_video",
+        "first_last_frame",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {},
+      "resolutions": [
+        "360p",
+        "720p",
+        "1080p",
+        "4k"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 3,
+        "max_seconds_each": 3
+      },
+      "reference_audios": {
+        "min": 0
+      }
+    },
+    "glm-5.1": {
+      "model_id": "glm-5.1",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text"
+      ],
+      "context_window_tokens": 200000,
+      "max_output_tokens": 131072
+    },
+    "glm-5.2": {
+      "model_id": "glm-5.2",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text"
+      ],
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 131072
+    },
+    "glm-5.3": {
+      "model_id": "glm-5.3",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text"
+      ],
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 131072
+    },
+    "gpt-5.4": {
+      "model_id": "gpt-5.4",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000
+    },
+    "gpt-5.5": {
+      "model_id": "gpt-5.5",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000
+    },
+    "gpt-5.6-luna": {
+      "model_id": "gpt-5.6-luna",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000
+    },
+    "gpt-5.6-sol": {
+      "model_id": "gpt-5.6-sol",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000
+    },
+    "gpt-5.6-terra": {
+      "model_id": "gpt-5.6-terra",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000
+    },
+    "gpt-image-2.5": {
+      "model_id": "gpt-image-2.5",
+      "family": "image",
+      "status": "documented",
+      "basis": "line_restricted",
+      "service_notes": "标准服务使用 JSON 提交，每次生成一张中等质量 PNG 图片，数量省略或为 1，质量省略或为 medium。仅支持合同列明的七种精确像素尺寸，3:4 与 4:3 使用 1360 像素边。最多一张 JPEG、PNG 或 WebP 参考图，不超过 5MiB、4000 万像素，任一边不超过 23170 像素。完整提示词（包括角色附加说明）须同时不超过 8192 个 Unicode 字符、16384 个 UTF-8 字节和按本服务 o200k_base 计数的 5000 个提示词 token；超出明确拒绝，不截断、不缩写，部分较长描述也可能被拒绝。角色双视图及多视角功能保留。更高质量、多张输出、多参考、透明背景、遮罩及其他未审规格明确拒绝。",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_formats": [
+        "png"
+      ],
+      "output_sizes": [
+        "1024x1024",
+        "1024x1536",
+        "1536x1024",
+        "1024x1360",
+        "1360x1024",
+        "1088x1920",
+        "1920x1088"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 1,
+        "formats": [
+          "jpeg",
+          "png",
+          "webp"
+        ],
+        "max_bytes_each": 5242880
+      },
+      "prompt_max_chars": 8192,
+      "prompt_max_utf8_bytes": 16384,
+      "prompt_max_tokens": 5000,
+      "billing": {
+        "unit": "per_image",
+        "unit_label": {
+          "en": "per image",
+          "zh": "每张"
+        },
+        "unit_price_usd": 0.3,
+        "pricing_basis": "image_count",
+        "notes": {
+          "en": "Charged per image. This amount is the per-image service base (3 OmniMux points); the final quote includes the dedicated group and membership multipliers; use the platform quote before submission.",
+          "zh": "按图片张数计费。此金额为每张的服务基准价（对应 3 积分）；实际每张费用受专属分组和会员倍率影响，以平台提交前报价为准。"
+        }
+      }
+    },
+    "gpt-image-2.5-flare": {
+      "model_id": "gpt-image-2.5-flare",
+      "family": "image",
+      "status": "documented",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_formats": [
+        "png",
+        "jpeg",
+        "webp"
+      ],
+      "output_sizes": [
+        "1024x1024",
+        "1536x1024",
+        "1024x1536"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 16
+      },
+      "prompt_max_chars": 32000,
+      "billing": {
+        "unit": "per_image",
+        "unit_label": {
+          "en": "per image",
+          "zh": "每张"
+        },
+        "unit_price_usd": 0.014706,
+        "pricing_basis": "image_count",
+        "notes": {
+          "en": "Charged by the number of produced images",
+          "zh": "按产出的图片张数计费"
+        }
+      }
+    },
+    "gpt-image-2.5-sunburst": {
+      "model_id": "gpt-image-2.5-sunburst",
+      "family": "image",
+      "status": "documented",
+      "basis": "line_restricted",
+      "service_notes": "本条目描述 OmniMux 角色生图的受限服务，不代表供应商完整能力，也不证明当前所有渠道已通过四模式审核或已启用。文生图、单参考生图、整图修改和局部编辑的新单仅请求 high 质量、1024x576、单张 PNG，通过客户成品 URL 交付；用户不选择供应商或分组。1024x576 和 high 是提交值，原图实际尺寸以供应商交付文件为准，不保证精确 1024x576 或精确 16:9；成品原图不缩放、不裁切或重编码，保留实际尺寸。历史已保存的 2048x1152 任务仅按原始请求恢复和核对，不改写规格或自动重发。文生图无参考，其余模式仅一张来源图；已审核线路还须兼容本次输入格式，不静默转码或降级。来源图接受 JPEG、PNG、WebP 的服务校验，来源图最多 5MiB、4000 万像素、单边 23170 像素；局部编辑的源图和遮罩均须为同尺寸 PNG，均不得含 任何 PNG eXIf 数据块，遮罩原始文件须严格小于 4,000,000 字节（最大 3,999,999 字节），并须同时含完全透明的编辑像素和完全不透明的保护像素。brief 和 edit_instruction 各最多 4000 个 Unicode 码点；最终提示词（包含角色附加说明）须同时不超过 8192 个 Unicode 码点、16384 个 UTF-8 字节和按本服务 o200k_base 计数的 5000 个词元；不截断，输入首尾空白可能按入口规则去除。该计数不是供应商账单词元数，不能据此保证采购成本封顶。网页角色创建按有无上传参考图自动处理，不提供模式手选或整图、局部编辑入口；上传图片仅借鉴风格，不锁定参考人物身份，明确描述和选定特征优先。账号创建接口及现有命令行仅保留角色文生图、单参考及多视角；多视角仍保持已生成角色身份。以上四种模式说明为既有底层能力及输入约束，不代表网页均提供对应入口；原始 /v1/images/generations 与 /v1/images/edits 本轮不开放该型号。仅已审核且兼容本次模式和素材的线路参与；只有内置规则允许且能够证明尚未创建供应商任务才可切换，整个请求最多一次首发及一次备用，不重复已尝试渠道。沿用首次报价与同一份费用预留，换线不追加客户收费；已接单、超时、断连或缺回执只核对原单，不自动重发。可用性以当前已审核线路和提交前报价为准，不承诺两家健康供应商始终可用。",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_formats": [
+        "png"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 1,
+        "formats": [
+          "jpeg",
+          "png",
+          "webp"
+        ],
+        "max_bytes_each": 5242880
+      },
+      "prompt_max_chars": 8192,
+      "prompt_max_utf8_bytes": 16384,
+      "prompt_max_tokens": 5000,
+      "billing": {
+        "unit": "per_image",
+        "unit_label": {
+          "en": "per image",
+          "zh": "每张"
+        },
+        "pricing_basis": "image_count",
+        "notes": {
+          "en": "Charged per generated image through the service. The native unified image quote and applicable account tier determine the amount shown before submission; the first quote and fund reservation are retained through eligible failover. No undecided fixed sale amount or fixed official per-image procurement price is declared here.",
+          "zh": "按本服务生成的一张图片计费。实际金额由平台原生图片统一报价及适用账户档位确定，以提交前报价为准；首次报价及费用预留沿故障迁移复用。此描述不提供尚未决定的固定销售金额，也不把供应商按用量采购费率称为固定每张官方价格。"
+        }
+      }
+    },
+    "grok-4.5": {
+      "model_id": "grok-4.5",
+      "family": "llm",
+      "status": "partial",
+      "operations": [
+        "chat_completion"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png"
+        ]
+      },
+      "context_window_tokens": 500000
+    },
+    "grok-4.6": {
+      "model_id": "grok-4.6",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png"
+        ]
+      },
+      "context_window_tokens": 500000
+    },
+    "grok-imagine-video-1-5": {
+      "model_id": "grok-imagine-video-1-5",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "reference_to_video",
+        "first_last_frame",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 1,
+        "max": 15,
+        "default": 8
+      },
+      "resolutions": [
+        "480p",
+        "720p",
+        "1080p"
+      ],
+      "aspect_ratios": [
+        "1:1",
+        "16:9",
+        "9:16",
+        "4:3",
+        "3:4",
+        "3:2",
+        "2:3"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ]
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 0
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3,
+        "max_seconds_each": 15
+      }
+    },
+    "grok-imagine-video-1-5-task": {
+      "model_id": "grok-imagine-video-1-5-task",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "reference_to_video",
+        "first_last_frame",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 1,
+        "max": 15,
+        "default": 8
+      },
+      "resolutions": [
+        "480p",
+        "720p",
+        "1080p"
+      ],
+      "aspect_ratios": [
+        "1:1",
+        "16:9",
+        "9:16",
+        "4:3",
+        "3:4",
+        "3:2",
+        "2:3"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ]
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 0
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3,
+        "max_seconds_each": 15
+      }
+    },
+    "indextts-2": {
+      "model_id": "indextts-2",
+      "family": "audio",
+      "status": "documented",
+      "operations": [
+        "text_to_speech",
+        "voice_clone",
+        "emotion_control"
+      ],
+      "output_formats": [
+        "wav"
+      ],
+      "reference_audios": {
+        "max": 2,
+        "formats": [
+          "wav",
+          "mp3"
+        ]
+      },
+      "prompt_max_chars": 2048,
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.005,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by audio duration, 10s minimum",
+          "zh": "按生成的音频时长计费，最低 10 秒起步"
+        }
+      }
+    },
+    "instagram-post": {
+      "model_id": "instagram-post",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_post"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "instagram-posts": {
+      "model_id": "instagram-posts",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_user_posts"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "instagram-search": {
+      "model_id": "instagram-search",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "general_search"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "instagram-user": {
+      "model_id": "instagram-user",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_user_profile"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "jev": {
+      "model_id": "jev",
+      "family": "llm",
+      "status": "partial",
+      "operations": [
+        "judgment"
+      ],
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "model_ratio": 0.021,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free.",
+          "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。"
+        }
+      }
+    },
+    "kimi-k2.6": {
+      "model_id": "kimi-k2.6",
+      "family": "llm",
+      "status": "partial",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "video_input",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "image/bmp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mpeg",
+          "video/mov",
+          "video/avi",
+          "video/x-flv",
+          "video/mpg",
+          "video/webm",
+          "video/wmv",
+          "video/3gpp"
+        ]
+      },
+      "context_window_tokens": 262144
+    },
+    "kimi-k2.7-code": {
+      "model_id": "kimi-k2.7-code",
+      "family": "llm",
+      "status": "partial",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "video_input",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "image/bmp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mpeg",
+          "video/mov",
+          "video/avi",
+          "video/x-flv",
+          "video/mpg",
+          "video/webm",
+          "video/wmv",
+          "video/3gpp"
+        ]
+      },
+      "context_window_tokens": 262144
+    },
+    "kimi-k3": {
+      "model_id": "kimi-k3",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "image_input",
+        "video_input",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video"
+      ],
+      "reference_images": {
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "image/bmp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mpeg",
+          "video/mov",
+          "video/avi",
+          "video/x-flv",
+          "video/mpg",
+          "video/webm",
+          "video/wmv",
+          "video/3gpp"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 1048576
+    },
+    "kling-o3": {
+      "model_id": "kling-o3",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "reference_to_video",
+        "video_edit",
+        "first_last_frame"
+      ],
+      "durations_seconds": {
+        "min": 3,
+        "max": 15,
+        "allowed": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ]
+      },
+      "resolutions": [
+        "720p",
+        "1080p",
+        "4k"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 7,
+        "formats": [
+          "image/jpeg",
+          "image/png"
+        ],
+        "max_bytes_each": 52428800
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 1,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200
+      },
+      "reference_audios": {
+        "min": 0
+      },
+      "prompt_max_chars": 3072
+    },
+    "kling-v2-6": {
+      "model_id": "kling-v2-6",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame",
+        "motion_control"
+      ],
+      "durations_seconds": {
+        "min": 5,
+        "max": 10,
+        "allowed": [
+          5,
+          10
+        ]
+      },
+      "resolutions": [
+        "720p",
+        "1080p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 2,
+        "formats": [
+          "image/jpeg",
+          "image/png"
+        ],
+        "max_bytes_each": 52428800
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 1,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 104857600
+      },
+      "reference_audios": {
+        "min": 0
+      },
+      "prompt_max_chars": 2500
+    },
+    "kling-v3": {
+      "model_id": "kling-v3",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame",
+        "video_multi_ref",
+        "video_edit",
+        "motion_control"
+      ],
+      "durations_seconds": {
+        "min": 3,
+        "max": 15,
+        "allowed": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ]
+      },
+      "resolutions": [
+        "720p",
+        "1080p",
+        "4k"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 7,
+        "formats": [
+          "image/jpeg",
+          "image/png"
+        ],
+        "max_bytes_each": 52428800
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 1,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200
+      },
+      "reference_audios": {
+        "min": 0
+      },
+      "prompt_max_chars": 3072
+    },
+    "kling-v3-motion-control": {
+      "model_id": "kling-v3-motion-control",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "motion_control"
+      ],
+      "durations_seconds": {},
+      "resolutions": [
+        "720p",
+        "1080p"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 1,
+        "max": 1,
+        "formats": [
+          "image/jpeg",
+          "image/png"
+        ],
+        "max_bytes_each": 52428800
+      },
+      "reference_videos": {
+        "min": 1,
+        "max": 1,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 104857600
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 0
+      }
+    },
+    "minimax-h3": {
+      "model_id": "minimax-h3",
+      "family": "video",
+      "status": "documented",
+      "basis": "line_restricted",
+      "operations": [
+        "text_to_video",
+        "first_frame",
+        "video_multi_ref"
+      ],
+      "durations_seconds": {
+        "min": 5,
+        "max": 10,
+        "default": 5,
+        "allowed": [
+          5,
+          10
+        ]
+      },
+      "resolutions": [
+        "480P",
+        "768P",
+        "1080P"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:3",
+        "21:9"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 9
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 3
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3
+      },
+      "prompt_max_chars": 50000,
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.0714,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by the requested video duration",
+          "zh": "按请求的视频时长计费"
+        }
+      }
+    },
+    "minimax-h3-lip-sync": {
+      "model_id": "minimax-h3-lip-sync",
+      "family": "video",
+      "status": "documented",
+      "basis": "line_restricted",
+      "operations": [
+        "lip_sync"
+      ],
+      "durations_seconds": {
+        "min": 5,
+        "max": 15,
+        "default": 5
+      },
+      "resolutions": [
+        "480P",
+        "768P",
+        "1080P",
+        "2K"
+      ],
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.125,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Billed per second of generated video",
+          "zh": "按实际视频时长按秒计费（特惠 1.25 积分/秒）"
+        }
+      }
+    },
+    "minimax-h3-task": {
+      "model_id": "minimax-h3-task",
+      "family": "video",
+      "status": "documented",
+      "basis": "line_restricted",
+      "operations": [
+        "text_to_video",
+        "first_frame",
+        "first_last_frame",
+        "video_multi_ref",
+        "video_edit"
+      ],
+      "durations_seconds": {
+        "min": 15,
+        "max": 15,
+        "allowed": [
+          15
+        ]
+      },
+      "resolutions": [
+        "768P",
+        "2K"
+      ],
+      "aspect_ratios": [
+        "adaptive",
+        "21:9",
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 9,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 31457280
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "video/h264",
+          "video/hevc"
+        ],
+        "max_bytes_each": 52428800
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      },
+      "prompt_max_chars": 7000,
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.3781,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "minimax-h3-turbo": {
+      "model_id": "minimax-h3-turbo",
+      "family": "video",
+      "status": "documented",
+      "basis": "line_restricted",
+      "operations": [
+        "text_to_video",
+        "first_frame"
+      ],
+      "durations_seconds": {
+        "min": 5,
+        "max": 10,
+        "default": 5,
+        "allowed": [
+          5,
+          10
+        ]
+      },
+      "resolutions": [
+        "480P",
+        "768P",
+        "1080P"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:3",
+        "21:9"
+      ],
+      "reference_images": {
+        "min": 1,
+        "max": 1
+      },
+      "prompt_max_chars": 50000,
+      "billing": {
+        "unit": "per_usage",
+        "unit_label": {
+          "en": "by reported usage",
+          "zh": "按实际用量"
+        },
+        "unit_price_usd": 0.035,
+        "pricing_basis": "reported_usage",
+        "notes": {
+          "en": "Charged by reported usage; the unit price varies with duration or resolution tier",
+          "zh": "按实际用量计费，单价随档位（时长/分辨率）变化"
+        }
+      }
+    },
+    "minimax-h3-video": {
+      "model_id": "minimax-h3-video",
+      "family": "video",
+      "status": "documented",
+      "basis": "line_restricted",
+      "operations": [
+        "text_to_video",
+        "first_last_frame",
+        "video_multi_ref",
+        "digital_human"
+      ],
+      "durations_seconds": {
+        "min": 1,
+        "max": 15
+      },
+      "resolutions": [
+        "480p",
+        "736p",
+        "768p",
+        "1088p",
+        "1440p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 9
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3
+      },
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.025,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by the requested video duration; the per-second rate varies with resolution: $0.025 for 480p/736p/768p, $0.030 for 1088p, $0.035 for 1440p (priced by resolution in the task billing expression; group ratios still apply)",
+          "zh": "按请求的视频时长计费；每秒单价随分辨率变化：480p/736p/768p 为 $0.025，1088p 为 $0.030，1440p 为 $0.035（由任务计费表达式按 resolution 定价，分组倍率仍叠加）"
+        }
+      }
+    },
+    "mj-v7": {
+      "model_id": "mj-v7",
+      "family": "image",
+      "status": "partial",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "reference_images": {
+        "min": 0,
+        "formats": [
+          "png",
+          "gif",
+          "webp",
+          "jpg",
+          "jpeg"
+        ]
+      }
+    },
+    "mj-v8-1": {
+      "model_id": "mj-v8-1",
+      "family": "image",
+      "status": "partial",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "reference_images": {
+        "min": 0,
+        "formats": [
+          "png",
+          "gif",
+          "webp",
+          "jpg",
+          "jpeg"
+        ]
+      }
+    },
+    "nano-banana-2": {
+      "model_id": "nano-banana-2",
+      "family": "image",
+      "status": "documented",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_sizes": [
+        "512",
+        "1K",
+        "2K",
+        "4K"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 14,
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 7340032
+      }
+    },
+    "nano-banana-pro": {
+      "model_id": "nano-banana-pro",
+      "family": "image",
+      "status": "documented",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_sizes": [
+        "1K",
+        "2K",
+        "4K"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 14,
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 7340032
+      }
+    },
+    "qwen-image-3-0": {
+      "model_id": "qwen-image-3-0",
+      "family": "image",
+      "status": "documented",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_formats": [
+        "png"
+      ],
+      "reference_images": {
+        "min": 1,
+        "max": 3,
+        "formats": [
+          "jpg",
+          "jpeg",
+          "png",
+          "bmp",
+          "tiff",
+          "webp",
+          "gif"
+        ],
+        "max_bytes_each": 10485760
+      }
+    },
+    "seed-audio-1.0": {
+      "model_id": "seed-audio-1.0",
+      "family": "audio",
+      "status": "documented",
+      "operations": [
+        "text_to_speech",
+        "voice_clone",
+        "reference_audio_generation",
+        "reference_image_generation"
+      ],
+      "output_formats": [
+        "wav",
+        "mp3",
+        "pcm",
+        "ogg_opus"
+      ],
+      "reference_images": {
+        "max": 1,
+        "formats": [
+          "jpeg",
+          "png",
+          "webp"
+        ],
+        "max_bytes_each": 10485760
+      },
+      "reference_audios": {
+        "max": 3,
+        "formats": [
+          "wav",
+          "mp3",
+          "pcm",
+          "ogg_opus"
+        ],
+        "max_bytes_each": 10485760,
+        "max_seconds_each": 30
+      },
+      "prompt_max_chars": 3000,
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 15,
+        "model_ratio": 7.5,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported token usage; price is USD per 1M tokens",
+          "zh": "按上游返回的词元用量计费，单价为每百万词元美元价"
+        }
+      }
+    },
+    "seed-evolving": {
+      "model_id": "seed-evolving",
+      "family": "llm",
+      "status": "documented",
+      "operations": [
+        "chat_completion",
+        "streaming",
+        "tool_calling",
+        "structured_output",
+        "deep_thinking",
+        "image_input",
+        "video_input",
+        "prompt_caching"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video"
+      ],
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 262144
+    },
+    "seedance-2-0": {
+      "model_id": "seedance-2-0",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "first_frame",
+        "first_last_frame",
+        "video_multi_ref",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 30
+      },
+      "resolutions": [
+        "480p",
+        "720p",
+        "1080p",
+        "4k"
+      ],
+      "aspect_ratios": [
+        "21:9",
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 9
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 3
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3
+      },
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.0971,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by the requested video duration",
+          "zh": "按请求的视频时长计费"
+        }
+      }
+    },
+    "seedance-2-0-fast": {
+      "model_id": "seedance-2-0-fast",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame_to_video",
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 15
+      },
+      "resolutions": [
+        "480p",
+        "720p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "21:9",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 1,
+        "max": 9,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/bmp",
+          "image/tiff",
+          "image/gif",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 31457280
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      }
+    },
+    "seedance-2-0-fast-task": {
+      "model_id": "seedance-2-0-fast-task",
+      "family": "video",
+      "status": "partial",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame_to_video",
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 15
+      },
+      "resolutions": [
+        "480p",
+        "720p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "21:9",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 1,
+        "max": 9,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/bmp",
+          "image/tiff",
+          "image/gif",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 31457280
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      }
+    },
+    "seedance-2-0-mini": {
+      "model_id": "seedance-2-0-mini",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame_to_video",
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 15
+      },
+      "resolutions": [
+        "480p",
+        "720p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "21:9",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 1,
+        "max": 9,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/bmp",
+          "image/tiff",
+          "image/gif",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 31457280
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 3,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      }
+    },
+    "seedance-2-0-task": {
+      "model_id": "seedance-2-0-task",
+      "family": "video",
+      "status": "partial",
+      "operations": [
+        "unknown_routing_dependent"
+      ],
+      "reference_images": {},
+      "reference_videos": {},
+      "reference_audios": {},
+      "billing": {
+        "unit": "per_usage",
+        "unit_label": {
+          "en": "by reported usage",
+          "zh": "按实际用量"
+        },
+        "unit_price_usd": 0.294118,
+        "pricing_basis": "reported_usage",
+        "notes": {
+          "en": "Charged by reported usage; the unit price varies with duration or resolution tier",
+          "zh": "按实际用量计费，单价随档位（时长/分辨率）变化"
+        }
+      }
+    },
+    "seedance-2-5": {
+      "model_id": "seedance-2-5",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame_to_video",
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 30
+      },
+      "resolutions": [
+        "480p",
+        "720p",
+        "1080p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "21:9",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 1,
+        "max": 30,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/bmp",
+          "image/tiff",
+          "image/gif",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 31457280
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      },
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.8,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by the requested video duration. This amount is the per-second service base; the final quote includes group and membership multipliers; use the platform quote before submission.",
+          "zh": "按请求的视频时长计费，此金额为每秒钟的服务基准价；实际每秒费用受分组和会员倍率影响，以平台提交前报价为准。"
+        }
+      }
+    },
+    "seedance-2-5-task": {
+      "model_id": "seedance-2-5-task",
+      "family": "video",
+      "status": "documented",
+      "basis": "line_restricted",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame_to_video",
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 30,
+        "max": 30,
+        "allowed": [
+          30
+        ]
+      },
+      "resolutions": [
+        "720p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 1,
+        "max": 9,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/bmp",
+          "image/tiff",
+          "image/gif",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 31457280
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 0,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 0,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      },
+      "billing": {
+        "unit": "per_usage",
+        "unit_label": {
+          "en": "by reported usage",
+          "zh": "按实际用量"
+        },
+        "unit_price_usd": 0.558824,
+        "pricing_basis": "reported_usage",
+        "notes": {
+          "en": "Charged by reported usage; the unit price varies with duration or resolution tier",
+          "zh": "按实际用量计费，单价随档位（时长/分辨率）变化"
+        }
+      }
+    },
+    "seedasr-auc": {
+      "model_id": "seedasr-auc",
+      "family": "audio",
+      "status": "documented",
+      "operations": [
+        "transcription"
+      ],
+      "output_formats": [
+        "text"
+      ],
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 3,
+        "model_ratio": 1.5,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported token usage; price is USD per 1M tokens",
+          "zh": "按上游返回的词元用量计费，单价为每百万词元美元价"
+        }
+      }
+    },
+    "seedream-5-0-pro": {
+      "model_id": "seedream-5-0-pro",
+      "family": "image",
+      "status": "partial",
+      "operations": [
+        "text_to_image",
+        "image_to_image"
+      ],
+      "output_formats": [
+        "jpeg"
+      ],
+      "reference_images": {
+        "min": 2,
+        "max": 10
+      }
+    },
+    "suno": {
+      "model_id": "suno",
+      "family": "audio",
+      "status": "documented",
+      "operations": [
+        "music_generation"
+      ],
+      "output_formats": [
+        "mp3",
+        "wav"
+      ]
+    },
+    "suno-sounds": {
+      "model_id": "suno-sounds",
+      "family": "audio",
+      "status": "documented",
+      "operations": [
+        "sound_effect_generation"
+      ],
+      "output_formats": [
+        "mp3"
+      ]
+    },
+    "tiktok-creator-milestones": {
+      "model_id": "tiktok-creator-milestones",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_creator_milestones"
+      ]
+    },
+    "tiktok-creator-search-detail": {
+      "model_id": "tiktok-creator-search-detail",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "creator_search_detail"
+      ]
+    },
+    "tiktok-creator-search-insights": {
+      "model_id": "tiktok-creator-search-insights",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "creator_search_insights"
+      ]
+    },
+    "tiktok-creator-search-trend": {
+      "model_id": "tiktok-creator-search-trend",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "creator_search_trend"
+      ]
+    },
+    "tiktok-creator-search-videos": {
+      "model_id": "tiktok-creator-search-videos",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "creator_search_videos"
+      ]
+    },
+    "tiktok-live-room-id": {
+      "model_id": "tiktok-live-room-id",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "resolve_live_room"
+      ]
+    },
+    "tiktok-posts": {
+      "model_id": "tiktok-posts",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_user_posts"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "tiktok-search": {
+      "model_id": "tiktok-search",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "search_videos"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "tiktok-shop-categories": {
+      "model_id": "tiktok-shop-categories",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_categories"
+      ]
+    },
+    "tiktok-shop-category-products": {
+      "model_id": "tiktok-shop-category-products",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_category_products"
+      ]
+    },
+    "tiktok-shop-creator": {
+      "model_id": "tiktok-shop-creator",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_creator"
+      ]
+    },
+    "tiktok-shop-live-products": {
+      "model_id": "tiktok-shop-live-products",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_live_products"
+      ]
+    },
+    "tiktok-shop-live-products-v2": {
+      "model_id": "tiktok-shop-live-products-v2",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_live_products"
+      ]
+    },
+    "tiktok-shop-product": {
+      "model_id": "tiktok-shop-product",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_product"
+      ]
+    },
+    "tiktok-shop-product-link": {
+      "model_id": "tiktok-shop-product-link",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "resolve_product_link"
+      ]
+    },
+    "tiktok-shop-product-v3": {
+      "model_id": "tiktok-shop-product-v3",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_product"
+      ]
+    },
+    "tiktok-shop-reviews": {
+      "model_id": "tiktok-shop-reviews",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_reviews"
+      ]
+    },
+    "tiktok-shop-reviews-v2": {
+      "model_id": "tiktok-shop-reviews-v2",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_reviews"
+      ]
+    },
+    "tiktok-shop-search": {
+      "model_id": "tiktok-shop-search",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "search_products"
+      ]
+    },
+    "tiktok-shop-search-suggest": {
+      "model_id": "tiktok-shop-search-suggest",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "search_suggest"
+      ]
+    },
+    "tiktok-shop-search-v2": {
+      "model_id": "tiktok-shop-search-v2",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "search_products"
+      ]
+    },
+    "tiktok-shop-seller-products": {
+      "model_id": "tiktok-shop-seller-products",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_seller_products"
+      ]
+    },
+    "tiktok-shop-seller-products-v2": {
+      "model_id": "tiktok-shop-seller-products-v2",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_seller_products"
+      ]
+    },
+    "tiktok-shop-shop-link": {
+      "model_id": "tiktok-shop-shop-link",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "resolve_shop_link"
+      ]
+    },
+    "tiktok-user": {
+      "model_id": "tiktok-user",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_user_profile"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "tiktok-video": {
+      "model_id": "tiktok-video",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_video"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "volc-image-upscale": {
+      "model_id": "volc-image-upscale",
+      "family": "image",
+      "status": "documented",
+      "operations": [
+        "image_to_image"
+      ],
+      "input_modalities": [
+        "image"
+      ],
+      "output_formats": [
+        "jpeg",
+        "png",
+        "bmp"
+      ],
+      "reference_images": {
+        "min": 1,
+        "max": 1,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/bmp"
+        ],
+        "max_bytes_each": 5242880
+      },
+      "billing": {
+        "unit": "call",
+        "unit_label": {
+          "en": "call",
+          "zh": "次"
+        },
+        "unit_price_usd": 0.0008823529411764706,
+        "pricing_basis": "0.006 CNY / 6.8 FX = 0.0008823529411764706 USD",
+        "notes": {
+          "en": "Fixed per-call billing (0.006 CNY/call) converted at 1 USD = 6.8 CNY",
+          "zh": "固定每次调用计费（0.006元/次），按 1 USD = 6.8 CNY 换算"
+        }
+      }
+    },
+    "wan-3.0": {
+      "model_id": "wan-3.0",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame_to_video",
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 30
+      },
+      "resolutions": [
+        "480P",
+        "720P",
+        "1080P"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/bmp",
+          "image/webp"
+        ],
+        "max_bytes_each": 20971520
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 104857600
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      },
+      "prompt_max_chars": 20000,
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.176471,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by the requested video duration. This amount is the per-second service base: 0.176471 USD/s = official wan3.0-video (standard) 1080P list price ¥1.20/s ÷ 6.8 (canonical FX). The final per-second price includes the group ratio: wan-3.0-720p ×0.5 = 0.0882355 USD/s = ¥0.60/s; wan-3.0-1080p ×1.5 = 0.2647065 USD/s = ¥1.80/s; use the platform quote before submission. Official list prices: standard https://help.aliyun.com/zh/model-studio/wan3-0-video (480P/720P/1080P = 0.3/0.6/1.2 CNY/s) and prime https://help.aliyun.com/zh/model-studio/wan3-0-video-prime (480P/720P/1080P = 0.45/0.9/1.8 CNY/s), cn-beijing list price excluding limited-time discounts.",
+          "zh": "按请求的视频时长计费，此金额为每秒钟的服务基准价：0.176471 USD/秒 = 官方 wan3.0-video（标准版）1080P 原价 ¥1.20/秒 ÷ 6.8（canonical FX）。实际每秒费用受分组倍率影响：wan-3.0-720p 档 ×0.5 = 0.0882355 USD/秒 = ¥0.60/秒；wan-3.0-1080p 档 ×1.5 = 0.2647065 USD/秒 = ¥1.80/秒；以平台提交前报价为准。【官方价格来源】标准版 https://help.aliyun.com/zh/model-studio/wan3-0-video（480P/720P/1080P = 0.3/0.6/1.2 元/秒）、高速版 https://help.aliyun.com/zh/model-studio/wan3-0-video-prime（480P/720P/1080P = 0.45/0.9/1.8 元/秒），均为华北2（北京）官方原价、不含限时优惠。"
+        }
+      }
+    },
+    "wan-3.0-prime": {
+      "model_id": "wan-3.0-prime",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "text_to_video",
+        "image_to_video",
+        "first_last_frame_to_video",
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 2,
+        "max": 30
+      },
+      "resolutions": [
+        "480P",
+        "720P",
+        "1080P"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/bmp",
+          "image/webp"
+        ],
+        "max_bytes_each": 20971520
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 104857600
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      },
+      "prompt_max_chars": 20000
+    },
+    "wan-3.0-prime-ref": {
+      "model_id": "wan-3.0-prime-ref",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 2,
+        "max": 30
+      },
+      "resolutions": [
+        "480P",
+        "720P",
+        "1080P"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/bmp",
+          "image/webp"
+        ],
+        "max_bytes_each": 20971520
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 104857600
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      },
+      "prompt_max_chars": 20000
+    },
+    "wan-3.0-ref": {
+      "model_id": "wan-3.0-ref",
+      "family": "video",
+      "status": "documented",
+      "operations": [
+        "reference_to_video",
+        "video_edit",
+        "video_extend"
+      ],
+      "durations_seconds": {
+        "min": 2,
+        "max": 30
+      },
+      "resolutions": [
+        "480P",
+        "720P",
+        "1080P"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/bmp",
+          "image/webp"
+        ],
+        "max_bytes_each": 20971520
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 104857600
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640
+      },
+      "prompt_max_chars": 20000
+    },
+    "whisper-1": {
+      "model_id": "whisper-1",
+      "family": "audio",
+      "status": "documented",
+      "operations": [
+        "transcription",
+        "translation",
+        "language_identification"
+      ],
+      "output_formats": [
+        "text"
+      ]
+    },
+    "x-posts": {
+      "model_id": "x-posts",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_user_posts"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "x-search": {
+      "model_id": "x-search",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "search_timeline"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "x-tweet": {
+      "model_id": "x-tweet",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_tweet"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "x-user": {
+      "model_id": "x-user",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_user_profile"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "youtube-posts": {
+      "model_id": "youtube-posts",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "list_channel_videos"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "youtube-search": {
+      "model_id": "youtube-search",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "search_videos"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "youtube-user": {
+      "model_id": "youtube-user",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_channel"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    },
+    "youtube-video": {
+      "model_id": "youtube-video",
+      "family": "data",
+      "status": "partial",
+      "operations": [
+        "fetch_video"
+      ],
+      "billing": {
+        "unit": "per_request",
+        "unit_label": {
+          "en": "per request",
+          "zh": "每次"
+        },
+        "unit_price_usd": 0.002857,
+        "pricing_basis": "request_count",
+        "notes": {
+          "en": "Charged per request, independent of usage",
+          "zh": "按请求次数计费，与用量无关"
+        }
+      }
+    }
+  }
+}
