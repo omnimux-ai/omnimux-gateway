@@ -1,0 +1,45 @@
+# Keeps the published source answerable for what is running.
+#
+# AGPLv3 §13 asks a modified network service to offer its users the corresponding
+# source. `gateway/` in the public repository therefore has to be the source of
+# the revision serving omnimux.ai. That correspondence is not a one-time export:
+# every deploy makes it stale, and nobody notices until someone asks.
+#
+# This runs the same check an operator runs after a deploy
+# (`scripts/ops/source-publish/verify-published.mjs`), on a schedule, so the drift
+# surfaces on its own instead of waiting for a reader to find it.
+#
+# It only reads: the public repository's SOURCE.json and the live /api/status.
+# It never deploys, publishes, or writes to either side.
+name: Published source alignment
+
+on:
+  schedule:
+    # Twice a day: a deploy can land at any time, and a day of drift is already
+    # longer than the licence tolerates.
+    - cron: '17 2,14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: published-source-alignment
+  cancel-in-progress: true
+
+jobs:
+  alignment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The check asks git whether the live commit contains the published
+          # one, so it needs the history, not a shallow tip.
+          fetch-depth: 0
+
+      - name: Compare published gateway/SOURCE.json with the live build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ops/source-publish/verify-published.mjs
