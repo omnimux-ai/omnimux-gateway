@@ -1,0 +1,37 @@
+{
+  "name": "@omnimux/cli",
+  "version": "0.5.1",
+  "description": "User-level OmniMux CLI (Agent RPC): JSON envelopes, schema, secure tokens, skills, social. contract_version 1.",
+  "license": "AGPL-3.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "commonjs",
+  "bin": {
+    "omnimux": "src/bin.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "bun test",
+    "build:binaries": "bash scripts/build-binaries.sh"
+  },
+  "files": [
+    "src",
+    "skill",
+    "docs",
+    "scripts/install.sh",
+    "scripts/install.ps1",
+    "README.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "NOTICE"
+  ],
+  "keywords": [
+    "omnimux",
+    "new-api",
+    "ai-gateway",
+    "cli"
+  ]
+}

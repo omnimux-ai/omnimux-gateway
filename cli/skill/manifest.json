@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "cli_version_source": "package.json",
+  "skills": [
+    {
+      "id": "omnimux",
+      "path": "omnimux",
+      "role": "shared",
+      "required": true
+    },
+    {
+      "id": "recreate-viral-video",
+      "path": "recreate-viral-video",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "slideshow-creation",
+      "path": "slideshow-creation",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "video-script-creation",
+      "path": "video-script-creation",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "video-analysis",
+      "path": "video-analysis",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "video-creation",
+      "path": "video-creation",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "video-prompt-generation",
+      "path": "video-prompt-generation",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "image-creation",
+      "path": "image-creation",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "ugc-commerce-video-skill",
+      "path": "ugc-commerce-video-skill",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "video-storyboard",
+      "path": "video-storyboard",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "video-storyboard-planning",
+      "path": "video-storyboard-planning",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "social-card",
+      "path": "social-card",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "image-recreation",
+      "path": "image-recreation",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "product-image-set",
+      "path": "product-image-set",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "multi-angle-product-image",
+      "path": "multi-angle-product-image",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "a-plus-content",
+      "path": "a-plus-content",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    },
+    {
+      "id": "infographic",
+      "path": "infographic",
+      "role": "business",
+      "requires": [
+        "omnimux"
+      ]
+    }
+  ]
+}
