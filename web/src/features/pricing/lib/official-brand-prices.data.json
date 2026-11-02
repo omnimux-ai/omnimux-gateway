@@ -1,0 +1,130 @@
+{
+  "claude-3-7-sonnet": {
+    "usd": 3,
+    "savingPercent": 0,
+    "bySpec": {
+      "Input": 3,
+      "Output": 15,
+      "Cache": 0.3,
+      "Create cache": 3.75
+    }
+  },
+  "claude-3-5-sonnet": {
+    "usd": 3,
+    "savingPercent": 20,
+    "bySpec": {
+      "Input": 3,
+      "Output": 15,
+      "Cache": 0.3,
+      "Create cache": 3.75
+    }
+  },
+  "deepseek-r1": {
+    "usd": 0.55,
+    "savingPercent": 0,
+    "bySpec": {
+      "Input": 0.55,
+      "Output": 2.19,
+      "Cache": 0.14
+    }
+  },
+  "deepseek-v3": {
+    "usd": 0.27,
+    "savingPercent": 0,
+    "bySpec": {
+      "Input": 0.27,
+      "Output": 1.1,
+      "Cache": 0.07
+    }
+  },
+  "gpt-4o": {
+    "usd": 2.5,
+    "savingPercent": 20,
+    "bySpec": {
+      "Input": 2.5,
+      "Output": 10,
+      "Cache": 1.25
+    }
+  },
+  "gpt-image-1-preview": {
+    "usd": 0.04,
+    "savingPercent": 25
+  },
+  "mj-v6.1": {
+    "usd": 0.05,
+    "savingPercent": 30
+  },
+  "flux-1-pro": {
+    "usd": 0.055,
+    "savingPercent": 18
+  },
+  "kling-v1.5-pro": {
+    "usd": 0.06,
+    "savingPercent": 25
+  },
+  "minimax-video-01": {
+    "usd": 0.058,
+    "savingPercent": 31
+  },
+  "suno-v3.5": {
+    "usd": 0.12,
+    "savingPercent": 33
+  },
+  "eleven-multilingual-v2": {
+    "usd": 0.3,
+    "savingPercent": 27
+  },
+  "minimax-h3-turbo": {
+    "usd": 0.04,
+    "savingPercent": 13
+  },
+  "minimax-h3": {
+    "usd": 0.08,
+    "savingPercent": 11
+  },
+  "minimax-h3-video": {
+    "usd": 0.08,
+    "savingPercent": 69
+  },
+  "minimax-h3-task": {
+    "usd": 0.58,
+    "savingPercent": 35
+  },
+  "gpt-image-2.5": {
+    "usd": 0.04,
+    "savingPercent": 67
+  },
+  "gpt-image-2.5-flare": {
+    "usd": 0.04,
+    "savingPercent": 63
+  },
+  "gpt-image-2.5-sunburst": {
+    "usd": 0.04,
+    "savingPercent": 63
+  },
+  "gemini-3.8-flash": {
+    "usd": 0.75,
+    "savingPercent": 0,
+    "bySpec": {
+      "Input": 0.75,
+      "Output": 3
+    }
+  },
+  "seedance-2-5-task": {
+    "usd": 3.088,
+    "savingPercent": 82
+  },
+  "seedance-2-0-task": {
+    "usd": 0.993,
+    "savingPercent": 70
+  },
+  "seed-evolving": {
+    "usd": 0.882353,
+    "savingPercent": 0,
+    "bySpec": {
+      "Input": 0.882353,
+      "Output": 4.411765,
+      "Cache": 0.176471
+    }
+  }
+}
