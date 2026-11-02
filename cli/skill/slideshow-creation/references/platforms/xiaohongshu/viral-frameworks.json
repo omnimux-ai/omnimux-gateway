@@ -1,0 +1,142 @@
+{
+    "frameworks": {
+        "hook-body-cta": {
+            "name": "Hook-Body-CTA",
+            "description": "经典爆款结构：吸引开头 + 价值正文 + 行动号召",
+            "sections": {
+                "hook": {
+                    "name": "Hook（吸引开头）",
+                    "templates": [
+                        {
+                            "type": "number",
+                            "pattern": "{{数字}}个{{主题}}",
+                            "examples": ["5个护肤技巧", "3分钟学会化妆", "10个省钱妙招"]
+                        },
+                        {
+                            "type": "pain-point",
+                            "pattern": "{{百分比}}的人都{{错误行为}}了",
+                            "examples": ["90%的人都做错了", "80%的女生不知道这个", "99%的人忽略了"]
+                        },
+                        {
+                            "type": "suspense",
+                            "pattern": "你绝对想不到{{悬念}}",
+                            "examples": ["你绝对想不到这个方法", "这个秘密终于公开了", "我后悔没早点知道"]
+                        },
+                        {
+                            "type": "contrast",
+                            "pattern": "从{{起点}}到{{终点}}",
+                            "examples": ["从路人到女神", "从0到1", "从小白到专家"]
+                        },
+                        {
+                            "type": "question",
+                            "pattern": "为什么{{现象}}？",
+                            "examples": ["为什么你总是xxx？", "怎么才能xxx？", "你是不是也xxx？"]
+                        }
+                    ]
+                },
+                "body": {
+                    "name": "Body（价值正文）",
+                    "structures": [
+                        {
+                            "type": "problem-solution",
+                            "flow": ["问题引入", "原因分析", "解决方案", "案例佐证"],
+                            "suitable_for": ["痛点型内容", "知识科普"]
+                        },
+                        {
+                            "type": "step-by-step",
+                            "flow": ["总体介绍", "步骤1", "步骤2", "步骤N", "注意事项"],
+                            "suitable_for": ["教程类", "技能分享"]
+                        },
+                        {
+                            "type": "list-format",
+                            "flow": ["引言", "要点1", "要点2", "要点N", "总结"],
+                            "suitable_for": ["清单类", "合集推荐"]
+                        },
+                        {
+                            "type": "story-telling",
+                            "flow": ["背景铺垫", "冲突/转折", "解决/蜕变", "感悟分享"],
+                            "suitable_for": ["个人经历", "成长故事"]
+                        }
+                    ]
+                },
+                "cta": {
+                    "name": "CTA（行动号召）",
+                    "templates": [
+                        {
+                            "type": "interaction",
+                            "patterns": [
+                                "你们觉得呢？评论区告诉我~",
+                                "你们有什么好方法？分享一下呗",
+                                "你是哪种类型？"
+                            ]
+                        },
+                        {
+                            "type": "follow",
+                            "patterns": [
+                                "关注我，更多干货持续更新！",
+                                "关注不迷路，下期更精彩",
+                                "点个关注，每天分享实用技巧"
+                            ]
+                        },
+                        {
+                            "type": "save",
+                            "patterns": [
+                                "先收藏，不然刷着刷着就找不到了",
+                                "建议收藏，迟早用得上！",
+                                "码住！以后一定能用到"
+                            ]
+                        },
+                        {
+                            "type": "share",
+                            "patterns": [
+                                "转发给需要的朋友吧~",
+                                "觉得有用就分享给闺蜜",
+                                "@ 你那个需要的朋友"
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    "styles": {
+        "casual": {
+            "name": "轻松口语",
+            "tone": "姐妹聊天式",
+            "characteristics": ["使用「啊」「呀」「呢」语气词", "多用表情emoji", "口语化表达"],
+            "example_phrases": ["姐妹们听我说", "真的绝了", "谁懂啊", "亲测有效"]
+        },
+        "professional": {
+            "name": "专业严谨",
+            "tone": "专家视角",
+            "characteristics": ["数据支撑", "引用来源", "逻辑清晰"],
+            "example_phrases": ["研究表明", "根据xxx数据", "从专业角度来说"]
+        },
+        "viral": {
+            "name": "爆款风格",
+            "tone": "强情绪表达",
+            "characteristics": ["夸张对比", "情绪强烈", "制造紧迫感"],
+            "example_phrases": ["太绝了！", "后悔没早知道", "建议所有人都看看"]
+        },
+        "educational": {
+            "name": "科普教育",
+            "tone": "深入浅出",
+            "characteristics": ["通俗易懂", "循序渐进", "有知识增量"],
+            "example_phrases": ["简单来说", "举个例子", "一句话总结"]
+        }
+    },
+    "page_templates": {
+        "cover": {
+            "elements": ["大标题（含数字+emoji）", "副标题/核心卖点", "视觉焦点"],
+            "length_guide": "标题15-25字"
+        },
+        "content": {
+            "elements": ["小标题", "正文（3-5段）", "配图建议"],
+            "length_guide": "每页200-400字"
+        },
+        "summary": {
+            "elements": ["要点回顾", "核心结论", "CTA"],
+            "length_guide": "100-200字"
+        }
+    }
+}
