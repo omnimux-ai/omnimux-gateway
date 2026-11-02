@@ -1,0 +1,1638 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+/* Influencer landing — Popino-layout clone on OmniMux tokens. All colors
+ * resolve through --omx-* tokens from landing.css; sizes follow DESIGN.md
+ * whitelists (type 64..12 / micro 13..10, radii 8/16/20/24/36/999px,
+ * gaps 4..120 on the 8px grid, shadows --shadow-sm|md|brand). */
+
+/* ---------- shared bits ---------- */
+.omnimux-landing .inf-section {
+  max-width: 1152px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+@media (min-width: 640px) {
+  .omnimux-landing .inf-section {
+    padding-inline: 48px;
+  }
+}
+
+.omnimux-landing .inf-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--omx-brand);
+}
+
+.omnimux-landing .inf-h2 {
+  margin: 16px 0 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  color: var(--omx-text);
+  text-wrap: balance;
+}
+
+.omnimux-landing .inf-h2-accent,
+.omnimux-landing .inf-h1-accent {
+  color: var(--omx-brand);
+  font-family: var(--omx-font-display-serif);
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+.omnimux-landing .inf-sub {
+  margin: 16px 0 0;
+  font-size: var(--omx-type-body);
+  line-height: var(--omx-type-body-leading);
+  color: var(--omx-text-muted);
+  text-wrap: pretty;
+}
+
+.omnimux-landing .inf-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.omnimux-landing .inf-reveal.omx-in {
+  opacity: 1;
+  transform: none;
+}
+
+.omnimux-landing .inf-dot-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    var(--omx-dot) 0.75px,
+    transparent 0.95px
+  );
+  background-position: 2px 2px;
+  background-size: 20px 20px;
+  mask-image: radial-gradient(
+    ellipse 78% 68% at 50% 42%,
+    #000 30%,
+    transparent 84%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 78% 68% at 50% 42%,
+    #000 30%,
+    transparent 84%
+  );
+}
+
+/* ---------- hero ---------- */
+.omnimux-landing .inf-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 96px 0 0;
+}
+.omnimux-landing .inf-hero-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.omnimux-landing .inf-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--omx-brand-border);
+  background: var(--omx-brand-soft);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--omx-brand-dim);
+}
+.omnimux-landing .inf-h1 {
+  margin: 24px 0 0;
+  max-width: 860px;
+  font-size: clamp(32px, 5.2vw, 64px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  color: var(--omx-text);
+  text-wrap: balance;
+}
+.omnimux-landing .inf-hero-sub {
+  margin: 24px 0 0;
+  max-width: 640px;
+  font-size: clamp(16px, 1.6vw, 18px);
+  line-height: 1.55;
+  color: var(--omx-text-muted);
+  text-wrap: pretty;
+}
+.omnimux-landing .inf-hero-ctas {
+  margin-top: 40px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+.omnimux-landing .inf-hero-ctas .omx-btn-primary,
+.omnimux-landing .inf-hero-ctas .omx-btn-secondary {
+  height: 48px;
+  padding: 0 32px;
+  font-size: 14px;
+}
+.omnimux-landing .inf-hero-perks {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 24px;
+  font-size: 14px;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-hero-perks li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.omnimux-landing .inf-check {
+  color: var(--omx-success);
+  font-weight: 600;
+}
+
+/* hero equation: character + any video = your video */
+.omnimux-landing .inf-stage {
+  margin-top: 64px;
+  width: 100%;
+  max-width: 1040px;
+  padding: 24px;
+  border-radius: 36px;
+  background: var(--omx-surface-dark);
+  border: 1px solid var(--omx-on-dark-border-soft);
+  box-shadow: var(--shadow-md);
+}
+.omnimux-landing .inf-eq-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+.omnimux-landing .inf-media-card {
+  position: relative;
+  margin: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  aspect-ratio: 9 / 16;
+  background: var(--omx-surface-darker);
+}
+.omnimux-landing .inf-media-card img,
+.omnimux-landing .inf-media-card video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omnimux-landing .inf-media-card--result {
+  outline: 2px solid var(--omx-brand);
+  box-shadow: var(--shadow-brand);
+}
+.omnimux-landing .inf-media-label {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--omx-on-dark-text);
+  background: var(--omx-scrim);
+}
+.omnimux-landing .inf-media-label--brand {
+  background: var(--omx-brand);
+  color: #fff;
+}
+.omnimux-landing .inf-eq-sign {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--omx-on-dark-text);
+  background: var(--omx-on-dark-surface);
+}
+@media (max-width: 720px) {
+  /* Phone: the equation keeps all three tiles in one row — no sideways
+   * scrolling — so character + any video = your video reads in one glance.
+   * Each caption moves under its media, which is what lets a 12px label
+   * (the marketing floor, DESIGN.md §3.3) fit a ~70px column; uppercase and
+   * tracking are dropped there for the same reason. */
+  .omnimux-landing .inf-stage {
+    margin-top: 40px;
+    padding: 16px;
+    border-radius: 24px;
+  }
+  .omnimux-landing .inf-eq-row {
+    gap: 8px;
+  }
+  .omnimux-landing .inf-media-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    aspect-ratio: auto;
+    overflow: visible;
+    background: none;
+  }
+  .omnimux-landing .inf-media-card img,
+  .omnimux-landing .inf-media-card video {
+    aspect-ratio: 9 / 16;
+    height: auto;
+    border-radius: 16px;
+  }
+  .omnimux-landing .inf-media-card--result {
+    outline: none;
+    box-shadow: none;
+  }
+  .omnimux-landing .inf-media-card--result img,
+  .omnimux-landing .inf-media-card--result video {
+    outline: 2px solid var(--omx-brand);
+    box-shadow: var(--shadow-brand);
+  }
+  .omnimux-landing .inf-media-label,
+  .omnimux-landing .inf-media-label--brand {
+    position: static;
+    padding: 0;
+    background: none;
+    color: var(--omx-on-dark-text);
+    text-align: center;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .omnimux-landing .inf-media-label--brand {
+    color: var(--omx-brand);
+  }
+  .omnimux-landing .inf-eq-sign {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+  }
+}
+.omnimux-landing .inf-hero-proof {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--omx-text-faint);
+}
+
+/* ---------- marquee ---------- */
+.omnimux-landing .inf-marquee {
+  position: relative;
+  margin-top: 96px;
+  padding-block: 24px;
+  overflow: hidden;
+}
+.omnimux-landing .inf-marquee::before,
+.omnimux-landing .inf-marquee::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  z-index: 2;
+  pointer-events: none;
+}
+.omnimux-landing .inf-marquee::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--omx-bg), transparent);
+}
+.omnimux-landing .inf-marquee::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--omx-bg), transparent);
+}
+.omnimux-landing .inf-marquee-label {
+  margin: 0 auto 24px;
+  width: fit-content;
+  padding: 4px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--omx-border);
+  background: var(--omx-bg-elevated);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-strip {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+}
+.omnimux-landing .inf-strip + .inf-strip {
+  margin-top: 16px;
+}
+.omnimux-landing .inf-strip--ltr {
+  animation: inf-strip-l 56s linear infinite;
+}
+.omnimux-landing .inf-strip--rtl {
+  animation: inf-strip-r 64s linear infinite;
+}
+.omnimux-landing .inf-marquee:hover .inf-strip {
+  animation-play-state: paused;
+}
+@keyframes inf-strip-l {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes inf-strip-r {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.omnimux-landing .inf-strip img {
+  width: 140px;
+  height: auto;
+  border-radius: 16px;
+  border: 1px solid var(--omx-border);
+  display: block;
+}
+
+/* ---------- steps timeline ---------- */
+.omnimux-landing .inf-steps {
+  position: relative;
+  margin-top: 120px;
+}
+.omnimux-landing .inf-steps-head {
+  text-align: center;
+  max-width: 640px;
+  margin-inline: auto;
+}
+.omnimux-landing .inf-steps-track {
+  position: relative;
+  margin-top: 80px;
+}
+.omnimux-landing .inf-steps-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--omx-border);
+  overflow: hidden;
+}
+.omnimux-landing .inf-steps-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    var(--omx-brand-grad-1),
+    var(--omx-brand-grad-3)
+  );
+  transform-origin: top;
+  transform: scaleY(var(--inf-progress, 0));
+}
+.omnimux-landing .inf-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  padding-block: 48px;
+}
+.omnimux-landing .inf-step + .inf-step {
+  margin-top: 48px;
+}
+@media (max-width: 860px) {
+  .omnimux-landing .inf-steps-line {
+    left: 19px;
+  }
+  .omnimux-landing .inf-step {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding-left: 64px;
+  }
+}
+.omnimux-landing .inf-step-dot {
+  position: absolute;
+  top: 48px;
+  left: calc(50% - 20px);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--omx-bg-elevated);
+  border: 1px solid var(--omx-border-strong);
+  color: var(--omx-brand);
+  font-size: 14px;
+  font-weight: 700;
+  z-index: 2;
+  transition:
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    color 0.4s ease;
+}
+.omnimux-landing .inf-step.is-active .inf-step-dot {
+  border-color: var(--omx-brand);
+  box-shadow: var(--shadow-brand);
+}
+@media (max-width: 860px) {
+  .omnimux-landing .inf-step-dot {
+    left: 0;
+  }
+}
+.omnimux-landing .inf-step:nth-child(even) .inf-step-copy {
+  order: 2;
+}
+@media (max-width: 860px) {
+  .omnimux-landing .inf-step:nth-child(even) .inf-step-copy {
+    order: 0;
+  }
+}
+.omnimux-landing .inf-step-num {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--omx-brand);
+}
+.omnimux-landing .inf-step-tag {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--omx-text-faint);
+}
+.omnimux-landing .inf-step-title {
+  margin: 12px 0 0;
+  font-size: clamp(20px, 2.4vw, 24px);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--omx-text);
+}
+.omnimux-landing .inf-step-desc {
+  margin: 12px 0 0;
+  font-size: var(--omx-type-body);
+  line-height: var(--omx-type-body-leading);
+  color: var(--omx-text-muted);
+  text-wrap: pretty;
+}
+
+.omnimux-landing .inf-guide-link,
+.omnimux-landing .inf-footer-guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--omx-brand-border);
+  border-radius: var(--radius-chip);
+  max-width: 100%;
+  font-size: 14px;
+  line-height: 1.5;
+  text-decoration: none;
+}
+.omnimux-landing .inf-guide-link {
+  margin-top: 16px;
+  color: var(--omx-text);
+}
+.omnimux-landing .inf-guide-link:hover,
+.omnimux-landing .inf-footer-guide-link:hover {
+  background: var(--omx-brand-soft);
+}
+.omnimux-landing .inf-guide-link:focus-visible,
+.omnimux-landing .inf-footer-guide-link:focus-visible {
+  outline: 2px solid var(--omx-brand);
+  outline-offset: 4px;
+}
+
+/* step mock windows */
+.omnimux-landing .inf-mock {
+  border-radius: 20px;
+  background: var(--omx-surface-dark);
+  border: 1px solid var(--omx-on-dark-border-soft);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.omnimux-landing .inf-mock-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--omx-on-dark-surface);
+}
+.omnimux-landing .inf-mock-bar i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--omx-on-dark-border-strong);
+}
+.omnimux-landing .inf-mock-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.omnimux-landing .inf-mock-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--omx-on-dark-text-faint);
+}
+.omnimux-landing .inf-mock-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--omx-on-dark-text-soft);
+}
+.omnimux-landing .inf-mock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid var(--omx-on-dark-border-soft);
+  background: var(--omx-on-dark-surface);
+  font-size: 11px;
+  color: var(--omx-on-dark-text);
+}
+.omnimux-landing .inf-mock-chip img {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.omnimux-landing .inf-mock-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.omnimux-landing .inf-mock-chip.is-picked {
+  border-color: var(--omx-brand-grad-3);
+  animation: inf-pulse 2.4s ease infinite;
+}
+@keyframes inf-pulse {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  50% {
+    box-shadow: var(--shadow-brand);
+  }
+}
+.omnimux-landing .inf-mock-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: var(--omx-bg-elevated);
+  color: var(--omx-text);
+  font-size: 14px;
+  font-weight: 600;
+  align-self: flex-start;
+}
+.omnimux-landing .inf-mock-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--omx-on-dark-surface);
+  overflow: hidden;
+}
+.omnimux-landing .inf-mock-progress i {
+  display: block;
+  height: 100%;
+  width: 64%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--omx-brand-grad-1),
+    var(--omx-brand-grad-3)
+  );
+  animation: inf-progress 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes inf-progress {
+  0% {
+    width: 12%;
+  }
+  60% {
+    width: 84%;
+  }
+  100% {
+    width: 12%;
+  }
+}
+.omnimux-landing .inf-mock-result {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.omnimux-landing .inf-mock-result img {
+  width: 100%;
+  border-radius: 16px;
+  display: block;
+}
+.omnimux-landing .inf-mock-result .inf-mock-mv {
+  grid-column: 1 / -1;
+}
+.omnimux-landing .inf-mock-tier {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--omx-on-dark-surface);
+}
+.omnimux-landing .inf-mock-tier span {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--omx-on-dark-text-faint);
+}
+.omnimux-landing .inf-mock-tier span.is-on {
+  background: var(--omx-bg-elevated);
+  color: var(--omx-text);
+}
+.omnimux-landing .inf-mock-tierimg {
+  display: flex;
+  gap: 8px;
+}
+.omnimux-landing .inf-mock-tierimg img {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  object-fit: cover;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+.omnimux-landing .inf-mock-tierimg img.is-on {
+  opacity: 1;
+  outline: 2px solid var(--omx-brand-grad-3);
+  outline-offset: 2px;
+}
+
+/* ---------- works wall ---------- */
+.omnimux-landing .inf-works {
+  margin-top: 120px;
+}
+.omnimux-landing .inf-works-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.omnimux-landing .inf-works-grid {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1024px) {
+  .omnimux-landing .inf-works-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .omnimux-landing .inf-works-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.omnimux-landing .inf-work {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--omx-surface-dark);
+  aspect-ratio: 9 / 16;
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s ease;
+}
+.omnimux-landing .inf-work:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-brand);
+}
+.omnimux-landing .inf-work:focus-visible {
+  outline: 3px solid var(--omx-brand);
+  outline-offset: 4px;
+}
+.omnimux-landing .inf-work img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omnimux-landing .inf-work-meta {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(180deg, transparent, var(--omx-scrim));
+}
+.omnimux-landing .inf-work-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+.omnimux-landing .inf-work-use {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--omx-bg-elevated);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--omx-text);
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  align-self: flex-start;
+}
+.omnimux-landing .inf-work:hover .inf-work-use,
+.omnimux-landing .inf-work:focus-visible .inf-work-use {
+  opacity: 1;
+  transform: none;
+}
+.omnimux-landing .inf-work--more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--omx-surface-dark);
+  color: var(--omx-on-dark-text);
+}
+.omnimux-landing .inf-work--more:hover {
+  transform: translateY(-4px);
+}
+.omnimux-landing .inf-work-more-arrow {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--omx-bg-elevated);
+  color: var(--omx-text);
+  font-size: 18px;
+}
+.omnimux-landing .inf-work-more-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--omx-on-dark-text);
+}
+.omnimux-landing .inf-work-more-sub {
+  font-size: 12px;
+  color: var(--omx-on-dark-text-faint);
+}
+
+/* ---------- multiview ---------- */
+.omnimux-landing .inf-mv {
+  margin-top: 120px;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 64px;
+  align-items: center;
+}
+@media (max-width: 860px) {
+  .omnimux-landing .inf-mv {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+.omnimux-landing .inf-mv-copy {
+  min-width: 0;
+}
+.omnimux-landing .inf-mv-points {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  font-size: 14px;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-mv-points li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.omnimux-landing .inf-mv-visual {
+  position: relative;
+}
+.omnimux-landing .inf-mv-before {
+  position: absolute;
+  left: -8%;
+  top: 8%;
+  width: 34%;
+  border-radius: 16px;
+  border: 1px solid var(--omx-on-dark-border-soft);
+  box-shadow: var(--shadow-md);
+  z-index: 2;
+}
+.omnimux-landing .inf-mv-after {
+  position: relative;
+  width: 84%;
+  margin-left: 16%;
+  border-radius: 20px;
+  border: 1px solid var(--omx-on-dark-border-soft);
+  box-shadow: var(--shadow-brand);
+  display: block;
+}
+.omnimux-landing .inf-mv-scan {
+  position: absolute;
+  left: 16%;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 20px;
+  pointer-events: none;
+  overflow: hidden;
+}
+.omnimux-landing .inf-mv-scan i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 20%;
+  border: 1px solid var(--omx-brand-grad-3);
+  background: var(--omx-brand-subtle);
+  animation: inf-mv-scan 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes inf-mv-scan {
+  0% {
+    left: 0;
+  }
+  20% {
+    left: 0;
+  }
+  45% {
+    left: 20%;
+  }
+  70% {
+    left: 40%;
+  }
+  90%,
+  100% {
+    left: 0;
+  }
+}
+
+/* ---------- creator ---------- */
+.omnimux-landing .inf-creator {
+  margin-top: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+/* The centered flex row sizes its child to its content, which would let the
+   card's width follow whichever tab is open. Give the column a real width so
+   the card keeps one width across both tabs. */
+.omnimux-landing .inf-creator > .inf-section {
+  width: 100%;
+}
+.omnimux-landing .inf-creator-card {
+  margin-top: 40px;
+  width: 100%;
+  max-width: 1040px;
+  padding: 24px;
+  border-radius: 24px;
+  background: var(--omx-bg-elevated);
+  border: 1px solid var(--omx-brand-border);
+  box-shadow: var(--shadow-brand);
+  text-align: left;
+  /* One column: the source switch, the field, then the button. Two columns
+     left the right half holding a single control and a hole under it. */
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.omnimux-landing .inf-creator-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--omx-border);
+  background: var(--omx-bg);
+}
+.omnimux-landing .inf-creator-tab {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--omx-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+.omnimux-landing .inf-creator-tab:hover {
+  color: var(--omx-text);
+}
+.omnimux-landing .inf-creator-tab.is-on {
+  background: var(--omx-surface-ink);
+  color: var(--omx-bg-elevated);
+}
+.omnimux-landing .inf-creator-photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 120px;
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px dashed var(--omx-border-strong);
+  background: var(--omx-bg);
+  font-size: 14px;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-creator-photo p {
+  margin: 0;
+}
+.omnimux-landing .inf-creator-photo svg {
+  flex: 0 0 auto;
+  color: var(--omx-brand);
+}
+.omnimux-landing .inf-creator-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+.omnimux-landing .inf-creator-field {
+  min-width: 0;
+}
+.omnimux-landing .inf-creator-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.omnimux-landing .inf-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--omx-text-faint);
+  margin-bottom: 8px;
+}
+.omnimux-landing .inf-textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--omx-border);
+  background: var(--omx-bg);
+  font: inherit;
+  font-size: 14px;
+  color: var(--omx-text);
+  resize: vertical;
+}
+.omnimux-landing .inf-textarea::placeholder {
+  color: var(--omx-text-faint);
+}
+.omnimux-landing .inf-textarea:focus-visible {
+  outline: 3px solid var(--omx-brand);
+  outline-offset: 2px;
+}
+.omnimux-landing .inf-try-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.omnimux-landing .inf-try-btn {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--omx-border);
+  background: var(--omx-bg);
+  font-size: 12px;
+  color: var(--omx-text-muted);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.omnimux-landing .inf-try-btn:hover {
+  border-color: var(--omx-brand-border);
+  color: var(--omx-text);
+}
+.omnimux-landing .inf-try-btn em {
+  font-style: normal;
+  color: var(--omx-brand);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.omnimux-landing .inf-creator-submit {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+}
+.omnimux-landing .inf-creator-note {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--omx-text-faint);
+}
+
+/* ---------- pricing ---------- */
+.omnimux-landing .inf-pricing {
+  margin-top: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+/* The pricing column is a centred flex item inside the outer .inf-pricing
+   section, so without an explicit width it shrink-wraps to the plan grid's
+   max-content and the three cards stay narrow while every sibling section
+   spans the shared 1152px column. Filling that column lets the grid (and the
+   cards inside it) track the page width instead. */
+.omnimux-landing .inf-section.inf-pricing {
+  width: 100%;
+}
+.omnimux-landing .inf-price-card {
+  margin-top: 48px;
+  width: 100%;
+  max-width: 560px;
+  padding: 40px;
+  border-radius: 24px;
+  background: var(--omx-bg-elevated);
+  border: 1px solid var(--omx-border);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.omnimux-landing .inf-price-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.omnimux-landing .inf-price-from {
+  font-size: 14px;
+  color: var(--omx-text-faint);
+}
+.omnimux-landing .inf-price-num {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--omx-text);
+  font-variant-numeric: tabular-nums;
+}
+.omnimux-landing .inf-price-unit {
+  font-size: 14px;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-price-usd {
+  margin: -12px 0 0;
+  font-size: 12px;
+  color: var(--omx-text-faint);
+}
+.omnimux-landing .inf-price-feats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-price-feats li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- top-up ladder ---------- */
+.omnimux-landing .inf-ladder {
+  margin-top: 40px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+.omnimux-landing .inf-rung {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 20px 18px;
+  border-radius: 20px;
+  background: var(--omx-bg-elevated);
+  border: 1px solid var(--omx-border);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+}
+.omnimux-landing .inf-rung.is-discounted {
+  border-color: color-mix(in srgb, var(--omx-brand) 45%, var(--omx-border));
+}
+.omnimux-landing .inf-rung-credits {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--omx-text);
+}
+.omnimux-landing .inf-rung-unit {
+  font-size: 12px;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-rung-save {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--omx-success);
+  border: 1px solid
+    color-mix(in srgb, var(--omx-success) 40%, var(--omx-border));
+}
+.omnimux-landing .inf-rung-usd {
+  margin-top: 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--omx-text-muted);
+}
+.omnimux-landing .inf-ladder-cta {
+  margin-top: 28px;
+}
+.omnimux-landing .inf-price-feats-row {
+  margin-top: 28px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+}
+@media (max-width: 1000px) {
+  .omnimux-landing .inf-ladder {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .omnimux-landing .inf-ladder {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.omnimux-landing .inf-price-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+.omnimux-landing .inf-price-note {
+  margin: 0;
+  max-width: 400px;
+  font-size: 12px;
+  color: var(--omx-text-faint);
+}
+.omnimux-landing .inf-price-note-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.omnimux-landing .inf-price-note-link:hover {
+  color: var(--omx-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- faq ---------- */
+.omnimux-landing .inf-faq {
+  margin-top: 120px;
+  max-width: 720px;
+  margin-inline: auto;
+}
+.omnimux-landing .inf-faq-list {
+  margin-top: 40px;
+  border-top: 1px solid var(--omx-border);
+}
+.omnimux-landing .inf-faq-item {
+  border-bottom: 1px solid var(--omx-border);
+}
+.omnimux-landing .inf-faq-q {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--omx-text);
+  padding-block: 16px;
+}
+.omnimux-landing .inf-faq-a {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--omx-text-muted);
+}
+
+/* ---------- final cta ---------- */
+.omnimux-landing .inf-final {
+  margin: 120px 0 80px;
+}
+.omnimux-landing .inf-final-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 36px;
+  background: var(--omx-surface-dark);
+  border: 1px solid var(--omx-on-dark-border-soft);
+  padding: 80px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+}
+@media (max-width: 860px) {
+  .omnimux-landing .inf-final-card {
+    flex-direction: column;
+    padding: 48px 32px;
+    text-align: center;
+  }
+}
+.omnimux-landing .inf-final-title {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  color: var(--omx-on-dark-text);
+  text-wrap: balance;
+}
+.omnimux-landing .inf-final-sub {
+  margin: 16px 0 0;
+  font-size: clamp(16px, 1.6vw, 18px);
+  line-height: 1.55;
+  color: var(--omx-on-dark-text-soft);
+}
+.omnimux-landing .inf-final-ctas {
+  margin-top: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .omnimux-landing .inf-final-ctas {
+    justify-content: center;
+  }
+}
+.omnimux-landing .inf-final-ctas .omx-btn-primary {
+  height: 52px;
+  padding: 0 32px;
+  background: var(--omx-surface-ink);
+  color: var(--omx-surface-dark);
+  border: 1px solid var(--omx-on-dark-border-strong);
+  font-size: 16px;
+}
+.omnimux-landing .inf-final-ctas .omx-btn-primary:hover {
+  background: var(--omx-surface-ink-hover);
+}
+.omnimux-landing .inf-final-looks {
+  position: relative;
+  flex-shrink: 0;
+  width: 320px;
+  height: 380px;
+}
+@media (max-width: 860px) {
+  .omnimux-landing .inf-final-looks {
+    width: 260px;
+    height: 320px;
+  }
+}
+.omnimux-landing .inf-final-look {
+  position: absolute;
+  width: 62%;
+  border-radius: 20px;
+  border: 1px solid var(--omx-on-dark-border-soft);
+  box-shadow: var(--shadow-md);
+  animation: inf-float 7s ease-in-out infinite;
+}
+.omnimux-landing .inf-final-look:nth-child(1) {
+  left: 0;
+  top: 12%;
+  transform: rotate(-8deg);
+}
+.omnimux-landing .inf-final-look:nth-child(2) {
+  right: 0;
+  top: 0;
+  transform: rotate(6deg);
+  animation-delay: -2.2s;
+}
+.omnimux-landing .inf-final-look:nth-child(3) {
+  left: 19%;
+  bottom: 0;
+  transform: rotate(-2deg);
+  animation-delay: -4.4s;
+}
+@keyframes inf-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -12px;
+  }
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .omnimux-landing .inf-strip,
+  .omnimux-landing .inf-mv-scan i,
+  .omnimux-landing .inf-final-look,
+  .omnimux-landing .inf-mock-chip.is-picked,
+  .omnimux-landing .inf-mock-progress i {
+    animation: none;
+  }
+  .omnimux-landing .inf-mv-scan {
+    display: none;
+  }
+  .omnimux-landing .inf-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---------- step mock components (dark studio enhanced) ---------- */
+.omnimux-landing .inf-mock-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: var(--omx-on-dark-surface);
+  padding: 4px;
+  border-radius: 12px;
+}
+.omnimux-landing .inf-mock-tab {
+  text-align: center;
+  padding: 6px 0;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 8px;
+  color: var(--omx-on-dark-text-faint);
+  transition: all 0.2s ease;
+}
+.omnimux-landing .inf-mock-tab.is-active {
+  background: var(--omx-surface-dark-raised);
+  color: var(--omx-on-dark-text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.omnimux-landing .inf-mock-input {
+  background: var(--omx-surface-darker);
+  border: 1px solid var(--omx-on-dark-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--omx-on-dark-text-soft);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+}
+.omnimux-landing .inf-mock-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: var(--omx-brand);
+  margin-left: 4px;
+  animation: inf-cursor-blink 1s infinite;
+}
+@keyframes inf-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.omnimux-landing .inf-mock-cta-bar {
+  display: flex;
+}
+.omnimux-landing .inf-mock-btn-action {
+  width: 100%;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: default;
+}
+.omnimux-landing .inf-mock-tweak-wrap {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.omnimux-landing .inf-mock-avatar-card {
+  width: 88px;
+  height: 112px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  border: 1px solid var(--omx-on-dark-border);
+}
+.omnimux-landing .inf-mock-avatar-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omnimux-landing .inf-mock-avatar-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  background: var(--omx-scrim);
+  backdrop-filter: blur(4px);
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+  padding: 2px 0;
+  border-radius: 4px;
+  color: var(--omx-on-dark-text);
+}
+.omnimux-landing .inf-mock-tweak-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.omnimux-landing .inf-mock-chips-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.omnimux-landing .inf-mock-ver-row {
+  display: flex;
+  gap: 6px;
+}
+.omnimux-landing .inf-mock-ver {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--omx-on-dark-surface);
+  color: var(--omx-on-dark-text-faint);
+}
+.omnimux-landing .inf-mock-ver.is-active {
+  background: var(--omx-brand);
+  color: #ffffff;
+}
+.omnimux-landing .inf-mock-vids-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.omnimux-landing .inf-mock-vid-card {
+  aspect-ratio: 9/16;
+  border-radius: 10px;
+  background: var(--omx-surface-darker);
+  border: 1px solid var(--omx-on-dark-border-soft);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.omnimux-landing .inf-mock-vid-card video,
+.omnimux-landing .inf-mock-vid-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omnimux-landing .inf-mock-vid-card.is-active {
+  border: 2px solid var(--omx-brand);
+  box-shadow: 0 0 12px var(--omx-brand-shadow);
+}
+.omnimux-landing .inf-mock-vid-card.is-dim {
+  opacity: 0.55;
+}
+.omnimux-landing .inf-mock-vid-check {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--omx-brand);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  z-index: 2;
+}
+.omnimux-landing .inf-mock-vid-tag {
+  position: absolute;
+  bottom: 4px;
+  inset-inline: 4px;
+  background: var(--omx-scrim);
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+  padding: 2px 0;
+  border-radius: 4px;
+  color: var(--omx-on-dark-text);
+  z-index: 2;
+}
+.omnimux-landing .inf-mock-vid-upload {
+  border: 1px dashed var(--omx-on-dark-border-strong);
+  background: var(--omx-on-dark-surface);
+}
+.omnimux-landing .inf-mock-upload-sym {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.omnimux-landing .inf-mock-result-box {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  background: var(--omx-surface-darker);
+  border: 1px solid var(--omx-on-dark-border);
+}
+.omnimux-landing .inf-mock-final-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omnimux-landing .inf-mock-pill-status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--omx-scrim);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--omx-on-dark-border-soft);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--omx-on-dark-text);
+}
+.omnimux-landing .inf-mock-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--omx-success);
+  box-shadow: 0 0 6px var(--omx-success);
+}
+.omnimux-landing .inf-mock-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.omnimux-landing .inf-mock-action-btn {
+  height: 38px;
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: default;
+}
