@@ -1,0 +1,66 @@
+{
+  "cases": [
+    {
+      "name": "APIMart completed envelope: status/result nested under data (production shape, task 278)",
+      "hook": "parseTaskResult",
+      "args": [
+        { "model": "nano-banana-pro", "upstreamModel": "gemini-3-pro-image-preview" },
+        {
+          "code": 200,
+          "data": {
+            "actual_time": 13,
+            "completed": 1789293848,
+            "cost": 0.03,
+            "created": 1789293835,
+            "credits_cost": 0.3,
+            "estimated_time": 100,
+            "id": "task_01M2D3JDKX362Z8356YSFH0HHV",
+            "progress": 100,
+            "result": {
+              "images": [
+                {
+                  "expires_at": 1789380248,
+                  "url": [
+                    "https://getapib.org/image/9998210706151258-6b8a41f3-cd08-4e6e-a134-9bcaba17e820-image_task_01M2D3JT559ZBGBE6M4R0APNN7_0.jpg"
+                  ]
+                }
+              ]
+            },
+            "status": "completed"
+          }
+        }
+      ],
+      "expected": {
+        "status": "SUCCESS",
+        "url": "https://getapib.org/image/9998210706151258-6b8a41f3-cd08-4e6e-a134-9bcaba17e820-image_task_01M2D3JT559ZBGBE6M4R0APNN7_0.jpg"
+      }
+    },
+    {
+      "name": "APIMart in-flight envelope: data.status=processing with progress",
+      "hook": "parseTaskResult",
+      "args": [
+        { "model": "gpt-image-2.5", "upstreamModel": "gpt-image-2" },
+        { "code": 200, "data": { "id": "task_01M2D3", "progress": 42, "status": "processing" } }
+      ],
+      "expected": { "status": "IN_PROGRESS", "progress": "42%" }
+    },
+    {
+      "name": "APIMart queued envelope maps to QUEUED",
+      "hook": "parseTaskResult",
+      "args": [
+        { "model": "gpt-image-2.5", "upstreamModel": "gpt-image-2" },
+        { "code": 200, "data": { "id": "task_01M2D3", "status": "queued" } }
+      ],
+      "expected": { "status": "QUEUED" }
+    },
+    {
+      "name": "flat envelope stays supported (Evolink-style regression guard)",
+      "hook": "parseTaskResult",
+      "args": [
+        { "model": "seedream-5-0-pro", "upstreamModel": "doubao-seedream-5.0-pro" },
+        { "status": "completed", "result": { "images": ["https://cdn.example/flat.jpg"] } }
+      ],
+      "expected": { "status": "SUCCESS", "url": "https://cdn.example/flat.jpg" }
+    }
+  ]
+}
