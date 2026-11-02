@@ -1,0 +1,844 @@
+{
+  "meta": {
+    "title": "grok2api 渠道供应商接口文档",
+    "source": "https://grok2api.omnimux.ai/docs/chat/completions",
+    "service": "grok2api",
+    "version": "v3.1.5",
+    "upstream_repo": "https://github.com/chenyme/grok2api",
+    "base_url": "https://grok2api.omnimux.ai/v1",
+    "base_url_local_debug": "http://127.0.0.1:8000/v1",
+    "auth_scheme": "Authorization: Bearer g2a_...",
+    "note": "chat/messages 使用 x-api-key + anthropic-version: 2023-06-01",
+    "endpoint_count": 16
+  },
+  "endpoints": [
+    {
+      "key": "chat/completions",
+      "category": "Chat",
+      "name": "Chat completions",
+      "description": "Build / Web Chat Completions，支持流式响应、图片输入与函数工具。",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "baseUrl": "https://grok2api.omnimux.ai/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "chat",
+        "responses"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "messages",
+          "required": true,
+          "desc": "OpenAI Chat Completions 消息数组，支持文本、图片输入与工具结果。"
+        },
+        {
+          "name": "stream",
+          "required": false,
+          "desc": "是否以 SSE 增量返回；默认 false。"
+        },
+        {
+          "name": "max_completion_tokens",
+          "required": false,
+          "desc": "限制本次请求可生成的最大 Completion Token 数。"
+        },
+        {
+          "name": "tools",
+          "required": false,
+          "desc": "标准函数工具定义，按 Provider 能力原生转发或转换。"
+        },
+        {
+          "name": "tool_choice",
+          "required": false,
+          "desc": "控制工具选择，可使用 auto、none、required 或指定函数。"
+        }
+      ],
+      "notes": [
+        "对话图片会先完成校验与上传，再绑定到本次选择的账号；不会在流开始后切换账号。",
+        "工具调用会规范化为 OpenAI tool_calls；不支持的组合会返回明确参数错误。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"https://grok2api.omnimux.ai/v1/chat/completions\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"your-enabled-model\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a concise assistant.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Explain HTTP streaming.\"\n    }\n  ],\n  \"stream\": false\n}'",
+        "response": "{\n  \"id\": \"chatcmpl_example\",\n  \"object\": \"chat.completion\",\n  \"model\": \"grok-4.6\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"HTTP streaming sends response data incrementally.\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 24,\n    \"completion_tokens\": 12,\n    \"total_tokens\": 36\n  }\n}"
+      }
+    },
+    {
+      "key": "chat/responses",
+      "category": "Chat",
+      "name": "Responses",
+      "description": "创建文本、工具调用、结构化输出或流式 Responses 请求。",
+      "method": "POST",
+      "path": "/v1/responses",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "chat",
+        "responses"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "input",
+          "required": true,
+          "desc": "字符串或标准 Responses input item 数组。"
+        },
+        {
+          "name": "instructions",
+          "required": false,
+          "desc": "独立于 input 的系统级指令。"
+        },
+        {
+          "name": "stream",
+          "required": false,
+          "desc": "是否以 SSE 增量返回；默认 false。"
+        },
+        {
+          "name": "store",
+          "required": false,
+          "desc": "Build/Web 可保存 Response 状态以供查询或连续会话；Console 仅支持无状态请求。"
+        },
+        {
+          "name": "previous_response_id",
+          "required": false,
+          "desc": "Build/Web 使用上一轮 Response ID 继续同一条有状态会话链；Console 不支持该字段。"
+        },
+        {
+          "name": "tools",
+          "required": false,
+          "desc": "标准函数工具定义，按 Provider 能力原生转发或转换。"
+        }
+      ],
+      "notes": [
+        "store 与 previous_response_id 会把会话链绑定到原账号，避免跨账号破坏上游状态。",
+        "仅 Grok Build 支持 /responses/compact；Grok Web 与 Grok Console 会返回明确的不支持错误。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/responses\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-4.6\",\n  \"input\": \"Explain HTTP streaming.\",\n  \"store\": false,\n  \"stream\": false\n}'",
+        "response": "{\n  \"id\": \"resp_example\",\n  \"object\": \"response\",\n  \"status\": \"completed\",\n  \"model\": \"grok-4.6\",\n  \"output\": [\n    {\n      \"type\": \"message\",\n      \"role\": \"assistant\",\n      \"status\": \"completed\",\n      \"content\": [\n        {\n          \"type\": \"output_text\",\n          \"text\": \"HTTP streaming sends response data incrementally.\"\n        }\n      ]\n    }\n  ],\n  \"usage\": {\n    \"input_tokens\": 18,\n    \"output_tokens\": 12,\n    \"total_tokens\": 30\n  }\n}"
+      }
+    },
+    {
+      "key": "chat/messages",
+      "category": "Chat",
+      "name": "Messages",
+      "description": "Build / Web Anthropic Messages，支持流式响应、图片与工具调用。",
+      "method": "POST",
+      "path": "/v1/messages",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "x-api-key: g2a_...",
+      "capabilities": [
+        "chat",
+        "responses"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "max_tokens",
+          "required": true,
+          "desc": "Anthropic Messages 要求的最大输出 Token 数。"
+        },
+        {
+          "name": "messages",
+          "required": true,
+          "desc": "Anthropic Messages 消息数组，支持文本、图片与 tool_result 内容块。"
+        },
+        {
+          "name": "system",
+          "required": false,
+          "desc": "系统提示词，可使用字符串或标准文本内容块数组。"
+        },
+        {
+          "name": "stream",
+          "required": false,
+          "desc": "是否以 SSE 增量返回；默认 false。"
+        },
+        {
+          "name": "tools",
+          "required": false,
+          "desc": "Anthropic 格式的工具定义，转换为当前 Provider 的函数调用能力。"
+        },
+        {
+          "name": "tool_choice",
+          "required": false,
+          "desc": "控制工具选择，可使用 auto、none、required 或指定函数。"
+        }
+      ],
+      "notes": [
+        "流式响应输出 Anthropic Messages 事件，不混用 OpenAI SSE 事件名。",
+        "仅适配当前聊天模型共有的 Messages 能力，Provider 不支持的扩展字段会被拒绝。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/messages\" \\\n  -H \"x-api-key: $GROK2API_API_KEY\" \\\n  -H \"anthropic-version: 2023-06-01\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-4.6\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a concise assistant.\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Explain HTTP streaming.\"\n    }\n  ],\n  \"stream\": false\n}'",
+        "response": "{\n  \"id\": \"msg_example\",\n  \"type\": \"message\",\n  \"role\": \"assistant\",\n  \"model\": \"grok-4.6\",\n  \"content\": [\n    {\n      \"type\": \"text\",\n      \"text\": \"HTTP streaming sends response data incrementally.\"\n    }\n  ],\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"usage\": {\n    \"input_tokens\": 18,\n    \"output_tokens\": 12\n  }\n}"
+      }
+    },
+    {
+      "key": "image/generations",
+      "category": "Image",
+      "name": "Image generations",
+      "description": "Grok Web 图片生成，支持 n、宽高比、1k/2k、URL、Base64 和扩展流式输出。",
+      "method": "POST",
+      "path": "/v1/images/generations",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "image"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "prompt",
+          "required": true,
+          "desc": "用于生成或编辑图片的自然语言描述。"
+        },
+        {
+          "name": "n",
+          "required": false,
+          "desc": "需要返回的图片数量；Web 会原样映射为上游 num_generations。"
+        },
+        {
+          "name": "aspect_ratio",
+          "required": false,
+          "desc": "输出媒体的宽高比，例如 1:1、2:3 或 16:9。"
+        },
+        {
+          "name": "resolution",
+          "required": false,
+          "desc": "Console 图片支持 1k/2k；Web 图片生成忽略 resolution/quality，并由模型名称选择上游产品。"
+        },
+        {
+          "name": "quality",
+          "required": false,
+          "desc": "Console Image 2.0 的生成质量，可选 low 或 medium；默认 medium。Web 图片生成路由忽略该字段。"
+        },
+        {
+          "name": "response_format",
+          "required": false,
+          "desc": "图片返回格式，支持 url 或 b64_json。"
+        },
+        {
+          "name": "stream",
+          "required": false,
+          "desc": "是否使用图片生成扩展 SSE 流；默认 false。"
+        }
+      ],
+      "notes": [
+        "客户端通过 n 指定图片数量；Web 将其原样映射为上游 num_generations。",
+        "生成结果统一归档到媒体存储；url 返回网关资源地址，b64_json 返回编码后的图片内容。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/images/generations\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-imagine-image-lite\",\n  \"prompt\": \"A minimal red chair in a bright studio\",\n  \"n\": 1,\n  \"response_format\": \"url\"\n}'",
+        "response": "{\n  \"created\": 1783860000,\n  \"data\": [\n    {\n      \"url\": \"http://127.0.0.1:8000/v1/media/images/example\"\n    }\n  ]\n}"
+      }
+    },
+    {
+      "key": "image/edits",
+      "category": "Image",
+      "name": "Image edits",
+      "description": "Grok Web 图片编辑，使用官方 JSON 图片 URL 协议。",
+      "method": "POST",
+      "path": "/v1/images/edits",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "image_edit"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "prompt",
+          "required": true,
+          "desc": "用于生成或编辑图片的自然语言描述。"
+        },
+        {
+          "name": "image / images",
+          "required": true,
+          "desc": "待编辑图片，使用 image 或 images 传入 URL、Data URL 或已支持的图片引用。"
+        },
+        {
+          "name": "n",
+          "required": false,
+          "desc": "需要返回的图片数量；Web 会原样映射为上游 num_generations。"
+        },
+        {
+          "name": "quality",
+          "required": false,
+          "desc": "Console Image 2.0 的生成质量，可选 low 或 medium；默认 medium。Web 图片生成路由忽略该字段。"
+        },
+        {
+          "name": "response_format",
+          "required": false,
+          "desc": "图片返回格式，支持 url 或 b64_json。"
+        }
+      ],
+      "notes": [
+        "图片编辑采用 JSON 请求体，不提供 multipart 兼容层。",
+        "远程图片会经过 SSRF、防体积超限和内容类型校验后再上传到上游。",
+        "生成结果统一归档到媒体存储；url 返回网关资源地址，b64_json 返回编码后的图片内容。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/images/edits\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-imagine-image-edit\",\n  \"prompt\": \"Change the chair to black\",\n  \"image\": {\n    \"url\": \"https://example.com/chair.png\"\n  },\n  \"n\": 1,\n  \"response_format\": \"url\"\n}'",
+        "response": "{\n  \"created\": 1783860000,\n  \"data\": [\n    {\n      \"url\": \"http://127.0.0.1:8000/v1/media/images/example\"\n    }\n  ]\n}"
+      }
+    },
+    {
+      "key": "video/generations",
+      "category": "Video",
+      "name": "Video generations",
+      "description": "按 xAI 官方协议创建异步视频生成任务并返回 request_id。",
+      "method": "POST",
+      "path": "/v1/videos/generations",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "video"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "prompt",
+          "required": false,
+          "desc": "视频描述；使用图片输入时可作为运动或镜头指令。"
+        },
+        {
+          "name": "duration",
+          "required": false,
+          "desc": "视频时长（秒），范围 1–15。Console 路由中，grok-imagine-video 的参考图模式最长 10 秒；grok-imagine-video-1.5 最长 15 秒。"
+        },
+        {
+          "name": "aspect_ratio",
+          "required": false,
+          "desc": "输出媒体的宽高比，例如 1:1、2:3 或 16:9。"
+        },
+        {
+          "name": "resolution",
+          "required": false,
+          "desc": "视频输出分辨率，支持 480p/720p；仅上游模型 grok-imagine-video-1.5 在非参考图模式下支持 1080p。"
+        },
+        {
+          "name": "image",
+          "required": false,
+          "desc": "可选首帧图片引用，用于图生视频；最多 1 张，不可与 reference_images 同时使用。"
+        },
+        {
+          "name": "reference_images",
+          "required": false,
+          "desc": "可选参考图片数组，用于参考图视频；网关最多接收 8 张，Console 路由最多 7 张。每项提供 url 或 file_id，不可与 image 同时使用。"
+        },
+        {
+          "name": "reference_audios",
+          "required": false,
+          "desc": "可选参考音频数组，最多 3 个内置 voice_id；可单独使用或与 reference_images 组合。该能力可能受上游团队权限控制；Console 未开通时上游返回 403。"
+        }
+      ],
+      "notes": [
+        "创建接口只返回 request_id；生成过程异步执行并持久化任务状态。",
+        "参考图视频走 /videos/generations + reference_images；只传 1 张也保持参考图语义，不会被当成首帧。网关最多接收 8 张，Console 路由最多 7 张；不可与 image 同用。参考图模式最高 720p。Console 的 grok-imagine-video 参考图模式最长 10 秒，reference_audios 还需相应团队权限。",
+        "视频接口严格使用当前官方字段，不保留旧项目的兼容别名。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/videos/generations\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-imagine-video-1.5\",\n  \"prompt\": \"A paper airplane flying over a city\",\n  \"duration\": 8,\n  \"aspect_ratio\": \"16:9\",\n  \"resolution\": \"720p\"\n}'",
+        "response": "{\n  \"request_id\": \"video_example\"\n}"
+      }
+    },
+    {
+      "key": "video/edits",
+      "category": "Video",
+      "name": "Video edits",
+      "description": "按 xAI 官方协议编辑已有视频，并返回 request_id。",
+      "method": "POST",
+      "path": "/v1/videos/edits",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "video"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "prompt",
+          "required": true,
+          "desc": "描述希望如何修改原视频。"
+        },
+        {
+          "name": "video",
+          "required": true,
+          "desc": "输入视频，支持 url 或本地上传后的 file_id。"
+        }
+      ],
+      "notes": [
+        "创建接口只返回 request_id；生成过程异步执行并持久化任务状态。",
+        "视频编辑与延长的实际路由必须指向 Console/grok-imagine-video；对外模型名可以自定义。",
+        "视频编辑与延长暂未返回可可靠结算的输入视频时长，因此保持可调用，并在请求审计中标记为未计费；不会消耗 API Key 的金额额度。",
+        "视频接口严格使用当前官方字段，不保留旧项目的兼容别名。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/videos/edits\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-imagine-video\",\n  \"prompt\": \"Give the woman a silver necklace\",\n  \"video\": {\n    \"url\": \"https://example.com/source.mp4\"\n  }\n}'",
+        "response": "{\n  \"request_id\": \"video_edit_example\"\n}"
+      }
+    },
+    {
+      "key": "video/extensions",
+      "category": "Video",
+      "name": "Video extensions",
+      "description": "按 xAI 官方协议延长已有视频，并返回 request_id。",
+      "method": "POST",
+      "path": "/v1/videos/extensions",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "video"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": true,
+          "desc": "模型页中已启用且当前存在可用账号支持的对外模型名称。"
+        },
+        {
+          "name": "prompt",
+          "required": true,
+          "desc": "描述视频接下来应发生的内容。"
+        },
+        {
+          "name": "video",
+          "required": true,
+          "desc": "输入视频，支持 url 或本地上传后的 file_id。"
+        },
+        {
+          "name": "duration",
+          "required": false,
+          "desc": "延长片段时长，单位秒，范围 2 到 10，默认 6。"
+        }
+      ],
+      "notes": [
+        "创建接口只返回 request_id；生成过程异步执行并持久化任务状态。",
+        "视频编辑与延长的实际路由必须指向 Console/grok-imagine-video；对外模型名可以自定义。",
+        "视频编辑与延长暂未返回可可靠结算的输入视频时长，因此保持可调用，并在请求审计中标记为未计费；不会消耗 API Key 的金额额度。",
+        "视频接口严格使用当前官方字段，不保留旧项目的兼容别名。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/videos/extensions\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-imagine-video\",\n  \"prompt\": \"The shot pans to an over the shoulder perspective.\",\n  \"duration\": 6,\n  \"video\": {\n    \"url\": \"https://example.com/source.mp4\"\n  }\n}'",
+        "response": "{\n  \"request_id\": \"video_extend_example\"\n}"
+      }
+    },
+    {
+      "key": "video/get",
+      "category": "Video",
+      "name": "Get video",
+      "description": "按 request_id 查询 pending、done 或 failed 状态及生成结果。",
+      "method": "GET",
+      "path": "/v1/videos/{request_id}",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "video"
+      ],
+      "params": [
+        {
+          "name": "request_id",
+          "required": true,
+          "desc": "创建视频任务时返回的 request_id。"
+        }
+      ],
+      "notes": [
+        "使用创建接口返回的 request_id 轮询任务状态。",
+        "响应状态为 pending、done 或 failed；完成后 video 中包含结果信息。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X GET \"http://127.0.0.1:8000/v1/videos/video_example\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\"",
+        "response": "{\n  \"status\": \"done\",\n  \"model\": \"grok-imagine-video-1.5\",\n  \"progress\": 100,\n  \"video\": {\n    \"url\": \"https://example.com/generated.mp4\",\n    \"duration\": 8,\n    \"respect_moderation\": true\n  }\n}"
+      }
+    },
+    {
+      "key": "voice/tts",
+      "category": "Voice",
+      "name": "Text to speech",
+      "description": "Console 文本转语音，返回音频二进制或带时间戳的 JSON 封装。",
+      "method": "POST",
+      "path": "/v1/tts",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "tts"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": false,
+          "desc": "语音模型公开 ID，例如 grok-voice-latest 或 grok-voice-think-fast-2.0。"
+        },
+        {
+          "name": "text",
+          "required": true,
+          "desc": "需要合成的文本内容。"
+        },
+        {
+          "name": "voice_id",
+          "required": false,
+          "desc": "音色 ID；可使用内置音色或自定义音色 voice_id。"
+        },
+        {
+          "name": "language",
+          "required": true,
+          "desc": "语言代码，例如 en、zh；TTS 必填。"
+        },
+        {
+          "name": "output_format",
+          "required": false,
+          "desc": "输出格式对象，可指定 codec、sample_rate、bit_rate。"
+        },
+        {
+          "name": "speed",
+          "required": false,
+          "desc": "语速倍率；按上游支持范围校验。"
+        },
+        {
+          "name": "with_timestamps",
+          "required": false,
+          "desc": "为 true 时返回含 base64 音频与时间戳的 JSON，而不是原始音频流。"
+        }
+      ],
+      "notes": [
+        "Console 语音模型包括 grok-voice-latest、grok-voice-think-fast-2.0 与 grok-voice-think-fast-1.0。",
+        "默认响应为 audio/mpeg 等音频字节流；with_timestamps=true 时改为 JSON。",
+        "TTS 按输入字符数预留并结算；REST 与流式 STT 按成功响应返回的实际时长结算。Realtime 当前标记为未计费，不消耗 API Key 金额额度。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/tts\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-voice-latest\",\n  \"text\": \"Hello from Grok voice.\",\n  \"voice_id\": \"eve\",\n  \"language\": \"en\",\n  \"output_format\": {\n    \"codec\": \"mp3\"\n  }\n}'",
+        "response": "{\n  \"content_type\": \"audio/mpeg\",\n  \"note\": \"Default responses return raw audio bytes. with_timestamps=true returns a JSON envelope.\"\n}"
+      }
+    },
+    {
+      "key": "voice/audio-speech",
+      "category": "Voice",
+      "name": "OpenAI speech",
+      "description": "OpenAI 兼容文本转语音接口，接受 input/voice/response_format 并返回音频字节。",
+      "method": "POST",
+      "path": "/v1/audio/speech",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "tts"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": false,
+          "desc": "语音模型公开 ID，例如 grok-voice-latest 或 grok-voice-think-fast-2.0。"
+        },
+        {
+          "name": "input",
+          "required": true,
+          "desc": "OpenAI 风格待合成文本，对应原生 text 字段。"
+        },
+        {
+          "name": "voice",
+          "required": false,
+          "desc": "OpenAI 音色名或 Console voice_id；常见 OpenAI 音色会自动映射。"
+        },
+        {
+          "name": "response_format",
+          "required": false,
+          "desc": "输出格式，如 mp3、opus、aac、flac、wav、pcm。"
+        },
+        {
+          "name": "speed",
+          "required": false,
+          "desc": "语速倍率；按上游支持范围校验。"
+        },
+        {
+          "name": "language",
+          "required": false,
+          "desc": "语言代码，例如 en、zh；OpenAI 兼容接口未提供时默认 en。"
+        }
+      ],
+      "notes": [
+        "兼容 OpenAI /v1/audio/speech：input→text，voice→voice_id，response_format→codec；也可继续传 language 等扩展字段。",
+        "Console 语音模型包括 grok-voice-latest、grok-voice-think-fast-2.0 与 grok-voice-think-fast-1.0。",
+        "默认响应为 audio/mpeg 等音频字节流；with_timestamps=true 时改为 JSON。",
+        "TTS 按输入字符数预留并结算；REST 与流式 STT 按成功响应返回的实际时长结算。Realtime 当前标记为未计费，不消耗 API Key 金额额度。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/audio/speech\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-voice-latest\",\n  \"input\": \"Hello from Grok voice.\",\n  \"voice\": \"alloy\",\n  \"response_format\": \"mp3\",\n  \"speed\": 1,\n  \"language\": \"en\"\n}'",
+        "response": "{\n  \"content_type\": \"audio/mpeg\",\n  \"note\": \"Returns raw audio bytes compatible with OpenAI speech clients.\"\n}"
+      }
+    },
+    {
+      "key": "voice/audio-tasks",
+      "category": "Voice",
+      "name": "OpenAI audio tasks",
+      "description": "OpenAI 风格音频任务兼容路径，默认返回音频字节。",
+      "method": "POST",
+      "path": "/v1/audio/tasks",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "tts"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": false,
+          "desc": "语音模型公开 ID，例如 grok-voice-latest 或 grok-voice-think-fast-2.0。"
+        },
+        {
+          "name": "input",
+          "required": true,
+          "desc": "OpenAI 风格待合成文本，对应原生 text 字段。"
+        },
+        {
+          "name": "voice",
+          "required": false,
+          "desc": "OpenAI 音色名或 Console voice_id；常见 OpenAI 音色会自动映射。"
+        },
+        {
+          "name": "response_format",
+          "required": false,
+          "desc": "输出格式，如 mp3、opus、aac、flac、wav、pcm。"
+        },
+        {
+          "name": "speed",
+          "required": false,
+          "desc": "语速倍率；按上游支持范围校验。"
+        },
+        {
+          "name": "language",
+          "required": false,
+          "desc": "语言代码，例如 en、zh；OpenAI 兼容接口未提供时默认 en。"
+        }
+      ],
+      "notes": [
+        "部分客户端使用 /v1/audio/tasks；本网关按 speech 同步处理，默认返回音频字节。",
+        "Console 语音模型包括 grok-voice-latest、grok-voice-think-fast-2.0 与 grok-voice-think-fast-1.0。",
+        "TTS 按输入字符数预留并结算；REST 与流式 STT 按成功响应返回的实际时长结算。Realtime 当前标记为未计费，不消耗 API Key 金额额度。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/audio/tasks\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-voice-latest\",\n  \"input\": \"Hello from Grok voice.\",\n  \"voice\": \"alloy\",\n  \"response_format\": \"mp3\",\n  \"language\": \"en\"\n}'",
+        "response": "{\n  \"content_type\": \"audio/mpeg\",\n  \"note\": \"Compatibility path that returns raw audio bytes by default.\"\n}"
+      }
+    },
+    {
+      "key": "voice/audio-transcriptions",
+      "category": "Voice",
+      "name": "OpenAI transcriptions",
+      "description": "OpenAI 兼容语音转文字接口，复用现有 STT 能力。",
+      "method": "POST",
+      "path": "/v1/audio/transcriptions",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "stt"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": false,
+          "desc": "转写模型公开 ID，通常为 grok-stt。"
+        },
+        {
+          "name": "file",
+          "required": false,
+          "desc": "multipart 上传的音频文件字段名 file。"
+        },
+        {
+          "name": "url",
+          "required": false,
+          "desc": "可公开访问的音频 URL；与 file 二选一。"
+        },
+        {
+          "name": "language",
+          "required": false,
+          "desc": "语言代码，例如 en、zh；TTS 必填。"
+        },
+        {
+          "name": "response_format",
+          "required": false,
+          "desc": "响应格式：json（默认）、verbose_json 或 text；未实现的 srt/vtt 会明确拒绝。"
+        }
+      ],
+      "notes": [
+        "兼容 OpenAI /v1/audio/transcriptions，支持 json、verbose_json 与 text 响应，底层复用 /v1/stt；prompt、非零 temperature 和 timestamp_granularities 暂无法无损转换，将明确拒绝。",
+        "支持 multipart 文件上传或 JSON url 引用；至少提供其中一种音频输入。",
+        "转写模型使用 grok-stt；词级时间戳与说话人分离按请求参数返回。",
+        "TTS 按输入字符数预留并结算；REST 与流式 STT 按成功响应返回的实际时长结算。Realtime 当前标记为未计费，不消耗 API Key 金额额度。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/audio/transcriptions\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-stt\",\n  \"url\": \"https://example.com/sample.wav\",\n  \"language\": \"en\"\n}'",
+        "response": "{\n  \"text\": \"Hello from Grok voice.\"\n}"
+      }
+    },
+    {
+      "key": "voice/voices",
+      "category": "Voice",
+      "name": "List voices",
+      "description": "列出 Console 当前可用的内置音色。",
+      "method": "GET",
+      "path": "/v1/tts/voices",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "tts"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": false,
+          "desc": "可选模型查询参数，用于选择音色列表所对应的语音模型。"
+        }
+      ],
+      "notes": [
+        "GET /v1/tts/voices 返回内置音色；GET /v1/tts/voices/{voice_id} 可查询单个音色。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X GET \"http://127.0.0.1:8000/v1/tts/voices?model=grok-voice-latest\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\"",
+        "response": "{\n  \"voices\": [\n    {\n      \"voice_id\": \"eve\",\n      \"name\": \"Eve\",\n      \"language\": \"en\"\n    },\n    {\n      \"voice_id\": \"ara\",\n      \"name\": \"Ara\",\n      \"language\": \"en\"\n    }\n  ]\n}"
+      }
+    },
+    {
+      "key": "voice/stt",
+      "category": "Voice",
+      "name": "Speech to text",
+      "description": "Console 语音转文字，支持文件上传或音频 URL，可返回词级时间戳。",
+      "method": "POST",
+      "path": "/v1/stt",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "stt"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": false,
+          "desc": "转写模型公开 ID，通常为 grok-stt。"
+        },
+        {
+          "name": "file",
+          "required": false,
+          "desc": "multipart 上传的音频文件字段名 file。"
+        },
+        {
+          "name": "url",
+          "required": false,
+          "desc": "可公开访问的音频 URL；与 file 二选一。"
+        },
+        {
+          "name": "language",
+          "required": false,
+          "desc": "语言代码，例如 en、zh；TTS 必填。"
+        },
+        {
+          "name": "format",
+          "required": false,
+          "desc": "是否返回格式化文本与词级时间戳。"
+        },
+        {
+          "name": "diarize",
+          "required": false,
+          "desc": "是否启用说话人分离。"
+        },
+        {
+          "name": "keyterm",
+          "required": false,
+          "desc": "提升识别优先级的关键词，可重复提交。"
+        }
+      ],
+      "notes": [
+        "支持 multipart 文件上传或 JSON url 引用；至少提供其中一种音频输入。",
+        "对 /v1/stt 发起 WebSocket Upgrade 可进行实时转写，客户端发送音频帧并接收 JSON 事件。",
+        "转写模型使用 grok-stt；词级时间戳与说话人分离按请求参数返回。",
+        "TTS 按输入字符数预留并结算；REST 与流式 STT 按成功响应返回的实际时长结算。Realtime 当前标记为未计费，不消耗 API Key 金额额度。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X POST \"http://127.0.0.1:8000/v1/stt\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n  \"model\": \"grok-stt\",\n  \"url\": \"https://example.com/sample.wav\",\n  \"language\": \"en\",\n  \"format\": true\n}'",
+        "response": "{\n  \"text\": \"Hello from Grok voice.\",\n  \"language\": \"en\",\n  \"duration\": 1.84,\n  \"words\": [\n    {\n      \"text\": \"Hello\",\n      \"start\": 0,\n      \"end\": 0.42\n    }\n  ]\n}"
+      }
+    },
+    {
+      "key": "voice/realtime",
+      "category": "Voice",
+      "name": "Realtime websocket",
+      "description": "Realtime 语音 WebSocket，由网关代持 Console 账号完成上游鉴权与双向转发。",
+      "method": "GET",
+      "path": "/v1/realtime",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "authHeader": "Authorization: Bearer g2a_...",
+      "capabilities": [
+        "realtime"
+      ],
+      "params": [
+        {
+          "name": "model",
+          "required": false,
+          "desc": "WebSocket 连接的 model 查询参数。"
+        },
+        {
+          "name": "Upgrade",
+          "required": true,
+          "desc": "必须携带标准 WebSocket Upgrade 头；普通 HTTP GET 会被拒绝。"
+        }
+      ],
+      "notes": [
+        "连接后按官方 Realtime 事件协议交换 session、音频缓冲与响应事件。",
+        "推荐通过本网关的 /v1/realtime WebSocket 代理连接，由 Console 账号完成上游 DPoP 鉴权。",
+        "服务端 WebSocket 客户端需在 Upgrade 请求中携带 Authorization Bearer 或 X-API-Key；网关不会向调用方暴露上游 Console 凭据。",
+        "TTS 按输入字符数预留并结算；REST 与流式 STT 按成功响应返回的实际时长结算。Realtime 当前标记为未计费，不消耗 API Key 金额额度。"
+      ],
+      "example": {
+        "language": "curl",
+        "request": "export GROK2API_API_KEY=\"g2a_your_api_key\"\n\ncurl -X GET \"http://127.0.0.1:8000/v1/realtime?model=grok-voice-latest\" \\\n  -H \"Authorization: Bearer $GROK2API_API_KEY\" \\\n  -H \"Content-Type: application/json\"",
+        "response": "{\n  \"type\": \"session.created\",\n  \"session\": {\n    \"model\": \"grok-voice-latest\"\n  }\n}"
+      }
+    }
+  ],
+  "categories": [
+    "Chat",
+    "Image",
+    "Video",
+    "Voice"
+  ]
+}
