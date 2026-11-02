@@ -1,0 +1,136 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+.mention-prompt {
+  position: relative;
+  min-width: 0;
+  color: var(--inf-txt, var(--foreground));
+}
+
+.mention-prompt-host {
+  border: 1px solid var(--inf-line, var(--border));
+  border-radius: 16px;
+  background: var(--inf-surface-2, var(--card));
+}
+
+.mention-prompt-host:focus-within {
+  border-color: var(--inf-brand, var(--brand-indigo));
+}
+
+.mention-prompt .cm-editor {
+  background: transparent;
+  font-size: 14px;
+}
+
+.mention-prompt .cm-editor.cm-focused {
+  outline: none;
+}
+.mention-prompt .cm-content {
+  min-height: 100px;
+  padding: 12px 0;
+  caret-color: var(--inf-txt, var(--foreground));
+}
+.mention-prompt .cm-scroller {
+  font-family: inherit;
+  line-height: 1.6;
+}
+.mention-prompt .cm-line {
+  padding: 0 12px;
+  overflow-wrap: anywhere;
+}
+.mention-prompt .cm-placeholder {
+  display: inline;
+  color: var(--inf-txt-3, var(--muted-foreground));
+}
+.mention-prompt-chip {
+  display: inline-block;
+  vertical-align: baseline;
+  padding: 0 8px;
+  border: 1px solid var(--inf-brand, var(--brand-indigo));
+  border-radius: 999px;
+  color: var(--inf-brand-light, var(--brand-indigo));
+  background: color-mix(
+    in srgb,
+    var(--inf-brand, var(--brand-indigo)) 12%,
+    transparent
+  );
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mention-prompt-chip[data-missing='true'] {
+  border-style: dashed;
+  color: var(--inf-txt-2, var(--muted-foreground));
+}
+
+.mention-prompt-count {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  color: var(--inf-txt-3, var(--muted-foreground));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.mention-prompt-count.over {
+  color: var(--inf-danger, var(--destructive));
+}
+
+.mention-prompt .cm-tooltip-autocomplete {
+  max-width: min(320px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid var(--inf-line, var(--border));
+  border-radius: 16px;
+  background: var(--inf-surface-2, var(--card));
+  color: var(--inf-txt, var(--foreground));
+  box-shadow: var(--shadow-sm);
+}
+
+.mention-prompt .cm-tooltip-autocomplete ul {
+  max-height: 240px;
+}
+.mention-prompt .cm-tooltip-autocomplete ul li .cm-completionLabel {
+  order: 1;
+}
+.mention-prompt .cm-tooltip-autocomplete ul li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.mention-prompt .cm-tooltip-autocomplete ul li[aria-selected] {
+  background: color-mix(
+    in srgb,
+    var(--inf-brand, var(--brand-indigo)) 16%,
+    transparent
+  );
+  color: var(--inf-brand-light, var(--brand-indigo));
+}
+
+.mention-prompt-thumb {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-media-dark);
+}
