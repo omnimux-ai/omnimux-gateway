@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "internal_only": true,
+  "created_at": "2026-10-20",
+  "purpose": "Source trace for media in the approved English SEO guides. This file is not a web asset.",
+  "canonical_demo": {
+    "repository": "OPC",
+    "path": "社媒运营/tmp/omnimux-launch-20261018/demo/edit/new-reference/OmniMux_新参考片_英文无声演示_待确认.mp4",
+    "sha256": "8d7c403e2e2e627c7d1ce2f4d4adedd8db5e732918a8c565a6330d2916c2fd82",
+    "duration_seconds": 32.2,
+    "dimensions": [
+      1080,
+      1920
+    ]
+  },
+  "rendering_note": "The source demonstration combines captured interface examples and independently generated media. The selected crops retain the original content; historical interface examples are identified in guide captions.",
+  "source_files_modified": false,
+  "source_renderer_executed": false,
+  "new_generation_performed": false,
+  "assets": [
+    {
+      "file": "character-form.webp",
+      "sha256": "507fb69eeeee92ec4e80f0ce400bac7efe963728ece807a2dbafcb5fed34d828",
+      "bytes": 75714,
+      "dimensions": [
+        960,
+        1690
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/projects/口播视频剪辑模板/template/ui_en/s2/seg_00.png",
+        "sha256": "b79a865e7fc2dcadc62cf6a37f605ce270341d65ac403aaf214969a54b77e587",
+        "dimensions": [
+          960,
+          2325
+        ],
+        "frame_seconds": null,
+        "crop_xyxy": [
+          0,
+          0,
+          960,
+          1690
+        ]
+      },
+      "source_type": "original_ui_capture_or_generated_character",
+      "is_composed_demonstration": false,
+      "description": "Choose character type; optional image input is visible."
+    },
+    {
+      "file": "character-generate-control-crop.webp",
+      "sha256": "32731b2bc4ddc8cc961b657f0d41439aeb8a80d343cba7eecfdf31c766d401f0",
+      "bytes": 2768,
+      "dimensions": [
+        380,
+        140
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/projects/口播视频剪辑模板/template/ui_en/s2_full.png",
+        "sha256": "95549302023155e8e9e100fe3e5aca68ca112fd608a7c293f04fce82a3956904",
+        "dimensions": [
+          5724,
+          3000
+        ],
+        "frame_seconds": null,
+        "crop_xyxy": [
+          215,
+          2805,
+          595,
+          2945
+        ]
+      },
+      "source_type": "original_ui_capture",
+      "is_composed_demonstration": false,
+      "description": "Native left portion of Generate button cropped before the price icon and historical amount. Deliberately clipped control; caption must identify it as a cropped historical control, not a full current button."
+    },
+    {
+      "file": "character-result.webp",
+      "sha256": "64d4f4800f1d18f34ef6ccdc49de884328149ff9a64c82e4d8d0a2b20c6b85c6",
+      "bytes": 68320,
+      "dimensions": [
+        1440,
+        818
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/projects/口播视频剪辑模板/template/omnimux/series_character_sheet.png",
+        "sha256": "60e7975a5ea7676a828e8ef934ad756b0d02a9e246141bd82d9979827492c38d",
+        "dimensions": [
+          1664,
+          945
+        ],
+        "frame_seconds": null,
+        "crop_xyxy": null
+      },
+      "source_type": "original_ui_capture_or_generated_character",
+      "is_composed_demonstration": false,
+      "description": "Existing generated character face and full-body image; not a multi-angle character sheet."
+    },
+    {
+      "file": "character-traits.webp",
+      "sha256": "4df2fe858a280f9d9429166ebab54c1a29cd3012cb5f25a029c6ec79984a2cf2",
+      "bytes": 26090,
+      "dimensions": [
+        960,
+        1125
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/projects/口播视频剪辑模板/template/ui_en/s2/seg_03.png",
+        "sha256": "d0b500809bb37ce778e3543c2edc49f599c261b5390b4ec87d22679a9462ea12",
+        "dimensions": [
+          960,
+          2325
+        ],
+        "frame_seconds": null,
+        "crop_xyxy": [
+          0,
+          155,
+          960,
+          1280
+        ]
+      },
+      "source_type": "original_ui_capture_or_generated_character",
+      "is_composed_demonstration": false,
+      "description": "Hair-color choices with Platinum selected; source is a scrolled UI capture."
+    },
+    {
+      "file": "video-generate.webp",
+      "sha256": "6abffca493aae1c35d90f207fbd50a131e3280f15c1c0bc3f27c3dd2fbb1e9c1",
+      "bytes": 4936,
+      "dimensions": [
+        955,
+        180
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/tmp/omnimux-launch-20261018/demo/edit/new-reference/OmniMux_新参考片_英文无声演示_待确认.mp4",
+        "sha256": "8d7c403e2e2e627c7d1ce2f4d4adedd8db5e732918a8c565a6330d2916c2fd82",
+        "dimensions": [
+          1080,
+          1920
+        ],
+        "frame_seconds": 26.4,
+        "crop_xyxy": [
+          65,
+          1695,
+          1020,
+          1875
+        ]
+      },
+      "source_type": "frame_from_composed_demonstration",
+      "is_composed_demonstration": true,
+      "description": "Final demonstration: cropped Generate video control; authored caption, cursor and upper Prompt row excluded."
+    },
+    {
+      "file": "video-inputs.webp",
+      "sha256": "a26679b2b920e77d59f092fec8c8f5a3e30231f025a2adb89cea85e0a61b09db",
+      "bytes": 34754,
+      "dimensions": [
+        1270,
+        760
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/tmp/omnimux-launch-20261018/release-kit/complete-review/gallery/03-reference.png",
+        "sha256": "ef6148ba132e9515a60d4385db3028790531a6dab8d173fefedbaee5587ba845",
+        "dimensions": [
+          1270,
+          760
+        ],
+        "frame_seconds": null,
+        "crop_xyxy": null
+      },
+      "source_type": "existing_explanatory_composition",
+      "is_composed_demonstration": true,
+      "description": "Previously reviewed explanatory composition of the selected reference and character."
+    },
+    {
+      "file": "video-mode.webp",
+      "sha256": "65c67af901f771446066dac7af5deab35638b4292f5dfb2a8befb700228d1d25",
+      "bytes": 55454,
+      "dimensions": [
+        950,
+        960
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/projects/口播视频剪辑模板/template/ui_en/dyn/13_replace_mode.png",
+        "sha256": "6c87f4cb3d3ffe0bc842b7fd898a8bce9880c8b730bbc1b797848846f69b7e0b",
+        "dimensions": [
+          5724,
+          3000
+        ],
+        "frame_seconds": null,
+        "crop_xyxy": [
+          35,
+          180,
+          985,
+          1140
+        ]
+      },
+      "source_type": "original_ui_capture_or_generated_character",
+      "is_composed_demonstration": false,
+      "description": "Motion video and Object swap are selected; crop excludes history and account bar."
+    },
+    {
+      "file": "video-ready.webp",
+      "sha256": "354162303f2be7bbc3c27603d31a265b19c44e1dd40d0b1ff0569bcb8e11ac20",
+      "bytes": 28812,
+      "dimensions": [
+        970,
+        1268
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/tmp/omnimux-launch-20261018/demo/edit/new-reference/OmniMux_新参考片_英文无声演示_待确认.mp4",
+        "sha256": "8d7c403e2e2e627c7d1ce2f4d4adedd8db5e732918a8c565a6330d2916c2fd82",
+        "dimensions": [
+          1080,
+          1920
+        ],
+        "frame_seconds": 25.8,
+        "crop_xyxy": [
+          60,
+          242,
+          1030,
+          1510
+        ]
+      },
+      "source_type": "frame_from_composed_demonstration",
+      "is_composed_demonstration": true,
+      "description": "Final demonstration: selected reference and character are both present; crop ends before authored caption."
+    },
+    {
+      "file": "video-reference.webp",
+      "sha256": "ba5616d776df270afe4680b835780f5e930c8c7d4722b1573abf5773a5d5c3be",
+      "bytes": 13758,
+      "dimensions": [
+        1064,
+        530
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/tmp/omnimux-launch-20261018/demo/edit/new-reference/OmniMux_新参考片_英文无声演示_待确认.mp4",
+        "sha256": "8d7c403e2e2e627c7d1ce2f4d4adedd8db5e732918a8c565a6330d2916c2fd82",
+        "dimensions": [
+          1080,
+          1920
+        ],
+        "frame_seconds": 23.7,
+        "crop_xyxy": [
+          8,
+          500,
+          1072,
+          1030
+        ]
+      },
+      "source_type": "frame_from_composed_demonstration",
+      "is_composed_demonstration": true,
+      "description": "Final demonstration: reference has a visible selection check; cursor and authored highlight are retained."
+    },
+    {
+      "file": "video-result.webp",
+      "sha256": "57bc55751150e431c9f137f5b344002d02fc8d130e89a6b00c36b5d8c5e346f1",
+      "bytes": 37926,
+      "dimensions": [
+        1270,
+        760
+      ],
+      "source": {
+        "repository": "OPC",
+        "path": "社媒运营/tmp/omnimux-launch-20261018/release-kit/complete-review/gallery/04-result.png",
+        "sha256": "5fb857edd488aea0f4281fc6e484600d812d56360c43145a1fd259de4b976310",
+        "dimensions": [
+          1270,
+          760
+        ],
+        "frame_seconds": null,
+        "crop_xyxy": null
+      },
+      "source_type": "existing_explanatory_composition",
+      "is_composed_demonstration": true,
+      "description": "Previously reviewed reference and actual generated result composition."
+    }
+  ]
+}
