@@ -1,0 +1,107 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "OmniMux Public API",
+    "version": "1.0.0",
+    "description": "Public entry points for the OmniMux AI generation gateway. Full API documentation lives at https://docs.omnimux.ai/."
+  },
+  "servers": [
+    { "url": "https://api.omnimux.ai" },
+    { "url": "https://omnimux.ai" }
+  ],
+  "paths": {
+    "/api/status": {
+      "get": {
+        "summary": "Service health",
+        "description": "Public liveness probe; returns JSON status without authentication.",
+        "responses": { "200": { "description": "Gateway is healthy" } }
+      }
+    },
+    "/api/pricing": {
+      "get": {
+        "summary": "Model price list",
+        "description": "Current generation rates across text, image, video, audio, and social models.",
+        "responses": { "200": { "description": "Price catalog" } }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "summary": "List models",
+        "description": "OpenAI-compatible model list. Requires an API key (Bearer token).",
+        "responses": {
+          "200": { "description": "Model list" },
+          "401": { "description": "Missing or invalid API key" }
+        }
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "summary": "Chat completions",
+        "description": "OpenAI-compatible chat completions endpoint. Requires an API key.",
+        "responses": {
+          "200": { "description": "Completion result" },
+          "401": { "description": "Missing or invalid API key" }
+        }
+      }
+    },
+    "/v1/video/generations": {
+      "post": {
+        "summary": "Create a video generation task",
+        "description": "Submit an image-to-video or reference-video generation. Requires an API key.",
+        "responses": {
+          "200": { "description": "Task created" },
+          "401": { "description": "Missing or invalid API key" }
+        }
+      },
+      "get": {
+        "summary": "Query a video generation task",
+        "description": "Poll task status by task id. Requires an API key.",
+        "responses": {
+          "200": { "description": "Task status" },
+          "401": { "description": "Missing or invalid API key" }
+        }
+      }
+    },
+    "/api/v1/files/upload/base64": {
+      "post": {
+        "summary": "Upload a file as base64",
+        "description": "Uploads media for generation inputs. Requires an API key.",
+        "responses": {
+          "200": { "description": "File stored; returns file_url and download_url" },
+          "401": { "description": "Missing or invalid API key" }
+        }
+      }
+    },
+    "/api/v1/files/download/{fileId}": {
+      "get": {
+        "summary": "Download a stored file",
+        "description": "Returns a stored generation input or result.",
+        "responses": { "200": { "description": "File contents" } }
+      }
+    },
+    "/api/inspiration/v1/share/{id}": {
+      "get": {
+        "summary": "Read an inspiration share",
+        "description": "Public read of an active inspiration share link. No login required.",
+        "responses": {
+          "200": { "description": "Share record" },
+          "404": { "description": "Share missing or expired" }
+        }
+      }
+    },
+    "/api/inspiration/v1/public/inspirations": {
+      "get": {
+        "summary": "Public inspiration list",
+        "description": "Anonymous, read-only projection of the community inspiration catalog.",
+        "responses": { "200": { "description": "Paginated inspiration list" } }
+      }
+    },
+    "/api/inspiration/v1/public/media/{key}": {
+      "get": {
+        "summary": "Public inspiration media",
+        "description": "Media object for a public inspiration item.",
+        "responses": { "200": { "description": "Media bytes" } }
+      }
+    }
+  }
+}
