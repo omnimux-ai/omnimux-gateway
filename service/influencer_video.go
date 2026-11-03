@@ -41,8 +41,11 @@ func GetInfluencerVideoInputRules(mode string) (InfluencerVideoInputConstraints,
 	minimum := 2.0
 	switch mode {
 	case "motion":
+		// motion output is floored to 5s at the gateway, so a ≥2s source is safe.
 	case "replace":
-		minimum = 4
+		// replace renders output_seconds == source_seconds; the source must be
+		// ≥5s because Pidoi-bound lines reject seconds<5.
+		minimum = 5
 	default:
 		return InfluencerVideoInputConstraints{}, errors.New("参考方式无效")
 	}

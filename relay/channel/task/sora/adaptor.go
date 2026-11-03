@@ -182,14 +182,30 @@ func is720pResolution(req relaycommon.TaskSubmitReq) bool {
 }
 
 func resolveSeedanceUpstreamModel(upstreamModel, originModel string, is720p bool) string {
-	// Pidoi Seedance 2.5: sd-2.5-480p-pro vs sd-2.5-720p-pro
-	if strings.Contains(upstreamModel, "sd-2.5") || strings.Contains(originModel, "seedance-2-5") || strings.Contains(originModel, "seedance-2.5") {
-		if strings.Contains(upstreamModel, "sd-2.5") {
-			if is720p {
-				return "sd-2.5-720p-pro"
+	// Pidoi Seedance 2.5: upstream SKU naming is `sd-2.5-<res>p-<tier>`,
+	// e.g. sd-2.5-720p-plus / sd-2.5-480p-pro. We must keep the upstream SKU's
+	// resolution in lockstep with the resolution we bill the user for:
+	//   - request 720p  → upstream must be a 720p SKU (else upstream renders
+	//     lower quality than billed);
+	//   - request 480p  → upstream must be a 480p SKU.
+	// A model_mapping entry that already resolves to the correct resolution
+	// passes through untouched (plus, pro, wen variants all stay). A bare
+	// `sd-2.5` (no resolution) or a mismatched resolution gets rewritten to
+	// the matching `-pro` default for that resolution.
+	isSeedance25 := strings.Contains(upstreamModel, "sd-2.5") ||
+		strings.Contains(originModel, "seedance-2-5") || strings.Contains(originModel, "seedance-2.5")
+	if isSeedance25 && strings.Contains(upstreamModel, "sd-2.5") {
+		upRes := seedanceSKUResolution(upstreamModel)
+		if is720p {
+			if upRes == "720p" || upRes == "1080p" {
+				return upstreamModel
 			}
-			return "sd-2.5-480p-pro"
+			return "sd-2.5-720p-pro"
 		}
+		if upRes == "480p" {
+			return upstreamModel
+		}
+		return "sd-2.5-480p-pro"
 	}
 	// Pidoi Seedance 2.0: seedace-2.0-480p vs seedace-2.0-720p
 	if strings.Contains(upstreamModel, "seedace-2.0") || strings.Contains(originModel, "seedance-2-0") || strings.Contains(originModel, "seedance-2.0") {
@@ -201,6 +217,18 @@ func resolveSeedanceUpstreamModel(upstreamModel, originModel string, is720p bool
 		}
 	}
 	return upstreamModel
+}
+
+// seedanceSKUResolution extracts the resolution token ("480p", "720p",
+// "1080p") from a Pidoi Seedance SKU like `sd-2.5-720p-plus`. Returns ""
+// when the SKU carries no resolution (bare `sd-2.5`).
+func seedanceSKUResolution(upstreamModel string) string {
+	for _, res := range []string{"1080p", "720p", "480p"} {
+		if strings.Contains(upstreamModel, res) {
+			return res
+		}
+	}
+	return ""
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {

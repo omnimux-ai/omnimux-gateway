@@ -150,6 +150,61 @@ func TestBuildRequestBody_SoundEffectKeepsPromptOnly(t *testing.T) {
 	assert.NotContains(t, sent, "custom")
 }
 
+// A channel that sets an explicit model_mapping must see that SKU on the wire,
+// not the generic phase-one alias. EvoLink's real SKU for the public
+// seedance-2-5 id is seedance-2.5-text-to-video; before this fix the phase-one
+// table stamped the bare seedance-2.5 alias and upstream returned 404.
+func TestBuildRequestBody_ChannelMappingOverridesPhaseOneWire(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", nil)
+	c.Set("task_request_raw", map[string]any{
+		"operation": "first_frame",
+		"prompt":    "cat walks",
+		"image_urls": []string{
+			"https://cdn.example.com/a.png",
+		},
+	})
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "seedance-2-5",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			IsModelMapped:     true,
+			UpstreamModelName: "seedance-2.5-text-to-video",
+		},
+	}
+	body, err := (&TaskAdaptor{}).BuildRequestBody(c, info)
+	require.NoError(t, err)
+	var sent map[string]any
+	require.NoError(t, json.NewDecoder(body).Decode(&sent))
+	assert.Equal(t, "seedance-2.5-text-to-video", sent["model"])
+}
+
+// When the channel did not map the model, the phase-one wire table still
+// supplies the upstream SKU.
+func TestBuildRequestBody_PhaseOneWireFallbackWhenUnmapped(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", nil)
+	c.Set("task_request_raw", map[string]any{
+		"operation": "first_frame",
+		"prompt":    "cat walks",
+		"image_urls": []string{
+			"https://cdn.example.com/a.png",
+		},
+	})
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "seedance-2-5",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			IsModelMapped: false,
+		},
+	}
+	body, err := (&TaskAdaptor{}).BuildRequestBody(c, info)
+	require.NoError(t, err)
+	var sent map[string]any
+	require.NoError(t, json.NewDecoder(body).Decode(&sent))
+	assert.Equal(t, "seedance-2.5", sent["model"])
+}
+
 func TestBuildRequestBody_StripsLocalOperationAndUsesOfficialModel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())

@@ -218,7 +218,7 @@ func TestBrowserMotionPreservesAudioPaddedDeclarationsWithoutProbing(t *testing.
 		ratio    string
 	}{
 		{"reported seven second clip", service.InfluencerVideoMetadata{Duration: 7.072, VideoDuration: 7.041667, Width: 480, Height: 854, FrameRate: 24, VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 6650581}, 7, "9:16"},
-		{"four second output with audio tail", service.InfluencerVideoMetadata{Duration: 4.064, VideoDuration: 4.041667, Width: 854, Height: 480, FrameRate: 24, VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234}, 4, "16:9"},
+		{"five second output with audio tail", service.InfluencerVideoMetadata{Duration: 5.064, VideoDuration: 5.041667, Width: 854, Height: 480, FrameRate: 24, VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234}, 5, "16:9"},
 	} {
 		for _, mode := range []string{"motion", "replace"} {
 			t.Run(sample.name+"/"+mode, func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestBrowserVideoOutputBoundsVisualDurationAndAudioPadding(t *testing.T) {
 		accept               bool
 	}{
 		{"AAC positive container tail", 7.072, 7.041667, "aac", "mp4", true},
-		{"four second AAC positive container tail", 4.064, 4.041667, "aac", "mp4", true},
+		{"five second AAC positive container tail", 5.064, 5.041667, "aac", "mp4", true},
 		{"supported MOV PCM positive tail", 7.072, 7.041667, "pcm", "mov", true},
 		{"supported MP3 positive tail", 7.072, 7.041667, "mp3", "mp4", true},
 		{"prior reverse record discrepancy", 7.04, 6.96, "", "mp4", true},
@@ -283,8 +283,8 @@ func TestBrowserVideoOutputBoundsVisualDurationAndAudioPadding(t *testing.T) {
 		{"positive container tail without audio within two frames", 7.072, 7.041667, "", "mp4", true},
 		{"unsupported audio cannot allow tail", 7.072, 7.041667, "opus", "mp4", false},
 		{"reverse container rounding within two frames", 6.927, 6.958333, "aac", "mp4", true},
-		{"container below hard minimum", 3.999, 4, "aac", "mp4", false},
-		{"picture below hard minimum", 4, 3.999, "aac", "mp4", false},
+		{"container below hard minimum", 4.999, 5, "aac", "mp4", false},
+		{"picture below hard minimum", 5, 4.999, "aac", "mp4", false},
 		{"container above hard maximum", 30.001, 30, "aac", "mp4", false},
 		{"picture above hard maximum", 30, 30.001, "aac", "mp4", false},
 		{"picture missing", 7, 0, "aac", "mp4", false},

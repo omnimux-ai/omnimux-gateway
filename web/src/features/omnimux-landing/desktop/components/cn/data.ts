@@ -176,10 +176,10 @@ export const TRENDING_MEDIA = [
  * `copy.flow.publish.posts`.
  */
 export const POSTS_MEDIA = [
-  { poster: spotlightPoster, platform: 'dy', stateClass: 's-pub' },
-  { poster: vfxPoster, platform: 'dy', stateClass: 's-sch' },
-  { poster: tryonPoster, platform: 'xhs', stateClass: 's-chk' },
-  { poster: selfiePoster, platform: 'sph', stateClass: 's-busy' },
+  { poster: spotlightPoster, platform: 'tiktok', stateClass: 's-pub' },
+  { poster: vfxPoster, platform: 'tiktok', stateClass: 's-sch' },
+  { poster: tryonPoster, platform: 'instagram', stateClass: 's-chk' },
+  { poster: selfiePoster, platform: 'youtube', stateClass: 's-busy' },
 ] as const
 
 export const ASSETS = {

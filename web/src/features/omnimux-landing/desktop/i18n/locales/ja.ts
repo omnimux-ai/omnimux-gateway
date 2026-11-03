@@ -96,7 +96,7 @@ export const ja: LandingCopy = {
       {
         icon: 'scan',
         label: '動画・画像投稿を分析',
-        fill: 'この動画がなぜ売れたのかを分析し、冒頭のフック・訴求ポイント・購入導線を整理 https://v.douyin.com/',
+        fill: 'この動画がなぜ売れたのかを分析し、冒頭のフック・訴求ポイント・購入導線を整理 https://www.tiktok.com/',
       },
       {
         icon: 'video',
@@ -122,7 +122,7 @@ export const ja: LandingCopy = {
     modes: {
       agent: {
         prompts: [
-          'この動画がなぜ売れたのかを分析 https://v.douyin.com/iR7xKq2/',
+          'この動画がなぜ売れたのかを分析 https://www.tiktok.com/@pet.diary/video/73421',
           'このバズ動画を @美容液 で 3 本作り、そのまま投稿できる形で 15 秒',
           '@小鹿のスキンケア日記 の直近 30 日の戦略を分析',
         ],
@@ -176,7 +176,7 @@ export const ja: LandingCopy = {
     msgPre: 'このバズ動画を使って',
     msgProducts: ['@ペットフード', '@サロペット', '@イヤホン'],
     msgPost: 'に 1 本ずつ作成し、そのまま投稿できる形で 15 秒。',
-    linkCard: 'v.douyin.com/iR7xKq2/ · 猫との日常、キャットフード開封',
+    linkCard: 'tiktok.com/@pet.diary/video/73421 · 猫との日常、キャットフード開封',
     doneBreakdown: '参考動画が売れた理由を分析しました',
     kv: [
       { k: '冒頭', v: '最初の 2 秒でビフォーアフター' },
@@ -201,7 +201,7 @@ export const ja: LandingCopy = {
       '冒頭 · クローズアップ',
     ],
     schedTitle: '予約投稿',
-    schedOk: '事前チェック済み',
+    schedOk: 'スケジュール済み',
     schedPlatform: 'TikTok',
     schedTimes: ['火曜 19:00', '水曜 12:30', '木曜 19:00'],
     schedAll: 'すべて予約',
@@ -285,8 +285,8 @@ export const ja: LandingCopy = {
       tabsAria: '分析対象',
       tabs: {
         video: '動画',
-        account: '競合アカウント',
-        category: 'カテゴリのトレンド',
+        account: '競合アカウント · サンプル',
+        category: 'カテゴリのトレンド · サンプル',
       },
       statsViews: '1500万+ 再生',
       statsLikes: '32万+ いいね',
@@ -334,7 +334,7 @@ export const ja: LandingCopy = {
       ],
       accountCta: 'この戦略で @美容液 の動画を 3 本作る',
       catTitle: 'ビューティー・パーソナルケア',
-      catMeta: '過去 7 日間 · 人気 200 本',
+      catMeta: '過去 7 日間 · 人気 200 本 · サンプルデータ',
       bars: [
         { label: 'ビフォーアフター', value: '38%' },
         { label: '開封・お試し', value: '24%' },
@@ -415,10 +415,6 @@ export const ja: LandingCopy = {
         {
           title: '複数プラットフォームへ一括投稿',
           desc: 'TikTok・Instagram・Facebook・YouTube。アカウントを選んで一度に投稿し、それぞれの状態を個別に追跡。',
-        },
-        {
-          title: '投稿前の自動チェック',
-          desc: 'カバー、画像枚数、オリジナル宣言、AI 生成表記をプラットフォームのルールに沿って確認。アカウントとコンテンツは各プラットフォームの規約に従う必要があります。',
         },
         {
           title: 'アカウントを一元管理',
@@ -717,7 +713,7 @@ export const ja: LandingCopy = {
       },
       {
         q: 'AI で販売動画を作るには？',
-        a: '商品リンクを貼るかバズ動画を選べば、数分でオリジナルまたは再現動画を生成。連携済みプラットフォームに投稿できます。撮影も編集も不要です。',
+        a: '商品リンクを貼るかバズ動画を選べば、オリジナルまたは再現動画を生成して連携済みプラットフォームに投稿できます。撮影も編集も不要です。',
       },
       {
         q: '生成した動画はそのまま投稿できますか？',
@@ -725,7 +721,7 @@ export const ja: LandingCopy = {
       },
       {
         q: 'AI で作った動画でアカウントが凍結されませんか？',
-        a: 'OmniMux は凍結防止を保証しません。アカウントの安全性はコンテンツと運用次第です。投稿前にカバー、オリジナル宣言、AI 生成表記などをプラットフォームのルールに沿ってチェックします。各プラットフォームの規約を遵守してください。',
+        a: 'OmniMux は凍結防止を保証しません。アカウントの安全性はコンテンツと運用次第です。投稿時に動画へ AI 生成コンテンツの表記を付けられます。各プラットフォームの規約を遵守してください。',
       },
       {
         q: '商品画像を動画に変換できますか？',

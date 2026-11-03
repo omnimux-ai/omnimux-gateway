@@ -101,7 +101,7 @@ export const id: LandingCopy = {
       {
         icon: 'scan',
         label: 'Bedah video/postingan',
-        fill: 'Bedah kenapa video ini viral — hook pembuka, selling point, dan alur pembelian https://v.douyin.com/',
+        fill: 'Bedah kenapa video ini viral — hook pembuka, selling point, dan alur pembelian https://www.tiktok.com/',
       },
       {
         icon: 'video',
@@ -127,7 +127,7 @@ export const id: LandingCopy = {
     modes: {
       agent: {
         prompts: [
-          'Bedah kenapa video ini viral https://v.douyin.com/iR7xKq2/',
+          'Bedah kenapa video ini viral https://www.tiktok.com/@pet.diary/video/73421',
           'Pakai video viral ini untuk buat 3 video @Serum, siap dipublikasikan, 15 detik',
           'Analisis strategi @SkinDiary 30 hari terakhir',
         ],
@@ -181,7 +181,7 @@ export const id: LandingCopy = {
     msgPre: 'Pakai video viral ini untuk membuat satu video',
     msgProducts: ['@MakananHewan', '@Overall', '@Earbuds'],
     msgPost: '— siap dipublikasikan, masing-masing 15 detik.',
-    linkCard: 'v.douyin.com/iR7xKq2/ · kucing lucu + unboxing cat food',
+    linkCard: 'tiktok.com/@pet.diary/video/73421 · kucing lucu + unboxing cat food',
     doneBreakdown: 'Sudah dibedah kenapa video referensi ini laku',
     kv: [
       { k: 'Hook', v: 'Before/after di 2 detik pertama' },
@@ -206,7 +206,7 @@ export const id: LandingCopy = {
       'Hook · close-up',
     ],
     schedTitle: 'Posting terjadwal',
-    schedOk: 'Lolos pra-cek',
+    schedOk: 'Terjadwal',
     schedPlatform: 'TikTok',
     schedTimes: ['Selasa 19:00', 'Rabu 12:30', 'Kamis 19:00'],
     schedAll: 'Jadwalkan semua',
@@ -290,8 +290,8 @@ export const id: LandingCopy = {
       tabsAria: 'Objek yang dibedah',
       tabs: {
         video: 'Video',
-        account: 'Akun kompetitor',
-        category: 'Tren kategori',
+        account: 'Akun kompetitor · Contoh',
+        category: 'Tren kategori · Contoh',
       },
       statsViews: '15 jt+ views',
       statsLikes: '320 rb+ like',
@@ -339,7 +339,7 @@ export const id: LandingCopy = {
       ],
       accountCta: 'Pakai strategi ini untuk buat 3 video @Serum',
       catTitle: 'Beauty & personal care',
-      catMeta: '7 hari terakhir · top 200',
+      catMeta: '7 hari terakhir · top 200 · Data contoh',
       bars: [
         { label: 'Before/after', value: '38%' },
         { label: 'Unboxing & coba', value: '24%' },
@@ -423,10 +423,6 @@ export const id: LandingCopy = {
         {
           title: 'Kirim ke semua platform sekaligus',
           desc: 'TikTok, Instagram, Facebook, dan YouTube — pilih akun, kirim sekali, dan lacak status tiap akun.',
-        },
-        {
-          title: 'Cek otomatis sebelum publikasi',
-          desc: 'Periksa cover, jumlah gambar, klaim orisinalitas, dan tanda konten AI sesuai aturan platform; akun dan konten tetap harus mematuhi kebijakan masing-masing platform.',
         },
         {
           title: 'Semua akun dalam satu tempat',
@@ -727,7 +723,7 @@ export const id: LandingCopy = {
       },
       {
         q: 'Bagaimana cara membuat video jualan dengan AI?',
-        a: 'Tempel tautan produk atau pilih referensi viral, buat video orisinal atau hasil buat ulang dalam hitungan menit, lalu publikasikan ke platform yang sudah kamu hubungkan. Tanpa syuting atau editing.',
+        a: 'Tempel tautan produk atau pilih referensi viral, buat video orisinal atau hasil buat ulang, lalu publikasikan ke platform yang sudah kamu hubungkan. Tanpa syuting atau editing.',
       },
       {
         q: 'Bisakah video yang dibuat langsung dipublikasikan?',
@@ -735,7 +731,7 @@ export const id: LandingCopy = {
       },
       {
         q: 'Apakah video buatan AI bisa membuat akun saya diblokir?',
-        a: 'OmniMux tidak bisa menjamin bebas blokir — keamanan akun tergantung konten dan perilaku akunmu. Sebelum publikasi, aplikasi memeriksa parameter seperti cover, klaim orisinalitas, dan tanda konten AI sesuai aturan platform; mohon patuhi kebijakan masing-masing platform.',
+        a: 'OmniMux tidak bisa menjamin bebas blokir — keamanan akun tergantung konten dan perilaku akunmu. Saat publikasi kamu bisa menambahkan deklarasi konten hasil AI ke video; mohon patuhi kebijakan masing-masing platform.',
       },
       {
         q: 'Bisakah mengubah gambar produk menjadi video?',

@@ -419,7 +419,9 @@ func TestInfluencerCLIVideoRejectsShortReferencesBeforeAcceptance(t *testing.T) 
 			assert.Zero(t, task.Quota)
 			var out map[string]any
 			require.NoError(t, common.Unmarshal(task.PrivateData.GenerationQueue.Body, &out))
-			assert.Equal(t, "4", out["seconds"])
+			// A 4s source clip is still billed/rendered at the 5s output floor
+			// (influencerMotionMinSeconds): Pidoi-bound lines reject <5s.
+			assert.Equal(t, "5", out["seconds"])
 			assert.Len(t, driver.objects, 1, "accepted tasks retain their frozen reference")
 			assert.Empty(t, driver.deleted)
 		})

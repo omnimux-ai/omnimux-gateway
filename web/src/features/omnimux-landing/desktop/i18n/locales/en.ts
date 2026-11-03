@@ -100,7 +100,7 @@ export const en: LandingCopy = {
       {
         icon: 'scan',
         label: 'Break down video/post',
-        fill: 'Break down why this video went viral — hook, selling points and buying guide https://v.douyin.com/',
+        fill: 'Break down why this video went viral — hook, selling points and buying guide https://www.tiktok.com/',
       },
       {
         icon: 'video',
@@ -126,7 +126,7 @@ export const en: LandingCopy = {
     modes: {
       agent: {
         prompts: [
-          'Break down why this video went viral https://v.douyin.com/iR7xKq2/',
+          'Break down why this video went viral https://www.tiktok.com/@pet.diary/video/73421',
           'Use this viral video to make 3 for @Serum, ready to publish, 15s',
           'Analyze how @SkinDiary played the last 30 days',
         ],
@@ -180,7 +180,7 @@ export const en: LandingCopy = {
     msgPre: 'Recreate this viral video for',
     msgProducts: ['@PetFood', '@Overalls', '@Earbuds'],
     msgPost: '— one 15s video each, ready to publish.',
-    linkCard: 'v.douyin.com/iR7xKq2/ · cat antics + kibble unboxing',
+    linkCard: 'tiktok.com/@pet.diary/video/73421 · cat antics + kibble unboxing',
     doneBreakdown: 'Broke down why the reference video sells',
     kv: [
       { k: 'Hook', v: 'Before/after in the first 2s' },
@@ -205,7 +205,7 @@ export const en: LandingCopy = {
       'Hook · close-up',
     ],
     schedTitle: 'Scheduled posts',
-    schedOk: 'Pre-check passed',
+    schedOk: 'Scheduled',
     schedPlatform: 'TikTok',
     schedTimes: ['Tue 19:00', 'Wed 12:30', 'Thu 19:00'],
     schedAll: 'Schedule all',
@@ -290,8 +290,8 @@ export const en: LandingCopy = {
       tabsAria: 'What to break down',
       tabs: {
         video: 'Video',
-        account: 'Competitor account',
-        category: 'Category trends',
+        account: 'Competitor account · Sample',
+        category: 'Category trends · Sample',
       },
       statsViews: '15M+ views',
       statsLikes: '320K+ likes',
@@ -339,7 +339,7 @@ export const en: LandingCopy = {
       ],
       accountCta: 'Use this playbook to make 3 for @Serum',
       catTitle: 'Beauty & personal care',
-      catMeta: 'Last 7 days · top 200',
+      catMeta: 'Last 7 days · top 200 · Sample data',
       bars: [
         { label: 'Before/after', value: '38%' },
         { label: 'Unboxing & trial', value: '24%' },
@@ -423,10 +423,6 @@ export const en: LandingCopy = {
         {
           title: 'Submit to every platform at once',
           desc: 'TikTok, Instagram, Facebook and YouTube — pick accounts, submit once, and track each account separately.',
-        },
-        {
-          title: 'Automatic pre-publish checks',
-          desc: 'Checks cover image, image count, originality claim and AI-content marking against platform rules; accounts and content still must follow each platform’s policies.',
         },
         {
           title: 'One place for all accounts',
@@ -726,7 +722,7 @@ export const en: LandingCopy = {
       },
       {
         q: 'How do I make a shoppable video with AI?',
-        a: 'Paste a product link or pick a viral reference, generate an original or recreated video in minutes, then publish to the platforms you have connected. No filming or editing needed.',
+        a: 'Paste a product link or pick a viral reference, generate an original or recreated video, then publish to the platforms you have connected. No filming or editing needed.',
       },
       {
         q: 'Can generated videos be published directly?',
@@ -734,7 +730,7 @@ export const en: LandingCopy = {
       },
       {
         q: 'Will AI-made videos get my account banned?',
-        a: 'OmniMux cannot guarantee protection from bans — account safety depends on your content and account behavior. Before publishing, the app checks parameters like the cover, originality claim and AI-content marking against platform rules; please follow each platform’s policies.',
+        a: 'OmniMux cannot guarantee protection from bans — account safety depends on your content and account behavior. When publishing you can add an AI-generated-content disclosure to your video; please follow each platform’s policies.',
       },
       {
         q: 'Can it turn product images into video?',

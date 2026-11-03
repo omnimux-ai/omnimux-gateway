@@ -63,8 +63,8 @@ func TestInfluencerVideoReferenceRulesSeparateInputAndEditing(t *testing.T) {
 	}{
 		{"two second ordinary input", "motion", 2, ""},
 		{"fractional ordinary input", "motion", 3.999, ""},
-		{"editing below boundary", "replace", 3.999, "4至30秒"},
-		{"editing at boundary", "replace", 4, ""},
+		{"editing below boundary", "replace", 4.999, "5至30秒"},
+		{"editing at boundary", "replace", 5, ""},
 		{"retain fractional original", "replace", 9.708, ""},
 		{"unknown mode", "other", 4, "参考方式无效"},
 	} {
@@ -89,7 +89,7 @@ func TestInfluencerVideoReferenceRulesSeparateInputAndEditing(t *testing.T) {
 	valid.SizeBytes = 0
 	valid.Duration, valid.VideoDuration = 4, 2
 	require.NoError(t, ValidateInfluencerVideoReferenceMetadata(valid, "motion"))
-	require.ErrorContains(t, ValidateInfluencerVideoReferenceMetadata(valid, "replace"), "4至30秒", "a longer audio tail cannot make a short visual input valid for editing")
+	require.ErrorContains(t, ValidateInfluencerVideoReferenceMetadata(valid, "replace"), "5至30秒", "a longer audio tail cannot make a short visual input valid for editing")
 }
 
 func TestInfluencerVideoInputRulesAndMetadataJSON(t *testing.T) {
@@ -105,7 +105,7 @@ func TestInfluencerVideoInputRulesAndMetadataJSON(t *testing.T) {
 		assert.Equal(t, 2.5, decoded["max_aspect_ratio"])
 		minDuration := 2.0
 		if mode == "replace" {
-			minDuration = 4
+			minDuration = 5
 		}
 		assert.Equal(t, minDuration, decoded["min_duration_seconds"])
 		assert.Equal(t, 30.0, decoded["max_duration_seconds"])

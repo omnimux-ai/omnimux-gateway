@@ -29,9 +29,16 @@ import (
 const ActionInfluencerMotion = "influencer_motion"
 
 const (
-	influencerMotionModel        = "seedance-2-5"
-	influencerMotionAspectRatio  = "9:16"
-	influencerMotionMinSeconds   = 4
+	influencerMotionModel       = "seedance-2-5"
+	influencerMotionAspectRatio = "9:16"
+	// Web motion output floor is 5s — Pidoi-bound upstream lines reject
+	// seconds<5 and every other current supplier line accepts ≥5, so 5 keeps
+	// billing and upstream cost consistent. CLI callers keep a separate 4s
+	// floor on the *input* reference clip duration only (a 4s source clip is
+	// legitimate material); the gateway still bills them by the 5s output
+	// floor via influencerMotionMinSeconds.
+	influencerMotionMinSeconds   = 5
+	influencerMotionCLIMinInput  = 4
 	influencerMotionMaxSeconds   = 30
 	influencerMotionMaxPromptLen = 4000
 	influencerMotionMaxImages    = 30

@@ -51,7 +51,7 @@ func TestInspectInfluencerVideoReferenceHasNoStorageSideEffects(t *testing.T) {
 			t.Setenv("TMPDIR", temporary)
 			metadata, err := InspectInfluencerVideoReference(context.Background(), source, mode)
 			if mode == "replace" {
-				require.ErrorContains(t, err, "4至30秒")
+				require.ErrorContains(t, err, "5至30秒")
 				assert.Equal(t, http.StatusBadRequest, InfluencerVideoInspectionStatus(err))
 			} else {
 				require.NoError(t, err)

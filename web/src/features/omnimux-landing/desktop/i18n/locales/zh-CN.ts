@@ -96,7 +96,7 @@ export const zhCN: LandingCopy = {
       {
         icon: 'scan',
         label: '拆解视频/图文',
-        fill: '拆解这条视频为什么能爆，整理开场钩子、卖点和购买引导 https://v.douyin.com/',
+        fill: '拆解这条视频为什么能爆，整理开场钩子、卖点和购买引导 https://www.tiktok.com/',
       },
       {
         icon: 'video',
@@ -122,7 +122,7 @@ export const zhCN: LandingCopy = {
     modes: {
       agent: {
         prompts: [
-          '拆解这条视频为什么能爆 https://v.douyin.com/iR7xKq2/',
+          '拆解这条视频为什么能爆 https://www.tiktok.com/@pet.diary/video/73421',
           '用这条爆款给 @精华液 做 3 条，可直接发布，15 秒',
           '分析 @小鹿的护肤日记 最近 30 天的打法',
         ],
@@ -176,7 +176,7 @@ export const zhCN: LandingCopy = {
     msgPre: '用这条爆款给',
     msgProducts: ['@宠物粮', '@背带裤', '@蓝牙耳机'],
     msgPost: '各做一条，可直接发布，15 秒。',
-    linkCard: 'v.douyin.com/iR7xKq2/ · 撸猫日常，猫粮开箱',
+    linkCard: 'tiktok.com/@pet.diary/video/73421 · 撸猫日常，猫粮开箱',
     doneBreakdown: '已拆解参考视频为什么能爆',
     kv: [
       { k: '开头', v: '前 2 秒用前后对比' },
@@ -197,7 +197,7 @@ export const zhCN: LandingCopy = {
     vidNames: ['宠物粮', '背带裤', '蓝牙耳机'],
     vidHooks: ['开头 · 概念对比', '开头 · 换装', '开头 · 特写'],
     schedTitle: '排期发布',
-    schedOk: '预检通过',
+    schedOk: '已排期',
     schedPlatform: 'TikTok',
     schedTimes: ['周二 19:00', '周三 12:30', '周四 19:00'],
     schedAll: '全部排期',
@@ -279,7 +279,7 @@ export const zhCN: LandingCopy = {
 
     breakdown: {
       tabsAria: '拆解对象',
-      tabs: { video: '视频', account: '竞品账号', category: '品类趋势' },
+      tabs: { video: '视频', account: '竞品账号 · 示意', category: '品类趋势 · 示意' },
       statsViews: '1500万+ 播放',
       statsLikes: '32万+ 点赞',
       why: '为什么能卖',
@@ -318,7 +318,7 @@ export const zhCN: LandingCopy = {
       ],
       accountCta: '用这套打法给 @精华液 做 3 条',
       catTitle: '美妆个护',
-      catMeta: '近 7 天 · 热门 200 条',
+      catMeta: '近 7 天 · 热门 200 条 · 示例数据',
       bars: [
         { label: '前后对比', value: '38%' },
         { label: '开箱试用', value: '24%' },
@@ -396,10 +396,6 @@ export const zhCN: LandingCopy = {
         {
           title: '多平台一次提交',
           desc: 'TikTok、Instagram、Facebook、YouTube，选好账号一次提交，每个账号单独跟踪状态。',
-        },
-        {
-          title: '发布前自动检查',
-          desc: '按平台规则检查封面、图片数量、原创声明和 AI 生成标识；账号和内容仍须遵守平台规则。',
         },
         {
           title: '账号统一管理',
@@ -684,7 +680,7 @@ export const zhCN: LandingCopy = {
       },
       {
         q: '如何用 AI 制作带货视频？',
-        a: '粘贴商品链接或选择爆款参考，几分钟内生成原创或复刻视频，再发布到你已连接的平台。无需拍摄或剪辑。',
+        a: '粘贴商品链接或选择爆款参考，生成原创或复刻视频，再发布到你已连接的平台。无需拍摄或剪辑。',
       },
       {
         q: '生成的视频可以直接发布吗？',
@@ -692,7 +688,7 @@ export const zhCN: LandingCopy = {
       },
       {
         q: '用 AI 做的视频会不会导致账号被封？',
-        a: 'OmniMux 不承诺防封号。账号是否安全，取决于你的内容和账号行为。发布前桌面端会按平台规则检查封面、原创声明和 AI 生成标识等参数，请遵守各平台规则。',
+        a: 'OmniMux 不承诺防封号。账号是否安全，取决于你的内容和账号行为。发布时可为视频添加 AI 生成内容声明，请遵守各平台规则。',
       },
       {
         q: '是否支持商品图片转视频？',

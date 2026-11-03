@@ -1,11 +1,7 @@
 {
   "component": "gateway",
-  "source": "omnimux-ai/omnimux-gateway",
-  "commit": "b8c04d73a0dc3e31e2ddad24303c92c8243f5cd7",
-  "exportedFrom": {
-    "repository": "laozhong86/OmniMux",
-    "note": "private development repo; this public tree was sanitized-exported from this commit"
-  },
+  "source": "laozhong86/OmniMux",
+  "commit": "27eb370284747a0e892c0b5f101f9b2988759891",
   "exportedFiles": 4469,
   "submodules": [],
   "manifestSha256": "f55ace914b672c67b1edebd7c36ac869a269b0c2d2c1f465b680e788ea3f50a6"

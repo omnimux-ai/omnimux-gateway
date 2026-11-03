@@ -2,7 +2,7 @@
 
 User-level command-line interface for **OmniMux**, a unified AI gateway built on the open-source [new-api](https://github.com/QuantumNous/new-api) project by [QuantumNous](https://github.com/QuantumNous).
 
-OmniMux's consumer product focuses on AI character generation and reference-video recreation. This CLI is an advanced gateway access tool; its command inventory does not promise a complete social-publishing service or require website users to choose model IDs or routing groups. Current product scope: [brand authority](../docs/brand/README.md).
+OmniMux ("Your Content Commerce Team") is an AI content-commerce system for reference-video breakdown, product and character creation, and viral video recreation. This CLI is an advanced gateway access tool; its command inventory does not promise a complete social-publishing service or require website users to choose model IDs or routing groups. Current product scope: [brand authority](../docs/brand/README.md).
 
 Query models, pricing, groups, and balance, and manage your own API tokens — with an **Agent RPC** JSON envelope (`contract_version: 1` since **0.3.0**) and a hard guarantee that `sk-` keys never touch stdout/stderr.
 

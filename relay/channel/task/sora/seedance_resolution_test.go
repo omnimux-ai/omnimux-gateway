@@ -64,16 +64,48 @@ func TestIs720pResolution(t *testing.T) {
 }
 
 func TestResolveSeedanceUpstreamModel(t *testing.T) {
-	// Seedance 2.5
-	assert.Equal(t, "sd-2.5-480p-pro", resolveSeedanceUpstreamModel("sd-2.5-480p-pro", "seedance-2-5", false))
-	assert.Equal(t, "sd-2.5-720p-pro", resolveSeedanceUpstreamModel("sd-2.5-480p-pro", "seedance-2-5", true))
+	tests := []struct {
+		name          string
+		upstreamModel string
+		originModel   string
+		is720p        bool
+		want          string
+	}{
+		// Explicit SKU whose resolution matches the billed resolution passes through.
+		{name: "480p request keeps 480p-plus", upstreamModel: "sd-2.5-480p-plus", originModel: "seedance-2-5", is720p: false, want: "sd-2.5-480p-plus"},
+		{name: "720p request keeps 720p-plus", upstreamModel: "sd-2.5-720p-plus", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-720p-plus"},
+		{name: "720p request keeps 720p-pro", upstreamModel: "sd-2.5-720p-pro", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-720p-pro"},
+		{name: "720p request keeps 720p-pro-wen", upstreamModel: "sd-2.5-720p-pro-wen", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-720p-pro-wen"},
+		{name: "720p request keeps 720p-pro-ZHB", upstreamModel: "sd-2.5-720p-pro-ZHB", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-720p-pro-ZHB"},
+		{name: "720p request keeps 1080p-plus", upstreamModel: "sd-2.5-1080p-plus", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-1080p-plus"},
 
-	// Seedance 2.0
-	assert.Equal(t, "seedace-2.0-480p", resolveSeedanceUpstreamModel("seedace-2.0-480p", "seedance-2-0", false))
-	assert.Equal(t, "seedace-2.0-720p", resolveSeedanceUpstreamModel("seedace-2.0-480p", "seedance-2-0", true))
+		// Mismatched resolution is rewritten so upstream renders the billed resolution.
+		{name: "720p request rewrites 480p-plus", upstreamModel: "sd-2.5-480p-plus", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-720p-pro"},
+		{name: "720p request rewrites 480p-pro", upstreamModel: "sd-2.5-480p-pro", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-720p-pro"},
+		{name: "480p request rewrites 720p-pro", upstreamModel: "sd-2.5-720p-pro", originModel: "seedance-2-5", is720p: false, want: "sd-2.5-480p-pro"},
+		{name: "480p request rewrites 720p-plus", upstreamModel: "sd-2.5-720p-plus", originModel: "seedance-2-5", is720p: false, want: "sd-2.5-480p-pro"},
 
-	// Unrelated model stays unchanged
-	assert.Equal(t, "sora-2", resolveSeedanceUpstreamModel("sora-2", "sora-2", true))
+		// Bare sd-2.5 (no resolution token) falls back to the pro default.
+		{name: "bare sd-2.5 + 480p → 480p-pro", upstreamModel: "sd-2.5", originModel: "seedance-2-5", is720p: false, want: "sd-2.5-480p-pro"},
+		{name: "bare sd-2.5 + 720p → 720p-pro", upstreamModel: "sd-2.5", originModel: "seedance-2-5", is720p: true, want: "sd-2.5-720p-pro"},
+
+		// WeiJin-style SKUs lack the `sd-2.5` substring and never enter this branch.
+		{name: "WeiJin sd2.5-ca480p untouched on 480p", upstreamModel: "sd2.5-ca480p", originModel: "seedance-2-5", is720p: false, want: "sd2.5-ca480p"},
+		{name: "WeiJin sd2.5-ca720p untouched on 720p", upstreamModel: "sd2.5-ca720p", originModel: "seedance-2-5", is720p: true, want: "sd2.5-ca720p"},
+		{name: "WeiJin sd2.5-720p-x2 untouched on 720p", upstreamModel: "sd2.5-720p-x2", originModel: "seedance-2-5", is720p: true, want: "sd2.5-720p-x2"},
+
+		// Seedance 2.0 keeps its historical resolution rewrite.
+		{name: "seedace-2.0 480p + 480p req", upstreamModel: "seedace-2.0-480p", originModel: "seedance-2-0", is720p: false, want: "seedace-2.0-480p"},
+		{name: "seedace-2.0 480p + 720p req → 720p", upstreamModel: "seedace-2.0-480p", originModel: "seedance-2-0", is720p: true, want: "seedace-2.0-720p"},
+
+		// Unrelated model stays unchanged.
+		{name: "sora-2 unchanged", upstreamModel: "sora-2", originModel: "sora-2", is720p: true, want: "sora-2"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, resolveSeedanceUpstreamModel(tc.upstreamModel, tc.originModel, tc.is720p))
+		})
+	}
 }
 
 func TestEstimateBillingResolutionMultiplier(t *testing.T) {

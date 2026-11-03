@@ -219,7 +219,7 @@ export function CnAgentDemo() {
                     <li key={name}>
                       <img src={tiles[index].poster} alt='' loading='lazy' decoding='async' />
                       {name}
-                      <span className='plat p-dy'>{copy.schedPlatform}</span>
+                      <span className='plat p-tiktok'>{copy.schedPlatform}</span>
                       <time>{copy.schedTimes[index]}</time>
                     </li>
                   ))}

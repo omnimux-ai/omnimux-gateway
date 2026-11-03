@@ -313,11 +313,9 @@ For commercial licensing, please contact support@quantumnous.com
 .omc .sched .btn {width:100%;height:34px;margin-top:8px;font-size:13.5px}
 .omc .plat {display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--fg-2)}
 .omc .plat::before {content:"";width:7px;height:7px;border-radius:50%;background:var(--pc,#fff)}
-.omc .p-dy {--pc:#25F4EE}
-.omc .p-xhs {--pc:#FF2442}
-.omc .p-sph {--pc:#FA9D3B}
-.omc .p-ks {--pc:#FF4906}
-.omc .p-bili {--pc:#FB7299}
+.omc .p-tiktok {--pc:#25F4EE}
+.omc .p-instagram {--pc:#E1306C}
+.omc .p-youtube {--pc:#FF0033}
 .omc .replay {margin-left:8px;flex:none;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--hair-2);background:rgba(20,20,22,.85);font-size:12.5px;color:var(--fg-2)}
 .omc .replay:hover {color:var(--fg)}
 .omc .replay .ico {width:14px;height:14px}

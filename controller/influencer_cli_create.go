@@ -294,8 +294,9 @@ func PostInfluencerCLIVideo(c *gin.Context) {
 			prepared.Discard()
 		}
 	}()
-	// CLI references retain their 4-second minimum independently of web motion inputs.
-	if req.Mode != influencerMotionModeRecreate && (prepared.Metadata.Duration < influencerMotionMinSeconds || (prepared.Metadata.VideoDuration != 0 && prepared.Metadata.VideoDuration < influencerMotionMinSeconds)) {
+	// CLI references retain their 4-second minimum on the source clip; the
+	// generated output still bills via influencerMotionMinSeconds (5s floor).
+	if req.Mode != influencerMotionModeRecreate && (prepared.Metadata.Duration < influencerMotionCLIMinInput || (prepared.Metadata.VideoDuration != 0 && prepared.Metadata.VideoDuration < influencerMotionCLIMinInput)) {
 		influencerError(c, http.StatusBadRequest, "reference_video_invalid", "reference video must be between 4 and 30 seconds, including its actual visual duration")
 		return
 	}

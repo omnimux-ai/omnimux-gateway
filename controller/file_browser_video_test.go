@@ -39,7 +39,7 @@ func (d *browserVideoUploadDriver) Get(context.Context, string) (io.ReadCloser, 
 }
 
 func browserUploadMetadata(size int64) service.InfluencerVideoMetadata {
-	return service.InfluencerVideoMetadata{Duration: 4, VideoDuration: 4, Width: 720, Height: 1280, FrameRate: 24, Container: "mp4", VideoCodec: "h264", SizeBytes: size}
+	return service.InfluencerVideoMetadata{Duration: 5, VideoDuration: 5, Width: 720, Height: 1280, FrameRate: 24, Container: "mp4", VideoCodec: "h264", SizeBytes: size}
 }
 func browserVideoTicketBody(size int64) map[string]any {
 	body := ticketBody()
@@ -173,7 +173,7 @@ func TestBrowserVideoAudioPaddingAtPresignAndStreamEntrances(t *testing.T) {
 			accept             bool
 		}{
 			{"reported seven second clip", 7.072, 7.041667, "aac", "video/mp4", 0, true},
-			{"four second audio padded clip", 4.064, 4.041667, "aac", "video/mp4", 0, true},
+			{"five second audio padded clip", 5.064, 5.041667, "aac", "video/mp4", 0, true},
 			{"production fractional clip", 5.717007, 5.708333, "aac", "video/mp4", 0, true},
 			{"consistent fractional clip", 7.2, 7.2, "aac", "video/mp4", 0, true},
 			{"extra tail without audio within two frames", 7.072, 7.041667, "", "video/mp4", 0, true},

@@ -175,9 +175,11 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 
 	upstream := ""
-	if canonical, ok := canonicalPhaseOneVideoModel(info.OriginModelName); ok {
-		// The documented phase-one map is authoritative even when an existing
-		// channel row still carries an older model_mapping value.
+	if canonical, ok := canonicalPhaseOneVideoModel(info.OriginModelName); ok && !info.IsModelMapped {
+		// The documented phase-one map supplies the default APIMart wire name.
+		// A channel that sets an explicit model_mapping (IsModelMapped) overrides
+		// this fallback so a deliberate SKU — e.g. seedance-2.5-text-to-video —
+		// reaches upstream instead of the generic phase-one alias.
 		upstream = phaseOneWireModels[canonical]
 	} else {
 		upstream = strings.TrimSpace(info.UpstreamModelName)

@@ -285,7 +285,7 @@ func TestInfluencerMotionOptions(t *testing.T) {
 	assert.Equal(t, []string{"16:9", "9:16", "3:4"}, body.Data.Resolutions["480p"].AspectRatios)
 	assert.Equal(t, []string{"16:9", "9:16"}, body.Data.Resolutions["720p"].AspectRatios)
 	assert.Equal(t, 2.0, body.Data.InputConstraints["motion"].MinDurationSeconds)
-	assert.Equal(t, 4.0, body.Data.InputConstraints["replace"].MinDurationSeconds)
+	assert.Equal(t, 5.0, body.Data.InputConstraints["replace"].MinDurationSeconds)
 	assert.Equal(t, 0.4, body.Data.InputConstraints["replace"].MinAspectRatio)
 	assert.Equal(t, 2.5, body.Data.InputConstraints["replace"].MaxAspectRatio)
 }
@@ -457,7 +457,7 @@ func TestPrepareInfluencerReplaceRejectsActualShortReference(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	assert.False(t, probe.reached)
 	assert.Contains(t, rec.Body.String(), "3.999")
-	assert.Contains(t, rec.Body.String(), "4至30")
+	assert.Contains(t, rec.Body.String(), "5至30")
 }
 
 func TestPrepareInfluencerReplaceToleratesOneFrameContainerDifference(t *testing.T) {
@@ -465,7 +465,8 @@ func TestPrepareInfluencerReplaceToleratesOneFrameContainerDifference(t *testing
 		source  float64
 		seconds string
 	}{
-		{4, "4"},
+		// 5s is the new source/output floor: Pidoi-bound lines reject <5s.
+		{5, "5"},
 		{9.000001, "9"},
 		{9.041666667, "9"},
 		{30, "30"},
