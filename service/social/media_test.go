@@ -122,9 +122,11 @@ func installFakeMediaStorage(t *testing.T, driver storage.StorageDriver) {
 }
 
 func TestPresignUsesOwnStorageRouting(t *testing.T) {
-	direct := &Service{cfg: Config{Enabled: true, TikTokDirectEnabled: true}}
-	rolledBack := &Service{cfg: Config{Enabled: true, TikTokDirectEnabled: true, RollbackTikTokToZernio: true}}
-	disabled := &Service{cfg: Config{Enabled: true}}
+	direct := &Service{cfg: Config{Enabled: true, TikTokDirectEnabled: true, ZernioEnabled: true}}
+	rolledBack := &Service{cfg: Config{Enabled: true, TikTokDirectEnabled: true, RollbackTikTokToZernio: true, ZernioEnabled: true}}
+	// fork: zernio-retire — the source is gone, so every fallback is our own bucket.
+	retired := &Service{cfg: Config{Enabled: true}}
+	legacyOnly := &Service{cfg: Config{Enabled: true, ZernioEnabled: true}}
 
 	cases := []struct {
 		name string
@@ -132,11 +134,12 @@ func TestPresignUsesOwnStorageRouting(t *testing.T) {
 		body map[string]any
 		want bool
 	}{
-		{"explicit direct", disabled, map[string]any{"provider": "tiktok_direct"}, true},
+		{"explicit direct", retired, map[string]any{"provider": "tiktok_direct"}, true},
 		{"explicit zernio wins over active direct", direct, map[string]any{"provider": "zernio"}, false},
 		{"no provider follows active direct", direct, map[string]any{}, true},
 		{"no provider follows rollback", rolledBack, map[string]any{}, false},
-		{"no provider with direct disabled", disabled, map[string]any{}, false},
+		{"no provider with retired source", retired, map[string]any{}, true},
+		{"no provider with legacy source only", legacyOnly, map[string]any{}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

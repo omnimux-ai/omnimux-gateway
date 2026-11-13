@@ -68,7 +68,9 @@ func TestAnalytics_TenantIsolation_And_AccountGuard(t *testing.T) {
 	svc := NewService(Config{
 		Enabled: true,
 		BaseURL: srv.URL,
-		APIKey:  "test-secret-key",
+		// fork: zernio-retire — analytics exist only on the rollback path.
+		ZernioEnabled: true,
+		APIKey:        "test-secret-key",
 	})
 
 	ctx := context.Background()
@@ -123,7 +125,9 @@ func TestAnalytics_AllEndpoints_HappyPath(t *testing.T) {
 	svc := NewService(Config{
 		Enabled: true,
 		BaseURL: srv.URL,
-		APIKey:  "test-secret-key",
+		// fork: zernio-retire — analytics exist only on the rollback path.
+		ZernioEnabled: true,
+		APIKey:        "test-secret-key",
 	})
 	ctx := context.Background()
 

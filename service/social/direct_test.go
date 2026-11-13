@@ -25,10 +25,12 @@ func testDirectConfig(t *testing.T, apiURL string) Config {
 		key[i] = byte(i * 7)
 	}
 	return Config{
-		Enabled:             true,
-		APIKey:              "zernio-key",
-		BaseURL:             apiURL, // reuse for zernio stub
-		Platforms:           []string{"twitter", "linkedin", "instagram", "tiktok", "youtube", "facebook", "threads", "bluesky"},
+		Enabled:   true,
+		APIKey:    "zernio-key",
+		BaseURL:   apiURL, // reuse for zernio stub
+		Platforms: []string{"twitter", "linkedin", "instagram", "tiktok", "youtube", "facebook", "threads", "bluesky"},
+		// fork: zernio-retire — the rollback source stays reachable in tests.
+		ZernioEnabled:       true,
 		TikTokDirectEnabled: true,
 		TikTokClientKey:     "tt-ck",
 		TikTokClientSecret:  "tt-cs",

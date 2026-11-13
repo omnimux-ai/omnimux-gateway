@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/service/social/zernio"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"gorm.io/gorm"
 )
 
@@ -109,8 +109,9 @@ func (s *Service) PreflightConnect(userId int) error {
 }
 
 func (s *Service) SeatsView(ctx context.Context, userId int) (*SeatView, error) {
-	if err := s.requireReady(); err != nil {
-		return nil, err
+	// fork: zernio-retire — seats are local billing state, not an upstream call.
+	if !s.cfg.Enabled {
+		return nil, ErrDisabled
 	}
 	if seatBillingOn() {
 		_ = s.lazyExpireAndRenew(ctx, userId)
@@ -242,7 +243,7 @@ func (s *Service) lazyExpireAndRenew(ctx context.Context, userId int) error {
 		}
 		if seat.OccupiedAccountID != nil {
 			acc, aerr := model.GetSocialAccountByIDForUser(*seat.OccupiedAccountID, userId)
-			if aerr == nil && s.client != nil && acc.ProviderAccountID != "" {
+			if aerr == nil && s.cfg.ZernioActive() && s.client != nil && acc.ProviderAccountID != "" {
 				_ = s.client.DisconnectAccount(ctx, acc.ProviderAccountID)
 			}
 			if aerr == nil {
@@ -334,7 +335,7 @@ func (s *Service) ingestUpstreamAccount(ctx context.Context, userId int, tenant 
 
 	acc, gateErr := s.applySeatGate(ctx, userId, draft, existing)
 	if gateErr != nil {
-		if compensateDisconnect && s.client != nil {
+		if compensateDisconnect && s.cfg.ZernioActive() && s.client != nil {
 			_ = s.client.DisconnectAccount(ctx, draft.ProviderAccountID)
 		}
 		return nil, gateErr
@@ -532,6 +533,12 @@ func (s *Service) PurgeUserSeats(ctx context.Context, userId int) error {
 		if aerr != nil {
 			continue
 		}
+		// fork: zernio-retire — explicit user offboarding must still attempt the
+		// disconnect against a configured Zernio client. ZernioEnabled only gates
+		// *new* publishing, not cleanup: skipping the call here would expire the
+		// seat without ever proving the upstream account is gone, and would turn a
+		// failed purge into a silent data loss instead of the fail-open "leave the
+		// seat occupied" behaviour DeleteUser relies on.
 		if s.client != nil && acc.ProviderAccountID != "" {
 			derr := s.client.DisconnectAccount(ctx, acc.ProviderAccountID)
 			if derr != nil {

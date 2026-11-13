@@ -37,6 +37,11 @@ type Config struct {
 	// MaxMediaItems caps media_items on a single post.
 	MaxMediaItems int
 
+	// --- Zernio retirement (fork: zernio-retire) ---
+	// Zernio is retired; official native APIs are the only supported publishing
+	// source. ZernioEnabled is a rollback switch, not a source selector.
+	ZernioEnabled bool
+
 	// --- TikTok official direct OAuth (fork: tiktok-direct) ---
 	// TikTokDirectEnabled switches TikTok Connect/Post/Disconnect from Zernio to the
 	// official OmniMux TikTok App (Login Kit + Content Posting API). Default false =
@@ -103,6 +108,8 @@ func LoadConfig() Config {
 	if cfg.MaxMediaItems <= 0 {
 		cfg.MaxMediaItems = 10
 	}
+	// fork: zernio-retire
+	cfg.ZernioEnabled = common.GetEnvOrDefaultBool("SOCIAL_ZERNIO_ENABLED", false)
 	// fork: tiktok-direct
 	cfg.TikTokDirectEnabled = common.GetEnvOrDefaultBool("TIKTOK_DIRECT_ENABLED", false)
 	cfg.RollbackTikTokToZernio = common.GetEnvOrDefaultBool("ROLLBACK_TIKTOK_TO_ZERNIO", false)
@@ -127,8 +134,24 @@ func LoadConfig() Config {
 	return cfg
 }
 
+// ZernioActive reports whether the retired Zernio proxy is still reachable.
+// fork: zernio-retire
+func (c Config) ZernioActive() bool {
+	return c.ZernioEnabled
+}
+
+// ZernioReady reports whether the retired Zernio proxy still has usable config.
+func (c Config) ZernioReady() bool {
+	return c.Enabled && c.ZernioEnabled && c.APIKey != "" && c.BaseURL != ""
+}
+
+// Ready reports whether any publishing upstream (official, or the Zernio
+// rollback switch) is configured.
 func (c Config) Ready() bool {
-	return c.Enabled && c.APIKey != "" && c.BaseURL != ""
+	if c.ZernioReady() {
+		return true
+	}
+	return c.Enabled && c.TikTokDirectActive() && c.TikTokDirectConfigured()
 }
 
 func (c Config) PlatformAllowed(platform string) bool {

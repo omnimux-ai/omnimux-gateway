@@ -333,7 +333,8 @@ func (s *Service) presignUsesOwnStorage(body map[string]any) bool {
 	case ProviderZernio:
 		return false
 	}
-	return s.cfg.TikTokDirectActive()
+	// fork: zernio-retire — without the retired proxy every ticket is our own.
+	return s.cfg.TikTokDirectActive() || !s.cfg.ZernioActive()
 }
 
 // presignOwnMediaStorage signs one PUT ticket on the gateway's own bucket and returns

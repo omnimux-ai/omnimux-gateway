@@ -55,7 +55,8 @@ func (s *Service) requireReady() error {
 	if !s.cfg.Enabled {
 		return ErrDisabled
 	}
-	if s.client == nil || s.cfg.APIKey == "" {
+	// fork: zernio-retire — the retired proxy is not an upstream any more.
+	if !s.cfg.ZernioActive() || s.client == nil || s.cfg.APIKey == "" {
 		return ErrNotConfigured
 	}
 	return nil
@@ -63,11 +64,21 @@ func (s *Service) requireReady() error {
 
 // Status is safe for unauthenticated feature probes when enabled checks are done by caller.
 func (s *Service) Status() map[string]any {
+	// fork: zernio-retire — the public probe names the official source only.
+	provider := ProviderZernio
+	platforms := s.cfg.Platforms
+	if !s.cfg.ZernioActive() {
+		provider = "official"
+		platforms = []string{}
+		if s.cfg.TikTokDirectActive() {
+			platforms = []string{"tiktok"}
+		}
+	}
 	out := map[string]any{
 		"enabled":            s.cfg.Enabled,
 		"upstream_ready":     s.cfg.Ready(),
-		"provider":           ProviderZernio,
-		"platforms":          s.cfg.Platforms,
+		"provider":           provider,
+		"platforms":          platforms,
 		"billing_mode":       s.cfg.BillingMode,
 		"webhook_configured": s.cfg.WebhookSecret != "",
 	}
@@ -112,7 +123,7 @@ func (s *Service) EnsureTenant(ctx context.Context, userId int) (*model.SocialTe
 // Connect starts OAuth only with the explicitly requested provider.
 // fork: social-provider-isolation
 func (s *Service) Connect(ctx context.Context, userId int, provider, platform, redirectURL string) (authURL string, err error) {
-	if err := validateProvider(provider); err != nil {
+	if err := validateProvider(provider, s.cfg.ZernioActive()); err != nil {
 		return "", err
 	}
 	platform = NormalizePlatform(platform)
@@ -157,7 +168,7 @@ func (s *Service) Connect(ctx context.Context, userId int, provider, platform, r
 // ListAccounts never syncs or returns accounts from another provider.
 // fork: social-provider-isolation
 func (s *Service) ListAccounts(ctx context.Context, userId int, provider string) ([]*model.SocialAccount, error) {
-	if err := validateProvider(provider); err != nil {
+	if err := validateProvider(provider, s.cfg.ZernioActive()); err != nil {
 		return nil, err
 	}
 	if provider == ProviderTikTokDirect {
@@ -215,7 +226,7 @@ func (s *Service) listAccountsZernio(ctx context.Context, userId int) ([]*model.
 // DisconnectAccount disconnects upstream and marks local row disconnected.
 // fork: tiktok-direct — direct accounts revoke official token best-effort.
 func (s *Service) DisconnectAccount(ctx context.Context, userId int, provider string, localAccountID int64) error {
-	if err := validateProvider(provider); err != nil {
+	if err := validateProvider(provider, s.cfg.ZernioActive()); err != nil {
 		return err
 	}
 	acc, err := model.GetSocialAccountByIDForUser(localAccountID, userId)
@@ -308,7 +319,7 @@ type CreatePostInput struct {
 // CreatePost publishes or schedules a post for the user's owned accounts only.
 // fork: social-provider-isolation — provider and owned account set are checked before replay or I/O.
 func (s *Service) CreatePost(ctx context.Context, userId int, in CreatePostInput) (*model.SocialPost, error) {
-	if err := validateProvider(in.Provider); err != nil {
+	if err := validateProvider(in.Provider, s.cfg.ZernioActive()); err != nil {
 		return nil, err
 	}
 	in.Content = strings.TrimSpace(in.Content)
@@ -445,7 +456,7 @@ func (s *Service) createPostZernio(ctx context.Context, userId int, in CreatePos
 // GetPost returns a post owned by the user; optionally refreshes from upstream.
 // fork: tiktok-direct — direct posts refresh via official publish status API.
 func (s *Service) GetPost(ctx context.Context, userId int, provider string, postID int64, refresh bool) (*model.SocialPost, error) {
-	if err := validateProvider(provider); err != nil {
+	if err := validateProvider(provider, s.cfg.ZernioActive()); err != nil {
 		return nil, err
 	}
 	if !s.cfg.Enabled {
