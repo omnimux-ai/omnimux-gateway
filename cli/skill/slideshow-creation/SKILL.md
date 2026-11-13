@@ -133,7 +133,7 @@ Useful execution surfaces (optional, never required by skill attachment alone):
 - User-provided assets: local files or public URLs the user authorized
 - Web research tools available in the host Agent (if any), only when the user needs fresh facts
 
-Do not invent Gxgen editor/workflow tool names or claim a platform template was persisted unless a real tool returned an artifact.
+Do not invent OmniMux editor/workflow tool names or claim a platform template was persisted unless a real tool returned an artifact.
 
 ### `variant/revision`
 

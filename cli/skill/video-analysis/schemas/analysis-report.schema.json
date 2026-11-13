@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "video-analysis-report.schema.json",
-  "description": "Gxgen 视频分析报告结构参考 Schema",
+  "description": "OmniMux 视频分析报告结构参考 Schema",
   "type": "object",
   "properties": {
     "evidence_level": {

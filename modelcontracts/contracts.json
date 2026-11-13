@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "ecd02ea6a28566da",
+  "version": "c2f30fa70259e916",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -7143,7 +7143,7 @@
     "nano-banana-2-1": {
       "model_id": "nano-banana-2-1",
       "schemaVersion": "2.0",
-      "contractVersion": "32975443b2237cec",
+      "contractVersion": "91f5731ae6dc97de",
       "execution_status": "live",
       "family": "image",
       "status": "documented",
@@ -7197,7 +7197,7 @@
               "default": "2K",
               "limitSource": {
                 "kind": "policy_conservative",
-                "note": "内部传输别名：EvoLink 以 quality 承载分辨率；客户端请使用 resolution（已知限制）"
+                "note": "内部传输别名：上游以 quality 承载分辨率；客户端请使用 resolution（已知限制）"
               }
             },
             {
@@ -11786,7 +11786,7 @@
     "wan-3.0": {
       "model_id": "wan-3.0",
       "schemaVersion": "2.0",
-      "contractVersion": "98a5280c0cfde523",
+      "contractVersion": "e2ff354fe51d7c1d",
       "execution_status": "live",
       "family": "video",
       "status": "documented",
@@ -12241,8 +12241,8 @@
         "unit_price_usd": 0.176471,
         "pricing_basis": "duration_seconds",
         "notes": {
-          "en": "Charged by the requested video duration. This amount is the per-second service base: 0.176471 USD/s = official wan3.0-video (standard) 1080P list price ¥1.20/s ÷ 6.8 (canonical FX). The final per-second price includes the group ratio: wan-3.0-720p ×0.5 = 0.0882355 USD/s = ¥0.60/s; wan-3.0-1080p ×1.5 = 0.2647065 USD/s = ¥1.80/s; EvoLink Standard group wan-3.0-standard (×1.0) and Prime group wan-3.0-prime (×1.5) use the official 480P/720P/1080P ratios 0.25/0.5/1.0; use the platform quote before submission. Official list prices: standard https://help.aliyun.com/zh/model-studio/wan3-0-video (480P/720P/1080P = 0.3/0.6/1.2 CNY/s) and prime https://help.aliyun.com/zh/model-studio/wan3-0-video-prime (480P/720P/1080P = 0.45/0.9/1.8 CNY/s), cn-beijing list price excluding limited-time discounts.",
-          "zh": "按请求的视频时长计费，此金额为每秒钟的服务基准价：0.176471 USD/秒 = 官方 wan3.0-video（标准版）1080P 原价 ¥1.20/秒 ÷ 6.8（canonical FX）。实际每秒费用受分组倍率影响：wan-3.0-720p 档 ×0.5 = 0.0882355 USD/秒 = ¥0.60/秒；wan-3.0-1080p 档 ×1.5 = 0.2647065 USD/秒 = ¥1.80/秒；EvoLink 标准档 wan-3.0-standard（×1.0）与优速档 wan-3.0-prime（×1.5）按 480P/720P/1080P 官方档位比例 0.25/0.5/1.0 计费；以平台提交前报价为准。【官方价格来源】标准版 https://help.aliyun.com/zh/model-studio/wan3-0-video（480P/720P/1080P = 0.3/0.6/1.2 元/秒）、高速版 https://help.aliyun.com/zh/model-studio/wan3-0-video-prime（480P/720P/1080P = 0.45/0.9/1.8 元/秒），均为华北2（北京）官方原价、不含限时优惠。"
+          "en": "Charged by the requested video duration. This amount is the per-second service base: 0.176471 USD/s = official wan3.0-video (standard) 1080P list price ¥1.20/s ÷ 6.8 (canonical FX). The final per-second price includes the group ratio: wan-3.0-720p ×0.5 = 0.0882355 USD/s = ¥0.60/s; wan-3.0-1080p ×1.5 = 0.2647065 USD/s = ¥1.80/s; Standard group wan-3.0-standard (×1.0) and Prime group wan-3.0-prime (×1.5) use the official 480P/720P/1080P ratios 0.25/0.5/1.0; use the platform quote before submission. Official list prices: standard https://help.aliyun.com/zh/model-studio/wan3-0-video (480P/720P/1080P = 0.3/0.6/1.2 CNY/s) and prime https://help.aliyun.com/zh/model-studio/wan3-0-video-prime (480P/720P/1080P = 0.45/0.9/1.8 CNY/s), cn-beijing list price excluding limited-time discounts.",
+          "zh": "按请求的视频时长计费，此金额为每秒钟的服务基准价：0.176471 USD/秒 = 官方 wan3.0-video（标准版）1080P 原价 ¥1.20/秒 ÷ 6.8（canonical FX）。实际每秒费用受分组倍率影响：wan-3.0-720p 档 ×0.5 = 0.0882355 USD/秒 = ¥0.60/秒；wan-3.0-1080p 档 ×1.5 = 0.2647065 USD/秒 = ¥1.80/秒；标准档 wan-3.0-standard（×1.0）与优速档 wan-3.0-prime（×1.5）按 480P/720P/1080P 官方档位比例 0.25/0.5/1.0 计费；以平台提交前报价为准。【官方价格来源】标准版 https://help.aliyun.com/zh/model-studio/wan3-0-video（480P/720P/1080P = 0.3/0.6/1.2 元/秒）、高速版 https://help.aliyun.com/zh/model-studio/wan3-0-video-prime（480P/720P/1080P = 0.45/0.9/1.8 元/秒），均为华北2（北京）官方原价、不含限时优惠。"
         }
       }
     },

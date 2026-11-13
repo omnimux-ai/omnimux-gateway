@@ -57,6 +57,22 @@ jobs:
           done
           exit "$status"
 
+  supplier-name-gate:
+    name: Supplier-name gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+
+      # A customer must never read which upstream a channel buys from. The gate
+      # scans only surfaces a customer reads: model ids, the public price list,
+      # the landing page, published API docs and the skills shipped with the CLI.
+      - name: Refuse channel-supplier names on user-visible surfaces
+        run: node scripts/ops/check-supplier-names.mjs
+
   backend:
     name: Backend vet, build, and test
     runs-on: ubuntu-latest

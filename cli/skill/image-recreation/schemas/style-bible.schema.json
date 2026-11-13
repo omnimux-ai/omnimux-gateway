@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gxgen.dev/skills/image-recreation/schemas/style-bible.schema.json",
+  "$id": "https://omnimux.ai/skills/image-recreation/schemas/style-bible.schema.json",
   "title": "Style Bible Schema",
   "description": "图片参考改编任务中的 Style Bible 结构参考。",
   "type": "object",

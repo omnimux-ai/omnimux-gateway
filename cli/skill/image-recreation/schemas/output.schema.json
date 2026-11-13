@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gxgen.dev/skills/image-recreation/schemas/output.schema.json",
+  "$id": "https://omnimux.ai/skills/image-recreation/schemas/output.schema.json",
   "title": "Image Recreation Output Schema",
   "description": "图片参考改编任务的结构化输出参考。",
   "type": "object",

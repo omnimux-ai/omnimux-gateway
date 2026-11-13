@@ -41,5 +41,5 @@ omnimux tokens exec TOKEN_ID --timeout=600 -- curl -sS \
 ## Hard rules
 
 - No admin endpoints.
-- Do not invent Gxgen/editor workflow tool names.
+- Do not invent OmniMux/editor workflow tool names.
 - Analysis/script/storyboard modes must not force generation.

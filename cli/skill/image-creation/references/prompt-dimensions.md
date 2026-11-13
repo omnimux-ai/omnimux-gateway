@@ -2,7 +2,7 @@
 
 > 位置：`server/skills/image/image-creation/references/prompt-dimensions.md`
 > 用途：图片生成的五维 prompt 工程框架，指导 Agent 构造高质量提示词
-> 来源：适配自 baoyu-cover-image 五维体系 + Gxgen 实践
+> 来源：适配自 baoyu-cover-image 五维体系 + OmniMux 实践
 
 ---
 

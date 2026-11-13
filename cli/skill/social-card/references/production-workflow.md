@@ -20,7 +20,7 @@ Use descriptive slugs:
 
 ## HTML/CSS Rendering Pattern
 
-For normal Gxgen project-chat social-card deliverables, use the seed-template structure and render a complete HTML string. Reserve the renderer's compact `cards` input for explicit raw-PNG-only simple drafts or when the HTML would exceed safe tool-call limits; if the task is still a Gxgen deliverable, persist the returned PNGs afterward.
+For normal OmniMux project-chat social-card deliverables, use the seed-template structure and render a complete HTML string. Reserve the renderer's compact `cards` input for explicit raw-PNG-only simple drafts or when the HTML would exceed safe tool-call limits; if the task is still a OmniMux deliverable, persist the returned PNGs afterward.
 
 Build one HTML file containing all frames:
 
@@ -119,7 +119,7 @@ render-html-to-png({
 });
 ```
 
-## Gxgen Template Assembly
+## OmniMux Template Assembly
 
 For project-chat requests that ask for 小红书图文 / social-card / 社交图文卡片 / 图文模板, rendering is not the final step. Use the PNG URLs returned by `render-html-to-png` as page assets, then load and call `workflow-slideshow-persist`.
 
@@ -151,7 +151,7 @@ workflow-slideshow-persist({
 });
 ```
 
-Use `replicationMode: "user_skipped"` when there is no source template being replicated. Do not call the broader slideshow bootstrap tools just to persist already-rendered social-card pages. Stop after rendering only when the user explicitly asks for raw PNG files only, no Gxgen template, no project template creation, or no persistence.
+Use `replicationMode: "user_skipped"` when there is no source template being replicated. Do not call the broader slideshow bootstrap tools just to persist already-rendered social-card pages. Stop after rendering only when the user explicitly asks for raw PNG files only, no OmniMux template, no project template creation, or no persistence.
 
 Do not print the HTML in chat. If the tool-call JSON becomes too long, use `cards` instead of a full HTML string.
 

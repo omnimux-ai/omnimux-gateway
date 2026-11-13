@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "video-analysis-toc.schema.json",
-  "description": "Gxgen 视频分析分段目录结构",
+  "description": "OmniMux 视频分析分段目录结构",
   "type": "object",
   "properties": {
     "evidence_level": {

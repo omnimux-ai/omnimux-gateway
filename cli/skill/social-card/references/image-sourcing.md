@@ -1,4 +1,4 @@
-# Image Sourcing (Gxgen tools)
+# Image Sourcing (OmniMux tools)
 
 This file is read **only when** the Step 1 三选一 gate landed on **Option B (web-sourced)**. If the user supplied images (Option A) or picked AI generation (Option C), skip this file.
 

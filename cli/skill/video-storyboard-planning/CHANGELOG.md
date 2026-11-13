@@ -3,7 +3,7 @@
 ## [1.0.1] - 2026-07-03
 
 ### Governance
-- 标记为 Gxgen 公开业务 skill。
+- 标记为 OmniMux 公开业务 skill。
 - 明确 `tools/` 里的 JavaScript 脚本不是 Agent runtime 核心能力。
 - 明确 `workflows/` 里的 Markdown 是方法模板，不是隐藏阶段机或固定工具序列。
 - 补充 `PUBLICATION-GOVERNANCE.md`，记录公开使用边界与 `canvas/video-storyboard` 的关系。
@@ -50,7 +50,7 @@
 - 强调 AI 出图 / 真人拍摄 / 后期剪辑三类下游可承接性
 
 ### Notes
-- 本版本为通用结构包，后续由 Gxgen 公共 skill 治理流程维护
+- 本版本为通用结构包，后续由 OmniMux 公共 skill 治理流程维护
 - 后续版本可继续补充：
   - `schemas/*.json`
   - `templates/*.md`
