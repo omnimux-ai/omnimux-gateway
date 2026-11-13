@@ -533,7 +533,13 @@ func (s *Service) PurgeUserSeats(ctx context.Context, userId int) error {
 		if aerr != nil {
 			continue
 		}
-		if s.cfg.ZernioActive() && s.client != nil && acc.ProviderAccountID != "" {
+		// fork: zernio-retire — explicit user offboarding must still attempt the
+		// disconnect against a configured Zernio client. ZernioEnabled only gates
+		// *new* publishing, not cleanup: skipping the call here would expire the
+		// seat without ever proving the upstream account is gone, and would turn a
+		// failed purge into a silent data loss instead of the fail-open "leave the
+		// seat occupied" behaviour DeleteUser relies on.
+		if s.client != nil && acc.ProviderAccountID != "" {
 			derr := s.client.DisconnectAccount(ctx, acc.ProviderAccountID)
 			if derr != nil {
 				var apiErr *zernio.APIError
