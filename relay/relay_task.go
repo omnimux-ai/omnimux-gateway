@@ -199,7 +199,7 @@ func ApplyOriginTaskAffinity(c *gin.Context, info *relaycommon.RelayInfo) *dto.T
 // 共享控制器编排负责未落库退款、最终额度预留、落库和结算。
 func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitResult, *dto.TaskError) {
 	if apiErr := service.CheckGenerationDebt(info); apiErr != nil {
-		return nil, service.TaskErrorFromAPIError(apiErr)
+		return nil, service.TaskErrorFromAPIError(c, apiErr)
 	}
 	info.InitChannelMeta(c)
 	// Freeze the fully prepared request before any provider can replace its
@@ -454,7 +454,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if info.Billing == nil && !info.PriceData.FreeModel {
 		info.ForcePreConsume = true
 		if apiErr := service.PreConsumeBilling(c, info.PriceData.Quota, info); apiErr != nil {
-			return nil, service.TaskErrorFromAPIError(apiErr)
+			return nil, service.TaskErrorFromAPIError(c, apiErr)
 		}
 	}
 

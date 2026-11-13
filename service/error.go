@@ -13,9 +13,11 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	taskdto "github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/gin-gonic/gin"
 )
 
 func MidjourneyErrorWrapper(code int, desc string) *taskdto.MidjourneyResponse {
@@ -216,15 +218,37 @@ func TaskErrorWrapper(err error, code string, statusCode int) *taskdto.TaskError
 	return taskError
 }
 
-// TaskErrorFromAPIError 将 PreConsumeBilling 返回的 NewAPIError 转换为 TaskError。
-func TaskErrorFromAPIError(apiErr *types.NewAPIError) *taskdto.TaskError {
+// TaskErrorFromAPIError 将 PreConsumeBilling / generation-debt 返回的 NewAPIError
+// 转换为 TaskError。
+//
+// A skip-retry error is a local, client-side rejection (the account cannot fund
+// the request, the request is invalid, or local state cannot be read). It must
+// not be retried against another channel and must not be recorded as a channel
+// failure, so mark it LocalError: the task retry loop then stops and
+// processChannelError is skipped. Quota rejections also get a stable translated
+// message instead of the raw remaining/required numbers, which flattened
+// clients can mistake for an auth status.
+func TaskErrorFromAPIError(c *gin.Context, apiErr *types.NewAPIError) *taskdto.TaskError {
 	if apiErr == nil {
 		return nil
 	}
+	code := apiErr.GetErrorCode()
+	message := apiErr.Err.Error()
+	local := types.IsSkipRetryError(apiErr)
+	switch code {
+	case types.ErrorCodeInsufficientUserQuota, types.ErrorCodePreConsumeTokenQuotaFailed:
+		local = true
+		if c != nil {
+			message = common.MessageWithRequestId(i18n.T(c, i18n.MsgQuotaInsufficientForTask), c.GetString(common.RequestIdKey))
+		} else {
+			message = i18n.Translate("", i18n.MsgQuotaInsufficientForTask)
+		}
+	}
 	return &taskdto.TaskError{
-		Code:       string(apiErr.GetErrorCode()),
-		Message:    apiErr.Err.Error(),
+		Code:       string(code),
+		Message:    message,
 		StatusCode: apiErr.StatusCode,
 		Error:      apiErr.Err,
+		LocalError: local,
 	}
 }

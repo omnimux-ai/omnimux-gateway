@@ -769,7 +769,7 @@ func executeTaskSubmissionWith(
 			channel, channelErr = getChannel(c, relayInfo, retryParam)
 			if channelErr != nil {
 				logger.LogError(c, channelErr.Error())
-				taskErr = service.TaskErrorWrapperLocal(channelErr.Err, "get_channel_failed", channelErr.StatusCode)
+				taskErr = taskChannelSelectionError(taskErr, channelErr, retryParam.GetRetry())
 				break
 			}
 		}
@@ -1244,7 +1244,31 @@ func taskSubmissionAPIError(taskErr *taskdto.TaskError) *types.NewAPIError {
 	if err == nil {
 		err = errors.New(taskErr.Message)
 	}
-	return types.NewOpenAIError(err, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode)
+	// Preserve the real local code (e.g. insufficient_user_quota) and the
+	// skip-retry semantics for local rejections. Recording every local failure
+	// as bad_response_status_code hides the cause from logs and metrics and lets
+	// the shared policy layer treat it as a retryable upstream error.
+	code := types.ErrorCodeBadResponseStatusCode
+	var options []types.NewAPIErrorOptions
+	if taskErr.LocalError {
+		if taskErr.Code != "" {
+			code = types.ErrorCode(taskErr.Code)
+		}
+		options = append(options, types.ErrOptionWithSkipRetry())
+	}
+	return types.NewOpenAIError(err, code, taskErr.StatusCode, options...)
+}
+
+// taskChannelSelectionError decides what the client sees when channel selection
+// fails inside the task retry loop. A failure before the first attempt is a real
+// "no available channel" rejection; a failure while retrying means the group is
+// exhausted, and the last attempt error is the actionable cause, so keep it
+// instead of masking it with a generic selection error.
+func taskChannelSelectionError(previous *taskdto.TaskError, channelErr *types.NewAPIError, retry int) *taskdto.TaskError {
+	if retry > 0 && previous != nil {
+		return previous
+	}
+	return service.TaskErrorWrapperLocal(channelErr.Err, "get_channel_failed", channelErr.StatusCode)
 }
 
 // decideTaskRetry is the single retry decision for task submissions. The
@@ -1257,6 +1281,10 @@ func decideTaskRetry(c *gin.Context, taskErr *taskdto.TaskError, retryTimes int)
 		stop.Reason = "request_completed"
 	case taskErr.NoRetry:
 		stop.Reason = "task_accepted"
+	case taskErr.Code == string(types.ErrorCodeInsufficientUserQuota),
+		taskErr.Code == string(types.ErrorCodePreConsumeTokenQuotaFailed):
+		// Local quota rejection: no other channel can fund the request.
+		stop.Reason, stop.Source = "non_retryable_error", "system"
 	case service.ShouldSkipRetryAfterChannelAffinityFailure(c):
 		stop.Reason, stop.Source = "strict_session", "session_rule"
 		if source := service.RequestPolicy(c).SessionModeSource; source != "" {
