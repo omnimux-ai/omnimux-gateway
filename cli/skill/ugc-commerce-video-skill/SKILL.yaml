@@ -1,5 +1,5 @@
 schema_version: 1
-kind: gxgen.skill-package-manifest
+kind: omnimux.skill-package-manifest
 
 package:
   id: ugc-commerce-video-skill
@@ -15,7 +15,7 @@ runtime:
   instructions_source: SKILL.md body
   manifest_runtime_role: none
   notes: >
-    This file is package metadata only. Gxgen and Mastra must discover,
+    This file is package metadata only. OmniMux and Mastra must discover,
     index, publish, and activate this skill from SKILL.md. Do not use
     this manifest as a router, workflow owner, tool selector, prompt
     source, completion gate, or runtime policy source.

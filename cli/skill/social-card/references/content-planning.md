@@ -140,7 +140,7 @@ Use visuals only when they support the point:
 - Generated image: missing scene, conceptual hero, stylized product/lifestyle illustration.
 - Diagram: flow, cross-app chain, checklist, system relation.
 
-## Image Source Routing (Gxgen tools)
+## Image Source Routing (OmniMux tools)
 
 When the Step 1 三选一 gate has been answered, route as follows:
 

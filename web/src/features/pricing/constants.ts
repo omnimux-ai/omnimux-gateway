@@ -154,7 +154,7 @@ export const DEFAULT_PRICING_PAGE_SIZE = 20
  */
 export const DEFAULT_PRICING_GROUP = 'default'
 
-/** Modality tabs on the public price list (APIMart-style). */
+/** Modality tabs on the public price list (price-list style). */
 export const MODALITY_FILTERS = {
   ALL: 'all',
   TEXT: 'text',

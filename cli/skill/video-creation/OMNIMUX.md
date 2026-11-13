@@ -53,6 +53,6 @@ Talking-head / multi-take UGC often runs for minutes. Keep the user informed; do
 ## Hard rules
 
 - No admin endpoints.
-- Do not invent Gxgen/editor workflow tool names.
+- Do not invent OmniMux/editor workflow tool names.
 - Analysis/script/storyboard modes must not force generation.
 - Captions stay off unless the user asked (see talking-head contract in `SKILL.md`).

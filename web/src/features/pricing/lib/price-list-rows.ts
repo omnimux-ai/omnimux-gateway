@@ -143,7 +143,7 @@ function pushRow(
 }
 
 /**
- * Expand filtered models into Spec rows for the APIMart-style price table.
+ * Expand filtered models into Spec rows for the price-list style price table.
  * All money strings go through existing formatPrice / formatRequestPrice.
  */
 export function buildPriceListRows(

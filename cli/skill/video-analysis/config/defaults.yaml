@@ -1,7 +1,7 @@
 app:
   name: video-analysis
   version: 1.0.0
-  description: Gxgen 视频分析 skill 的推荐配置
+  description: OmniMux 视频分析 skill 的推荐配置
 
 input:
   accepted_evidence_levels:

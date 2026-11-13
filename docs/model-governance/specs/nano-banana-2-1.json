@@ -119,7 +119,7 @@
       ],
       "limit_source": {
         "kind": "policy_conservative",
-        "note": "内部传输别名：EvoLink 以 quality 承载分辨率；客户端请使用 resolution（已知限制）"
+        "note": "内部传输别名：上游以 quality 承载分辨率；客户端请使用 resolution（已知限制）"
       }
     },
     {

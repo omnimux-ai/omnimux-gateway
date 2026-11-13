@@ -43,5 +43,5 @@ Talking-head / UGC generation is usually long-running: follow **Long-running tas
 ## Hard rules
 
 - No admin endpoints.
-- Do not invent Gxgen/editor workflow tool names.
+- Do not invent OmniMux/editor workflow tool names.
 - Analysis/script/storyboard modes must not force generation.

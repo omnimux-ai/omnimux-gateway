@@ -50,7 +50,7 @@ type FilterState = {
 }
 
 function normalizeViewMode(value: unknown): ViewMode {
-  // Default to table (APIMart-style price list). Card is opt-in.
+  // Default to table (price-list style price list). Card is opt-in.
   if (value === VIEW_MODES.CARD) {
     return VIEW_MODES.CARD
   }
