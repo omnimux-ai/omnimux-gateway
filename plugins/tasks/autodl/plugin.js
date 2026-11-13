@@ -1281,13 +1281,6 @@ function isSuccessEnvelopeCode(value) {
   return text === "ok" || text === "success" || text === "succeed" || text === "succeeded";
 }
 
-function envelopeCode(body) {
-  const value = rawEnvelopeCode(body);
-  if (typeof value === "number") return value;
-  if (typeof value === "string" && /^-?[0-9]+$/.test(value)) return Number(value);
-  return 0;
-}
-
 // Any non-success envelope value is an error. The message must carry both the
 // upstream code and message: a symbolic string code otherwise becomes 0 and the
 // submit path reports a misleading "no task_id".
