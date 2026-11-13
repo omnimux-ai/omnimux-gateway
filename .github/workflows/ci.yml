@@ -73,6 +73,34 @@ jobs:
       - name: Refuse channel-supplier names on user-visible surfaces
         run: node scripts/ops/check-supplier-names.mjs
 
+  model-contract-gate:
+    name: Model capability contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+
+      # The committed projection must equal a fresh projection of the governance
+      # specs, and every declared limit must trace to a source.
+      - name: Contract projection is current
+        run: GOWORK=off go test ./modelcontracts
+
+      - name: Declared limits carry evidence
+        run: node scripts/ops/check-spec-traceability.mjs
+
   backend:
     name: Backend vet, build, and test
     runs-on: ubuntu-latest

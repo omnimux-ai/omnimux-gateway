@@ -55,10 +55,11 @@ test:
 model-contract-check:
 	@echo "Checking model capability contract..."
 	@GOWORK=off go test ./modelcontracts
-	@node scripts/ops/check-model-specs.mjs
 	@node scripts/ops/check-spec-traceability.mjs
-	@node scripts/ops/check-contract-publication.mjs
-	@node scripts/ops/check-model-contract-completeness.mjs
+	@# Three gates read scripts/ops/config-baseline/models.json, which is operations
+	@# material kept in the private repository: model-specs, contract-publication and
+	@# model-contract-completeness. They run where that baseline lives.
+	@echo "skipping operations-only contract gates (model specs, publication, completeness)"
 	@cd web && bunx vitest run src/features/model-playground/lib/__tests__/contract-render-parity.test.ts
 
 reset-setup:
