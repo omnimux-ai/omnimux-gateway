@@ -16,7 +16,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -95,7 +95,7 @@ function modesByPublicId(rows: LedgerRow[]): Map<string, Set<string>> {
   return modes
 }
 
-describe('billing register vs pricing ledger', () => {
+describe.skipIf(!existsSync(LEDGER_DIR))('billing register vs pricing ledger', () => {
   test('enrols every in-service per-call video model as per_call', () => {
     const missing = new Set<string>()
     for (const row of videoRows(ledgerRows())) {

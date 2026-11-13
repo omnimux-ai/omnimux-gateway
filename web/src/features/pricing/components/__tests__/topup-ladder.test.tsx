@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -90,7 +90,7 @@ describe('TopupLadder', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  test('mirrors the canonical ops ladder used for production writes', () => {
+  test.skipIf(!existsSync(LADDER_JSON))('mirrors the canonical ops ladder used for production writes', () => {
     const canonical = JSON.parse(
       readFileSync(LADDER_JSON, 'utf8')
     ) as LadderFile

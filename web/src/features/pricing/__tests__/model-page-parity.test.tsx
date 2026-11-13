@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -52,9 +52,14 @@ type Checklist = {
   checks: { id: string; area: string; compare: string; expect?: string }[]
 }
 
-const checklist = JSON.parse(
-  readFileSync(CHECKLIST_PATH, 'utf8')
-) as Checklist
+// The parity checklist is operations material and is not published with this
+// repository; when it is absent the rendered-DOM parity suite is skipped rather
+// than failing on a missing fixture.
+const HAS_CHECKLIST = existsSync(CHECKLIST_PATH)
+
+const checklist = HAS_CHECKLIST
+  ? (JSON.parse(readFileSync(CHECKLIST_PATH, 'utf8')) as Checklist)
+  : ({ checks: [] } as Checklist)
 
 /** Ids each component under test must render, from the shared checklist. */
 const EXPECTED_BY_COMPONENT: Record<string, string[]> = {
@@ -126,7 +131,7 @@ function parityIds(container: HTMLElement): string[] {
   )
 }
 
-describe('model page parity (rendered DOM)', () => {
+describe.skipIf(!HAS_CHECKLIST)('model page parity (rendered DOM)', () => {
   it('renders every header parity module for an image model', () => {
     const { container } = renderWithProviders(
       <ModelHeader
