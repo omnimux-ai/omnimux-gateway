@@ -461,6 +461,24 @@ func TestAutodlFixtureGolden(t *testing.T) {
 // The sandbox has no imports, so the capability matrix exists twice: the
 // generated file and the marker block inside plugin.js. They must stay
 // byte-identical modulo whitespace.
+// indextts-2 is billed by audio duration only; it must not advertise the video
+// schema's resolution dimension through the public billing_usage_schema.
+func TestAutodlIndexttsUsageProfileIsAudioOnly(t *testing.T) {
+	plugin := loadAutodlPlugin(t)
+
+	schema, examples := plugin.Meta.UsageForModel("indextts-2")
+	require.Contains(t, schema, "seconds")
+	assert.Equal(t, "second", schema["seconds"].Unit)
+	_, hasResolution := schema["resolution"]
+	assert.False(t, hasResolution, "indextts-2 must not advertise a resolution dimension")
+	assert.Empty(t, examples, "the audio profile must not inherit the video examples")
+
+	videoSchema, _ := plugin.Meta.UsageForModel("minimax-h3-video")
+	require.Contains(t, videoSchema, "seconds")
+	require.Contains(t, videoSchema, "resolution")
+	assert.Equal(t, "second", videoSchema["seconds"].Unit)
+}
+
 func TestAutodlGeneratedCapabilityMatrixMatchesPlugin(t *testing.T) {
 	generated, err := os.ReadFile("tasks/autodl/cap.gen.js")
 	require.NoError(t, err)

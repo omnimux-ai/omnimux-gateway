@@ -71,6 +71,22 @@ export const meta = {
     { label: "1088p 5s", facts: { seconds: 5, resolution: "1088p" } },
     { label: "1440p 5s", facts: { seconds: 5, resolution: "1440p" } },
   ],
+  // indextts-2 is speech synthesis, billed by audio duration only. Without a
+  // profile it inherits the video schema above and advertises a `resolution`
+  // dimension it never bills on; the gateway projects this schema into the
+  // public `billing_usage_schema` at read time (model/pricing.go).
+  usageProfiles: [
+    {
+      models: ["indextts-2"],
+      schema: {
+        seconds: {
+          type: "number",
+          unit: "second",
+          description: { en: "Audio duration", zh: "音频时长" },
+        },
+      },
+    },
+  ],
   routes: [
     {
       method: "POST",
@@ -1237,24 +1253,51 @@ function payload(body) {
   return isPlainObject(body.data) ? body.data : body;
 }
 
-function envelopeCode(body) {
-  if (!isPlainObject(body)) return 0;
-  const names = ["code", "status", "err_code", "error_code"];
-  for (const name of names) {
+// The envelope carries code|status|err_code|error_code. `code`, `err_code` and
+// `error_code` may be non-numeric strings (some rejections return a symbolic
+// code); `status` only counts when it is numeric or a numeric string, because
+// task payloads also use status for "QUEUED"/"RUNNING".
+function rawEnvelopeCode(body) {
+  if (!isPlainObject(body)) return undefined;
+  for (const name of ["code", "err_code", "error_code"]) {
     const value = body[name];
     if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && /^-?[0-9]+$/.test(trimmed(value))) return Number(value);
+    if (typeof value === "string" && trimmed(value) !== "") return trimmed(value);
   }
+  for (const name of ["status"]) {
+    const value = body[name];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && /^-?[0-9]+$/.test(trimmed(value))) return trimmed(value);
+  }
+  return undefined;
+}
+
+// 0 / 200 / 201 (number or string), or an explicit ok/success spelling, mean
+// "no envelope error".
+function isSuccessEnvelopeCode(value) {
+  if (typeof value === "number") return value === 0 || value === 200 || value === 201;
+  const text = String(value).trim().toLowerCase();
+  if (text === "" || text === "0" || text === "200" || text === "201") return true;
+  return text === "ok" || text === "success" || text === "succeed" || text === "succeeded";
+}
+
+function envelopeCode(body) {
+  const value = rawEnvelopeCode(body);
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && /^-?[0-9]+$/.test(value)) return Number(value);
   return 0;
 }
 
-// The upstream envelope is {code|status: <number>, msg?: string, data: {...}}.
-// 0 and the HTTP success codes mean "no envelope error".
+// Any non-success envelope value is an error. The message must carry both the
+// upstream code and message: a symbolic string code otherwise becomes 0 and the
+// submit path reports a misleading "no task_id".
 function envelopeError(body) {
-  const code = envelopeCode(body);
-  if (!code || code === 200 || code === 201) return "";
+  const value = rawEnvelopeCode(body);
+  if (value === undefined || isSuccessEnvelopeCode(value)) return "";
   const message = trimmed(body.msg) || trimmed(body.message) || trimmed(body.error_msg) || trimmed(body.error);
-  return message || "autodl upstream rejected the request (code " + code + ")";
+  const code = String(value);
+  if (message) return message + " (code " + code + ")";
+  return "autodl upstream rejected the request (code " + code + ")";
 }
 
 function resultURL(data) {
@@ -1454,7 +1497,10 @@ function openaiVideoRender(task) {
   };
   if (task.updated_at) output.completed_at = task.updated_at;
   const failure = envelopeError(task.data);
-  if (failure) output.error = { message: failure, code: String(envelopeCode(task.data) || "") };
+  if (failure) {
+    const raw = rawEnvelopeCode(task.data);
+    output.error = { message: failure, code: raw === undefined ? "" : String(raw) };
+  }
   return output;
 }
 
@@ -1481,7 +1527,11 @@ export function parseSubmitResponse(ctx, response) {
   if (failure) throw new Error(failure);
   const data = payload(body);
   const taskId = trimmed(data.task_id);
-  if (!taskId) throw new Error("autodl submit failed: the upstream response has no task_id");
+  if (!taskId) {
+    const raw = rawEnvelopeCode(body);
+    const detail = raw === undefined ? "" : " (upstream code " + String(raw) + ")";
+    throw new Error("autodl submit failed: the upstream response has no task_id" + detail);
+  }
   const plan = resolveSubmission(ctx, ctx.requestBody);
   const status = trimmed(data.status).toUpperCase();
   const state = {

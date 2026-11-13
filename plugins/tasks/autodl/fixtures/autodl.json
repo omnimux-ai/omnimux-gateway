@@ -721,6 +721,80 @@
       "expectedError": "invalid token"
     },
     {
+      "name": "submit envelope string code surfaces the upstream code and message",
+      "hook": "parseSubmitResponse",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        },
+        {
+          "statusCode": 200,
+          "headers": {},
+          "body": {
+            "code": "RequestParameterIsWrong",
+            "msg": "prompt too long"
+          }
+        }
+      ],
+      "expectedError": "prompt too long (code RequestParameterIsWrong)"
+    },
+    {
+      "name": "submit envelope string success code still returns the task id",
+      "hook": "parseSubmitResponse",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        },
+        {
+          "statusCode": 200,
+          "headers": {},
+          "body": {
+            "code": "0",
+            "msg": "ok",
+            "data": {
+              "task_id": "task-str",
+              "status": "QUEUED"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "taskId": "task-str",
+        "taskData": {
+          "code": "0",
+          "msg": "ok",
+          "data": {
+            "task_id": "task-str",
+            "status": "QUEUED"
+          }
+        },
+        "state": {
+          "workflowId": "minimax_h3_lightx2v_no_pic",
+          "publicId": "minimax-h3-video",
+          "shape": "text-to-video",
+          "billingMode": "per_second",
+          "seconds": 5,
+          "resolution": "768p"
+        }
+      }
+    },
+    {
       "name": "submit response without task_id fails",
       "hook": "parseSubmitResponse",
       "args": [
@@ -880,7 +954,7 @@
       "expected": {
         "status": "FAILURE",
         "progress": "100%",
-        "reason": "upstream busy"
+        "reason": "upstream busy (code 5001)"
       }
     },
     {
