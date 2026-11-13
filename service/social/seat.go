@@ -243,7 +243,7 @@ func (s *Service) lazyExpireAndRenew(ctx context.Context, userId int) error {
 		}
 		if seat.OccupiedAccountID != nil {
 			acc, aerr := model.GetSocialAccountByIDForUser(*seat.OccupiedAccountID, userId)
-			if aerr == nil && s.client != nil && acc.ProviderAccountID != "" {
+			if aerr == nil && s.cfg.ZernioActive() && s.client != nil && acc.ProviderAccountID != "" {
 				_ = s.client.DisconnectAccount(ctx, acc.ProviderAccountID)
 			}
 			if aerr == nil {
@@ -335,7 +335,7 @@ func (s *Service) ingestUpstreamAccount(ctx context.Context, userId int, tenant 
 
 	acc, gateErr := s.applySeatGate(ctx, userId, draft, existing)
 	if gateErr != nil {
-		if compensateDisconnect && s.client != nil {
+		if compensateDisconnect && s.cfg.ZernioActive() && s.client != nil {
 			_ = s.client.DisconnectAccount(ctx, draft.ProviderAccountID)
 		}
 		return nil, gateErr
@@ -533,7 +533,7 @@ func (s *Service) PurgeUserSeats(ctx context.Context, userId int) error {
 		if aerr != nil {
 			continue
 		}
-		if s.client != nil && acc.ProviderAccountID != "" {
+		if s.cfg.ZernioActive() && s.client != nil && acc.ProviderAccountID != "" {
 			derr := s.client.DisconnectAccount(ctx, acc.ProviderAccountID)
 			if derr != nil {
 				var apiErr *zernio.APIError
