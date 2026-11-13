@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Core-change gate.
+# Enable: git config core.hooksPath .githooks
+#
+# The deployment, model-audit and docs-sync gates that used to run here depend
+# on the operations material that lives in the private operations repository,
+# so they are not part of this repository's commit path. CI keeps
+# `core-change-gate` for protected product paths.
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+"${ROOT}/scripts/ops/check-core-change-gate.sh" staged
