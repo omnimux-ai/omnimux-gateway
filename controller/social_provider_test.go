@@ -40,7 +40,9 @@ func TestSocialProviderHTTPIsolation(t *testing.T) {
 	t.Cleanup(upstream.Close)
 	setSocialService(social.NewService(social.Config{
 		Enabled: true, APIKey: "test-zernio", BaseURL: upstream.URL,
-		Platforms: []string{"tiktok"}, TikTokDirectEnabled: true,
+		// fork: zernio-retire — keep both sources reachable for provider isolation.
+		ZernioEnabled: true,
+		Platforms:     []string{"tiktok"}, TikTokDirectEnabled: true,
 		TikTokClientKey: "test-key", TikTokClientSecret: "test-secret",
 		TikTokRedirectURI: "https://omnimux.ai/api/social/v1/oauth/tiktok/callback",
 		SocialTokenEncKey: base64.StdEncoding.EncodeToString(make([]byte, 32)),
@@ -157,6 +159,77 @@ func TestSocialProviderHTTPIsolation(t *testing.T) {
 	require.NoError(t, db.First(&unchanged, 1).Error)
 	assert.Equal(t, "active", unchanged.Status)
 	assert.Equal(t, "zernio", unchanged.Provider)
+}
+
+// fork: zernio-retire — the retired source is gone at the HTTP boundary; local
+// capabilities (accounts list of the official source, seats) keep working.
+func TestSocialProviderRetirement(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	oldDB, oldService := model.DB, socialSvc
+	model.DB = db
+	t.Cleanup(func() { model.DB, socialSvc = oldDB, oldService; _ = sqlDB.Close() })
+	require.NoError(t, db.AutoMigrate(&model.SocialAccount{}, &model.SocialPost{}, &model.SocialSeat{}))
+	require.NoError(t, db.Create(&model.SocialAccount{
+		ID: 2, UserId: 7, Provider: "tiktok_direct", ProviderAccountID: "d2", Platform: "tiktok", Status: "active",
+	}).Error)
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(upstream.Close)
+	setSocialService(social.NewService(social.Config{
+		Enabled: true, APIKey: "test-zernio", BaseURL: upstream.URL,
+		ZernioEnabled: false,
+		Platforms:     []string{"tiktok"}, TikTokDirectEnabled: true,
+		TikTokClientKey: "test-key", TikTokClientSecret: "test-secret",
+		TikTokRedirectURI: "https://omnimux.ai/api/social/v1/oauth/tiktok/callback",
+		SocialTokenEncKey: base64.StdEncoding.EncodeToString(make([]byte, 32)),
+	}))
+	router := gin.New()
+	router.Use(func(c *gin.Context) { c.Set("id", 7); c.Next() })
+	router.GET("/accounts", SocialListAccounts)
+	router.GET("/seats", SocialSeats)
+	router.POST("/connect", SocialConnect)
+	router.DELETE("/accounts/:id", SocialDisconnectAccount)
+	router.POST("/posts", SocialCreatePost)
+	router.GET("/posts/:id", SocialGetPost)
+
+	request := func(method, path, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		return w
+	}
+
+	for _, tc := range []struct{ method, path, body string }{
+		{"GET", "/accounts?provider=zernio", ""},
+		{"POST", "/connect", `{"provider":"zernio","platform":"tiktok"}`},
+		{"DELETE", "/accounts/2?provider=zernio", ""},
+		{"POST", "/posts", `{"provider":"zernio","content":"test","account_ids":[2]}`},
+		{"GET", "/posts/1?provider=zernio", ""},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			w := request(tc.method, tc.path, tc.body)
+			assert.Equal(t, http.StatusGone, w.Code, w.Body.String())
+			assert.Contains(t, w.Body.String(), `"code":"provider-retired"`)
+		})
+	}
+	assert.Zero(t, calls.Load(), "retired source must not reach upstream")
+
+	w := request("GET", "/accounts?provider=tiktok_direct", "")
+	require.Equal(t, 200, w.Code, w.Body.String())
+	assert.Contains(t, w.Body.String(), `"tiktok_direct"`)
+
+	w = request("GET", "/seats", "")
+	require.Equal(t, 200, w.Code, w.Body.String())
+	assert.Contains(t, w.Body.String(), `"billing_mode"`)
 }
 
 func TestRenderTikTokCallbackPageEscapesDynamicValues(t *testing.T) {

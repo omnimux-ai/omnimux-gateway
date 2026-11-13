@@ -11,16 +11,27 @@ import (
 )
 
 var (
-	ErrProviderInvalid         = errors.New("provider must be tiktok_direct or zernio")
+	ErrProviderInvalid         = errors.New("provider must be tiktok_direct")
+	ErrProviderRetired         = errors.New("provider is retired; use tiktok_direct")
 	ErrAccountProviderMismatch = errors.New("account-provider-mismatch")
 	ErrPostProviderMismatch    = errors.New("post-provider-mismatch")
 )
 
-func validateProvider(provider string) error {
-	if provider != ProviderTikTokDirect && provider != ProviderZernio {
+// validateProvider enforces the official-only source. Zernio is retired and only
+// reachable while the rollback switch is on.
+// fork: zernio-retire
+func validateProvider(provider string, zernioActive bool) error {
+	switch provider {
+	case ProviderTikTokDirect:
+		return nil
+	case ProviderZernio:
+		if !zernioActive {
+			return ErrProviderRetired
+		}
+		return nil
+	default:
 		return ErrProviderInvalid
 	}
-	return nil
 }
 
 func validateAccountProvider(provider string, accounts []*model.SocialAccount) error {

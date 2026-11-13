@@ -233,7 +233,7 @@ func firstNonEmpty(v, fallback string) string {
 
 // GetTikTokCreatorInfo queries live TikTok creator publishing settings for an owned direct account.
 func (s *Service) GetTikTokCreatorInfo(ctx context.Context, userId int, provider string, localAccountID int64) (*tiktok.CreatorInfo, error) {
-	if err := validateProvider(provider); err != nil {
+	if err := validateProvider(provider, s.cfg.ZernioActive()); err != nil {
 		return nil, err
 	}
 	if !s.cfg.Enabled {

@@ -108,6 +108,9 @@ func socialError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, social.ErrProviderInvalid):
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "code": "invalid-provider"})
+	// fork: zernio-retire — the removed source is gone, not merely absent.
+	case errors.Is(err, social.ErrProviderRetired):
+		c.JSON(http.StatusGone, gin.H{"success": false, "message": err.Error(), "code": "provider-retired"})
 	case errors.Is(err, social.ErrAccountProviderMismatch):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "code": "account-provider-mismatch"})
 	case errors.Is(err, social.ErrPostProviderMismatch):

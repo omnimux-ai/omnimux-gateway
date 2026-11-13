@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/service/social/zernio"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"gorm.io/gorm"
 )
 
@@ -109,8 +109,9 @@ func (s *Service) PreflightConnect(userId int) error {
 }
 
 func (s *Service) SeatsView(ctx context.Context, userId int) (*SeatView, error) {
-	if err := s.requireReady(); err != nil {
-		return nil, err
+	// fork: zernio-retire — seats are local billing state, not an upstream call.
+	if !s.cfg.Enabled {
+		return nil, ErrDisabled
 	}
 	if seatBillingOn() {
 		_ = s.lazyExpireAndRenew(ctx, userId)

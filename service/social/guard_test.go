@@ -123,6 +123,49 @@ func TestValidateRedirectURL(t *testing.T) {
 func TestServiceRequireReady(t *testing.T) {
 	s := NewService(Config{Enabled: false})
 	assert.ErrorIs(t, s.requireReady(), ErrDisabled)
-	s = NewService(Config{Enabled: true, APIKey: "", BaseURL: defaultBaseURL})
+	s = NewService(Config{Enabled: true, APIKey: "", BaseURL: defaultBaseURL, ZernioEnabled: true})
 	assert.ErrorIs(t, s.requireReady(), ErrNotConfigured)
+	// fork: zernio-retire — a configured but retired proxy is not an upstream.
+	s = NewService(Config{Enabled: true, APIKey: "k", BaseURL: defaultBaseURL, ZernioEnabled: false})
+	assert.ErrorIs(t, s.requireReady(), ErrNotConfigured)
+}
+
+func TestValidateProviderRetirement(t *testing.T) {
+	cases := []struct {
+		name         string
+		provider     string
+		zernioActive bool
+		want         error
+	}{
+		{"official direct", ProviderTikTokDirect, false, nil},
+		{"retired source", ProviderZernio, false, ErrProviderRetired},
+		{"rollback source", ProviderZernio, true, nil},
+		{"unknown source", "unknown", false, ErrProviderInvalid},
+		{"missing source", "", false, ErrProviderInvalid},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.ErrorIs(t, validateProvider(tc.provider, tc.zernioActive), tc.want)
+		})
+	}
+}
+
+func TestStatusNamesOfficialSourceOnly(t *testing.T) {
+	retired := NewService(Config{
+		Enabled: true, ZernioEnabled: false, APIKey: "k", BaseURL: defaultBaseURL,
+		Platforms: []string{"tiktok", "instagram"}, TikTokDirectEnabled: true,
+		TikTokClientKey: "key", TikTokClientSecret: "secret",
+		TikTokRedirectURI: "https://omnimux.ai/api/social/v1/oauth/tiktok/callback",
+	})
+	got := retired.Status()
+	assert.Equal(t, "official", got["provider"])
+	assert.Equal(t, []string{"tiktok"}, got["platforms"])
+
+	rollback := NewService(Config{
+		Enabled: true, ZernioEnabled: true, APIKey: "k", BaseURL: defaultBaseURL,
+		Platforms: []string{"tiktok", "instagram"},
+	})
+	got = rollback.Status()
+	assert.Equal(t, ProviderZernio, got["provider"])
+	assert.Equal(t, []string{"tiktok", "instagram"}, got["platforms"])
 }
