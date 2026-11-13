@@ -1,0 +1,74 @@
+{
+ "model_id": "doubao-asr-bigmodel",
+ "family": "audio",
+ "vendor": "火山引擎",
+ "vendor_model_id": "bigmodel",
+ "capability": "语音识别（豆包大模型录音文件识别）",
+ "operations": [
+  "transcription"
+ ],
+ "status": "partial",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "厂商侧模型名就是 bigmodel：该家族接口的 model_name 目前只有 bigmodel 一个取值（与本 ID 的 bigmodel 后缀对应）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile-flash",
+   "quote": "Currently, only `bigmodel`is available.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "该家族接口路径即 /api/v3/auc/bigmodel/*（标准模式提交任务）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofilesubmittask",
+   "quote": "https://voice.ap-southeast-1.bytepluses.com/api/v3/auc/bigmodel/submit",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "同一 bigmodel 命名下存在两套不同限制：快速模式 ≤2 小时",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile-flash",
+   "quote": "Max duration: 2 hours",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "同一 bigmodel 命名下存在两套不同限制：快速模式 ≤100MB",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile-flash",
+   "quote": "Max file size: 100MB",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出为文本转录结果（该 ASR 服务的输出形态）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile",
+   "quote": "The Audio File Speech Recognition API converts audio files into text through asynchronous processing, supporting multiple audio formats and delivering accurate transcription results.",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "audio_kind": "asr",
+ "input_formats": [],
+ "max_input_bytes": null,
+ "max_input_seconds": null,
+ "output_formats": [
+  "text"
+ ],
+ "voices": null,
+ "languages": null,
+ "unknowns": [
+  "文件大小与音频时长上限未定：CN 官方页 docs.volcengine.com/docs/6561/1354868 正文为 JS 渲染，本环境取不到内容；BytePlus 官方页在同一 bigmodel 命名下给出两套口径（标准模式 <5 小时 / <512MB，快速模式 ≤2 小时 / ≤100MB），无法确认本 ID 对应哪一套，故两个数字都记 null 而不是二选一",
+  "输入音频编码/容器格式未定：标准模式列 OPUS/WAV/MP3/SPX/OGG/AMR/AAC/M4A，快速模式列 raw/wav/mp3/ogg（容器）+ raw/opus（编码），同样无法确认归属，故 input_formats 记空数组",
+  "支持的语言清单：可读的官方页面未按本 ID 单独给出，故 languages 记 null",
+  "该 ID 是否等价于 Seed ASR 资源 ID（volc.seedasr.auc / volc.bigasr.auc）之一未确认；本 ID 使用 bigmodel 这一模型名而非资源 ID 名"
+ ],
+ "notes": "结论先说：本模型**有**官方出处，但**没有可确证的数字**，所以数字全部留空并列入 unknowns，不拿同族兄弟模型的数值顶替。证据链：本 ID 挂在「官方直连-火山」线路（渠道 43，type 45 VolcEngine，upstream_id 与公开 ID 相同），与 seedasr-auc / bigasr-auc 同渠道；字节跳动官方国际站 BytePlus（Seed Speech）的录音文件识别接口用 model_name=bigmodel、路径 /api/v3/auc/bigmodel/*，与本 ID 的「asr-bigmodel」字面对应，故 vendor_model_id 记 bigmodel。但同一 bigmodel 命名下标准模式（异步 submit/query）与快速模式（单次请求响应）的限制完全不同，而 CN 官方页（docs.volcengine.com/docs/6561/1354868、1354869、2630027）是 JS 渲染页，本环境用 curl 只能拿到壳、拿不到正文，因此无法判定本 ID 属于哪一套。补证建议：在火山引擎控制台开通后按官方文档实测文件上限，或取得 CN 文档正文后再回填本档案。",
+ "billing": {
+  "unit": "per_token",
+  "unit_label": {
+   "zh": "每百万词元",
+   "en": "per 1M tokens"
+  },
+  "pricing_basis": "reported_tokens",
+  "model_ratio": 1.5,
+  "notes": {
+   "zh": "按上游返回的词元用量计费，单价为每百万词元美元价",
+   "en": "Charged by reported token usage; price is USD per 1M tokens"
+  },
+  "unit_price_usd": 3.0
+ }
+}

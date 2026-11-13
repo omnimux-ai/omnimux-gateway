@@ -1,0 +1,59 @@
+{
+  "model_id": "grok-4.3",
+  "family": "llm",
+  "vendor": "xAI",
+  "vendor_model_id": "grok-4.3",
+  "capability": "文本生成（可配置推理强度）",
+  "operations": [
+    "chat_completion"
+  ],
+  "status": "retired",
+  "checked_at": "2026-09-14",
+  "context_window_tokens": 1000000,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "context_window_tokens = 1000000：官方模型卡 At a glance 写明上下文窗口为 1,000,000 tokens",
+      "url": "https://docs.x.ai/developers/models/grok-4.3",
+      "quote": "- **Context window:** 1,000,000 tokens\n- **Model name:** `grok-4.3`",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities = [\"text\", \"image\"]：官方模型卡写明模态为 text, image → text",
+      "url": "https://docs.x.ai/developers/models/grok-4.3",
+      "quote": "- **Modalities:** text, image → text",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling = true：官方模型卡 Capabilities 段写明 Function calling: Yes",
+      "url": "https://docs.x.ai/developers/models/grok-4.3",
+      "quote": "- **Function calling:** Yes\n- **Structured outputs:** Yes\n- **Reasoning:** Yes",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming = true：官方流式文档声明「所有具备文本输出能力的模型」均支持流式输出，本模型为文本输出模型故适用",
+      "url": "https://docs.x.ai/developers/model-capabilities/text/streaming",
+      "quote": "Streaming outputs is **supported by all models with text output capability** (Chat, Image Understanding, etc.).",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching = true：官方模型与定价页为该模型单列 Cached input 单价（$0.20 / 1M），即该模型参与缓存计费",
+      "url": "https://docs.x.ai/docs/models",
+      "quote": "| grok-4.3 (< 200k prompt tokens) | 1M | $1.25 | $0.20 | $2.50 |",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "unknowns": [
+    "max_output_tokens：官方模型卡未公布该模型的输出令牌上限，未在 docs.x.ai 找到数字声明，故留 null",
+    "端点层默认值（max_completion_tokens 未设置时 128,000）是 /v1/chat/completions 的通用默认，不是本模型规格，不写入"
+  ],
+  "notes": "官方模型卡另有两项可参考的规格（不影响本契约字段，但影响网关参数透传）：Reasoning efforts (supported) 为 none / low / medium / high / xhigh，默认 low —— 注意这是本模型独有的 none 档，grok-4.5 与 grok-4.6 的受支持档位里没有 none。Batch API 受支持。官方文档当前以 SpaceXAI 署名，vendor 按对外展示写 xAI。 [2026-09-14 治理下架]: 按业务决策下架 grok-composer 及 4.3 及以下历史型号，仅保留 grok-4.5 与 grok-4.6。",
+  "retired_at": "2026-09-14"
+}

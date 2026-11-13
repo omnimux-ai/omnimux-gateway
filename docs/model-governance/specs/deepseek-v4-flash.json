@@ -1,0 +1,107 @@
+{
+  "model_id": "deepseek-v4-flash",
+  "family": "llm",
+  "vendor": "DeepSeek",
+  "vendor_model_id": "deepseek-v4-flash",
+  "capability": "文本与图像理解的对话、推理与工具调用（官方已退役 ID，兼容路由至 DeepSeek-V4.1-Flash）",
+  "operations": [
+    "chat_completion",
+    "streaming",
+    "tool_calling",
+    "image_input",
+    "prompt_caching"
+  ],
+  "status": "partial",
+  "checked_at": "2026-09-17",
+  "sources": [
+    {
+      "claim": "deepseek-v4-flash 已退役，官方将其兼容路由至 DeepSeek-V4.1-Flash（即 deepseek-flash）",
+      "url": "https://api-docs.deepseek.com/quick_start/pricing/",
+      "quote": "Use deepseek-flash as the model name. The legacy names deepseek-v4-flash and deepseek-v4-flash-vision-exp are still accepted, but the corresponding models have been retired, their requests are served by the DeepSeek-V4.1-Flash model and billed at the Flash price.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方更新日志：deepseek-v4-flash 为临时兼容路由",
+      "url": "https://api-docs.deepseek.com/updates",
+      "quote": "The previous-generation models V4 Flash and V4 Flash Vision Exp have been retired; for compatibility, the model names deepseek-v4-flash and deepseek-v4-flash-vision-exp are temporarily routed to V4.1 Flash.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "context_window_tokens=1000000",
+      "url": "https://api-docs.deepseek.com/quick_start/pricing/",
+      "quote": "CONTEXT LENGTH 1M",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_output_tokens=384000",
+      "url": "https://api-docs.deepseek.com/quick_start/pricing/",
+      "quote": "MAX OUTPUT MAXIMUM: 384K",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities 含 image（Vision 列：deepseek-flash 支持、deepseek-v4-pro 不支持）",
+      "url": "https://api-docs.deepseek.com/quick_start/pricing/",
+      "quote": "Vision ✓ Not supported",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling=true（官方模型表 Tool Calls 支持）",
+      "url": "https://api-docs.deepseek.com/quick_start/pricing/",
+      "quote": "Tool Calls ✓ ✓",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming=true（Chat Completions 支持 stream 参数，SSE 增量返回）",
+      "url": "https://api-docs.deepseek.com/api/create-chat-completion",
+      "quote": "If set, partial message deltas will be sent. Tokens will be sent as data-only server-sent events (SSE) as they become available, with the stream terminated by a data: [DONE] message.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching=true（上下文硬盘缓存默认对全部用户开启）",
+      "url": "https://api-docs.deepseek.com/guides/kv_cache",
+      "quote": "The DeepSeek API Context Caching on Disk Technology is enabled by default for all users, allowing them to benefit without needing to modify their code.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "reference_images.formats：官方视觉指南列出 JPEG/PNG/GIF/WebP",
+      "url": "https://api-docs.deepseek.com/guides/vision",
+      "quote": "Supported image formats: **JPEG, PNG, GIF, and WebP**. The format is detected from the actual file content, not from the file name or the declared MIME type.",
+      "retrieved_at": "2026-09-17"
+    }
+  ],
+  "notes": "该 ID 在官方文档中已退役：现网模型名为 deepseek-flash（DeepSeek-V4.1-Flash），deepseek-v4-flash 作为兼容别名被接受并路由到该模型，计费按 Flash 价。因此本档案的上下文/输出/能力数值取自官方 deepseek-flash（DeepSeek-V4.1-Flash）一列，属官方兼容别名路由关系，而非借用邻近版本规格。官方措辞为 temporarily routed，未承诺长期保留。 【过渡指引】：建议调用端在后续升级中平滑迁移至官方现网正式 ID deepseek-flash，两者功能与计费完全同等。 2026-09-17 按官方视觉指南补齐图片 MIME（JPEG/PNG/GIF/WebP）。",
+  "context_window_tokens": 1000000,
+  "max_output_tokens": 384000,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "unknowns": [
+    "deepseek-v4-flash 兼容别名路由的保留期限（官方仅称 temporarily routed，未给出下线日期）",
+    "退役前 V4 Flash 自身的原始上下文/输出规格未在现网官方文档中保留，本档案数值为现行路由目标 DeepSeek-V4.1-Flash 的规格"
+  ],
+  "routing": [
+    {
+      "group": "default",
+      "upstream_model_id": "deepseek-v4-flash",
+      "channel_id": 13,
+      "channel_name": "[个人中转-ApiKeyFun] DeepSeek 系列",
+      "channel_type": 59,
+      "priority": 20,
+      "weight": 10,
+      "tier_note": "官方兼容过渡别名线路，透明路由至官方现网 deepseek-flash（DeepSeek-V4.1-Flash）"
+    }
+  ],
+  "reference_images": {
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp"
+    ],
+    "source_claim": "官方视觉指南 Supported image formats: JPEG, PNG, GIF, and WebP"
+  }
+}

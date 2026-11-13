@@ -1,0 +1,89 @@
+{
+  "model_id": "nano-banana-pro",
+  "family": "image",
+  "vendor": "Google",
+  "vendor_model_id": "gemini-3-pro-image",
+  "capability": "图像生成与编辑（Gemini 3 Pro Image / Nano Banana Pro）",
+  "operations": ["text_to_image", "image_to_image"],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "官方模型页确认 Model ID 为 gemini-3-pro-image，页面标题含 Nano Banana Pro",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Model ID gemini-3-pro-image",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单次请求最多 14 张输入图",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Maximum images per prompt: 14",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单文件大小上限：内联数据或控制台直传 7 MB，来自 Cloud Storage 30 MB",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Maximum file size per file for inline data or direct uploads through the console: 7 MB Maximum file size per file from Google Cloud Storage: 30 MB",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "支持的图片 MIME 类型",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Supported MIME types: image/png , image/jpeg , image/webp , image/heic , image/heif",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "支持的输出分辨率档位为 1K / 2K / 4K",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Supported resolutions: 1K, 2K, 4K",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "支持的宽高比共 15 种",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Supported aspect ratios: 1:1, 3:2, 2:3, 3:4, 1:4, 4:1, 4:3, 4:5, 5:4, 1:8, 8:1, 9:16, 16:9, 21:9, 9:21",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "上下文窗口 65,536 token，最大输出 32,768 token",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Context window 65,536 Maximum output tokens 32,768",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方发布博客给出 14 张标准输入的产品口径",
+      "url": "https://blog.google/innovation-and-ai/technology/developers-tools/gemini-3-pro-image-developers/",
+      "quote": "Achieve consistent resemblance for up to five individuals, integrate six high-fidelity shots, or blend as many as fourteen standard inputs into a single, polished ad.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方发布博客确认提供 2K 与 4K 输出",
+      "url": "https://blog.google/innovation-and-ai/technology/developers-tools/gemini-3-pro-image-developers/",
+      "quote": "With 2K and 4k resolution available, you can ensure outputs meet resolution standards required for professional production.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "该模型为 GA，发布日期 2026-05-28",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image",
+      "quote": "Versions gemini-3-pro-image Launch stage: GA Release date: May 28, 2026",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "reference_images": {
+    "max": 14,
+    "min": 0,
+    "formats": ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"],
+    "max_bytes_each": 7340032,
+    "source_claim": "单文件大小上限：内联数据或控制台直传 7 MB，来自 Cloud Storage 30 MB"
+  },
+  "output_sizes": ["1K", "2K", "4K"],
+  "output_formats": null,
+  "prompt_max_chars": null,
+  "unknowns": [
+    "输出图片文件格式（官方页面只把 MIME 类型列在输入图规格下，未单独声明输出编码格式）",
+    "提示词字符数上限（官方以 token 计量：上下文窗口 65,536 token，未给出字符数口径）",
+    "max_bytes_each 取 7 MB 的依据是内联/控制台上传通道；若走 Cloud Storage 导入则为 30 MB，OmniMux 网关按内联上传处理故取较小值",
+    "output_sizes 是 Google 官方的分辨率档位名称（1K/2K/4K），官方未给出各档位的像素尺寸"
+  ],
+  "notes": "两条互相印证的官方出处：模型规格页给出「Maximum images per prompt: 14」，官方发布博客给出产品口径「blend as many as fourteen standard inputs」，数字一致。博客另给出两个更严的子场景限制（最多五个人的一致形象、六张高保真图），属于能力描述而非接口上限，故未写入 reference_images.max。模型页 URL 从 Vertex AI 旧路径 302 跳转而来，当前规范地址为 https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-pro-image 。"
+}

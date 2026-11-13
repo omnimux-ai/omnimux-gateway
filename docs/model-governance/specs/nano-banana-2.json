@@ -1,0 +1,77 @@
+{
+  "model_id": "nano-banana-2",
+  "family": "image",
+  "vendor": "Google",
+  "vendor_model_id": "gemini-3.1-flash-image",
+  "capability": "图像生成与编辑（Gemini 3.1 Flash Image / Nano Banana 2）",
+  "operations": ["text_to_image", "image_to_image"],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "官方模型页确认 Model ID 为 gemini-3.1-flash-image，且该页标题把 Nano Banana 2 与此 ID 对应",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Model ID gemini-3.1-flash-image",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单次请求最多 14 张输入图",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Maximum images per prompt: 14",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单文件大小上限：内联数据或控制台直传 7 MB，来自 Cloud Storage 30 MB",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Maximum file size per file for inline data or direct uploads through the console: 7 MB Maximum file size per file from Google Cloud Storage: 30 MB",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "支持的图片 MIME 类型",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Supported MIME types: image/png , image/jpeg , image/webp , image/heic , image/heif",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "支持的输出分辨率档位为 512 / 1K / 2K / 4K",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Supported resolutions: 512, 1K, 2K, 4K",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "支持的宽高比共 15 种",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Supported aspect ratios: 1:1, 3:2, 2:3, 3:4, 1:4, 4:1, 4:3, 4:5, 5:4, 1:8, 8:1, 9:16, 16:9, 21:9, 9:21",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "上下文窗口 131,072 token，最大输出 32,768 token；输出图数量以 32,768 输出 token 为限",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Context window 131,072 Maximum output tokens 32,768",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "该模型为 GA，发布日期 2026-05-28",
+      "url": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image",
+      "quote": "Versions gemini-3.1-flash-image Launch stage: GA Release date: May 28, 2026",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "reference_images": {
+    "max": 14,
+    "min": 0,
+    "formats": ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"],
+    "max_bytes_each": 7340032,
+    "source_claim": "单文件大小上限：内联数据或控制台直传 7 MB，来自 Cloud Storage 30 MB"
+  },
+  "output_sizes": ["512", "1K", "2K", "4K"],
+  "output_formats": null,
+  "prompt_max_chars": null,
+  "unknowns": [
+    "输出图片文件格式（官方页面只把 MIME 类型列在输入图规格下，未单独声明输出编码格式）",
+    "提示词字符数上限（官方以 token 计量：上下文窗口 131,072 token，未给出字符数口径）",
+    "max_bytes_each 取 7 MB 的依据是内联/控制台上传通道；若走 Cloud Storage 导入则为 30 MB，OmniMux 网关按内联上传处理故取较小值",
+    "output_sizes 是 Google 官方的分辨率档位名称（512/1K/2K/4K），官方未给出各档位的像素尺寸"
+  ],
+  "notes": "vendor_model_id 已确认为 gemini-3.1-flash-image（Nano Banana 2 是产品名，不是 API ID）。官方模型页为 https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-image （从 Vertex AI 旧路径 302 跳转而来）。14 张输入图与 7 MB/30 MB 双档文件上限均逐字取自该页「Technical specifications」段。注意 Google 官方还有 3-1-flash-image-preview 预览版页，本档案对应 GA 版。"
+}

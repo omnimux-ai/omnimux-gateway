@@ -1,0 +1,76 @@
+{
+  "model_id": "minimax-m2.5",
+  "family": "llm",
+  "vendor": "MiniMax",
+  "vendor_model_id": "MiniMax-M2.5",
+  "capability": "文本生成（编码、工具调用与办公生产力）",
+  "operations": [
+    "chat_completion"
+  ],
+  "status": "retired",
+  "checked_at": "2026-09-14",
+  "context_window_tokens": 204800,
+  "max_output_tokens": 204800,
+  "input_modalities": [
+    "text"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "context_window_tokens = 204800：官方 API 概览的支持模型表写明 MiniMax-M2.5 上下文窗口为 204,800",
+      "url": "https://platform.minimax.io/docs/api-reference/api-overview",
+      "quote": "| MiniMax-M2.5           | 204,800        | **Peak Performance. Ultimate Value. Master the Complex (output speed approximately 60 tps)**                                                  |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "context_window_tokens = 204800（第二处独立出处）：官方模型调用指南的模型总览表同样写明 204,800",
+      "url": "https://platform.minimax.io/docs/guides/text-generation",
+      "quote": "| MiniMax-M2.5                                        | 204,800        | **Peak Performance. Ultimate Value. Master the Complex (output speed approximately 60 tps)**                                                  |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_output_tokens = 204800：官方 Anthropic 兼容接口文档写明「其他模型」（该接口的模型枚举包含 MiniMax-M2.5）的 max_tokens 最大值为 204800（200K）",
+      "url": "https://platform.minimax.io/docs/api-reference/text-chat-anthropic",
+      "quote": "Specifies the upper limit for generated content length (in tokens). For MiniMax-M3 the recommended value is 131072 (128K) and the maximum is 524288 (512K); for other models the recommended value is 65536 (64K) and the maximum is 204800 (200K).",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "MiniMax-M2.5 属于上述接口模型枚举中的一员（因此上一条「其他模型」的数值适用于本模型）：官方接口文档的 model 枚举列出 MiniMax-M2.5 与 MiniMax-M2.5-highspeed",
+      "url": "https://platform.minimax.io/docs/api-reference/text-chat-anthropic",
+      "quote": "enum:\n            - MiniMax-M3\n            - MiniMax-M2.7\n            - MiniMax-M2.7-highspeed\n            - MiniMax-M2.5\n            - MiniMax-M2.5-highspeed",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities = [\"text\"]：官方文档明确写明 M2.7、M2.5、M2.1 与 M2 系列仅支持文本与工具调用内容块，不支持图像或视频输入",
+      "url": "https://platform.minimax.io/docs/api-reference/text-chat-anthropic",
+      "quote": "The M2.7, M2.5, M2.1, and M2 series support text and tool-call content blocks only; they do not support image or video input.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling = true：官方 API 概览写明该语言模型接口使用 MiniMax M2.5 等模型「触发工具调用」",
+      "url": "https://platform.minimax.io/docs/api-reference/api-overview",
+      "quote": "The Large Language Model API uses **MiniMax M3**, **MiniMax M2.7**, **MiniMax M2.7 highspeed**, **MiniMax M2.5**, **MiniMax M2.5 highspeed**, **MiniMax M2.1**, **MiniMax M2.1 highspeed**, and **MiniMax M2** to generate conversational content and trigger tool calls based on the provided context.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming = true：官方接口文档为该接口（模型枚举含 MiniMax-M2.5）定义 stream 布尔参数，说明开启后响应以多个分块返回",
+      "url": "https://platform.minimax.io/docs/api-reference/text-chat-anthropic",
+      "quote": "Whether to use streaming output, defaults to `false`. When set to `true`, the response will be returned in chunks",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching = true：官方提示缓存文档的「Supported Models」明确列出被动缓存支持 MiniMax-M2.5 系列",
+      "url": "https://platform.minimax.io/docs/api-reference/text-prompt-caching",
+      "quote": "| Supported Models | MiniMax-M3<br />MiniMax-M2.7 series<br />MiniMax-M2.5 series<br />MiniMax-M2.1 series",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "unknowns": [
+    "官方同时为 M2.5 提供 highspeed 变体（MiniMax-M2.5-highspeed，官方称性能相同、推理显著更快），该变体未在本档案的 11 个模型清单内，故不建档案",
+    "官方将 MiniMax-M2.5 系列归入「Legacy Models（历史模型）」折叠区，本档案记录其规格，但生命周期状态（是否会被下线）官方未给出日期"
+  ],
+  "notes": "家族字段全部有官方出处。关键口径提醒：① 官方明确「The maximum token count refers to the total number of input and output tokens」，故 204,800 的上下文窗口是输入+输出合计，而 max_output_tokens = 204800 来自 max_tokens 参数上限 —— 二者数值相同，实际请求中输出无法用满窗口，需按输入长度扣减；② 官方推荐 max_tokens 用 65536（64K），204800 只是上限；③ 纯文本输入模型（官方明确不支持图像/视频）；④ 官方模型总览已把 M2.5 系列移入 Legacy 区，后续接线优先级应低于 M2.7 / M3。 [2026-09-14 治理下架]: 该模型在目录中存在但全库零渠道承载（死模型），经业务确认下架清理。",
+  "retired_at": "2026-09-14"
+}

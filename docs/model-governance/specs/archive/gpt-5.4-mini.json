@@ -1,0 +1,56 @@
+{
+  "model_id": "gpt-5.4-mini",
+  "family": "llm",
+  "vendor": "OpenAI",
+  "vendor_model_id": "gpt-5.4-mini",
+  "capability": "文本生成（文本+图像输入）",
+  "operations": [
+    "chat"
+  ],
+  "status": "retired",
+  "checked_at": "2026-09-14",
+  "context_window_tokens": 400000,
+  "max_output_tokens": 128000,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "context_window_tokens（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "quote": "- 400,000 context window",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_output_tokens（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "quote": "- 128,000 max output tokens",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "quote": "Input modalities: text, image",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming / tool_calling（function_calling）/ prompt_caching 均列于官方 Supported features",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "quote": "- streaming\n- structured_outputs\n- function_calling\n- file_search\n- file_uploads\n- image_input\n- web_search\n- prompt_caching",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_input_tokens（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "quote": "- Maximum input tokens: 272,000",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "unknowns": [],
+  "notes": "数值取自官方模型页 https://developers.openai.com/api/docs/models/gpt-5.4-mini（其 .md 版本）。 官方 Default snapshot：gpt-5.4-mini-2026-03-17。 官方另列 Maximum input tokens：272,000。 tool_calling 对应官方 Supported features 中的 function_calling；prompt_caching 与 streaming 均为官方明确列出项。 [2026-09-14 治理下架]: 该模型在目录中存在但全库零渠道承载（死模型），经业务确认下架清理。",
+  "retired_at": "2026-09-14"
+}

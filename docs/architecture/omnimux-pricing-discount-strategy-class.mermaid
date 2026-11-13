@@ -1,0 +1,145 @@
+classDiagram
+    class Policy {
+        +int schema_version
+        +string pricing_basis_default
+        +float default_margin_rate
+        +SellFormulas sell_formulas
+        +OfficialDiscount official_discount
+        +Tolerance tolerance
+        +CiGates ci
+        +loadPolicy() Policy
+    }
+
+    class OfficialDiscount {
+        +bool enabled
+        +string source
+        +string source_url
+        +string table
+        +string id_map
+        +string parser
+        +float|null discount_rate
+        +bool cost_floor
+        +string cost_floor_mode
+        +int round_decimals
+        +float model_ratio_baseline_usd_per_1k
+    }
+
+    class LedgerRow {
+        +string public_id
+        +string upstream_id
+        +string billing_mode
+        +string pricing_basis
+        +float|null discount_rate
+        +Cost cost
+        +float margin_rate
+        +OfficialRef official
+        +Sell sell
+        +string status
+    }
+
+    class Cost {
+        +float amount
+        +string currency
+        +string tier_key
+        +map tier_table
+        +string source_id
+        +string captured_at
+        +bool provisional
+    }
+
+    class OfficialRef {
+        +string evolink_id
+        +float amount
+        +string currency
+        +string unit
+        +string tier_key
+        +map tier_table
+        +string table_ref
+        +string captured_at
+    }
+
+    class Sell {
+        +float amount
+        +string currency
+        +string unit
+        +string formula
+        +string omnimux_field
+        +int quota_type
+        +map tier_table
+        +bool clamped_to_cost
+        +float completion_ratio
+    }
+
+    class OfficialEvolinkTable {
+        +int schema_version
+        +string parser
+        +string captured_at
+        +OfficialRow[] models
+    }
+
+    class OfficialRow {
+        +string evolink_id
+        +string display_name
+        +string modality
+        +string billing_unit
+        +OfficialPrice official_price
+        +string[] public_ids
+        +string match
+    }
+
+    class EvolinkIdMap {
+        +IdMapEntry[] entries
+    }
+
+    class PricingLib {
+        +costToUsd(cost, fx) number
+        +suggestedSell(cost, marginRate) number
+        +suggestedSellOfficial(official, d, costUsd, tol) SellPatch
+        +suggestedSellByRow(row, policy, fx, official) Result
+        +toModelRatio(usdPer1k, baseline) number
+        +fromModelRatio(ratio, baseline) number
+    }
+
+    class EvolinkHtmlParser {
+        +parseEvolinkPricingHtml(html) ParseResult
+    }
+
+    class Collect {
+        +collectApimart(path, updateSell)
+        +collectEvolinkOfficial(updateCostLedger)
+    }
+
+    class Reprice {
+        +planReprice(opts) Plan
+        +applyReprice(plan) void
+    }
+
+    class Audit {
+        +validateLedgerStatic(policy, ledgers)
+        +auditLive(policy, ledgers, live)
+    }
+
+    class CheckPr {
+        +main() exitCode
+    }
+
+    class AlignDryRun {
+        +main() Diff
+    }
+
+    Policy --> OfficialDiscount
+    Policy --> PricingLib
+    LedgerRow --> Cost
+    LedgerRow --> OfficialRef
+    LedgerRow --> Sell
+    OfficialEvolinkTable --> OfficialRow
+    Collect --> EvolinkHtmlParser
+    Collect --> OfficialEvolinkTable
+    Collect --> EvolinkIdMap
+    Reprice --> PricingLib
+    Reprice --> OfficialEvolinkTable
+    Reprice --> LedgerRow
+    Audit --> PricingLib
+    CheckPr --> PricingLib
+    AlignDryRun --> LedgerRow
+    OfficialRef --> OfficialEvolinkTable

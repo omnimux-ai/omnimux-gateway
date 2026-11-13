@@ -1,0 +1,150 @@
+{
+  "model_id": "kling-v3",
+  "family": "video",
+  "vendor": "Kuaishou（可灵 Kling）",
+  "vendor_model_id": "kling-3.0",
+  "capability": "视频生成（多镜头 / 音画同步 / 多模态参考）",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "first_last_frame",
+    "video_multi_ref",
+    "video_edit",
+    "motion_control"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "官方模型名称为 Kling 3.0，输入支持文本、图片、视频，生成范围 3~15s，分辨率 720P / 1080P / 4K",
+      "url": "https://klingai.com/document-api/guides/capability-map/video",
+      "quote": "| Kling 3.0 | 音画同步升级，主体一致性增强，支持多镜头叙事 | 文本、图片、视频 | 3~15s | 720P、1080P、4K |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频时长可选 3–15 的整秒，默认 5 秒",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/text-to-video",
+      "quote": "| `settings.duration` | int | 否 | `5` | `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `11`, `12`, `13`, `14`, `15` | 生成视频时长，单位s |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频分辨率可选 720p / 1080p / 4k，默认 720p",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/text-to-video",
+      "quote": "| `settings.resolution` | string | 否 | `720p` | `720p`, `1080p`, `4k` | 生成视频的清晰度 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频纵横比可选 16:9 / 9:16 / 1:1，默认 16:9",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/text-to-video",
+      "quote": "| `settings.aspect_ratio` | string | 否 | `16:9` | `16:9`, `9:16`, `1:1` | 生成视频的画面纵横比（宽:高） |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频 prompt 长度不超过 3072 个字符（建议不超过 2500）",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/text-to-video",
+      "quote": "- `prompt`: 内容长度不能超过3072个字符，建议内容长度不超过2500个字符。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "音频可切换 native（带与画面适配的声音）或 off",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/text-to-video",
+      "quote": "| `settings.audio` | string | 否 | `off` | `native`, `off` | 是否生成带有声音的视频 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Omni 模式素材类型支持提示词、首帧、尾帧、参考图、参考视频、待编辑视频与主体",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni",
+      "quote": "| `contents[].type` | string | 是 | - | `prompt`, `first_frame`, `last_frame`, `refer_image`, `feature_video`, `base_video`, `element` | 素材类型，支持：提示词、参考图、参考视频、主体 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "首位帧与参考图单张不超过 50MB（52428800 字节），格式 .jpg/.jpeg/.png，宽高不小于 300px 且宽高比在 1:2.5 ~ 2.5:1",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni",
+      "quote": "- `contents[].type.first_frame / last_frame / refer_image`: 图片文件大小不能超过50MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图数量上限与主体相关：无参考视频且仅有多图主体时，参考图片与多图主体数量之和不得超过 7",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni",
+      "quote": "- 无参考视频+仅有多图主体时，参考图片与多图主体数量之和不得超过7。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考视频最多 1 段，单文件不超过 200MB（209715200 字节），时长 3–15.5 秒",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni",
+      "quote": "- `contents[].type.feature_video / base_video`: 视频文件大小不能超过200MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "首帧或首尾帧生成视频时最多支持 3 个主体",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni",
+      "quote": "- 使用首帧或首尾帧生成视频时，最多支持3个主体。",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "notes": "官方出处为可灵开放平台 Kling 3.0 & 3.0 Omni 的文生视频 / 图生视频 / Omni 视频生成页面与官方视频能力地图。状态 documented：时长、分辨率、纵横比、prompt 长度、图片与视频素材上限均有官方原文。口径提示：①官方能力地图标注「动作控制：支持: 4K不支持」，即 4K 下无动作控制；②参考图张数上限不是单一常数，而是与「参考主体数量/主体类型/有无参考视频」联动的多个上限（见 sources 中的组合规则），因此 reference_images.max 取官方给出的最宽上限 7 并保留条件说明，前端做限制时不能当无条件上限用；③首尾帧支持「仅首帧」与「首帧+尾帧」，暂不支持仅尾帧。",
+  "unknowns": [
+    "参考图上限随主体组合变化（7 / 4 多档），官方未给出单一无条件上限值",
+    "参考视频的输入帧率以外的字节级限制已给出，但参考音频独立上传上限未公布"
+  ],
+  "reference_images": {
+    "max": 7,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png"
+    ],
+    "max_bytes_each": 52428800,
+    "source_claim": "参考图片与多图主体数量之和最多 7（无参考视频且仅多图主体时）；单张 ≤50MB（52428800 字节）；格式 .jpg/.jpeg/.png"
+  },
+  "reference_videos": {
+    "max": 1,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 209715200,
+    "min_seconds": 3,
+    "max_seconds": 15.5,
+    "source_claim": "参考视频最多 1 段，时长 3–15.5 秒，单文件 ≤200MB（209715200 字节），格式 .mp4/.mov"
+  },
+  "reference_audios": {
+    "max": null,
+    "min": 0,
+    "formats": null,
+    "max_bytes_each": null,
+    "source_claim": "官方未公布参考音频的数量与大小上限"
+  },
+  "durations_seconds": {
+    "min": 3,
+    "max": 15,
+    "allowed": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]
+  },
+  "resolutions": [
+    "720p",
+    "1080p",
+    "4k"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": 3072
+}

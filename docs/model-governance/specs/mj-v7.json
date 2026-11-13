@@ -1,0 +1,73 @@
+{
+  "model_id": "mj-v7",
+  "family": "image",
+  "vendor": "Midjourney",
+  "vendor_model_id": "Midjourney V7",
+  "capability": "图像生成（文生图 / 图生图 / 变体与放大）",
+  "operations": ["text_to_image", "image_to_image"],
+  "status": "partial",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "V7 于 2025-04-03 发布，2025-06-17 至 2026-06-09 为默认版本，且当前仍可选",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "V7 was released on April 3, 2025, and was the default version from June 17, 2025 to June 9, 2026.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "V7 参数用 --version 或 --v 指定",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "Explore and switch between Midjourney versions using the version parameter: --version or --v",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "V7 的参考图（Image Prompt）支持的文件扩展名",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32040250122381-Image-Prompts",
+      "quote": "Your image file should end in .png, .gif, .webp, .jpg, or .jpeg.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方允许一次使用多张参考图，但未给出张数上限",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32040250122381-Image-Prompts",
+      "quote": "Upload two or more images without text to blend them together—similar to using the Blend command in Discord.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图权重 --iw 在 V7 的取值范围为 0-3",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32040250122381-Image-Prompts",
+      "quote": "Version 8.1 Version 7 Niji 7 Image Weight Default 1 1 1 Image Weight Range 0 - 3 0 - 3 0 - 2",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "V6 / V7 / V8.1 & V8.2 的最大宽高比均为 14:1",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "Feature Compatibility & Comparison Chart V6 V7 V8.1 & V8.2 Max. Aspect Ratio 14:1 14:1 14:1 (4:1 for HD)",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "宽高比用 --ar 或 --aspect 指定，默认 1:1",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/31894244298125-Aspect-Ratio",
+      "quote": "Midjourney images start as squares, but you can change this using the aspect ratio parameter: --ar or --aspect",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "reference_images": {
+    "max": null,
+    "min": 0,
+    "formats": ["png", "gif", "webp", "jpg", "jpeg"],
+    "max_bytes_each": null,
+    "source_claim": "官方允许一次使用多张参考图，但未给出张数上限"
+  },
+  "output_sizes": null,
+  "output_formats": null,
+  "prompt_max_chars": null,
+  "unknowns": [
+    "单次参考图（Image Prompt）张数上限：官方文档描述了「两张以上」的用法但未给出上限数字",
+    "单张参考图字节上限",
+    "V7 输出图片的像素尺寸：官方「Image Size & Resolution」文章只给出 V8.2 的 2048x2048(HD)/1024x1024(SD) 与 1:1 例子，未给出 V7 的尺寸",
+    "输出图片文件格式（官方文档未声明下载文件格式）",
+    "提示词字符数上限：官方「Prompt Basics」未公布数值",
+    "Midjourney 无公开官方 API；本档案描述的是官方产品文档口径，OmniMux 的接入经由第三方渠道，上游并不承诺同等行为"
+  ],
+  "notes": "Midjourney 官方帮助中心（docs.midjourney.com）对普通 UA 返回 Cloudflare 403，本档案内容经由该站官方的 Zendesk Help Center JSON 接口（docs.midjourney.com/api/v2/help_center/...）取得，引文与页面正文一致。V7 当前不是默认版本（默认已到 V8.2），但官方版本对照表仍将其列为可用版本。三处数字全部有官方出处：发布日期与默认期、14:1 最大宽高比、--iw 范围 0-3。张数与尺寸上限官方未公布，故留 null 而非套用 V8 的数值。"
+}

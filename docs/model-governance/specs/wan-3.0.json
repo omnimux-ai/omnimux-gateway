@@ -1,0 +1,281 @@
+{
+  "model_id": "wan-3.0",
+  "family": "video",
+  "vendor": "Alibaba",
+  "vendor_model_id": "wan3.0-video",
+  "capability": "视频生成（文生视频 / 图生视频-首帧、首尾帧 / 全模态参考生视频 / 视频编辑 / 视频延长，原生有声）",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "first_last_frame_to_video",
+    "reference_to_video",
+    "video_edit",
+    "video_extend"
+  ],
+  "gateway": {
+    "profile": "apimart_video",
+    "operations": [
+      "text_to_video",
+      "first_frame",
+      "first_last_frame",
+      "video_multi_ref",
+      "document_to_video",
+      "webpage_to_video"
+    ],
+    "source_claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 wan-3.0 允许 text_to_video / first_frame / first_last_frame / video_multi_ref / document_to_video / webpage_to_video"
+  },
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "厂商侧模型名为 wan3.0-video（标准版）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "模型名称。可选值：wan3.0-video-prime：高速版，能力对齐标准版，端到端速度显著提升。wan3.0-video：标准版。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "全能参考（All-in-One）能力与上限：最长 30 秒、30fps，原生输出台词/BGM/音效",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "万相 3.0 是全能参考视频生成模型（All-in-One），统一支持文生视频、图生视频（首帧/首尾帧）和参考生视频等多种用法。最长可生成 30 秒视频，输出帧率为 30fps。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "提示词上限 20000 个字符（超出自动截断）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "支持中英文，每个汉字/字母占一个字符，不超过 20000 个字符，超过部分会自动截断。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输入素材各类型上限：reference_image 最多 10 张、reference_video 最多 5 段总时长不大于 15 秒、reference_audio 最多 5 段总时长不大于 15 秒",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "reference_image ：参考图像。最多 10 张。 reference_video ：参考视频。最多 5 段，总时长不大于 15 秒。 reference_audio ：参考音频。最多 5 段，总时长不大于 15 秒。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图像文件限制：格式 JPEG/JPG/PNG（不支持透明通道）/BMP/WEBP，单边[240, 8000]像素，长宽比不超过 8:1，文件大小不超过 20MB",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "图像限制： 格式：JPEG、JPG、PNG（不支持透明通道）、BMP、WEBP。 分辨率：单边[240, 8000]像素。 长宽比：不超过 8:1。 文件大小：不超过 20MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考视频文件限制：格式 mp4/mov，单个[1, 15]秒且总时长不大于 15 秒，帧率≥16 fps，单边[240, 4096]像素，单文件不超过 100MB",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "视频限制： 格式：mp4、mov。 时长：单个[1, 15]秒，总时长不大于 15 秒。 帧率：≥16 fps。 分辨率：单边[240, 4096]像素。 长宽比：不超过 8:1。 单文件大小：不超过 100MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考音频文件限制：格式 wav/mp3，单个[1, 15]秒且总时长不大于 15 秒，文件大小不超过 15MB",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "音频限制： 格式：wav、mp3。 时长：单个[1, 15]秒，总时长不大于 15 秒。 文件大小：不超过 15MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出时长：无视频输入时取值 [2, 30] 的整数；有视频输入时输入总时长+输出时长不超过 30 秒",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "duration integer （可选） 生成视频的时长，单位为秒。默认值为 5。 无视频输入时：取值范围为[2, 30]的整数。 有视频输入时：输入视频总时长 + 输出视频时长不超过 30 秒。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出分辨率可选值 1080P/720P/480P（默认 1080P）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "resolution string （可选） 生成视频的分辨率档位。默认值为 1080P 。可选值： 1080P 720P 480P",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出宽高比可选值 adaptive（默认）/16:9/4:3/1:1/3:4/9:16",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "ratio string （可选） 生成视频的宽高比。可选值： adaptive （默认值）：自适应长宽比，根据输入媒体比例和意图自动推荐合适的长宽比。 16:9 4:3 1:1 3:4 9:16",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出视频默认包含音轨（audio 默认 true）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "audio boolean （可选） 输出视频是否包含音频。 true ：默认值，输出视频包含声音。 false ：输出视频不包含音轨。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "素材组合规则：first_frame/last_frame 与 reference_* / file / link 互斥；file 与 link 二选一；reference_image/reference_video/reference_audio 之间可自由组合",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "type 组合规则： first_frame / last_frame 与 reference_image / reference_video / reference_audio / file / link 类型互斥，不能在同一请求中混用。 file 和 link 二选一，但均可与 reference_image / reference_video / reference_audio 组合使用。 reference_image / reference_video / reference_audio 之间可自由组合。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "向导页：wan3.0 系列单次生成最长 30 秒、输出帧率 30fps、原生输出台词/BGM/音效，单次最多 20 个多模态素材参考",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-guide",
+      "quote": "wan3.0 系列是 All-in-One 视频生成模型，在有声视频生成、多模态参考和视频编辑能力上全面升级。单次生成最长 30 秒、输出帧率 30fps，并原生输出台词、BGM 和音效，单次支持最多 20 个多模态素材参考（图片、视频、音频、文档、网页），支持首帧/首尾帧控制和视频编辑与延长。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频支持自由设置分辨率、宽高比和时长；参数范围为 resolution=480P/720P/1080P，ratio=16:9/4:3/1:1/3:4/9:16，duration=2~30 秒或 -1",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-guide",
+      "quote": "参数配置 ： resolution =480P/720P/1080P（默认）， ratio =16:9/4:3/1:1/3:4/9:16， duration =2~30 秒或-1（智能时长）。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "wan3.0-video 与 wan3.0-video-prime 均为 All-in-One，同一模型名覆盖全部任务类型",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-guide",
+      "quote": "wan3.0-video / wan3.0-video-prime 是 All-in-One 模型，无需切换模型名称即可覆盖以下全部任务类型。模型根据 input.media 中的 type 字段和提示词意图自动路由。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "file 类型最多 1 个（可与参考图/视频/音频组合），格式含 docx/doc/xlsx/xls/pptx/ppt/pdf/txt/md，大小不超过 100MB、页数不超过 50 页；link 最多 1 个",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "文件限制： 格式：docx、doc、xlsx、xls、pptx、ppt、pdf、txt、key、pages、numbers、md。 文件大小：不超过 100MB。 页数限制：不超过 50 页（对 pdf、docx、doc、pptx、ppt、key、pages 格式校验）。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：文件大小不超过 20MB → 20971520 字节（20 × 1024 × 1024）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "图像限制： 格式：JPEG、JPG、PNG（不支持透明通道）、BMP、WEBP。 分辨率：单边[240, 8000]像素。 长宽比：不超过 8:1。 文件大小：不超过 20MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：单文件大小不超过 100MB → 104857600 字节（100 × 1024 × 1024）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "视频限制： 格式：mp4、mov。 时长：单个[1, 15]秒，总时长不大于 15 秒。 帧率：≥16 fps。 分辨率：单边[240, 4096]像素。 长宽比：不超过 8:1。 单文件大小：不超过 100MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：文件大小不超过 15MB → 15728640 字节（15 × 1024 × 1024）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "音频限制： 格式：wav、mp3。 时长：单个[1, 15]秒，总时长不大于 15 秒。 文件大小：不超过 15MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方原价（标准版 wan3.0-video）：480P 0.3 / 720P 0.6 / 1080P 1.2 元/秒，华北2（北京），页面自述「仅展示模型调用原价」不含限时优惠",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-0-video",
+      "quote": "模型价格：计费单位「每秒」；480P 0.3 元/秒；720P 0.6 元/秒；1080P 1.2 元/秒。（截图 docs/ops/pricing-evidence/aliyun-bailian/aliyun-wan3.0-video-price-table-20261023.png，sha256 3250169183e6e654e352fc0b285e98876245811dbe1885daea4dd68c7e2f7dad；OCR 防伪校验见 .reports/evidence-images/aliyun-wan30-official-ocr-20261023.txt）",
+      "retrieved_at": "2026-10-23"
+    },
+    {
+      "claim": "官方原价（高速版 wan3.0-video-prime）：480P 0.45 / 720P 0.9 / 1080P 1.8 元/秒，华北2（北京）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-0-video-prime",
+      "quote": "模型价格：计费单位「每秒」；480P 0.45 元/秒；720P 0.9 元/秒；1080P 1.8 元/秒。（截图 docs/ops/pricing-evidence/aliyun-bailian/aliyun-wan3.0-video-prime-price-table-20261023.png，sha256 3c23313d8dc5e09df296108ff45786c7a44abfa424d69e06e28d85f5aed542d7）",
+      "retrieved_at": "2026-10-23"
+    },
+    {
+      "claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 wan-3.0 允许 text_to_video / first_frame / first_last_frame / video_multi_ref / document_to_video / webpage_to_video",
+      "url": "repo:relay/channel/task/apimart/video_contract.go",
+      "quote": "\"wan-3.0\": { opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true, opDocumentToVideo: true, opWebpageToVideo: true, },",
+      "retrieved_at": "2026-11-08"
+    }
+  ],
+  "notes": "阿里云百炼（Model Studio）官方文档已完整核验：API 参考 help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference 与使用指南 .../wan3-video-generation-guide。厂商侧真实模型名 = wan3.0-video（标准版）。【-ref 关系】本档案对应的 wan-3.0-ref 是「参考驱动变体」：阿里云并未为参考生视频提供单独的模型名——官方明确 wan3.0-video 是 All-in-One，参考生视频只是同一模型在 input.media 中传 reference_image/reference_video/reference_audio 时自动路由出的模式（引文见 sources）。因此 -ref 与标准版的限制完全同源，本档案列出的 reference_images/reference_videos/reference_audios 上限即为官方参考模式上限，并非跨模型照搬。素材组合硬约束：first_frame/last_frame 与 reference_* 及 file/link 互斥（不能同请求混用），故 base 与 ref 的素材口径不可叠加使用。【口径提示】durations_seconds 为输出时长（无视频输入 [2,30] 秒；有视频输入时「输入总时长+输出时长≤30 秒」），与参考视频单段 [1,15] 秒、总时长 ≤15 秒不是同一口径。resolutions 直接采用官方档位写法 480P/720P/1080P（默认 1080P），不做大小写归一。官方额外支持 file（文档，≤1 个）与 link（网页，≤1 个）两类非媒体参考，可感知但不上传素材，故未计入 reference_* 字段。【时长包络口径】durations_seconds 已按本线路实际可用范围收窄为 [4,30] 秒（上游实测 1s/3s 返回 duration is not supported、4s 受理；官方原口径为 [2,30]）；上游文档另载明「含参考视频时输出时长上限 15 秒」，而当前契约使用扁平包络，未按操作（是否带参考视频）细分，故带参考视频的请求实际上限可能低于契约声明的 30 秒。",
+  "reference_images": {
+    "max": 10,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/bmp",
+      "image/webp"
+    ],
+    "max_bytes_each": 20971520,
+    "source_claim": "reference_image：参考图像。最多 10 张；图像文件大小不超过 20MB"
+  },
+  "reference_videos": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 104857600,
+    "source_claim": "reference_video：参考视频。最多 5 段；单文件大小不超过 100MB"
+  },
+  "reference_audios": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "audio/wav",
+      "audio/mpeg"
+    ],
+    "max_bytes_each": 15728640,
+    "source_claim": "reference_audio：参考音频。最多 5 段；文件大小不超过 15MB"
+  },
+  "durations_seconds": {
+    "min": 4,
+    "max": 30
+  },
+  "resolutions": [
+    "480P",
+    "720P",
+    "1080P"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "adaptive"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": 20000,
+  "unknowns": [
+    "参考素材的单类型最小数量：官方未给出 reference_image / reference_video / reference_audio 的最少个数，仅规定 input 中 prompt 与 media 必填其一，故各 min 记为 0（不推断为 1）。",
+    "输出音频规格（采样率、声道、编码）：官方只说明默认包含音轨，未公布采样率与声道参数。",
+    "素材总数口径不一致：向导页称「单次支持最多 20 个多模态素材参考」，而 API 参考页各类型上限之和为 reference_image 10 + reference_video 5 + reference_audio 5 = 20（另 file/link 各 1）；两处口径是否完全等价、file/link 是否计入总数，官方未给出统一说明。",
+    "分辨率与宽高比的可用组合矩阵：官方列出两轴的可选值，但未逐条声明组合是否全部可用（例如 1080P 下 21:9 是否可用——本模型 ratio 未列 21:9，故不作断言）。",
+    "各地域模型可用性：官方说明「各地域支持的模型有所差异，且资源相互独立」，未公布 wan3.0-video 的逐地域可用清单。",
+    "输出帧率的下限与可变性：官方称输出帧率为 30fps（API 返回 fps 默认 30），未说明是否可请求其它帧率。",
+    "上游 SKU `wan30-1080p-fast` 与官方 `wan3.0-video-prime` 是否等价：未证实（unknown）。pidoi 官方文档未收录该条目，上游只暴露自有命名 wan30-1080p-fast；单样本 4 秒档时延与「高速版」预期相反，不足以支持等价断言，故不作任何推断。",
+    "上游 SKU `wan30-1080p-fast` 的时长上界未实测：30 秒探测被上游余额 403 拦截（需预扣 ¥10.50 > 余额 ¥5.354988），而上游先校验余额、后校验时长，故无法区分「时长不支持」与「余额不足」两种成因。充值后须重跑门禁探测方可断言上界。",
+    "上游可用时长下界与官方文档口径不一致：官方文档 wan3.0 无视频输入时为 [2,30] 秒，而 Pidoi 上游对两个 SKU 的 1 秒 / 3 秒请求均返回 400 `duration is not supported by this model`；4 秒在 wan30-720p 上实测通过（1080p-fast 亦有 4 秒出片证据），故上游实际下界≥4 秒。【2026-10-23 修订】已据此把 durations_seconds 由官方口径 [2,30] 收窄为本线路实际能兑现的 [4,30]，避免契约向客户承诺上游必然拒单的 2-3 秒档；含参考视频时的 15 秒上限见 notes。"
+  ],
+  "billing": {
+    "unit": "per_second",
+    "unit_label": {
+      "zh": "每秒",
+      "en": "per second"
+    },
+    "pricing_basis": "duration_seconds",
+    "unit_price_usd": 0.176471,
+    "notes": {
+      "zh": "按请求的视频时长计费，此金额为每秒钟的服务基准价：0.176471 USD/秒 = 官方 wan3.0-video（标准版）1080P 原价 ¥1.20/秒 ÷ 6.8（canonical FX）。实际每秒费用受分组倍率影响：wan-3.0-720p 档 ×0.5 = 0.0882355 USD/秒 = ¥0.60/秒；wan-3.0-1080p 档 ×1.5 = 0.2647065 USD/秒 = ¥1.80/秒；EvoLink 标准档 wan-3.0-standard（×1.0）与优速档 wan-3.0-prime（×1.5）按 480P/720P/1080P 官方档位比例 0.25/0.5/1.0 计费；以平台提交前报价为准。【官方价格来源】标准版 https://help.aliyun.com/zh/model-studio/wan3-0-video（480P/720P/1080P = 0.3/0.6/1.2 元/秒）、高速版 https://help.aliyun.com/zh/model-studio/wan3-0-video-prime（480P/720P/1080P = 0.45/0.9/1.8 元/秒），均为华北2（北京）官方原价、不含限时优惠。",
+      "en": "Charged by the requested video duration. This amount is the per-second service base: 0.176471 USD/s = official wan3.0-video (standard) 1080P list price ¥1.20/s ÷ 6.8 (canonical FX). The final per-second price includes the group ratio: wan-3.0-720p ×0.5 = 0.0882355 USD/s = ¥0.60/s; wan-3.0-1080p ×1.5 = 0.2647065 USD/s = ¥1.80/s; EvoLink Standard group wan-3.0-standard (×1.0) and Prime group wan-3.0-prime (×1.5) use the official 480P/720P/1080P ratios 0.25/0.5/1.0; use the platform quote before submission. Official list prices: standard https://help.aliyun.com/zh/model-studio/wan3-0-video (480P/720P/1080P = 0.3/0.6/1.2 CNY/s) and prime https://help.aliyun.com/zh/model-studio/wan3-0-video-prime (480P/720P/1080P = 0.45/0.9/1.8 CNY/s), cn-beijing list price excluding limited-time discounts."
+    }
+  },
+  "routing": [
+    {
+      "group": "wan-3.0-720p",
+      "upstream_model_id": "wan30-720p",
+      "channel_id": 90,
+      "channel_name": "[个人中转-Pidoi] Wan 3.0 720p 档专线",
+      "channel_type": 1,
+      "priority": 8,
+      "weight": 6,
+      "tier_note": "Pidoi 直采 720p 档（进货 ¥0.20/秒，分组倍率 0.5 → 售 ¥0.60/秒，毛利 66.7%）。上游直连 2/2 通过：/v1/models 暴露 wan30-720p，30 秒任务真实受理并产出 720x1280/30s/30fps 视频。实测可用区间 [4,30] 秒（1s/3s 上游返回 duration is not supported；31s 在余额充足时被拒 → 上界成立）；4K 被拒（resolution is not supported），仅 720p。"
+    },
+    {
+      "group": "wan-3.0-1080p",
+      "upstream_model_id": "wan30-1080p-fast",
+      "channel_id": 91,
+      "channel_name": "[个人中转-Pidoi] Wan 3.0 1080p 档专线",
+      "channel_type": 1,
+      "priority": 9,
+      "weight": 7,
+      "tier_note": "Pidoi 直采 1080p 档（进货 ¥0.35/秒，分组倍率 1.5 → 售 ¥1.80/秒，毛利 80.6%）。4 秒档真实受理并产出 1080x1920/4s/30fps 视频；30 秒探测被上游余额 403 拦截（预扣 ¥10.50 > 余额 ¥5.354988），上界未实测。上游 SKU 与官方 wan3.0-video-prime 的等价性未证实。"
+    },
+    {
+      "group": "wan-3.0-standard",
+      "upstream_model_id": "wan3.0-text-to-video",
+      "channel_id": 101,
+      "channel_name": "[优选中转-Evolink] Wan 3.0 Standard 档专线",
+      "channel_type": 63,
+      "priority": 10,
+      "weight": 5,
+      "tier_note": "EvoLink 标准版文生视频 SKU；实价 480P $0.038 / 720P $0.075 / 1080P $0.150 每秒。公开 ID 仍为 wan-3.0，GroupRatio 1.0；480P/720P/1080P 相对 1080P 官方价的档位比例为 0.25/0.5/1.0，由 APIMart 适配器按上游 SKU 识别并计费。"
+    },
+    {
+      "group": "wan-3.0-prime",
+      "upstream_model_id": "wan3.0-prime-text-to-video",
+      "channel_id": 102,
+      "channel_name": "[优选中转-Evolink] Wan 3.0 Prime 档专线",
+      "channel_type": 63,
+      "priority": 10,
+      "weight": 5,
+      "tier_note": "EvoLink 优速版文生视频 SKU；实价 480P $0.058 / 720P $0.120 / 1080P $0.239 每秒。公开 ID 仍为 wan-3.0，GroupRatio 1.5；官方 Prime 各档恰为 Standard 的 1.5 倍，因此复用同一分辨率档位表。"
+    }
+  ]
+}

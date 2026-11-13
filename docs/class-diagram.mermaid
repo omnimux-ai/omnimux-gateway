@@ -1,0 +1,80 @@
+classDiagram
+    direction TB
+
+    class LucideIcon {
+        <<external-component>>
+    }
+
+    class UseCaseId {
+        <<enumeration/type>>
+        +ecommerce
+        +brand
+        +creator
+    }
+
+    class UseCaseItem {
+        +UseCaseId id
+        +LucideIcon icon
+        +string tagKey
+        +string titleKey
+        +string descKey
+        +string[] highlightsKeys
+        +string badgeKey
+    }
+
+    class UseCasesCatalogConfig {
+        <<static/constants>>
+        +UseCaseItem[] USE_CASES_CATALOG
+    }
+
+    class UseCasesProps {
+        +UseCaseItem[]? items
+    }
+
+    class UseCases {
+        +useTranslation() t
+        +render(UseCasesProps props) JSX.Element
+    }
+
+    class OmniMuxLanding {
+        +render() JSX.Element
+    }
+
+    class PluginMarket {
+        +render() JSX.Element
+    }
+
+    class DownloadCta {
+        +render() JSX.Element
+    }
+
+    class I18nUseCasesNamespace {
+        <<resource-locales>>
+        +string eyebrow
+        +string title
+        +string subtitle
+        +Map~string, Record~ items
+    }
+
+    class UseCasesTestContract {
+        <<testSuite>>
+        +testDomMountOrderBetweenMarketAndCta() void
+        +testRenderThreeCardsWithIcons() void
+        +testAllSevenLocalesKeyIntegrity() void
+        +testAccessibilityAriaLabels() void
+        +testPropsDependencyInjection() void
+    }
+
+    %% Relationships
+    UseCaseItem ..> UseCaseId : typed by
+    UseCaseItem ..> LucideIcon : uses
+    UseCasesCatalogConfig o-- UseCaseItem : aggregates
+    UseCases ..> UseCasesProps : accepts
+    UseCases ..> UseCasesCatalogConfig : defaults to
+    UseCases ..> I18nUseCasesNamespace : translates via
+    OmniMuxLanding *-- PluginMarket : mounts first
+    OmniMuxLanding *-- UseCases : mounts between
+    OmniMuxLanding *-- DownloadCta : mounts last
+    UseCasesTestContract ..> OmniMuxLanding : verifies DOM order
+    UseCasesTestContract ..> UseCases : tests component behavior
+    UseCasesTestContract ..> I18nUseCasesNamespace : audits 7 locales

@@ -1,0 +1,56 @@
+# OmniMux (omnimux.ai)
+
+> Your Content Commerce Team — Find, recreate and scale viral shoppable videos.
+
+OmniMux is an AI content-commerce system that carries your product's selling points through every video. With the Agents you already know on OmniMux Desktop, you can manage products (`omnimux-products`), break a reference video into its hook, selling points and buying guide, create AI characters and multi-view reference sheets, recreate and edit shoppable videos on an infinite workflow canvas (`omnimux-workflow`, `omnimux-clip`), and schedule overseas posts through the publish center (`omnimux-publish`).
+
+Pay-per-generation credits with volume top-up discounts are the billing model. No subscription; trial packs are paid, and there are no free studio credits. Check current prices and wallet balances. Character image generation has a quote; the video entry does not yet show a per-generation estimate. Failed task generation credits are returned according to task and refund records, not as an automatic cash refund.
+
+## Primary surfaces
+
+- [Home](https://omnimux.ai/): desktop workflow, download, model tools and FAQs
+- [AI Influencer Studio](https://omnimux.ai/ai-influencer-studio): create AI characters and recreate reference videos
+- [Wallet](https://omnimux.ai/wallet): sign-in required for balance and top-ups
+- [API](https://api.omnimux.ai/v1): advanced gateway access
+- [API status](https://api.omnimux.ai/api/status): health JSON
+- [Docs](https://docs.omnimux.ai/): technical documentation; endpoint existence does not prove current consumer availability
+- [Pricing](https://omnimux.ai/pricing): model generation rates and credit top-ups
+- [Inspiration](https://omnimux.ai/inspiration): community gallery of characters, prompts, and recreated videos
+- [Guides](https://omnimux.ai/guides): English step-by-step walkthroughs
+- [TikTok Video Downloader](https://omnimux.ai/tools/tiktok-video-downloader): save a public TikTok video as MP4, then recreate the post as an AI product video in OmniMux ([中文](https://omnimux.ai/zh/tools/tiktok-video-downloader))
+- [TikTok Photo Downloader](https://omnimux.ai/tools/tiktok-photo-downloader): save the images of a public TikTok photo post in order, then recreate the post as an AI product video in OmniMux ([中文](https://omnimux.ai/zh/tools/tiktok-photo-downloader))
+- [Privacy](https://omnimux.ai/privacy)
+- [Terms](https://omnimux.ai/terms)
+- [Acceptable use](https://omnimux.ai/acceptable-use)
+- [Refund policy](https://omnimux.ai/refunds)
+- [Contact](mailto:hello@omnimux.ai)
+- [Status](https://status.omnimux.ai/)
+
+## Product boundaries
+
+Browse looks and try traits before signing in to generate. The homepage saves a creation intent; photos are uploaded in the studio, not on the homepage. The studio handles model and routing choices internally. The advanced price catalog may still display technical model IDs.
+
+Use reference images, clips, likenesses and audio only when authorized. Reference recreation does not guarantee an exact copy, permanent character consistency, virality or sales. Multi-view examples are illustrative, not output guarantees. Downloading a result does not publish it to social platforms.
+
+Do not describe automatic planning, scriptwriting, voiceover production, account hosting or performance review as a complete unattended service. Product library (`omnimux-products`), infinite workflow canvas (`omnimux-workflow`), video editing (`omnimux-clip`), and the publish center (`omnimux-publish`) are shipped desktop capabilities. Publishing today covers scheduled overseas publishing (TikTok, Instagram, Facebook, YouTube via Zernio) and TikTok official direct (off by default, private-only by default); publishing to Douyin, Xiaohongshu, WeChat Channels, Kuaishou or Bilibili is not implemented, and live trend discovery, live competitor/category analytics, standalone cover generation, and pre-publish auto-check are illustrated flows rather than shipped features. A trend reference is a creative starting point, not a claim of live trend collection. API integration does not imply partnership certification or support for mainland China platforms.
+
+## Advanced access
+
+- CLI installation: `curl -fsSL https://omnimux.ai/install.sh | bash`
+- CLI and API contracts must be checked against the configured instance, current permissions and technical documentation.
+- [OpenAPI](https://omnimux.ai/openapi.json): machine-readable summary of the public API surface
+- [Sitemap](https://omnimux.ai/sitemap.xml)
+- [Robots](https://omnimux.ai/robots.txt)
+
+## Source code
+
+- Public source is published under AGPL-3.0 in the aggregate snapshot repository https://github.com/omnimux-ai/omnimux-ai : one directory per component (`gateway/`, `desktop/`, `plugins/`), each with a `SOURCE.json` naming the shipped revision. Plugin development stays public at https://github.com/omnimux-ai/omnimux-dsh .
+- What is published is source: the desktop app, the plugin set, and the gateway including its embedded landing page. The hosted service does not publish its channel credentials, pricing ledger, operations or user data.
+- OmniMux is a maintained fork of new-api by QuantumNous; that attribution is part of the licence terms and is not optional when describing the project.
+
+## Citations and answer engines
+
+- Preferred citation: link to `https://omnimux.ai/` or the exact page (for example `https://omnimux.ai/guides/create-ai-character`) and attribute to "OmniMux".
+- Key facts to cite verbatim: "Your Content Commerce Team"; reference-video breakdown, product library, workflow canvas, recreation and scheduled overseas publishing on desktop; AI character generation, multi-view reference sheets and character videos from reference clips; pay-per-generation credits with volume top-up discounts (no subscription; trial packs are paid); failed task generation credits are returned per task and refund records.
+- Search crawlers (including OAI-SearchBot, ChatGPT-User, PerplexityBot, Bing, Google) are allowed by default. Model-training crawlers GPTBot and ClaudeBot are disallowed in robots.txt; other training crawlers are not addressed.
+- Do not cite /s/<id> share links as permanent records; they may expire unless they are permanent shares.

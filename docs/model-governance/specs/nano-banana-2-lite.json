@@ -1,0 +1,73 @@
+{
+  "model_id": "nano-banana-2-lite",
+  "family": "image",
+  "vendor": "Google",
+  "vendor_model_id": "gemini-3.1-flash-lite-image",
+  "capability": "图像生成与编辑（Gemini 3.1 Flash-Lite Image / 产品名 Nano Banana 2 Lite）",
+  "operations": [
+    "text_to_image",
+    "image_to_image"
+  ],
+  "status": "documented",
+  "checked_at": "2026-10-05",
+  "sources": [
+    {
+      "claim": "官方定价页将 Nano Banana 2 Lite 的 Model ID 列为 gemini-3.1-flash-lite-image",
+      "url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "quote": "Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite) 🍌 ... gemini-3.1-flash-lite-image",
+      "retrieved_at": "2026-10-05"
+    },
+    {
+      "claim": "官方零售单价：1K 每张 $0.0336（Paid 标准档）；该模型仅支持 1K 一档",
+      "url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "quote": "Equivalent to $0.0336 per 1K resolution image ... Image output is priced at $30 per 1,000,000 tokens. Output images at 1K (1024x1024px) consume 1120 tokens and are equivalent to $0.0336 per image.",
+      "retrieved_at": "2026-10-05"
+    },
+    {
+      "claim": "官方计量：输入 $0.25 / 1M tokens，图像输出 $30 / 1M tokens",
+      "url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "quote": "Input price $0.25 (text/image/video) ... $30.00 (images)",
+      "retrieved_at": "2026-10-05"
+    },
+    {
+      "claim": "官方定位：面向超低延迟与高性价比的图像生成",
+      "url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "quote": "Designed as the efficiency specialist of the image generation family, the Gemini 3.1 Flash Lite Image model is designed for ultra-low latency and cost-effective image generation",
+      "retrieved_at": "2026-10-05"
+    },
+    {
+      "claim": "上游渠道 Evolink 的公开模型页确认该模型在售及其出图单价（1K $0.029），并在页内标注官方模型名 gemini-3.1-flash-lite-image；Evolink 直连探测同时确认该 ID 模型可见且真实提交受理",
+      "url": "https://evolink.ai/zh/nano-banana-2-lite",
+      "quote": "Nano Banana 2 Lite 1K $0.029",
+      "retrieved_at": "2026-10-05"
+    }
+  ],
+  "reference_images": {
+    "max": 14,
+    "min": 0,
+    "formats": [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/heic",
+      "image/heif"
+    ],
+    "max_bytes_each": 7340032,
+    "source_claim": "沿用同族 Gemini 3.1 Flash Image 官方页的文件规格（14 张输入图、内联 7 MB）；该模型自身页面未单独列出文件上限，属待复核项"
+  },
+  "output_sizes": [
+    "1K"
+  ],
+  "output_formats": null,
+  "prompt_max_chars": null,
+  "unknowns": [
+    "输入图数量上限：官方定价页未列，此处沿用同族 3.1 Flash Image 的 14 张，需以该模型专属页复核",
+    "单文件大小上限：官方定价页未列，此处沿用同族 7 MB / 30 MB 双档，需复核",
+    "支持的宽高比清单：官方定价页未列，需以该模型专属页复核",
+    "输出图片文件格式（官方未单独声明输出编码格式）",
+    "提示词字符数上限（官方以 token 计量，未给出字符数口径）",
+    "尺寸参数只接受比例值、不接受 1024x1024 这类像素尺寸；该约束由 Evolink 上游 400 报错实测确认",
+    "该模型是否支持 0.5K / 2K / 4K：官方定价页只给出 1K 单价并称「仅 1K」，需以专属页确认是否完全不可更高档"
+  ],
+  "notes": "该模型的官方定价与命名取自 https://ai.google.dev/gemini-api/docs/pricing 的「Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite)」段。本档案为该模型的首次登记；此前仓库仅有 nano-banana-2 与 nano-banana-pro 两份同族档案。reference_images 与 output_sizes 中标注为「沿用同族」的字段属推断，不得当作官方结论。 2026-11-13 起对外 ID 由官方 GA ID gemini-3.1-flash-lite-image 改为产品名 nano-banana-2-lite，与该族在售的 nano-banana-2 / nano-banana-pro 命名一致；官方 GA ID 保留在 vendor_model_id 与渠道 model_mapping 中作为上游 SKU。改名时该公开 ID 的生产扣费记录为 0，故不保留兼容别名。"
+}

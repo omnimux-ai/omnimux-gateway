@@ -1,0 +1,19 @@
+# Core product / business-logic path prefixes (one per line).
+# Used by scripts/ops/check-core-change-gate.sh and Agent norms in AGENTS.md.
+# Comments and blank lines are ignored. Trailing slash optional.
+controller/
+service/
+model/
+relay/
+relaykit/
+middleware/
+oauth/
+common/
+setting/
+router/
+dto/
+types/
+constant/
+pkg/
+web/src/features/wallet/
+web/src/features/auth/

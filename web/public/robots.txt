@@ -1,0 +1,16 @@
+# OmniMux / omnimux.ai — AI search crawlers welcome by default.
+# Search crawlers (Bing, Google, OAI-SearchBot, ChatGPT-User, Perplexity) are
+# allowed; model-training crawlers are opted out separately.
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: *
+Allow: /
+# Tool APIs and signed media links are not pages.
+Disallow: /api/tools/
+
+Sitemap: https://omnimux.ai/sitemap.xml

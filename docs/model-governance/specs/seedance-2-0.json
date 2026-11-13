@@ -1,0 +1,186 @@
+{
+ "model_id": "seedance-2-0",
+ "family": "video",
+ "vendor": "Volcengine（火山引擎 / 豆包 Seedance）",
+ "vendor_model_id": "doubao-seedance-2-0",
+ "capability": "视频生成与编辑（全模态参考）",
+ "operations": [
+  "text_to_video",
+  "first_frame",
+  "first_last_frame",
+  "video_multi_ref",
+  "video_edit",
+  "video_extend"
+ ],
+ "gateway": {
+  "profile": "apimart_video",
+  "operations": [
+   "text_to_video",
+   "first_frame",
+   "first_last_frame",
+   "video_multi_ref"
+  ],
+  "source_claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 seedance-2-0 允许 text_to_video / first_frame / first_last_frame / video_multi_ref"
+ },
+ "status": "documented",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "维金与 Pidoi 两条线路的公开文档均载明该模型最长 30 秒，此前契约只写到 15 秒，页面因此少给了能力",
+   "url": "https://www.weijinapi.top/docs/#available-models",
+   "quote": "seedance2.0 系列：4 - 30 秒",
+   "retrieved_at": "2026-09-15"
+  },
+  {
+   "claim": "Seedance 2.0 系列（Doubao Seedance 2.0）全模态参考生视频：参考图片 0-9 张 + 参考视频 0-3 个 + 参考音频 0-3 个 + 文本提示词",
+   "url": "https://www.volcengine.com/docs/82379/1520757",
+   "quote": "输入参考图片（0\\-9 张）+ 参考视频（0\\-3 个）+ 参考音频（0\\-3 个）",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "Seedance 2.0 支持图生视频-首尾帧、图生视频-首帧、文生视频，且有声/无声两种输出",
+   "url": "https://www.volcengine.com/docs/82379/1520757",
+   "quote": "* **Doubao Seedance 2.0 系列**（有声视频 / 无声视频）",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "Seedance 2.0 输出分辨率：480p（8bit） / 720p（8bit） / 1080p（8bit） / 4k（10bit）",
+   "url": "https://www.volcengine.com/docs/82379/2298881",
+   "quote": "|输出分辨率 |* 480p（8bit 位深）<br><br>* 720p（8bit 位深）<br><br>* 1080p（10bit 位深） |* 480p（8bit 位深）<br><br>* 720p（8bit 位深）<br><br>* 1080p（8bit 位深）<br><br>* 4k（10bit 位深） |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "Seedance 2.0 输出宽高比：21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16",
+   "url": "https://www.volcengine.com/docs/82379/2298881",
+   "quote": "| |输出宽高比 |21:9<br><br>16:9<br><br>4:3<br><br>1:1<br><br>3:4<br><br>9:16 |21:9<br><br>16:9<br><br>4:3<br><br>1:1<br><br>3:4<br><br>9:16 |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "Seedance 2.0 输出时长 4~15 秒，输出帧率 24 fps，输出视频格式 mp4",
+   "url": "https://www.volcengine.com/docs/82379/2298881",
+   "quote": "| |输出时长 |4~30 秒 |4~15 秒 |4~15 秒 |4~15 秒 |4~12 秒 |2~12 秒 |2~12 秒 |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出帧率 24 fps（全部 Seedance 2.0 系列）",
+   "url": "https://www.volcengine.com/docs/82379/2298881",
+   "quote": "| |输出帧率 |24 fps |24 fps |24 fps |24 fps |24 fps |24 fps |24 fps |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出视频格式 mp4（全部 Seedance 2.0 系列）",
+   "url": "https://www.volcengine.com/docs/82379/2298881",
+   "quote": "| |输出视频格式 |mp4 |mp4 |mp4 |mp4 |mp4 |mp4 |mp4 |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "Seedance 2.0 系列模型页含 doubao-seedance-2-0 及 -fast / -mini 变体，以及带日期的版本号 doubao-seedance-2-0-260128",
+   "url": "https://www.volcengine.com/docs/82379/2291680",
+   "quote": "doubao-seedance-2-0-260128",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "视频编辑任务要求内容中至少包含一个 reference_video，且视频时长必须为 4–30 秒",
+   "url": "https://www.volcengine.com/docs/82379/1520757",
+   "quote": "* `edit`：视频编辑任务，即对原视频的画面或音频进行编辑操作。设置 `edit` 时，`content` 中必须至少包含一个 `reference_video`，且视频时长必须为 4–30 秒；`ratio` 必须为 `adaptive`；`duration` 必须为 `-1`。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 seedance-2-0 允许 text_to_video / first_frame / first_last_frame / video_multi_ref",
+   "url": "repo:relay/channel/task/apimart/video_contract.go",
+   "quote": "\"seedance-2-0\": { opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true, },",
+   "retrieved_at": "2026-11-08"
+  }
+ ],
+ "notes": "官方出处为火山方舟（Volcengine Ark）文档：创建视频生成任务 API 页、视频生成教程（含输出规格对照表）、Doubao Seedance 2.0 系列教程。状态 documented：参考素材上限、分辨率、纵横比、时长、帧率、格式均有官方原文。口径提示：①输出规格取自官方「视频生成教程」的模型对照表，本档案取 Seedance 2.0 那一列；表头顺序为 2.5 / 2.0 / 2.0 fast / 2.0 mini / 1.5 pro / 1.0 pro / 1.0 pro fast，其中 1080p 与 4k 只有 2.0 支持（fast 与 mini 仅 480p/720p），引用时已按列对应；②Seedance 2.0 系列不可单独输入音频，至少要有一个参考视频或图片；③「视频编辑」任务类型要求至少一个 reference_video 且源视频 4–30 秒，与本模型自身 4~15 秒的生成时长是两回事。 【分档与线路说明】：default 分组主力保障 720p 原生清晰度；seedance-standard 分组为普惠折扣档，上游固定 480p。",
+ "unknowns": [
+  "prompt 字符上限：官方视频生成参数页未给出统一数字（分镜提示词另有 512 上限，属格式约束而非全局上限）",
+  "参考图 / 参考视频 / 参考音频的单文件字节上限未在本页公布"
+ ],
+ "reference_images": {
+  "max": 9,
+  "min": 0,
+  "formats": null,
+  "max_bytes_each": null,
+  "source_claim": "全模态参考生视频参考图片 0-9 张"
+ },
+ "reference_videos": {
+  "max": 3,
+  "min": 0,
+  "formats": null,
+  "max_bytes_each": null,
+  "source_claim": "全模态参考生视频参考视频 0-3 个"
+ },
+ "reference_audios": {
+  "max": 3,
+  "min": 0,
+  "formats": null,
+  "max_bytes_each": null,
+  "source_claim": "全模态参考生视频参考音频 0-3 个；不可单独输入音频，至少要有 1 个参考视频或图片"
+ },
+ "durations_seconds": {
+  "min": 4,
+  "max": 30
+ },
+ "resolutions": [
+  "480p",
+  "720p",
+  "1080p",
+  "4k"
+ ],
+ "aspect_ratios": [
+  "21:9",
+  "16:9",
+  "4:3",
+  "1:1",
+  "3:4",
+  "9:16"
+ ],
+ "audio_supported": true,
+ "prompt_max_chars": null,
+ "routing": [
+  {
+   "group": "default",
+   "upstream_model_id": "seedance-2.0",
+   "channel_id": 32,
+   "channel_name": "[优选中转-APIMart] 多模态视频音乐专线",
+   "channel_type": 63,
+   "priority": 20,
+   "weight": 10,
+   "tier_note": "默认主力线路，支持原生 720p/1080p 输出"
+  },
+  {
+   "group": "default",
+   "upstream_model_id": "sd-2-vip-720",
+   "channel_id": 36,
+   "channel_name": "[个人中转-维金] Seedance 按秒专线",
+   "channel_type": 1,
+   "priority": 15,
+   "weight": 10,
+   "tier_note": "默认故障自动切换线路，对应 720p 原生输出"
+  },
+  {
+   "group": "seedance-standard",
+   "upstream_model_id": "seedace-2.0-480p",
+   "channel_id": 48,
+   "channel_name": "[个人中转-Pidoi] Seedance 按秒专线",
+   "channel_type": 1,
+   "priority": 10,
+   "weight": 10,
+   "tier_note": "特惠普惠档位（seedance-standard 分组），上游限制 480p 输出以提供更低计费折扣"
+  }
+ ],
+ "billing": {
+  "unit": "per_second",
+  "unit_label": {
+   "zh": "每秒",
+   "en": "per second"
+  },
+  "pricing_basis": "duration_seconds",
+  "unit_price_usd": 0.0971,
+  "notes": {
+   "zh": "按请求的视频时长计费",
+   "en": "Charged by the requested video duration"
+  }
+ }
+}

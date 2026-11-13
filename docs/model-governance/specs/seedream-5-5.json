@@ -1,0 +1,96 @@
+{
+  "model_id": "seedream-5-5",
+  "family": "image",
+  "vendor": "ByteDance",
+  "vendor_model_id": "seedream-5-5",
+  "capability": "图像生成（ByteDance Seedream 5.5，文生图 MVP）",
+  "operations": [
+    "text_to_image"
+  ],
+  "status": "documented",
+  "checked_at": "2026-11-12",
+  "sources": [
+    {
+      "claim": "APIMart Seedream 5.5 产品页确认模型 ID 与 1K/1.5K/2K 档位及 Ext 按张计费",
+      "url": "https://apimart.ai/model/seedream-5-5",
+      "quote": "Seedream 5.5: 1K/1.5K/2K output tiers; Ext per-image route",
+      "retrieved_at": "2026-11-11"
+    },
+    {
+      "claim": "官方非促销锚：1K/1.5K $0.02、2K $0.035 每张",
+      "url": "https://apimart.ai/zh/pricing",
+      "quote": "APIMart pricing official anchor 1K/1.5K $0.02, 2K $0.035",
+      "retrieved_at": "2026-11-11"
+    }
+  ],
+  "output_sizes": [
+    "1K",
+    "1.5K",
+    "2K"
+  ],
+  "output_formats": [
+    "png",
+    "jpeg"
+  ],
+  "reference_images": {
+    "max": 0,
+    "min": 0,
+    "formats": [],
+    "source_claim": "MVP 文生图，参考图/分层二期"
+  },
+  "unknowns": [
+    "参考图/编辑/分层计费二期",
+    "提示词字符上限未公布（上游以 token 计）"
+  ],
+  "notes": "Seedream 5.5 经 APIMart 图像专线（type1，异步 POST /v1/images/generations → GET /v1/tasks/{id}）。单一公开 ID，size 档 1K/1.5K/2K。 已知限制：quality/seed/background 由模板默认提供，运行时未逐项校验；size 仅 1K/1.5K/2K，n 固定 1。",
+  "parameters": [
+    {
+      "name": "n",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1,
+      "default": 1,
+      "fixed": 1,
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "运行时 validateTextToImageMVPSurface 强制 n=1"
+      }
+    },
+    {
+      "name": "size",
+      "type": "enum",
+      "enum": [
+        "1K",
+        "1.5K",
+        "2K"
+      ],
+      "default": "2K",
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "网关允许 1K/1.5K/2K；未传默认 2K"
+      }
+    },
+    {
+      "name": "quality",
+      "type": "enum",
+      "enum": [
+        "medium"
+      ],
+      "default": "medium",
+      "fixed": "medium",
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "模板默认项；运行时未校验 quality（已知限制）"
+      }
+    }
+  ]
+}

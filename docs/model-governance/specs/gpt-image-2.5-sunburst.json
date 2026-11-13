@@ -1,0 +1,97 @@
+{
+ "model_id": "gpt-image-2.5-sunburst",
+ "family": "image",
+ "vendor": "OpenAI",
+ "vendor_model_id": "gpt-image-2.5-sunburst",
+ "capability": "图像生成与编辑（编辑精度优先）",
+ "operations": [
+  "text_to_image",
+  "image_to_image"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "官方模型页确认 gpt-image-2.5-sunburst 是 OpenAI 自有模型 ID，默认快照为 gpt-image-2.5-sunburst-2026-09-08",
+   "url": "https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst",
+   "quote": "Model ID: `gpt-image-2.5-sunburst`",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "该模型定位为编辑精度最高的能力档，支持 low / medium / high / xhigh / max / auto 质量档位",
+   "url": "https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst",
+   "quote": "GPT Image 2.5 Sunburst generates and edits images from text and image inputs. Use it for workflows where editing precision matters most.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "GPT image 系列模型单次最多 16 张参考图",
+   "url": "https://developers.openai.com/api/reference/resources/images",
+   "quote": "Input image references to edit. For GPT image models, you can provide up to 16 images.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "提示词最大 32000 字符",
+   "url": "https://developers.openai.com/api/reference/resources/images",
+   "quote": "A text description of the desired image(s). The maximum length is 32000 characters for the GPT image models, 1000 characters for `dall-e-2` and 4000 characters for `dall-e-3`.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "官方推荐输出尺寸 1024x1024 / 1536x1024 / 1024x1536",
+   "url": "https://developers.openai.com/api/docs/guides/image-generation",
+   "quote": "Recommended sizes | `1024x1024` (square), `1536x1024` (landscape), `1024x1536` (portrait) |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出格式默认为 png，可选 jpeg / webp；透明背景需 png 或 webp",
+   "url": "https://developers.openai.com/api/docs/guides/image-generation",
+   "quote": "For transparent backgrounds with either model, set `background: \"transparent\"` and use `output_format: \"png\"` or `\"webp\"`.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "本模型是 OpenAI 官方模型，不是第三方转售 ID",
+   "url": "https://developers.openai.com/api/docs/guides/image-generation",
+   "quote": "Choose Sunburst for workflows where editing precision matters most, and Flare for fast, high-quality everyday image generation.",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "reference_images": {
+  "max": 1,
+  "min": 0,
+  "formats": [
+   "jpeg",
+   "png",
+   "webp"
+  ],
+  "max_bytes_each": 5242880,
+  "source_claim": "本服务来源图校验上限；能否使用还受当次已审核渠道格式兼容限制，局部编辑另限 PNG。供应商 16 张参考的旧来源事实保留在 sources 中，不作为本服务准入。"
+ },
+ "output_sizes": null,
+ "output_formats": [
+  "png"
+ ],
+ "prompt_max_chars": 8192,
+ "unknowns": [
+  "参考图接受的图片格式（官方只列出 base64 / URL / file_id 三种传入方式，未枚举 MIME 类型）",
+  "单张参考图字节上限（官方只有「编辑图与其遮罩 < 50MB」的表述，未定义单文件上限）",
+  "自定义尺寸下的完整像素范围（指南给出的 655,360 ~ 8,294,400 像素与单边 3840 上限以「both models」表述，未逐模型确认）",
+  "单次请求输出张数上限 n 的官方数值",
+  "实际成品 output_sizes 未建立固定保证：1024x576 仅为新单请求尺寸，不保证原图实际尺寸为 1024x576 或精确 16:9；成品原图保留实际尺寸"
+ ],
+ "notes": "纠正一处目录假设：sunburst 后缀不是第三方转售标识，gpt-image-2.5-sunburst 是 OpenAI 官方公开模型 ID，有独立官方模型页（https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst ），默认快照 gpt-image-2.5-sunburst-2026-09-08。官方端点表显示该模型支持 v1/images/generations 与 v1/images/edits，不支持 Responses 与 Batch。16 张参考图与 32000 字符提示词来自 OpenAI 官方 Images API 参考，该页以 \"GPT image models\" 为口径，2.5 代两个模型都在覆盖范围内；这两条不是从兄弟档案照抄，而是同一官方页面对整个 GPT image 系列的统一约束。透明背景输出只允许 png 或 webp。 本次仅增加 OmniMux 角色工作台运营约束投影；以上供应商能力来源和日期为原档案历史事实，未由本次离线核查重新验证。供应商更宽的尺寸、16 张参考、32000 字符及多格式能力不得当作本服务已开放承诺。实际客户每张价格由平台原生统一报价及会员倍率决定，具体销售金额尚待业务决定；删除旧未核对静态金额，不用采购成本代替官方费率锚点。",
+ "billing": {
+  "unit": "per_image",
+  "unit_label": {
+   "zh": "每张",
+   "en": "per image"
+  },
+  "pricing_basis": "image_count",
+  "notes": {
+   "zh": "按本服务生成的一张图片计费。实际金额由平台原生图片统一报价及适用账户档位确定，以提交前报价为准；首次报价及费用预留沿故障迁移复用。此描述不提供尚未决定的固定销售金额，也不把供应商按用量采购费率称为固定每张官方价格。",
+   "en": "Charged per generated image through the service. The native unified image quote and applicable account tier determine the amount shown before submission; the first quote and fund reservation are retained through eligible failover. No undecided fixed sale amount or fixed official per-image procurement price is declared here."
+  }
+ },
+ "basis": "line_restricted",
+ "service_notes": "本条目描述 OmniMux 角色生图的受限服务，不代表供应商完整能力，也不证明当前所有渠道已通过四模式审核或已启用。文生图、单参考生图、整图修改和局部编辑的新单仅请求 high 质量、1024x576、单张 PNG，通过客户成品 URL 交付；用户不选择供应商或分组。1024x576 和 high 是提交值，原图实际尺寸以供应商交付文件为准，不保证精确 1024x576 或精确 16:9；成品原图不缩放、不裁切或重编码，保留实际尺寸。历史已保存的 2048x1152 任务仅按原始请求恢复和核对，不改写规格或自动重发。文生图无参考，其余模式仅一张来源图；已审核线路还须兼容本次输入格式，不静默转码或降级。来源图接受 JPEG、PNG、WebP 的服务校验，来源图最多 5MiB、4000 万像素、单边 23170 像素；局部编辑的源图和遮罩均须为同尺寸 PNG，均不得含 任何 PNG eXIf 数据块，遮罩原始文件须严格小于 4,000,000 字节（最大 3,999,999 字节），并须同时含完全透明的编辑像素和完全不透明的保护像素。brief 和 edit_instruction 各最多 4000 个 Unicode 码点；最终提示词（包含角色附加说明）须同时不超过 8192 个 Unicode 码点、16384 个 UTF-8 字节和按本服务 o200k_base 计数的 5000 个词元；不截断，输入首尾空白可能按入口规则去除。该计数不是供应商账单词元数，不能据此保证采购成本封顶。网页角色创建按有无上传参考图自动处理，不提供模式手选或整图、局部编辑入口；上传图片仅借鉴风格，不锁定参考人物身份，明确描述和选定特征优先。账号创建接口及现有命令行仅保留角色文生图、单参考及多视角；多视角仍保持已生成角色身份。以上四种模式说明为既有底层能力及输入约束，不代表网页均提供对应入口；原始 /v1/images/generations 与 /v1/images/edits 本轮不开放该型号。仅已审核且兼容本次模式和素材的线路参与；只有内置规则允许且能够证明尚未创建供应商任务才可切换，整个请求最多一次首发及一次备用，不重复已尝试渠道。沿用首次报价与同一份费用预留，换线不追加客户收费；已接单、超时、断连或缺回执只核对原单，不自动重发。可用性以当前已审核线路和提交前报价为准，不承诺两家健康供应商始终可用。",
+ "prompt_max_utf8_bytes": 16384,
+ "prompt_max_tokens": 5000
+}

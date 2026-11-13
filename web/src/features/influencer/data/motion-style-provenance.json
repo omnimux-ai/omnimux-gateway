@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "catalogueVersion": "omnimux-motion-visual-styles-20261016-v1",
+  "sourcePage": "https://higgsfield.ai/ai-influencer-studio",
+  "capturedAt": "2026-10-16T01:34:21.767374+00:00",
+  "archiveDirectory": "deliverables/higgsfield-styles-20261016",
+  "sourceCatalogue": {
+    "path": "source/restyle-presets.en.raw.json",
+    "sha256": "f61193e3aa514b7518a734b8a47b26580e0690bd32587428ae1e3327ed324147"
+  },
+  "promptSource": {
+    "path": "风格适配草案.json",
+    "sha256": "9a8d6d4968fa15aa3be008b71b92963c95448286cc08216a6761a630e9b14e05",
+    "version": "omnimux-visual-treatment-research-v1",
+    "origin": "omnimux-adaptation-not-official",
+    "officialFullPromptAvailable": false,
+    "generationValidated": false,
+    "constraintAddition": "Whole-clip visual consistency; source character identity, motion, camera and timing stay controlled by user inputs."
+  },
+  "mediaUse": "Display-only previews of source edit variants; never generation inputs.",
+  "styles": [
+    {
+      "id": "motion-cel-animation",
+      "sourceId": "067b27d4-8d8f-44d1-a24b-0f4c28012e4b",
+      "sourceName": "Hand-Painted Cel Animation",
+      "sourceOrder": 1,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "9582b7cb0884d865325e43493148efca261418a8d5f857d0ad0994c8d1c8c1ec",
+      "image": {
+        "path": "/influencer-styles/3dfb922fa586ea147aaaf3f07720b4e0437266877f658d56d65c65768cf1455b.webp",
+        "sha256": "3dfb922fa586ea147aaaf3f07720b4e0437266877f658d56d65c65768cf1455b",
+        "sizeBytes": 59586,
+        "archivePath": "media/blobs/3dfb922fa586ea147aaaf3f07720b4e0437266877f658d56d65c65768cf1455b.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/e7506410a571b89670b714cd292818036cfc50fa5c8cf1b255dcbb079273d922.mp4",
+        "sha256": "e7506410a571b89670b714cd292818036cfc50fa5c8cf1b255dcbb079273d922",
+        "sizeBytes": 1033328,
+        "archivePath": "media/blobs/e7506410a571b89670b714cd292818036cfc50fa5c8cf1b255dcbb079273d922.mp4"
+      }
+    },
+    {
+      "id": "motion-knitted-yarn-world",
+      "sourceId": "2b5b68c4-9253-4d79-9d05-81e7718d8d7a",
+      "sourceName": "Knitted Yarn World",
+      "sourceOrder": 2,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "15ebcfc716fdf3d4d80caadbc8b714a55de4ddc83ad3519951559dce288f9210",
+      "image": {
+        "path": "/influencer-styles/0575005a6e0d97fd002958c24d232bbbb08f260c7d491ac5b0dd9fc1800682e0.webp",
+        "sha256": "0575005a6e0d97fd002958c24d232bbbb08f260c7d491ac5b0dd9fc1800682e0",
+        "sizeBytes": 73628,
+        "archivePath": "media/blobs/0575005a6e0d97fd002958c24d232bbbb08f260c7d491ac5b0dd9fc1800682e0.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/3d6110f9df9788ce03f0df00ef47f8cc184a135874d98d3807a6877c0b643f91.mp4",
+        "sha256": "3d6110f9df9788ce03f0df00ef47f8cc184a135874d98d3807a6877c0b643f91",
+        "sizeBytes": 759601,
+        "archivePath": "media/blobs/3d6110f9df9788ce03f0df00ef47f8cc184a135874d98d3807a6877c0b643f91.mp4"
+      }
+    },
+    {
+      "id": "motion-expressive-2d-animation",
+      "sourceId": "368c6a65-4a48-4e3a-80c7-c460455b5e17",
+      "sourceName": "Expressive 2D Animation",
+      "sourceOrder": 3,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "b1971b261da7abed12173748648acb6414af962e002383baf986205e2beb5b70",
+      "image": {
+        "path": "/influencer-styles/fe437c82639fa59b06a1baf27304d639eaedb278fea38048ba824818e88d9ca6.webp",
+        "sha256": "fe437c82639fa59b06a1baf27304d639eaedb278fea38048ba824818e88d9ca6",
+        "sizeBytes": 38000,
+        "archivePath": "media/blobs/fe437c82639fa59b06a1baf27304d639eaedb278fea38048ba824818e88d9ca6.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/f512372409b4c92d944b32275cf747ab871e799dd524bfb27fe863e0324ec17c.mp4",
+        "sha256": "f512372409b4c92d944b32275cf747ab871e799dd524bfb27fe863e0324ec17c",
+        "sizeBytes": 673138,
+        "archivePath": "media/blobs/f512372409b4c92d944b32275cf747ab871e799dd524bfb27fe863e0324ec17c.mp4"
+      }
+    },
+    {
+      "id": "motion-rounded-toy-cgi",
+      "sourceId": "6bce8e75-df92-487f-a4f0-a324a6a297f3",
+      "sourceName": "Rounded Toy CGI",
+      "sourceOrder": 4,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "2234fd8f19f530aabe7e4cbc0b19f291de9f413f2853cf0c1494862c58a50565",
+      "image": {
+        "path": "/influencer-styles/882614d8dba6d921f840c35842c226df1110c6f8a4f9ae4a4419a1e73e3bd912.webp",
+        "sha256": "882614d8dba6d921f840c35842c226df1110c6f8a4f9ae4a4419a1e73e3bd912",
+        "sizeBytes": 24766,
+        "archivePath": "media/blobs/882614d8dba6d921f840c35842c226df1110c6f8a4f9ae4a4419a1e73e3bd912.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/e5cd4737f5949fa8366856e93ec9fc278373b14ff4380b63130d1ec3d58fc361.mp4",
+        "sha256": "e5cd4737f5949fa8366856e93ec9fc278373b14ff4380b63130d1ec3d58fc361",
+        "sizeBytes": 858725,
+        "archivePath": "media/blobs/e5cd4737f5949fa8366856e93ec9fc278373b14ff4380b63130d1ec3d58fc361.mp4"
+      }
+    },
+    {
+      "id": "motion-felt-puppet-stop-motion",
+      "sourceId": "bf6aee41-83a8-433c-b5a5-2309c7bd5b26",
+      "sourceName": "Felt Puppet Stop Motion",
+      "sourceOrder": 5,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "d15fb4f557fa2bb33747102eb9ca1ed54ac87e50e4beeb538039ee2d9de74a69",
+      "image": {
+        "path": "/influencer-styles/4578b9bb40c79f80e10f0e7b1e9db8112ccfec58465059ca63acb9df9f74ae4a.webp",
+        "sha256": "4578b9bb40c79f80e10f0e7b1e9db8112ccfec58465059ca63acb9df9f74ae4a",
+        "sizeBytes": 45690,
+        "archivePath": "media/blobs/4578b9bb40c79f80e10f0e7b1e9db8112ccfec58465059ca63acb9df9f74ae4a.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/132dc19352019896dc20f35ab141d40071540ee7625becad2790deade0e44ff3.mp4",
+        "sha256": "132dc19352019896dc20f35ab141d40071540ee7625becad2790deade0e44ff3",
+        "sizeBytes": 947158,
+        "archivePath": "media/blobs/132dc19352019896dc20f35ab141d40071540ee7625becad2790deade0e44ff3.mp4"
+      }
+    },
+    {
+      "id": "motion-grotesque-street-cgi",
+      "sourceId": "c3268f8d-4cc0-423c-975d-ca1bf7df385a",
+      "sourceName": "Grotesque Street CGI",
+      "sourceOrder": 6,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "af9f54aa2c7c43ecc1d74ceb51deb850515537817739e49ca4a78ac4ea0bc1fb",
+      "image": {
+        "path": "/influencer-styles/fd9a5c91bcc96fe4b41c34bbf1964691284a550087df4634ac8224918b8836bc.webp",
+        "sha256": "fd9a5c91bcc96fe4b41c34bbf1964691284a550087df4634ac8224918b8836bc",
+        "sizeBytes": 78432,
+        "archivePath": "media/blobs/fd9a5c91bcc96fe4b41c34bbf1964691284a550087df4634ac8224918b8836bc.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/e2ebfa8458a0e779e56b42db9d4ef23986b2ea7aab0f63fcfc1051c8be6e8673.mp4",
+        "sha256": "e2ebfa8458a0e779e56b42db9d4ef23986b2ea7aab0f63fcfc1051c8be6e8673",
+        "sizeBytes": 1155598,
+        "archivePath": "media/blobs/e2ebfa8458a0e779e56b42db9d4ef23986b2ea7aab0f63fcfc1051c8be6e8673.mp4"
+      }
+    },
+    {
+      "id": "motion-warm-painterly-3d-animation",
+      "sourceId": "e82b7bbb-c8bf-4d70-a866-e7b15e744a2b",
+      "sourceName": "Warm Painterly 3D Animation",
+      "sourceOrder": 7,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "7789b074b90c6cbbd9e8669067fb3d26fa5960694bcd2afdcd2f68d9550a042c",
+      "image": {
+        "path": "/influencer-styles/eb3fbb4f025c00f57f81de9a991760de009a5079940a82f8981a416021163412.webp",
+        "sha256": "eb3fbb4f025c00f57f81de9a991760de009a5079940a82f8981a416021163412",
+        "sizeBytes": 60724,
+        "archivePath": "media/blobs/eb3fbb4f025c00f57f81de9a991760de009a5079940a82f8981a416021163412.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/302b363a15ee1510bc4c7842233918505b1da06a6b84d6cb91f971069b6d5515.mp4",
+        "sha256": "302b363a15ee1510bc4c7842233918505b1da06a6b84d6cb91f971069b6d5515",
+        "sizeBytes": 839957,
+        "archivePath": "media/blobs/302b363a15ee1510bc4c7842233918505b1da06a6b84d6cb91f971069b6d5515.mp4"
+      }
+    },
+    {
+      "id": "motion-graphic-cel",
+      "sourceId": "523cf5be-67fc-46d6-bfdb-56ccc3e2a8f6",
+      "sourceName": "Graphic Cel",
+      "sourceOrder": 8,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "d668f88e0a9806381f38f30e513bfb95b38ab4e051ad1e6f7bcf5c4bf4ad62bd",
+      "image": {
+        "path": "/influencer-styles/4c253a18d3e2045a5a2aa4bbd3a419bc4c7fdc925b4d9e041faf6a86782f59e5.webp",
+        "sha256": "4c253a18d3e2045a5a2aa4bbd3a419bc4c7fdc925b4d9e041faf6a86782f59e5",
+        "sizeBytes": 41666,
+        "archivePath": "media/blobs/4c253a18d3e2045a5a2aa4bbd3a419bc4c7fdc925b4d9e041faf6a86782f59e5.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/97c9044dcbc1455501bcd7c8e7230b40a255e479dda8ab812c2a29f5d016ea1e.mp4",
+        "sha256": "97c9044dcbc1455501bcd7c8e7230b40a255e479dda8ab812c2a29f5d016ea1e",
+        "sizeBytes": 727274,
+        "archivePath": "media/blobs/97c9044dcbc1455501bcd7c8e7230b40a255e479dda8ab812c2a29f5d016ea1e.mp4"
+      }
+    },
+    {
+      "id": "motion-expressive-gouache-fashion",
+      "sourceId": "89484749-e1b9-40c9-979e-fc578c3aad6d",
+      "sourceName": "Expressive Gouache Fashion",
+      "sourceOrder": 9,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "e4c30d845ead0f820ce1dd6a6507e82ed6ce5c8f592a3b4d876679ef95d4f64c",
+      "image": {
+        "path": "/influencer-styles/3fa04f862d7a27ebe8739e88b1994957f379115010c2864c578ff73604a4dd46.webp",
+        "sha256": "3fa04f862d7a27ebe8739e88b1994957f379115010c2864c578ff73604a4dd46",
+        "sizeBytes": 44428,
+        "archivePath": "media/blobs/3fa04f862d7a27ebe8739e88b1994957f379115010c2864c578ff73604a4dd46.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/8de1b178db9b50c9966a19d6ed3053d7af0a80f61805c523e71aadbfb6bc65ce.mp4",
+        "sha256": "8de1b178db9b50c9966a19d6ed3053d7af0a80f61805c523e71aadbfb6bc65ce",
+        "sizeBytes": 1014693,
+        "archivePath": "media/blobs/8de1b178db9b50c9966a19d6ed3053d7af0a80f61805c523e71aadbfb6bc65ce.mp4"
+      }
+    },
+    {
+      "id": "motion-sculptural-3d-fashion",
+      "sourceId": "f7786536-123b-47b8-ab65-ee0647df1509",
+      "sourceName": "Sculptural 3D Fashion",
+      "sourceOrder": 10,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "862d9a65c529233a9dfc7fba538da98f76f29599c9d4be89d0bc6591d363e3b4",
+      "image": {
+        "path": "/influencer-styles/1aa3ed87b87f98f204eea2303465d9db37988d8dbda93ff2e198d31cd7ea8789.webp",
+        "sha256": "1aa3ed87b87f98f204eea2303465d9db37988d8dbda93ff2e198d31cd7ea8789",
+        "sizeBytes": 23856,
+        "archivePath": "media/blobs/1aa3ed87b87f98f204eea2303465d9db37988d8dbda93ff2e198d31cd7ea8789.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/65ce0522354bb48d5ad8f2f9a38900510c9a800914289211b436fbbc234f71bf.mp4",
+        "sha256": "65ce0522354bb48d5ad8f2f9a38900510c9a800914289211b436fbbc234f71bf",
+        "sizeBytes": 383882,
+        "archivePath": "media/blobs/65ce0522354bb48d5ad8f2f9a38900510c9a800914289211b436fbbc234f71bf.mp4"
+      }
+    },
+    {
+      "id": "motion-chunky-textured-low-poly",
+      "sourceId": "f1d0c30d-a2ec-4c33-a892-d8d158e2d093",
+      "sourceName": "Chunky Textured Low-Poly",
+      "sourceOrder": 11,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "58126c9312112a93c498175f3f02b56ad44217a57d4a43fbba25b92ef47ed3e6",
+      "image": {
+        "path": "/influencer-styles/7f223e758fa5a4a68c7c73493fbd38185c216532f24d3727258f040bdd94eb65.webp",
+        "sha256": "7f223e758fa5a4a68c7c73493fbd38185c216532f24d3727258f040bdd94eb65",
+        "sizeBytes": 35072,
+        "archivePath": "media/blobs/7f223e758fa5a4a68c7c73493fbd38185c216532f24d3727258f040bdd94eb65.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/32a803285af31ffe3856580aa830e6dc394b16a1106a45fedbd382eb09acab16.mp4",
+        "sha256": "32a803285af31ffe3856580aa830e6dc394b16a1106a45fedbd382eb09acab16",
+        "sizeBytes": 1083177,
+        "archivePath": "media/blobs/32a803285af31ffe3856580aa830e6dc394b16a1106a45fedbd382eb09acab16.mp4"
+      }
+    },
+    {
+      "id": "motion-cel-shaded-cg-anime",
+      "sourceId": "c2143317-f28d-4c3c-a0b8-39bd547e08a7",
+      "sourceName": "Cel-Shaded CG Anime",
+      "sourceOrder": 12,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "bc64b50fb8a69f0fa5d335d3726323448832fa115d63c800ed6305174f6e24bc",
+      "image": {
+        "path": "/influencer-styles/596f2ce4c84660a458ea4fd41e50f96b39f425d415a5723e8ce272a2fddf96c1.webp",
+        "sha256": "596f2ce4c84660a458ea4fd41e50f96b39f425d415a5723e8ce272a2fddf96c1",
+        "sizeBytes": 29766,
+        "archivePath": "media/blobs/596f2ce4c84660a458ea4fd41e50f96b39f425d415a5723e8ce272a2fddf96c1.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/cf8cf6899c5378883fb7a78da85229189c8e8fb1265ba717eca2fda68bcb55ff.mp4",
+        "sha256": "cf8cf6899c5378883fb7a78da85229189c8e8fb1265ba717eca2fda68bcb55ff",
+        "sizeBytes": 1171181,
+        "archivePath": "media/blobs/cf8cf6899c5378883fb7a78da85229189c8e8fb1265ba717eca2fda68bcb55ff.mp4"
+      }
+    },
+    {
+      "id": "motion-painterly-cinematic-3d",
+      "sourceId": "85bc9e2c-f896-41d7-b280-53f2f5e321ac",
+      "sourceName": "Painterly Cinematic 3D",
+      "sourceOrder": 13,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "ce6f0b6e7a8af8dac61bc32919327f281fa223fe584a5ddefb4f455876013af3",
+      "image": {
+        "path": "/influencer-styles/1b105870b6d9ab58ac36b6181d5eefa2ca587f75d375f1f6dc9c3a61236c9fce.webp",
+        "sha256": "1b105870b6d9ab58ac36b6181d5eefa2ca587f75d375f1f6dc9c3a61236c9fce",
+        "sizeBytes": 24876,
+        "archivePath": "media/blobs/1b105870b6d9ab58ac36b6181d5eefa2ca587f75d375f1f6dc9c3a61236c9fce.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/47966011400250f0d40b417d16f4d706396c0a2133ab7f83eef712b81fbec374.mp4",
+        "sha256": "47966011400250f0d40b417d16f4d706396c0a2133ab7f83eef712b81fbec374",
+        "sizeBytes": 308702,
+        "archivePath": "media/blobs/47966011400250f0d40b417d16f4d706396c0a2133ab7f83eef712b81fbec374.mp4"
+      }
+    },
+    {
+      "id": "motion-outline-free-cel",
+      "sourceId": "55aee79b-bb36-40e3-b957-205e6867a3d9",
+      "sourceName": "Outline-free Cel",
+      "sourceOrder": 14,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "7e4383e0f5ed5c0a3cae980182d7e349c484f626f475b6b52fc5dba70ce444b5",
+      "image": {
+        "path": "/influencer-styles/2dec9d22eff935b97b362a591f2a165bcb5d39c0db10fb6fcc750dcd3c6b86a3.webp",
+        "sha256": "2dec9d22eff935b97b362a591f2a165bcb5d39c0db10fb6fcc750dcd3c6b86a3",
+        "sizeBytes": 54028,
+        "archivePath": "media/blobs/2dec9d22eff935b97b362a591f2a165bcb5d39c0db10fb6fcc750dcd3c6b86a3.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/07844572ad3a93beaadf469ecfed1944a1cab1f99e0a0a1e4f5a34ee23b23535.mp4",
+        "sha256": "07844572ad3a93beaadf469ecfed1944a1cab1f99e0a0a1e4f5a34ee23b23535",
+        "sizeBytes": 631412,
+        "archivePath": "media/blobs/07844572ad3a93beaadf469ecfed1944a1cab1f99e0a0a1e4f5a34ee23b23535.mp4"
+      }
+    },
+    {
+      "id": "motion-painterly-sculpted-animation",
+      "sourceId": "083abd05-afbd-4cda-857f-7f2d2082e9b2",
+      "sourceName": "Painterly Sculpted Animation",
+      "sourceOrder": 15,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "578b65476ad531bacede2a3dca6b7ea4d7b2247ca71b717084ed687dfcb970c9",
+      "image": {
+        "path": "/influencer-styles/515f34b4164593b53d548d90f9d3c687bca46e7da9468907c64baa19cb6c07f8.webp",
+        "sha256": "515f34b4164593b53d548d90f9d3c687bca46e7da9468907c64baa19cb6c07f8",
+        "sizeBytes": 52042,
+        "archivePath": "media/blobs/515f34b4164593b53d548d90f9d3c687bca46e7da9468907c64baa19cb6c07f8.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/839861df169d8b48d5257f32cfbc3316a14a827e11eeb4bb0ced0b195ad54018.mp4",
+        "sha256": "839861df169d8b48d5257f32cfbc3316a14a827e11eeb4bb0ced0b195ad54018",
+        "sizeBytes": 538411,
+        "archivePath": "media/blobs/839861df169d8b48d5257f32cfbc3316a14a827e11eeb4bb0ced0b195ad54018.mp4"
+      }
+    },
+    {
+      "id": "motion-neon-graphic-cinematic-3d",
+      "sourceId": "41d02f6d-1d5d-4efa-9942-9fe71de9429b",
+      "sourceName": "Neon Graphic Cinematic 3D",
+      "sourceOrder": 16,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "881d5ca6849cf47f680bd79ea7ada311745588064156d59ae547e0f1b85dfc41",
+      "image": {
+        "path": "/influencer-styles/bc333d385f393c915336d9693248c1908d2a734988816d13cbb8a0472d970ccc.webp",
+        "sha256": "bc333d385f393c915336d9693248c1908d2a734988816d13cbb8a0472d970ccc",
+        "sizeBytes": 54314,
+        "archivePath": "media/blobs/bc333d385f393c915336d9693248c1908d2a734988816d13cbb8a0472d970ccc.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/665fe1848df7bcb715a3d3ea3b82c220b5be8095fe45ba9dc0c07cd3191ff4d2.mp4",
+        "sha256": "665fe1848df7bcb715a3d3ea3b82c220b5be8095fe45ba9dc0c07cd3191ff4d2",
+        "sizeBytes": 624829,
+        "archivePath": "media/blobs/665fe1848df7bcb715a3d3ea3b82c220b5be8095fe45ba9dc0c07cd3191ff4d2.mp4"
+      }
+    },
+    {
+      "id": "motion-textured-gouache-character-illustration",
+      "sourceId": "f2b4e920-3b1e-4931-8a86-b06566005145",
+      "sourceName": "Textured Gouache Character Illustration",
+      "sourceOrder": 17,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "2b7d60e37a520b0be7a656aafa0c2d0fcbd7329ad4e155bf2403c8b3c962d852",
+      "image": {
+        "path": "/influencer-styles/04898eb689fb8396cb09e416e0ed26956616dd18c3921ce7816bd509a35b10bd.webp",
+        "sha256": "04898eb689fb8396cb09e416e0ed26956616dd18c3921ce7816bd509a35b10bd",
+        "sizeBytes": 60068,
+        "archivePath": "media/blobs/04898eb689fb8396cb09e416e0ed26956616dd18c3921ce7816bd509a35b10bd.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/76f444ffc6490b0eb9d12d9b1d068342191901df089f06f6f2cb5bfb46cb636b.mp4",
+        "sha256": "76f444ffc6490b0eb9d12d9b1d068342191901df089f06f6f2cb5bfb46cb636b",
+        "sizeBytes": 549982,
+        "archivePath": "media/blobs/76f444ffc6490b0eb9d12d9b1d068342191901df089f06f6f2cb5bfb46cb636b.mp4"
+      }
+    },
+    {
+      "id": "motion-comic-3d",
+      "sourceId": "3dc6d454-808d-4e27-8a4e-4751da818324",
+      "sourceName": "Comic 3D",
+      "sourceOrder": 18,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "059fab56da4857c7e38f3bd36e76b80924e17a409d1781dd0363f77f027d176e",
+      "image": {
+        "path": "/influencer-styles/76347d0722cf1e7f1790879fd92e2636d82a9369ddf373d5daddd2eae44909de.webp",
+        "sha256": "76347d0722cf1e7f1790879fd92e2636d82a9369ddf373d5daddd2eae44909de",
+        "sizeBytes": 146718,
+        "archivePath": "media/blobs/76347d0722cf1e7f1790879fd92e2636d82a9369ddf373d5daddd2eae44909de.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/b36f1d2b512c6205d3dda90d5f21c729cc4d2bdd30cd6cf54bc4b9846b0213b8.mp4",
+        "sha256": "b36f1d2b512c6205d3dda90d5f21c729cc4d2bdd30cd6cf54bc4b9846b0213b8",
+        "sizeBytes": 746033,
+        "archivePath": "media/blobs/b36f1d2b512c6205d3dda90d5f21c729cc4d2bdd30cd6cf54bc4b9846b0213b8.mp4"
+      }
+    },
+    {
+      "id": "motion-retro-game-3d",
+      "sourceId": "255f5244-b43d-43fc-9c28-7138f8c12984",
+      "sourceName": "Retro Game 3D",
+      "sourceOrder": 19,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "fdd98d4cefc96a896c891fcea0bc041db1956d4f53d8d4daf12128ce6276ddc0",
+      "image": {
+        "path": "/influencer-styles/4e2b70dbd31ae3ac518f51fed6ef676a6e8cd74135a4dd33c6b0ad48dcde1e72.webp",
+        "sha256": "4e2b70dbd31ae3ac518f51fed6ef676a6e8cd74135a4dd33c6b0ad48dcde1e72",
+        "sizeBytes": 31720,
+        "archivePath": "media/blobs/4e2b70dbd31ae3ac518f51fed6ef676a6e8cd74135a4dd33c6b0ad48dcde1e72.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/d79527d9494d69f71067a4ae6683db338428a8c536140a2717a8bc3d4c1380f2.mp4",
+        "sha256": "d79527d9494d69f71067a4ae6683db338428a8c536140a2717a8bc3d4c1380f2",
+        "sizeBytes": 684035,
+        "archivePath": "media/blobs/d79527d9494d69f71067a4ae6683db338428a8c536140a2717a8bc3d4c1380f2.mp4"
+      }
+    },
+    {
+      "id": "motion-nighttime-anime-pixel-art",
+      "sourceId": "e54beac7-ca48-4034-856b-0a6f2b05081a",
+      "sourceName": "Nighttime Anime Pixel Art",
+      "sourceOrder": 20,
+      "mediaRole": "edit-preview-only",
+      "promptSha256": "38de8c4a8aa3554d479be79bd4b70935d10978ae82739d481d1c29db78a58a9c",
+      "image": {
+        "path": "/influencer-styles/2aa86941aa8da850d471374e25ddc0f6525d0053c0beb06ff762da6da2195d69.webp",
+        "sha256": "2aa86941aa8da850d471374e25ddc0f6525d0053c0beb06ff762da6da2195d69",
+        "sizeBytes": 54124,
+        "archivePath": "media/blobs/2aa86941aa8da850d471374e25ddc0f6525d0053c0beb06ff762da6da2195d69.webp"
+      },
+      "video": {
+        "path": "/influencer-styles/f23e453f622c76a0970382de53f5c23fde455ede615a580440bdb354032169e6.mp4",
+        "sha256": "f23e453f622c76a0970382de53f5c23fde455ede615a580440bdb354032169e6",
+        "sizeBytes": 1068987,
+        "archivePath": "media/blobs/f23e453f622c76a0970382de53f5c23fde455ede615a580440bdb354032169e6.mp4"
+      }
+    }
+  ]
+}

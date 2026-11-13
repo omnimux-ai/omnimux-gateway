@@ -1,0 +1,83 @@
+{
+ "model_id": "tiktok-shop-reviews-v2",
+ "family": "data",
+ "vendor": "TikTok",
+ "vendor_model_id": "/api/v1/tiktok/shop/web/fetch_product_reviews_v2",
+ "capability": "数据采集（TikTok Shop 商品评论 V2）",
+ "operations": [
+  "fetch_reviews"
+ ],
+ "status": "partial",
+ "checked_at": "2026-09-18",
+ "sources": [
+  {
+   "claim": "OmniMux 公开入口为 POST /v1/chat/completions（OpenAI 兼容）",
+   "url": "repo:docs/openapi/relay.json",
+   "quote": "    \"/v1/chat/completions\": {\n      \"post\": {\n        \"summary\": \"创建聊天对话\",\n        \"deprecated\": false,",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "该 operation 声明 security 为 BearerAuth（Bearer Token 认证）",
+   "url": "repo:docs/openapi/relay.json",
+   "quote": "        },\n        \"security\": [\n          {\n            \"BearerAuth\": []\n          }\n        ]",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "客户入口为 POST /v1/chat/completions，需 dummy messages + 业务字段 top-level",
+   "url": "repo:docs/ops/tikhub-tiktok-shop-models-zh.md",
+   "quote": "- 入口：`POST /v1/chat/completions`（dummy `messages` + 业务字段 top-level）",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "上游为 TikHub api.tikhub.io，对外 vendor 为 TikTok",
+   "url": "repo:docs/ops/tikhub-tiktok-shop-models-zh.md",
+   "quote": "- 上游：`https://api.tikhub.io`；**对外 vendor = TikTok**",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "tiktok-shop-reviews-v2 上游 path 为 /api/v1/tiktok/shop/web/fetch_product_reviews_v2，主要字段 product_id",
+   "url": "repo:docs/ops/tikhub-tiktok-shop-models-zh.md",
+   "quote": "| `tiktok-shop-reviews-v2` |",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "计费 ModelPrice = 0.002857 USD/次",
+   "url": "repo:docs/ops/tikhub-tiktok-shop-models-zh.md",
+   "quote": "- 售价：`ModelPrice = 0.002857` USD/次",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "上游认证由 Advanced Custom route 的 auth 块：Bearer {api_key}",
+   "url": "repo:docs/ops/advanced-custom-upstream-get-zh.md",
+   "quote": "      \"auth\": {\n        \"type\": \"header\",\n        \"name\": \"Authorization\",\n        \"value\": \"Bearer {api_key}\"\n      }",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "路由在 router 层注册：POST /chat/completions 由 controller.Relay 以 OpenAI 格式处理",
+   "url": "repo:router/relay-router.go",
+   "quote": "\t\thttpRouter.POST(\"/chat/completions\", func(c *gin.Context) {\n\t\t\tcontroller.Relay(c, types.RelayFormatOpenAI)\n\t\t})",
+   "retrieved_at": "2026-09-18"
+  }
+ ],
+ "notes": "本档案依据本仓自有事实。对外入口 POST /v1/chat/completions（model + 非空 messages，业务字段 top-level）；渠道 tikhub id=29 type=58 以 upstream_method=GET 透传至 /api/v1/tiktok/shop/web/fetch_product_reviews_v2，主要字段 product_id。对外 vendor=TikTok。成功以 HTTP 2xx 为准。ModelPrice=0.002857。响应结构未在仓库结构化记录，故 response_fields 为空。",
+ "endpoints": [
+  {
+   "name": "客户入口（OmniMux 公开接口，OpenAI 兼容）",
+   "method": "POST",
+   "path": "/v1/chat/completions"
+  },
+  {
+   "name": "上游数据接口（TikHub https://api.tikhub.io，由渠道 tikhub 透传）",
+   "method": "GET",
+   "path": "/api/v1/tiktok/shop/web/fetch_product_reviews_v2"
+  }
+ ],
+ "auth": "bearer",
+ "rate_limit": null,
+ "pagination": null,
+ "response_fields": [],
+ "unknowns": [
+  "响应字段：仓库未记录结构化 response_fields。",
+  "速率限制：未记录上游或网关侧针对该 model 的数值限额。"
+ ]
+}

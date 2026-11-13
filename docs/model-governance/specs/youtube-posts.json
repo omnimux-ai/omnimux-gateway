@@ -1,0 +1,97 @@
+{
+ "model_id": "youtube-posts",
+ "family": "data",
+ "vendor": "YouTube",
+ "vendor_model_id": "/api/v1/youtube/web_v2/get_channel_videos",
+ "capability": "数据采集（YouTube 频道视频列表）",
+ "operations": [
+  "list_channel_videos"
+ ],
+ "status": "partial",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "OmniMux 公开入口为 POST /v1/chat/completions（OpenAI 兼容）",
+   "url": "repo:docs/openapi/relay.json",
+   "quote": "    \"/v1/chat/completions\": {\n      \"post\": {\n        \"summary\": \"创建聊天对话\",\n        \"deprecated\": false,",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "该 operation 声明 security 为 BearerAuth（Bearer Token 认证）",
+   "url": "repo:docs/openapi/relay.json",
+   "quote": "        },\n        \"security\": [\n          {\n            \"BearerAuth\": []\n          }\n        ]",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "客户入口为 POST /v1/chat/completions，需 dummy messages + 业务字段 top-level",
+   "url": "repo:docs/ops/tikhub-social-models-zh.md",
+   "quote": "- 客户入口：`POST /v1/chat/completions`（需 dummy `messages` + 业务字段 top-level）。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "上游为 TikHub https://api.tikhub.io，使用 Bearer 渠道 key，对外 vendor 为平台品牌",
+   "url": "repo:docs/ops/tikhub-social-models-zh.md",
+   "quote": "- 上游：TikHub `https://api.tikhub.io`，Bearer 渠道 key；**对外 vendor = 平台品牌**（TikTok / Instagram / YouTube / X），不是 TikHub。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "youtube-posts 的上游 path 为 /api/v1/youtube/web_v2/get_channel_videos，主要请求字段：`channel_id`，可选 `continuation_token`",
+   "url": "repo:docs/ops/tikhub-social-models-zh.md",
+   "quote": "| `youtube-posts` | YouTube | `/api/v1/youtube/web_v2/get_channel_videos` | 0.001 | 0.001429 | `channel_id`，可选 `continuation_token` |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "生产渠道 tikhub id=29 type=58，每个 model 一条 advanced_routes，upstream_method=GET",
+   "url": "repo:docs/ops/tikhub-social-models-zh.md",
+   "quote": "**生产渠道**：`tikhub` id=29，type=58，group=`default,auto`，16 条 `advanced_routes`（每 model 一条，`converter=none`，`upstream_method=GET`）。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "上游认证由 route 的 auth 块显式给出：header Authorization，值 Bearer {api_key}",
+   "url": "repo:docs/ops/advanced-custom-upstream-get-zh.md",
+   "quote": "      \"auth\": {\n        \"type\": \"header\",\n        \"name\": \"Authorization\",\n        \"value\": \"Bearer {api_key}\"\n      }",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "路由在 router 层注册：POST /chat/completions 由 controller.Relay 以 OpenAI 格式处理",
+   "url": "repo:router/relay-router.go",
+   "quote": "\t\thttpRouter.POST(\"/chat/completions\", func(c *gin.Context) {\n\t\t\tcontroller.Relay(c, types.RelayFormatOpenAI)\n\t\t})",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "notes": "本档案依据本仓自有事实，不依赖厂商站点。对外入口是 OpenAI 兼容的 POST /v1/chat/completions（需 model + 非空 messages，业务字段置于 body top-level）；渠道 `tikhub`（id=29，type=58 Advanced Custom）以 `upstream_method=GET` 透传到 TikHub 上游 `/api/v1/youtube/web_v2/get_channel_videos`，本次记录的主要请求字段：`channel_id`，可选 `continuation_token`。auth 为 bearer：客户侧用用户令牌（BearerAuth），上游侧用渠道 key（`Authorization: Bearer {api_key}`）。响应为上游 JSON 原样透传，并用合成 usage（total_tokens=1）支撑按次 ModelPrice 结算；成功判定以 HTTP 2xx 为准，上游业务 code != 200 但 HTTP 200 仍按成功结算。vendor_model_id 记为上游 path：本能力没有平台侧 model id，公开 ID 与上游 path 一一对应。对外 vendor 是平台品牌（TikTok / Instagram / X / YouTube），不是 TikHub。unknowns 中列出的未记录项不得用推测值补齐。sources[].url 使用 `repo:` 前缀指向本仓路径（自有 API 的自证来源，非外部网页）；CONTRACT.md §四.3 的门禁校验要求 url 以 http(s) 开头，若该门禁照原样执行，需为仓库内来源放行 `repo:` 前缀，否则本档案会在第 3 条失败。",
+ "endpoints": [
+  {
+   "name": "客户入口（OmniMux 公开接口，OpenAI 兼容）",
+   "method": "POST",
+   "path": "/v1/chat/completions"
+  },
+  {
+   "name": "上游数据接口（TikHub https://api.tikhub.io，由渠道 tikhub 透传）",
+   "method": "GET",
+   "path": "/api/v1/youtube/web_v2/get_channel_videos"
+  }
+ ],
+ "auth": "bearer",
+ "rate_limit": null,
+ "pagination": "cursor",
+ "response_fields": [],
+ "unknowns": [
+  "响应字段：仓库未记录这些数据接口的响应结构。已检索 docs/ops/、docs/openapi/（relay.json 35 个 path 中无任何社交数据 path）、docs/channel/、router/、controller/ 与前端代码，均无 response_fields 说明，故 response_fields 为空数组。",
+  "速率限制：仓库未记录上游（TikHub）或网关侧针对这些 model 的 rate_limit 数值；relay.json 仅对 /v1/chat/completions 给出通用 429「请求频率限制」响应定义，不是数值限额。",
+  "分页：仓库仅记录请求侧分页参数 `continuation_token`（未记录响应侧游标字段名、每页条数上限与终止条件），故 pagination 记为 \"cursor\" 但响应侧口径仍未知。"
+ ],
+ "billing": {
+  "unit": "per_request",
+  "unit_label": {
+   "zh": "每次",
+   "en": "per request"
+  },
+  "pricing_basis": "request_count",
+  "unit_price_usd": 0.002857,
+  "notes": {
+   "zh": "按请求次数计费，与用量无关",
+   "en": "Charged per request, independent of usage"
+  }
+ }
+}

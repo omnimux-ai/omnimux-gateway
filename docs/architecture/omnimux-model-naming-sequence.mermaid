@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant Ops as Ops/CI
+  participant CLI as naming/lint.js
+  participant Adapters as Adapters
+  participant Pipe as RulePipeline
+  participant Alias as model_aliases.json
+  participant Out as LintReport
+
+  Ops->>CLI: lint --mode=live
+  CLI->>Adapters: loadAll()
+  Adapters-->>CLI: ModelRef[]
+  CLI->>Alias: load()
+  loop each ModelRef
+    CLI->>Pipe: run(ref, alias, tables)
+    Pipe-->>CLI: RuleResult[]
+  end
+  CLI->>Out: aggregate + exit_code
+  Out-->>Ops: JSON + human summary

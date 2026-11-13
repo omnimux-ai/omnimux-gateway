@@ -1,0 +1,110 @@
+{
+  "model_id": "seedream-5-0-pro",
+  "family": "image",
+  "vendor": "Volcengine",
+  "vendor_model_id": "doubao-seedream-5-0-pro-260628",
+  "capability": "图像生成（豆包 Seedream 5.0 Pro，含图层拆分与交互编辑）",
+  "operations": ["text_to_image", "image_to_image"],
+  "status": "partial",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "以下能力区块属于 Seedream 5.0 pro（页面该区块标题），且 5.0 pro 支持图层拆分、最多 16 个图层输出",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "Seedream 5.0 pronew 图层拆分：支持将单张图片拆解为底图（1 张）+ 多个图层输出（最多 16 个图层）。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedream 5.0 pro 多图生图：参考图 2-10 张，生成单张图片（本档案 reference_images.max / min 的来源）",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "多图生图：输入多张参考图片（2-10）+ 文本提示词，生成单张图片。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedream 5.0 pro 单图生图：输入单张参考图片",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "单图生图：输入单张参考图片 + 文本提示词，生成单张图片。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedream 5.0 pro 文生图：输入文本提示词，生成单张图片",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "文生图：输入文本提示词，生成单张图片。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedream 5.0 pro 暂不支持组图生成，故 2-14 与 ≤15 的组图口径不适用于本模型",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "暂不支持组图生成、联网搜索、流式输出。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "2-14 参考图与「参考图+生成图合计 ≤15」的组图口径属于另一区块 Seedream 5.0 lite、Seedream 4.5 / 4.0，不属于 Seedream 5.0 pro",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "Seedream 5.0 lite、Seedream 4.5 / 4.0 生成组图（组图：基于您输入的内容，生成的一组内容关联的图片；需配置 sequential_image_generation 为 auto）",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "组图模式下多图生组图的参考图区间为 2-14，且参考图数与生成图数合计 ≤15（属于 lite / 4.5 / 4.0，非 5.0 pro）",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "多图生组图：输入多张参考图片（2-14）+ 文本提示词，生成一组内容关联的图片（输入的参考图数量 + 最终生成的图片数量 ≤ 15 张）。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 cURL 示例给出厂商侧模型 ID 为 doubao-seedream-5-0-pro-260628",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "\"model\": \"doubao-seedream-5-0-pro-260628\"",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "接口地址为火山方舟图片生成 API",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "POST https://ark.cn-beijing.volces.com/api/v3/images/generations",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "请求参数 output_format 的图像格式默认值为 jpeg",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "output_format string 默认值 jpeg | 图像格式",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "请求参数 image 接受单张字符串或字符串数组形式的参考图片",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "image string / string[] | 参考图片",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "响应示例中出现 2048x2048 的输出尺寸",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "\"size\": \"2048x2048\",",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方页面最近更新时间为 2026-09-09（规格时效性依据）",
+      "url": "https://www.volcengine.com/docs/82379/1541523",
+      "quote": "最近更新时间：2026.09.09 19:08:06",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "reference_images": {
+    "max": 10,
+    "min": 2,
+    "formats": null,
+    "max_bytes_each": null,
+    "source_claim": "Seedream 5.0 pro 多图生图：参考图 2-10 张，生成单张图片（本档案 reference_images.max / min 的来源）"
+  },
+  "output_sizes": null,
+  "output_formats": ["jpeg"],
+  "prompt_max_chars": null,
+  "unknowns": [
+    "参考图支持的文件格式（参数表只写 image string / string[] 参考图片，未枚举图片格式）",
+    "单张参考图字节上限",
+    "size（图像尺寸）的完整可选值列表：请求示例使用 \"2K\"，响应示例返回 \"2048x2048\"，官方可读文本未枚举全部取值",
+    "output_format 除默认值 jpeg 之外的可选值未枚举：响应示例中图层输出出现 png，但未说明是否可由请求显式指定",
+    "提示词字符数上限（页面只有 prompt string | 提示词，未给出长度限制）",
+    "单次请求的输出图片数量上限：5.0 pro 为单图输出，图层拆分另有「最多 16 个图层」口径，两者不是同一维度，未合并为同一字段",
+    "限流 / 并发等用量限制未核实"
+  ],
+  "notes": "取数方法（重要，供后续复核者复用）：本页是前端渲染的 SPA，curl 与 web_fetch 只能拿到 \"You need to enable JavaScript to run this app.\"，必须用支持 JS 的浏览器打开 https://www.volcengine.com/docs/82379/1541523 后读 document.body.innerText 才能取到正文（本次用 ego-browser 渲染后读取；注意 innerText 每个条目行尾带零宽空格，比对引文前需剔除）。因此「火山文档取不到」是抓取方式的限制，不是官方未公开。\n\n关键结构纠正（防止把别的模型的能力写到本模型上）：该页「模型能力」一节的文本被零宽空格与换行分隔成两个模型区块，顺序为——① 区块标题「Seedream 5.0 pronew」（即本档案的模型）：图层拆分（最多 16 个图层）、交互编辑、生成单图（多图生图 2-10 / 单图生图 / 文生图），末句明确写「暂不支持组图生成、联网搜索、流式输出。」；② 区块标题「Seedream 5.0 lite、Seedream 4.5 / 4.0」：生成组图（多图生组图 2-14、单图生组图最多 14 张、文生组图最多 15 张）以及生成单图时的多图生图 2-14。因此 2-14 与「参考图+生成图 ≤15」属于 Seedream 5.0 lite / 4.5 / 4.0，不属于 Seedream 5.0 pro；5.0 pro 的参考图口径只有 2-10 这一条。本档案只把 2-10 记入 reference_images（min=2、max=10），2-14 与 ≤15 仅作为对照记在 sources 并明确标注归属，不写入任何限制字段。\n\n其他已核实事实：接口 POST https://ark.cn-beijing.volces.com/api/v3/images/generations ；厂商侧模型 ID 示例 doubao-seedream-5-0-pro-260628 ；请求参数含 prompt / image(string|string[]) / layer_decomposition(默认 false) / size / output_format(默认 jpeg) / background(默认 opaque) / sequential_image_generation(默认 disabled) / stream(默认 false) / watermark(默认 true) / model(必选) ；5.0 pro 因「暂不支持组图生成」，sequential_image_generation 对本模型不生效。output_formats 只登记 jpeg（官方参数表给出的默认值，可确证支持），未把响应示例中图层的 png 当作可选输出格式写入。status 取 partial 而非 documented：参考图张数、输出格式默认值、模型 ID、接口地址已有官方出处，但图片格式、字节上限、尺寸枚举与提示词长度官方未公布，均已列入 unknowns。"
+}

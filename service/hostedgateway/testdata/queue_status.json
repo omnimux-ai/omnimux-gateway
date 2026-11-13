@@ -1,0 +1,13 @@
+{
+  "cfgCap": 2,
+  "effectiveCap": 2,
+  "planCap": 3,
+  "selfActive": 0,
+  "occupiedBound": 1,
+  "queued": 0,
+  "running": 0,
+  "recoveryRequired": 0,
+  "quarantinedSeats": 0,
+  "planCacheAgeSec": 0,
+  "jobsEnabled": true
+}

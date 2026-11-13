@@ -1,0 +1,185 @@
+{
+  "model_id": "wan-3.0-prime-ref",
+  "family": "video",
+  "vendor": "Alibaba",
+  "vendor_model_id": "wan3.0-video-prime",
+  "capability": "参考驱动视频生成（全模态参考生视频 / 视频编辑 / 视频延长，原生有声）——高速版",
+  "operations": [
+    "reference_to_video",
+    "video_edit",
+    "video_extend"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "厂商侧模型名 wan3.0-video-prime 为高速版，能力对齐标准版，端到端速度显著提升",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "模型名称。可选值：wan3.0-video-prime：高速版，能力对齐标准版，端到端速度显著提升。wan3.0-video：标准版。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "wan3.0-video-prime 与 wan3.0-video 同为 All-in-One，同一模型名覆盖全部任务类型（含参考模式）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-guide",
+      "quote": "wan3.0-video / wan3.0-video-prime 是 All-in-One 模型，无需切换模型名称即可覆盖以下全部任务类型。模型根据 input.media 中的 type 字段和提示词意图自动路由。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考生视频通过 input.media 传入参考图片、视频、音频、文件或网页链接，模型自动理解意图生成视频",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "参考生视频 通过 input.media 传入参考图片、视频、音频、文件或网页链接，模型自动理解意图生成视频。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "All-in-One 能力与上限：最长 30 秒、30fps，原生输出台词/BGM/音效",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "万相 3.0 是全能参考视频生成模型（All-in-One），统一支持文生视频、图生视频（首帧/首尾帧）和参考生视频等多种用法。最长可生成 30 秒视频，输出帧率为 30fps。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输入素材各类型上限：reference_image 最多 10 张、reference_video 最多 5 段总时长不大于 15 秒、reference_audio 最多 5 段总时长不大于 15 秒",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "reference_image ：参考图像。最多 10 张。 reference_video ：参考视频。最多 5 段，总时长不大于 15 秒。 reference_audio ：参考音频。最多 5 段，总时长不大于 15 秒。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图像文件限制：格式 JPEG/JPG/PNG（不支持透明通道）/BMP/WEBP，单边[240, 8000]像素，长宽比不超过 8:1，文件大小不超过 20MB",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "图像限制： 格式：JPEG、JPG、PNG（不支持透明通道）、BMP、WEBP。 分辨率：单边[240, 8000]像素。 长宽比：不超过 8:1。 文件大小：不超过 20MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考视频文件限制：格式 mp4/mov，单个[1, 15]秒且总时长不大于 15 秒，帧率≥16 fps，单边[240, 4096]像素，单文件不超过 100MB",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "视频限制： 格式：mp4、mov。 时长：单个[1, 15]秒，总时长不大于 15 秒。 帧率：≥16 fps。 分辨率：单边[240, 4096]像素。 长宽比：不超过 8:1。 单文件大小：不超过 100MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考音频文件限制：格式 wav/mp3，单个[1, 15]秒且总时长不大于 15 秒，文件大小不超过 15MB",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "音频限制： 格式：wav、mp3。 时长：单个[1, 15]秒，总时长不大于 15 秒。 文件大小：不超过 15MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考模式输出时长：无视频输入时取值 [2, 30] 的整数；有视频输入时输入总时长+输出时长不超过 30 秒；-1 为智能时长",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "duration integer （可选） 生成视频的时长，单位为秒。默认值为 5。 无视频输入时：取值范围为[2, 30]的整数。 有视频输入时：输入视频总时长 + 输出视频时长不超过 30 秒。 传 -1 时：智能时长模式",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出分辨率可选值 1080P/720P/480P（默认 1080P）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "resolution string （可选） 生成视频的分辨率档位。默认值为 1080P 。可选值： 1080P 720P 480P",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出宽高比可选值 adaptive（默认）/16:9/4:3/1:1/3:4/9:16",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "ratio string （可选） 生成视频的宽高比。可选值： adaptive （默认值）：自适应长宽比，根据输入媒体比例和意图自动推荐合适的长宽比。 16:9 4:3 1:1 3:4 9:16",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "提示词上限 20000 个字符（超出自动截断）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "支持中英文，每个汉字/字母占一个字符，不超过 20000 个字符，超过部分会自动截断。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出视频默认包含音轨（audio 默认 true）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "audio boolean （可选） 输出视频是否包含音频。 true ：默认值，输出视频包含声音。 false ：输出视频不包含音轨。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "素材组合规则：first_frame/last_frame 与 reference_* / file / link 互斥；reference_image/reference_video/reference_audio 之间可自由组合",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "type 组合规则： first_frame / last_frame 与 reference_image / reference_video / reference_audio / file / link 类型互斥，不能在同一请求中混用。 file 和 link 二选一，但均可与 reference_image / reference_video / reference_audio 组合使用。 reference_image / reference_video / reference_audio 之间可自由组合。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "视频编辑与视频延长均以 reference_video 触发，且可与 reference_image / reference_audio 组合",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-guide",
+      "quote": "视频延长 type 设为 reference_video （可与 reference_image / reference_audio 组合）+ 提示词含延长意图（如\"延长\"\"延续\"\"续写\"\"向前/向后延长\"等）",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：文件大小不超过 20MB → 20971520 字节（20 × 1024 × 1024）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "图像限制： 格式：JPEG、JPG、PNG（不支持透明通道）、BMP、WEBP。 分辨率：单边[240, 8000]像素。 长宽比：不超过 8:1。 文件大小：不超过 20MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：单文件大小不超过 100MB → 104857600 字节（100 × 1024 × 1024）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "视频限制： 格式：mp4、mov。 时长：单个[1, 15]秒，总时长不大于 15 秒。 帧率：≥16 fps。 分辨率：单边[240, 4096]像素。 长宽比：不超过 8:1。 单文件大小：不超过 100MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：文件大小不超过 15MB → 15728640 字节（15 × 1024 × 1024）",
+      "url": "https://help.aliyun.com/zh/model-studio/wan3-video-generation-api-reference",
+      "quote": "音频限制： 格式：wav、mp3。 时长：单个[1, 15]秒，总时长不大于 15 秒。 文件大小：不超过 15MB。",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "notes": "【-ref 关系（已核验）】阿里云百炼未为参考驱动提供独立模型名：官方把参考生视频定义为同一 All-in-One 模型（本档案对应高速版 wan3.0-video-prime）的一类用法，由 input.media 的 type 字段自动路由（引文见 sources）。故 wan-3.0-prime-ref 与 wan-3.0-prime 共用同一厂商模型与同一套素材限制，且每一项参考素材上限都直接引用厂商 API 参考页原文，而非从兄弟档案复制。【高速版同规格的依据】两条独立官方声明：① 模型名称条目写明「高速版，能力对齐标准版」；② 向导页写明两个模型名均为 All-in-One 且「无需切换模型名称即可覆盖以下全部任务类型」。API 参考页的请求参数与素材限制只给一套（两模型名共用）。官方未为高速版单独给出参数表，若后续单列差异需重新核验（见 unknowns）。【互斥硬约束】first_frame/last_frame 与 reference_*/file/link 类型互斥，故参考驱动路径无法同时使用首尾帧控制。【口径提示】durations_seconds 为输出时长口径（[2,30]；有视频输入时「输入总时长+输出时长≤30 秒」），与参考视频单段 [1,15] 秒、总时长 ≤15 秒不是同一口径。resolutions 为官方大写档位的小写归一写法（默认 1080P）。",
+  "reference_images": {
+    "max": 10,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/bmp",
+      "image/webp"
+    ],
+    "max_bytes_each": 20971520,
+    "source_claim": "reference_image：参考图像。最多 10 张；图像文件大小不超过 20MB"
+  },
+  "reference_videos": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 104857600,
+    "source_claim": "reference_video：参考视频。最多 5 段；单文件大小不超过 100MB"
+  },
+  "reference_audios": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "audio/wav",
+      "audio/mpeg"
+    ],
+    "max_bytes_each": 15728640,
+    "source_claim": "reference_audio：参考音频。最多 5 段；文件大小不超过 15MB"
+  },
+  "durations_seconds": {
+    "min": 2,
+    "max": 30
+  },
+  "resolutions": [
+    "480P",
+    "720P",
+    "1080P"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "adaptive"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": 20000,
+  "unknowns": [
+    "高速版在参考模式下是否存在与标准版不同的限制：官方未为 wan3.0-video-prime 单独给出参数表，只声明能力对齐标准版且两模型名共用同一套请求参数说明；若厂商后续单列差异需重新核验。",
+    "参考素材的单类型最小数量：官方未给出 reference_image / reference_video / reference_audio 的最少个数，故各 min 记为 0（不推断为 1）。",
+    "参考图与参考音频能否在无 reference_video 的情况下独立驱动生成：官方称三类可自由组合，但未明确「仅参考图+参考音频」是否构成合法请求。",
+    "输出音频规格（采样率、声道、编码）：官方只说明默认包含音轨，未公布采样率与声道参数。",
+    "素材总数口径：向导页称单次最多 20 个多模态素材参考，API 参考页各类型上限之和亦为 20（10+5+5），file/link 各 1 是否计入总数官方未统一说明。",
+    "各地域高速版可用性：官方说明各地域支持的模型有所差异且资源相互独立，未公布 wan3.0-video-prime 的逐地域可用清单。",
+    "我方 ID wan-3.0-prime-ref 的网关路由细节（是否强制注入参考模式、是否走高速通道）不属厂商规格，本档案只记录厂商侧能力与限制。"
+  ]
+}

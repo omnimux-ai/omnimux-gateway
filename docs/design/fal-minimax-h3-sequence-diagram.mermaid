@@ -1,0 +1,78 @@
+sequenceDiagram
+    autonumber
+    actor Client as 客户端 (Agent/剪辑流水线)
+    participant Router as OmniMux 路由层 (/v1/video/generations)
+    participant Controller as controller.RelayTask
+    participant RelayTaskSubmit as relay.RelayTaskSubmit
+    participant Adaptor as fal.TaskAdaptor
+    participant Billing as service.PreConsumeBilling
+    participant Upstream as 上游 fal.ai Queue
+    participant PollingEngine as service.RunTaskPollingOnce
+    participant ModelTask as model.Task (DB)
+    participant Refund as service.RefundTaskQuota
+
+    rect rgb(240, 245, 255)
+    Note over Client,Billing: 阶段 1：客户端提交、参数校验与配额预扣
+    Client->>Router: POST /v1/video/generations (model, prompt, duration: 10, image_url)
+    Router->>Controller: 分发至 RelayTask 处理器
+    Controller->>RelayTaskSubmit: RelayTaskSubmit(c, info)
+    RelayTaskSubmit->>Adaptor: ValidateRequestAndSetAction(c, info)
+    Note over Adaptor: 校验模型合法性、提炼提示词与输入介质(Text/Image/Video)
+    RelayTaskSubmit->>Adaptor: EstimateBilling(c, info)
+    Note over Adaptor: 解析 duration=10，返回倍率 {"duration": 2.0}
+    RelayTaskSubmit->>Billing: 基础价格 × 2.0x 倍率，执行额度预扣 (Freeze Quota)
+    Billing-->>RelayTaskSubmit: 预扣成功
+    end
+
+    rect rgb(255, 250, 240)
+    Note over RelayTaskSubmit,Upstream: 阶段 2：构建规范 Payload 并提交至 fal.ai Queue
+    RelayTaskSubmit->>Adaptor: BuildRequestBody(c, info)
+    Note over Adaptor: 转换为 fal.ai Payload (prompt, image_url, duration, aspect_ratio)
+    RelayTaskSubmit->>Adaptor: DoRequest(c, info, requestBody)
+    Adaptor->>Upstream: POST https://queue.fal.run/{model_id}<br/>Header: [Authorization: Key {FAL_KEY}]
+    Upstream-->>Adaptor: HTTP 200 { "request_id": "018e6e5b-...", "status": "IN_QUEUE" }
+    RelayTaskSubmit->>Adaptor: DoResponse(c, resp, info)
+    Adaptor-->>Controller: upstreamID = "{endpoint}:{request_id}", data
+    Controller->>ModelTask: 插入任务记录 (Status: QUEUED, Quota, UpstreamTaskID)
+    Controller-->>Client: HTTP 200 { "task_id": "task_xxxx", "status": "queued" }
+    end
+
+    rect rgb(245, 255, 245)
+    Note over PollingEngine,Upstream: 阶段 3：后台自适应轮询与二阶段结果解析 (Fetch-with-Resolve)
+    loop 后台轮询循环 (后台 Worker 每 2~3 秒轮询一次未完成任务)
+        PollingEngine->>ModelTask: 读取未完成任务 (Status: QUEUED / IN_PROGRESS)
+        PollingEngine->>Adaptor: FetchTask(baseURL, key, {task_id, origin_model}, proxy)
+        Adaptor->>Upstream: GET https://queue.fal.run/{model_id}/requests/{request_id}/status
+        alt 队列中或处理中 (IN_QUEUE / IN_PROGRESS)
+            Upstream-->>Adaptor: HTTP 200 { "status": "IN_PROGRESS", "queue_position": 0 }
+            Adaptor-->>PollingEngine: 返回进行中状态响应
+            PollingEngine->>ModelTask: CAS 更新进度为 ProgressInProgress (30%)
+        else 生成已完成 (COMPLETED)
+            Upstream-->>Adaptor: HTTP 200 { "status": "COMPLETED" }
+            Note over Adaptor: 触发二阶段直接拉取成片结果 (Fetch-with-Resolve)
+            Adaptor->>Upstream: GET https://queue.fal.run/{model_id}/requests/{request_id}
+            Upstream-->>Adaptor: HTTP 200 { "video": { "url": "https://v3.fal.media/output.mp4" } }
+            Adaptor-->>PollingEngine: 返回包含成片详情的完整响应
+            PollingEngine->>Adaptor: ParseTaskResult(respBody)
+            Adaptor-->>PollingEngine: TaskInfo { Status: SUCCESS, Url: "https://v3.fal.media/output.mp4" }
+            PollingEngine->>ModelTask: CAS 写入终态 SUCCESS，保存 ResultURL 与完成时间
+            PollingEngine->>PollingEngine: 执行配额最终结算 (Settle / 确认消费)
+        else 生成失败或内容违规拦截 (FAILED)
+            Upstream-->>Adaptor: HTTP 200 { "status": "FAILED", "error": "nsfw detected" }
+            Adaptor-->>PollingEngine: 返回失败响应
+            PollingEngine->>Adaptor: ParseTaskResult(respBody)
+            Adaptor-->>PollingEngine: TaskInfo { Status: FAILURE, Reason: "nsfw detected" }
+            PollingEngine->>ModelTask: CAS 写入终态 FAILURE，记录 FailReason
+            PollingEngine->>Refund: RefundTaskQuota(ctx, task, reason) 退还预扣额度
+        end
+    end
+    end
+
+    rect rgb(255, 245, 250)
+    Note over Client,ModelTask: 阶段 4：客户端异步轮询结果拉取
+    Client->>Router: GET /v1/tasks/task_xxxx
+    Router->>Controller: RelayTaskFetch
+    Controller->>ModelTask: 查询 task 状态
+    ModelTask-->>Controller: 返回 Task 实体 (Status: SUCCESS, ResultURL)
+    Controller-->>Client: HTTP 200 { "task_id": "task_xxxx", "status": "succeeded", "video_url": "https://..." }
+    end

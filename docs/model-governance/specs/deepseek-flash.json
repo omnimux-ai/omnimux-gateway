@@ -1,0 +1,119 @@
+{
+  "model_id": "deepseek-flash",
+  "family": "llm",
+  "vendor": "DeepSeek",
+  "vendor_model_id": "deepseek-flash",
+  "capability": "文本与图像理解的长上下文对话、推理、深度思考与工具调用（DeepSeek-V4.1-Flash 正式版）",
+  "operations": [
+    "chat_completion",
+    "streaming",
+    "tool_calling",
+    "structured_output",
+    "deep_thinking",
+    "image_input",
+    "prompt_caching"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-22",
+  "context_window_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "reference_images": {
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp"
+    ],
+    "source_claim": "官方视觉指南 Supported image formats: JPEG, PNG, GIF, and WebP"
+  },
+  "sources": [
+    {
+      "claim": "官方现网模型名为 deepseek-flash，模型版本 DeepSeek-V4.1-Flash（旧名 deepseek-v4-flash 已退役，仅作兼容路由）",
+      "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+      "quote": "模型 deepseek-flash(1) | 模型版本 DeepSeek-V4.1-Flash",
+      "retrieved_at": "2026-09-22"
+    },
+    {
+      "claim": "context_window_tokens=1048576（官方价格表：上下文长度 1M）",
+      "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+      "quote": "上下文长度 1M",
+      "retrieved_at": "2026-09-22"
+    },
+    {
+      "claim": "max_output_tokens=393216（官方价格表：输出长度 最大 384K）",
+      "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+      "quote": "输出长度 最大 384K",
+      "retrieved_at": "2026-09-22"
+    },
+    {
+      "claim": "input_modalities 含 image（官方价格表：图像理解 支持 / deepseek-v4-pro 不支持）",
+      "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+      "quote": "图像理解 支持 不支持",
+      "retrieved_at": "2026-09-22"
+    },
+    {
+      "claim": "tool_calling 与 structured_output（官方价格表：Json Output、Tool Calls、Responses API、Anthropic API 均支持）",
+      "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+      "quote": "Json Output 支持 | Tool Calls 支持 | Responses API 支持 | Anthropic API 支持",
+      "retrieved_at": "2026-09-22"
+    },
+    {
+      "claim": "deep_thinking（官方价格表：支持非思考与思考模式，默认思考模式）",
+      "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+      "quote": "思考模式 支持非思考与思考模式（默认）",
+      "retrieved_at": "2026-09-22"
+    },
+    {
+      "claim": "prompt_caching=true（官方价格表单列「百万tokens输入（缓存命中）」按 0.02 元/百万 token 计价）",
+      "url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+      "quote": "百万tokens输入（缓存命中） 空闲时段 0.02元",
+      "retrieved_at": "2026-09-22"
+    },
+    {
+      "claim": "streaming=true（Chat Completions 支持 stream 参数，SSE 增量返回）",
+      "url": "https://api-docs.deepseek.com/api/create-chat-completion",
+      "quote": "If set, partial message deltas will be sent. Tokens will be sent as data-only server-sent events (SSE) as they become available, with the stream terminated by a data: [DONE] message.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "我方线路实测：渠道 13（ApiKeyFun 大厂直供）上游 /v1/models 可见 deepseek-flash，真实对话提交 HTTP 200",
+      "url": "repo:.reports/probes/channel-13-deepseek-flash.json",
+      "quote": "\"overall_status\": \"passed\", \"total_cases\": 2, \"passed_cases\": 2, \"failed_cases\": 0, \"cases\": [ { \"case_name\": \"model_visibility\", \"description\": \"上游 /v1/models 是否列出该上游模型（鉴权与路由可用性）\", \"status\": \"passed\", \"http_status\": 200, \"latency_ms\": 425, \"upstream_model_visible\": true, \"error\": null }, { \"case_name\": \"submit_task\", \"description\": \"真实提交一次最小对话请求\", \"status\": \"passed\", \"http_status\": 200, \"latency_ms\": 1129",
+      "retrieved_at": "2026-09-22"
+    }
+  ],
+  "notes": "本档案描述官方现网正式 ID deepseek-flash（DeepSeek-V4.1-Flash，含 1M 上下文与图像理解）。旧 ID deepseek-v4-flash 与 deepseek-v4-flash-vision-exp 官方已下线，仅作兼容路由并按其价格计费，见 specs/deepseek-v4-flash.json。定价口径：官方零售价按百万 token 计（空闲时段输入 1 元 / 缓存命中 0.02 元 / 输出 4 元），高峰时段（北京时间周一至周五 9:00-12:00、14:00-18:00，不含法定节假日）价格翻倍；结存表述以美元锚定，按 ops fx 6.8 折算。线路走 ApiKeyFun「DeepSeek（大厂直供）」5折档；对外售价 = 官方零售价 × 0.6（模型专属分组 deepseek-flash-economy），进价为官方 5 折。",
+  "routing": [
+    {
+      "group": "deepseek-flash-economy",
+      "upstream_model_id": "deepseek-flash",
+      "channel_id": 13,
+      "channel_name": "[个人中转-ApiKeyFun] DeepSeek 系列",
+      "channel_type": 59,
+      "priority": 20,
+      "weight": 10,
+      "tier_note": "上游 ApiKeyFun「DeepSeek（大厂直供）」5折档；对外售价 = 官方零售价 × 0.6（模型专属分组 deepseek-flash-economy，GroupRatio 0.6），同一分组内唯一供给渠道"
+    }
+  ],
+  "billing": {
+    "unit": "per_token",
+    "unit_label": {
+      "zh": "每百万词元",
+      "en": "per 1M tokens"
+    },
+    "pricing_basis": "reported_tokens",
+    "model_ratio": 0.0735294117647059,
+    "unit_price_usd": 0.1470588235294118,
+    "notes": {
+      "zh": "按上游返回的词元用量计费；基准单价锚定官方零售价（美元/百万词元，空闲时段输入 1 元 ÷ 6.8），对外按模型专属分组 deepseek-flash-economy 倍率 0.6 折算出售价；高峰时段按官方规则翻倍，缓存命中单独计价。",
+      "en": "Charged by reported token usage; the base unit price anchors the official retail price (USD per 1M tokens, off-peak input 1 CNY ÷ 6.8) and the model-specific group deepseek-flash-economy (0.6) scales it to the sell price. Peak hours double, cache hits priced separately."
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "model_id": "kling-v3-motion-control",
+  "family": "video",
+  "vendor": "Kuaishou（可灵 Kling）",
+  "vendor_model_id": "kling-3.0-motion-control",
+  "capability": "动作控制（动作迁移）视频生成",
+  "operations": [
+    "motion_control"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "官方能力地图中 Kling 3.0 的「动作控制」能力标注为支持，但 4K 不支持",
+      "url": "https://klingai.com/document-api/guides/capability-map/video",
+      "quote": "| 动作控制 | - | 不支持 | 支持: 4K不支持 | 不支持 | 不支持 | 支持 | 不支持 | 不支持 | 不支持 | 不支持 | 不支持 | 不支持 | 不支持 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "素材类型支持提示词、形象参考图、动作参考视频、参考主体",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/motion-control",
+      "quote": "| `contents[].type` | string | 是 | - | `prompt`, `image`, `video`, `element` | 参考素材合集，支持：提示词、形象参考图、动作参考视频、参考主体 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "形象参考图格式支持 .jpg / .jpeg / .png，单张不超过 50MB（52428800 字节）",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/motion-control",
+      "quote": "- `contents[].type.image`: 图片文件大小不能超过50MB",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "形象参考图宽高尺寸不小于 300px，宽高比在 1:2.5 ~ 2.5:1 之间",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/motion-control",
+      "quote": "- `contents[].type.image`: 图片宽高尺寸不小于300px，图片宽高比要在1:2.5 ~ 2.5:1之间",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "动作参考视频时长下限 3 秒；与视频中人物朝向一致时最长 30 秒，与图片中人物朝向一致时最长 10 秒",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/motion-control",
+      "quote": "- `settings.character_orientation`: `image`：与图片中人物朝向一致；此时参考视频时长不得超过10秒。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "动作参考视频格式支持 .mp4 / .mov，单文件不超过 100MB（104857600 字节），宽高尺寸介于 340px 与 3850px 之间",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/motion-control",
+      "quote": "- `contents[].type.video`: 视频文件大小不能超过100MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考主体最多指定 1 个",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/motion-control",
+      "quote": "- `contents[].type.element`: 最多指定1个主体。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出分辨率可选 720p / 1080p；音频可选保留参考视频原声（original）或关闭（off）",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/motion-control",
+      "quote": "- `settings.resolution`: `720p`：输出清晰度为720P的视频。",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "notes": "官方出处为可灵开放平台「Kling 3.0 & 3.0 Omni - 动作控制」页面与官方视频能力地图中的「动作控制」行。状态 documented：参考图与参考视频的限制、输出分辨率、音频开关、主体上限均有官方原文。口径提示：①本能力是「形象参考图 + 动作参考视频 → 生成视频」，不是文生视频，前端应只暴露动作控制入口；②参考视频时长上限取决于 character_orientation（image ≤10 秒 / video ≤30 秒），不是单一常数；③官方能力地图明确 Kling 3.0 的动作控制在 4K 下不支持。品牌说明：官方文档此能力仅以「动作控制」出现在 Kling 3.0 & 3.0 Omni 组内，未出现独立的厂商模型 ID 字符串，vendor_model_id 按我方目录语义记为 kling-3.0-motion-control，官方对应页面见 sources。",
+  "unknowns": [
+    "官方未公布本能力的具体 prompt 字符上限（动作控制页面按形象参考图 + 动作参考视频驱动，未列出文生视频那套 prompt 长度限制）",
+    "官方未公布独立参考音频的上限（音频仅可保留参考视频原声或关闭）",
+    "输出时长范围未单独公布（输出时长跟随动作参考视频）",
+    "输出画面纵横比未公布独立可选值"
+  ],
+  "reference_images": {
+    "max": 1,
+    "min": 1,
+    "formats": [
+      "image/jpeg",
+      "image/png"
+    ],
+    "max_bytes_each": 52428800,
+    "source_claim": "形象参考图 1 张，单张 ≤50MB（52428800 字节），格式 .jpg/.jpeg/.png，尺寸 ≥300px"
+  },
+  "reference_videos": {
+    "max": 1,
+    "min": 1,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 104857600,
+    "min_seconds": 3,
+    "max_seconds": 30,
+    "source_claim": "动作参考视频 1 段，时长 3–30 秒（随 character_orientation），单文件 ≤100MB（104857600 字节），格式 .mp4/.mov"
+  },
+  "reference_audios": {
+    "max": 0,
+    "min": 0,
+    "formats": null,
+    "max_bytes_each": null,
+    "source_claim": "官方音频参数只有 original（保留参考视频原声）与 off，不接受独立音频参考"
+  },
+  "durations_seconds": {
+    "min": null,
+    "max": null
+  },
+  "resolutions": [
+    "720p",
+    "1080p"
+  ],
+  "aspect_ratios": [],
+  "audio_supported": true,
+  "prompt_max_chars": null
+}

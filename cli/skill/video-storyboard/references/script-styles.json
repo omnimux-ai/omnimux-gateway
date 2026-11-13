@@ -1,0 +1,51 @@
+{
+    "styles": {
+        "narrative": {
+            "name": "叙事型",
+            "description": "以叙事性口吻，讲述一个吸引人的故事",
+            "characteristics": [
+                "故事性强，有起承转合",
+                "情感共鸣，代入感强",
+                "适合 Vlog、纪录片、品牌故事"
+            ],
+            "toneKeywords": ["娓娓道来", "引人入胜", "情感真挚"]
+        },
+        "tutorial": {
+            "name": "教程型",
+            "description": "以教程形式，清晰讲解步骤和要点",
+            "characteristics": [
+                "步骤清晰，逻辑严谨",
+                "实操性强，易于跟学",
+                "适合教学、测评、技能分享"
+            ],
+            "toneKeywords": ["清晰", "专业", "实用"]
+        },
+        "promotional": {
+            "name": "推广型",
+            "description": "以推广宣传口吻，突出亮点和价值",
+            "characteristics": [
+                "卖点突出，说服力强",
+                "节奏紧凑，信息密度高",
+                "适合产品推广、品牌宣传"
+            ],
+            "toneKeywords": ["吸引", "有力", "号召"]
+        },
+        "educational": {
+            "name": "科普型",
+            "description": "以科普教育口吻，通俗易懂地解释概念",
+            "characteristics": [
+                "通俗易懂，深入浅出",
+                "知识性强，有信息量",
+                "适合知识分享、科普解说"
+            ],
+            "toneKeywords": ["专业", "易懂", "有趣"]
+        }
+    },
+    "defaults": {
+        "style": "narrative",
+        "duration": 60,
+        "sceneMinDuration": 5,
+        "sceneMaxDuration": 15,
+        "sceneAvgDuration": 8
+    }
+}

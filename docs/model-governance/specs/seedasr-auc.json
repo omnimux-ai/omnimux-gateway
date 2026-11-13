@@ -1,0 +1,169 @@
+{
+ "model_id": "seedasr-auc",
+ "family": "audio",
+ "vendor": "火山引擎",
+ "vendor_model_id": "volc.seedasr.auc",
+ "capability": "语音识别（录音文件识别·标准模式，Seed ASR 2.0）",
+ "operations": [
+  "transcription"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "本 ID 与厂商资源 ID 逐字对应：X-Api-Resource-Id 取值 `volc.seedasr.auc` 即 Seed ASR 2.0 模型",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofilesubmittask",
+   "quote": "`volc.seedasr.auc`：Seed ASR 2.0 model",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "标准模式录音文件识别：异步转写，上传文件必须小于 512 MB（536870912 字节）且不超过 5 小时（18000 秒），提交后用查询接口取结果",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofilesubmittask",
+   "quote": "This API asynchronously transcribes audio files into text. Uploaded files must be smaller than 512 MB and no longer than 5 hours. After uploading a file, use the Query Result API to retrieve the transcription results.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "录音文件识别使用限制：音频时长 < 5 小时",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile",
+   "quote": "|Audio Duration |< 5 hours |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "录音文件识别使用限制：文件大小 < 512MB（536870912 字节）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile",
+   "quote": "|File Size |< 512MB |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "录音文件识别支持的音频编码：OPUS、WAV、MP3、SPX、OGG、AMR、AAC、M4A",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile",
+   "quote": "|Audio Encoding |Supports OPUS, WAV, MP3, SPX, OGG, AMR, AAC and M4A formats |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "结果返回与查询时限：3 小时内返回，提交后需在 7 天内查询",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile",
+   "quote": "|Response Time |Transcription results will be returned within 3 hours. After submission, the results must be queried within 7 days. |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "并发限制默认 10 QPS，30 分钟内提交音频总时长不超过 500 小时",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile",
+   "quote": "The activated version supports a maximum of 10 QPS by default, with a total audio duration of no more than 500 hours submitted within a 30-minute period.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出为文本转录结果（异步转写接口的输出形态）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofile",
+   "quote": "The Audio File Speech Recognition API converts audio files into text through asynchronous processing, supporting multiple audio formats and delivering accurate transcription results.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "language 参数支持的语言代码由官方逐条列出（共 55 条，本档案 languages[] 照抄；仅逐条引述开头部分，其余见该页 language 段落）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofilesubmittask",
+   "quote": "Specify the language for speech recognition. The following languages are currently supported: English: `en-US` Mandarin Chinese: `zh-CN` Cantonese: `yue-CN` Japanese: `ja-JP` Indonesian Bahasa: `id-ID` Spanish: `es-MX` Portuguese: `pt-BR` German: `de-DE` French: `fr-FR` Korean: `ko-KR`",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "language 留空时的默认识别范围：普通话、英语、粤语、上海话、闽南语、四川话、陕西话",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/asraudiofilesubmittask",
+   "quote": "When language is empty, the model supports Mandarin Chinese, English, Cantonese, Shanghainese, Minnan, Sichuan, Shaanxi dialect recognition.",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "audio_kind": "asr",
+ "input_formats": [
+  "opus",
+  "wav",
+  "mp3",
+  "spx",
+  "ogg",
+  "amr",
+  "aac",
+  "m4a"
+ ],
+ "max_input_bytes": 536870912,
+ "max_input_seconds": 18000,
+ "output_formats": [
+  "text"
+ ],
+ "voices": null,
+ "languages": [
+  "en-US",
+  "zh-CN",
+  "yue-CN",
+  "ja-JP",
+  "id-ID",
+  "es-MX",
+  "pt-BR",
+  "de-DE",
+  "fr-FR",
+  "ko-KR",
+  "fil-PH",
+  "ms-MY",
+  "th-TH",
+  "ar-SA",
+  "it-IT",
+  "bn-BD",
+  "el-GR",
+  "nl-NL",
+  "ru-RU",
+  "tr-TR",
+  "vi-VN",
+  "pl-PL",
+  "ro-RO",
+  "uk-UA",
+  "az-AZ",
+  "bg-BG",
+  "cs-CZ",
+  "da-DK",
+  "fi-FI",
+  "hi-IN",
+  "hu-HU",
+  "kk-KZ",
+  "km-KH",
+  "my-MM",
+  "no-NO",
+  "pa-PK",
+  "sv-SE",
+  "sw-KE",
+  "ur-PK",
+  "sk-SK",
+  "sl-SI",
+  "hr-HR",
+  "sr-RS",
+  "lt-LT",
+  "lv-LV",
+  "et-EE",
+  "fa-IR",
+  "af-ZA",
+  "is-IS",
+  "sq-AL",
+  "ca-ES",
+  "ceb-PH",
+  "ga-IE",
+  "jv-ID",
+  "uz-UZ"
+ ],
+ "unknowns": [
+  "该 ID 是否同时被用于快速模式（resource id `volc.seedasr.auc_turbo`，限制为 ≤2 小时 / ≤100MB）未确认；本档案按标准模式 `volc.seedasr.auc` 记录，两者的资源 ID 字符串不同，映射依据是 ID 字面对应",
+  "输出结果的字段结构（JSON 字段清单）官方页面未给出可引用的枚举，故 output_formats 仅记 text",
+  "火山引擎 CN 站（docs.volcengine.com/docs/6561/1354868 等）为 JS 渲染，本环境无法读取正文，CN 侧口径未与 BytePlus 页面并列核对",
+  "音色：ASR 模型无音色概念，voices 记 null"
+ ],
+ "notes": "本模型在目录里挂「官方直连-火山」线路（渠道 43，type 45 VolcEngine，upstream_id 与公开 ID 相同），四条音频模型里的一条。官方出处为字节跳动官方国际站 BytePlus（Seed Speech）文档：其 X-Api-Resource-Id 取值 `volc.seedasr.auc` 与本 ID「seedasr-auc」逐字对应（去掉分隔符与点号），因此本档案把该资源 ID 记入 vendor_model_id。文件上限 512MB / 时长上限 5 小时，官方表述为严格小于（\"smaller than 512 MB\", \"< 5 hours\"），本档案按上限值记录。语言列表共 55 条，逐条照抄该页 language 段落。",
+ "billing": {
+  "unit": "per_token",
+  "unit_label": {
+   "zh": "每百万词元",
+   "en": "per 1M tokens"
+  },
+  "pricing_basis": "reported_tokens",
+  "model_ratio": 1.5,
+  "notes": {
+   "zh": "按上游返回的词元用量计费，单价为每百万词元美元价",
+   "en": "Charged by reported token usage; price is USD per 1M tokens"
+  },
+  "unit_price_usd": 3.0
+ }
+}

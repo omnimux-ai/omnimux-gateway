@@ -1,0 +1,48 @@
+{
+  "model_id": "suno-sounds",
+  "family": "audio",
+  "vendor": "Suno",
+  "vendor_model_id": "suno",
+  "capability": "AI 音效生成（按文本描述生成音效，不含人声演唱）",
+  "operations": [
+    "sound_effect_generation"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-17",
+  "sources": [
+    {
+      "claim": "APIMart 提供独立的音效生成端点，输入一句描述即可生成音效",
+      "url": "https://docs.apimart.ai/en/api-reference/audios/suno/sounds.md",
+      "quote": "Generate a sound effect from a description.",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "音效任务与音乐任务共用同一异步任务生命周期，提交返回 task_id 后由 /v1/music/tasks/:task_id 查询",
+      "url": "https://docs.apimart.ai/en/api-reference/audios/suno/sounds.md",
+      "quote": "Async task: submitting returns a `task_id`; poll `GET /v1/music/tasks/:task_id` for the result",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "上游模型名仍为 suno，音效由端点路径区分而非独立模型 ID",
+      "url": "https://docs.apimart.ai/en/api-reference/audios/suno/sounds.md",
+      "quote": "\"model\": \"suno\"",
+      "retrieved_at": "2026-09-17"
+    }
+  ],
+  "audio_kind": "sound_effect",
+  "input_formats": [
+    "text"
+  ],
+  "max_input_bytes": null,
+  "max_input_seconds": null,
+  "output_formats": [
+    "mp3"
+  ],
+  "voices": "无（纯音效，不含人声演唱）",
+  "languages": "提示词支持中、英等多语言描述",
+  "unknowns": [
+    "输出音频的采样率、时长上限与文件格式清单上游文档未逐项给出",
+    "音效档与音乐档是否共用同一并发配额未在文档中说明"
+  ],
+  "notes": "OmniMux 对外公开 ID suno-sounds 系音效生成专用入口，上游挂载 APIMart 专线（POST /v1/music/generations/sounds，model=suno）。与 suno（音乐生成）分列两个公开 ID：两者上游端点不同、计费档不同（音效 sounds 档 $0.0096/次，音乐默认档 $0.068/次），符合「量纲/端点不同才拆 ID」的定价原则。2026-09-17 直连实测受理通过。"
+}

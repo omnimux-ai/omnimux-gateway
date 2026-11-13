@@ -1,0 +1,180 @@
+{
+ "model_id": "minimax-h3-task",
+ "basis": "line_restricted",
+ "family": "video",
+ "vendor": "MiniMax",
+ "vendor_model_id": "MiniMax-H3",
+ "capability": "视频生成与编辑（按次计费别名）",
+ "operations": [
+  "text_to_video",
+  "first_frame",
+  "first_last_frame",
+  "video_multi_ref",
+  "video_edit"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "本公开 ID 按次线路的打包规格：固定 15 秒，非厂商模型的 4–15 秒范围",
+   "url": "https://omnimux.ai/models/minimax-h3-task",
+   "quote": "MiniMax H3 Video 15s fixed-duration task video generation.",
+   "retrieved_at": "2026-09-15"
+  },
+  {
+   "claim": "官方模型名称为 MiniMax-H3，输出分辨率 768P / 2K，输出时长 4–15 秒且仅整数秒",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "| Output resolution | 768P / 2K",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出时长 4–15 秒，仅整数秒",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "4–15 seconds, integer values only",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "prompt 长度上限 ≤ 7000 字符",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "≤ 7000 characters",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考图最多 9 张",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "Images: ≤ 9",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考视频最多 3 段，每段 2–15 秒，总时长不超过 15 秒",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "Videos: ≤ 3 clips; per-clip duration",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考音频最多 3 段，每段 2–15 秒，总时长不超过 15 秒",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "Audio: ≤ 3 clips; per-clip duration",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "首尾帧图片 0/1/2 张，宽高在 [256, 5760]，宽高比在 2:5 – 5:2",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "Images: 0, 1, or 2",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "多模态混合输入总计不超过 12 个文件",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "Mixed input is capped at 12 files in total",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "单文件大小上限：视频 ≤50MB（52428800 字节）、图片 ≤30MB（31457280 字节）、音频 ≤15MB（15728640 字节）（按单个素材计，非累计）；请求体 ≤64MB（67108864 字节）",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "Video ≤ 50 MB per file; image ≤ 30 MB per file; audio ≤ 15 MB per file (limits apply per asset, not in aggregate)",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "支持输入格式：视频 H.264/AVC、H.265/HEVC（视频内音频 AAC、MP3）；图片 JPG/JPEG/PNG/WEBP/HEIC/HEIF；音频 WAV/MP3",
+   "url": "https://platform.minimax.io/docs/guides/video-generation",
+   "quote": "Video: H.264/AVC, H.265/HEVC; in-video audio: AAC, MP3",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "API 侧模型名为 MiniMax-H3，支持文生视频、图生视频（首/尾帧）与参考生视频；768P/2K 分辨率、4–15s 时长",
+   "url": "https://platform.minimax.io/docs/api-reference/video-generation-v2-create",
+   "quote": "- **`MiniMax-H3`**: `768P`, `2K`",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "API duration 取值范围 MiniMax-H3 为 4–15",
+   "url": "https://platform.minimax.io/docs/api-reference/video-generation-v2-create",
+   "quote": "- **`MiniMax-H3`**: `4`–`15`",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "纵横比可选 adaptive / 21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16；纯文本的文生视频必须显式指定且不能为 adaptive",
+   "url": "https://platform.minimax.io/docs/api-reference/video-generation-v2-create",
+   "quote": "Available values: `adaptive`, `21:9`, `16:9`, `4:3`,",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "notes": "本 ID 是我方的按次计费别名（-task），不是厂商侧模型：MiniMax 官方公布的模型名为 MiniMax-H3，官方文档与 API 中不存在带 -task 后缀的模型。因此上游能力与限制与基准 ID 一致，本档案全部限制数字引自官方页面中 MiniMax-H3 的原文（见 sources），未做推算。我方口径：按秒计费的基准 ID 与按次计费的 -task ID 并存，二者路由同一上游模型。",
+ "unknowns": [
+  "参考视频/音频的编码以外的码率、帧率限制未公布",
+  "输出视频的文件格式官方页面未明确列出（仅给出输入格式）"
+ ],
+ "reference_images": {
+  "max": 9,
+  "min": 0,
+  "formats": [
+   "image/jpeg",
+   "image/png",
+   "image/webp",
+   "image/heic",
+   "image/heif"
+  ],
+  "max_bytes_each": 31457280,
+  "source_claim": "参考图 ≤9 张；图片 ≤30MB（31457280 字节）/个；格式 JPG/JPEG/PNG/WEBP/HEIC/HEIF"
+ },
+ "reference_videos": {
+  "max": 3,
+  "min": 0,
+  "formats": [
+   "video/h264",
+   "video/hevc"
+  ],
+  "max_bytes_each": 52428800,
+  "min_seconds": 2,
+  "max_seconds": 15,
+  "source_claim": "参考视频 ≤3 段，每段 2–15 秒、总时长 ≤15 秒；视频 ≤50MB（52428800 字节）/个"
+ },
+ "reference_audios": {
+  "max": 3,
+  "min": 0,
+  "formats": [
+   "audio/wav",
+   "audio/mpeg"
+  ],
+  "max_bytes_each": 15728640,
+  "min_seconds": 2,
+  "max_seconds": 15,
+  "source_claim": "参考音频 ≤3 段，每段 2–15 秒、总时长 ≤15 秒；音频 ≤15MB（15728640 字节）/个；格式 WAV/MP3"
+ },
+ "durations_seconds": {
+  "min": 15,
+  "max": 15,
+  "allowed": [
+   15
+  ]
+ },
+ "resolutions": [
+  "768P",
+  "2K"
+ ],
+ "aspect_ratios": [
+  "adaptive",
+  "21:9",
+  "16:9",
+  "4:3",
+  "1:1",
+  "3:4",
+  "9:16"
+ ],
+ "audio_supported": true,
+ "prompt_max_chars": 7000,
+ "billing": {
+  "unit": "per_request",
+  "unit_label": {
+   "zh": "每次",
+   "en": "per request"
+  },
+  "pricing_basis": "request_count",
+  "unit_price_usd": 0.3781,
+  "notes": {
+   "zh": "按请求次数计费，与用量无关",
+   "en": "Charged per request, independent of usage"
+  }
+ }
+}

@@ -1,0 +1,38 @@
+{
+  "model_id": "grok-composer-2.5-fast",
+  "family": "llm",
+  "vendor": "xAI",
+  "vendor_model_id": null,
+  "capability": "文本生成（编码，Grok Build 内的模型档位）",
+  "operations": [
+    "chat_completion"
+  ],
+  "status": "retired",
+  "checked_at": "2026-09-14",
+  "context_window_tokens": null,
+  "max_output_tokens": null,
+  "input_modalities": [],
+  "tool_calling": null,
+  "streaming": null,
+  "prompt_caching": null,
+  "sources": [
+    {
+      "claim": "xAI 官方新闻页确认存在名为「Composer 2.5」的模型，可作为 Grok Build（CLI 编码工具）内的模型档位选择，并称其为「fast」的模型；该页未公布任何上下文窗口、输出上限、模态或工具调用规格",
+      "url": "https://x.ai/news/composer-2-5",
+      "quote": "Composer 2.5 is now available in Grok Build. Try it from the /models menu. … Composer 2.5 Fast and intelligent",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "unknowns": [
+    "model_id 本身未被官方文档收录：docs.x.ai 的模型列表与定价表（https://docs.x.ai/docs/models）中没有 grok-composer-2.5-fast 这个 ID，https://docs.x.ai/developers/models/grok-composer-2.5-fast 返回 404",
+    "context_window_tokens：未公布，官方无任何页面对该模型给出上下文窗口数字",
+    "max_output_tokens：未公布",
+    "input_modalities：未公布（官方仅称其为编码模型，是否支持图像输入未知）",
+    "tool_calling：未公布",
+    "streaming：未公布",
+    "prompt_caching：未公布",
+    "厂商侧真实 ID 未确认：官方新闻页使用展示名「Composer 2.5」，未给出 API 可用的 slug，故 vendor_model_id 留 null"
+  ],
+  "notes": "【为什么是 unverified】官方确实存在「Composer 2.5」这个模型（xAI 官方新闻页 2026 年 6 月 1 日发布，可在 Grok Build 的 /models 菜单中选用），但它目前只是 Grok Build 产品内的模型档位，没有进入 xAI API 的正式模型清单：实测 docs.x.ai 模型列表与定价表均无该 ID，且按其他模型命名规律构造的文档 URL（/developers/models/grok-composer-2.5-fast）返回 404。因此本档案只登记「官方存在该模型、可在 Grok Build 内调用」这一条事实，全部规格字段一律留空，不套用同族任何模型的数字。若后续要在网关上线该模型，必须先拿到 xAI 官方对该 ID 的 API 文档（或 API 实际返回的元数据），再回填本档案并把 status 升级为 partial/documented。 [2026-09-14 治理下架]: 按业务决策下架 grok-composer 及 4.3 及以下历史型号，仅保留 grok-4.5 与 grok-4.6。",
+  "retired_at": "2026-09-14"
+}

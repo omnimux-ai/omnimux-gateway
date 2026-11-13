@@ -1,0 +1,403 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+.influencer-page .inf-character-picker {
+  position: fixed;
+  top: 60px;
+  left: 12px;
+  z-index: 50;
+  display: flex;
+  min-width: 0;
+  width: calc(100% - 24px);
+  max-height: calc(100dvh - 72px);
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--inf-radius-panel);
+  background: var(--inf-surface);
+  box-shadow: inset 0 0 0 1px var(--inf-line-2);
+}
+
+.influencer-page .inf-character-picker-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--inf-line);
+}
+.influencer-page .inf-character-picker-header h3 {
+  margin: 0;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.influencer-page .inf-character-picker-body {
+  min-height: 0;
+  height: 476px; /* 3 × 132px cards + 2 × 16px gaps + 2 × 24px padding. */
+  flex: 0 1 476px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px 12px;
+}
+.influencer-page .inf-character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 132px));
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 16px;
+  min-width: 0;
+}
+.influencer-page .inf-character-picker .inf-character-grid {
+  min-height: 0;
+  max-height: 428px;
+  grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.influencer-page .inf-character-card-wrap {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  aspect-ratio: 1;
+}
+.influencer-page .inf-character-card {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid var(--inf-line);
+  border-radius: var(--radius-card, 16px);
+  background: var(--surface-media-dark);
+  color: var(--inf-txt);
+}
+.influencer-page .inf-character-card:hover {
+  border-color: var(--inf-brand-light);
+}
+.influencer-page .inf-character-card.is-selected {
+  border-color: var(--inf-brand);
+}
+.influencer-page .inf-character-card:focus-visible {
+  outline: 2px solid var(--inf-brand);
+  outline-offset: 2px;
+}
+.influencer-page .inf-character-card .inf-character-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.influencer-page .inf-character-upload {
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-style: dashed;
+  background: var(--inf-surface-2);
+  white-space: normal;
+  font-size: 12px;
+  text-align: center;
+}
+.influencer-page .inf-character-upload:hover {
+  background: var(--inf-surface-soft);
+}
+.influencer-page .inf-character-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: var(--radius-chip, 8px);
+  background: var(--inf-brand);
+  color: var(--primary-foreground);
+}
+.influencer-page .inf-character-icon {
+  border-radius: 999px;
+}
+.influencer-page .inf-character-preview-action,
+.influencer-page .inf-character-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--inf-line-2);
+  background: var(--inf-surface);
+  color: var(--inf-txt);
+}
+.influencer-page .inf-character-picker .inf-character-preview-action {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.influencer-page
+  .inf-character-picker
+  .inf-character-card-wrap:hover
+  .inf-character-preview-action,
+.influencer-page
+  .inf-character-picker
+  .inf-character-card-wrap:focus-within
+  .inf-character-preview-action {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none), (pointer: coarse) {
+  .influencer-page .inf-character-picker .inf-character-preview-action {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.influencer-page .inf-character-preview-action:hover,
+.influencer-page .inf-character-remove:hover {
+  background: var(--inf-surface-soft);
+}
+.influencer-page .inf-character-remove:hover {
+  color: var(--inf-danger);
+}
+.influencer-page .inf-character-tray-header strong {
+  color: var(--inf-brand-light);
+}
+.influencer-page .inf-character-no-history {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--inf-txt-3);
+}
+.influencer-page .inf-character-tray {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.influencer-page .inf-character-tray-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--inf-txt-2);
+}
+.influencer-page .inf-character-tray .inf-character-grid {
+  gap: 8px;
+}
+.influencer-page .inf-character-tray-scroll {
+  max-height: 320px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.influencer-page .inf-reference-picker-status,
+.influencer-page .inf-reference-picker-state {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--inf-txt-2);
+}
+.influencer-page .inf-reference-picker-status {
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--inf-line);
+}
+.influencer-page .inf-reference-picker-state {
+  margin-top: 12px;
+}
+.influencer-page .inf-reference-picker-more {
+  flex-shrink: 0;
+  align-self: center;
+  margin-top: 12px;
+}
+.influencer-page .inf-reference-tabs {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+.influencer-page .inf-reference-tabs [data-slot='tabs-list'] {
+  height: 36px;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+}
+.influencer-page .inf-reference-tabs [data-slot='tabs-trigger'] {
+  border-radius: var(--radius-pill, 999px);
+  padding: 0 16px;
+  color: var(--inf-txt-2);
+}
+.influencer-page .inf-reference-tabs [data-active] {
+  background: var(--inf-txt);
+  color: var(--inf-surface);
+  box-shadow: none;
+}
+.influencer-page .inf-reference-video-preparing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--surface-media-dark);
+}
+
+@media (min-width: 768px) {
+  .influencer-page .inf-character-picker {
+    position: absolute;
+    top: 12px;
+    left: 340px;
+    z-index: 30;
+    width: min(600px, calc(100% - 352px));
+    max-height: calc(100% - 24px);
+  }
+}
+
+/* ---- Picker loading states: skeleton, placeholders and card-only media ---- */
+.influencer-page .inf-card-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--surface-media-dark);
+}
+.influencer-page .inf-card-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: var(--surface-media-dark);
+  color: var(--inf-txt-3);
+}
+.influencer-page .inf-card-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  pointer-events: none;
+}
+.influencer-page .inf-card-duration {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  z-index: 2;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.influencer-page .inf-picker-sentinel {
+  grid-column: 1 / -1;
+  height: 1px;
+}
+
+/* ---- Upload tile: local preview, progress and percentage ---- */
+.influencer-page .inf-character-upload .inf-upload-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+}
+.influencer-page .inf-character-upload .inf-upload-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(8, 10, 16, 0.55);
+}
+.influencer-page .inf-character-upload .inf-upload-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.influencer-page .inf-character-upload .inf-upload-pct {
+  color: #d9d4ff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.influencer-page .inf-character-upload .inf-upload-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.influencer-page .inf-character-upload .inf-upload-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--inf-brand);
+  transition: width 0.12s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .influencer-page .inf-card-skeleton .inf-shimmer {
+    animation: none;
+  }
+  .influencer-page .inf-character-upload .inf-upload-progress > i {
+    transition: none;
+  }
+}
+
+/* ---- Batch upload: one card per queued file, with retry on failure ---- */
+.influencer-page .inf-character-upload[data-state='uploading'],
+.influencer-page .inf-character-upload[data-state='error'] {
+  border-style: solid;
+}
+.influencer-page .inf-character-upload[data-state='error'] {
+  border-color: rgba(239, 68, 68, 0.5);
+}
+.influencer-page .inf-character-upload-actions {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+}

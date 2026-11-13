@@ -1,0 +1,113 @@
+{
+  "model_id": "kimi-k2.6",
+  "family": "llm",
+  "vendor": "月之暗面 Moonshot",
+  "vendor_model_id": "kimi-k2.6",
+  "capability": "多模态（文本/图像/视频理解）对话、推理与工具调用",
+  "operations": [
+    "chat_completion",
+    "streaming",
+    "tool_calling",
+    "image_input",
+    "video_input",
+    "prompt_caching"
+  ],
+  "status": "partial",
+  "checked_at": "2026-09-17",
+  "sources": [
+    {
+      "claim": "context_window_tokens（官方模型参数对照表：kimi-k3 = 1M tokens，kimi-k2.7-code / kimi-k2.6 = 256K tokens）",
+      "url": "https://platform.moonshot.ai/docs/api/models-overview.md",
+      "quote": "| Context window | 1M tokens | 256K tokens | 256K tokens |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "context_window_tokens 精确值 262144（官方价格表 Context Window 列）",
+      "url": "https://platform.moonshot.ai/docs/pricing/chat.md",
+      "quote": "\"262,144 tokens\"",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities=[\"text\",\"image\",\"video\"]（官方说明其支持文本、图像与视频输入）",
+      "url": "https://platform.moonshot.ai/docs/guide/kimi-k2-6-quickstart.md",
+      "quote": "It supports text, image, and video input, thinking and non-thinking modes, and dialogue and Agent tasks.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling=true（官方指南：支持多步工具调用与推理）",
+      "url": "https://platform.moonshot.ai/docs/guide/kimi-k2-6-quickstart.md",
+      "quote": "supporting multi-step tool invocation and reasoning",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming=true（官方指南：流式返回）",
+      "url": "https://platform.moonshot.ai/docs/guide/kimi-k2-6-quickstart.md",
+      "quote": "Streaming responses provide separate `reasoning_content` and final-answer `content` deltas.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming=true（Chat Completions 支持 stream 参数流式返回）",
+      "url": "https://platform.moonshot.ai/docs/api/chat.md",
+      "quote": "Whether to return the response in a streaming fashion. Default is false.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching=true（官方：上下文缓存对所有模型请求自动开启）",
+      "url": "https://platform.moonshot.ai/docs/guide/use-context-caching-feature-of-kimi-api.md",
+      "quote": "In the Kimi API, Context Caching is automatically enabled for all model requests",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "reference_images.formats：官方视觉文档列出 jpeg/png/gif/webp/bmp/heic/heif",
+      "url": "https://platform.moonshot.ai/docs/guide/use-kimi-vision-model",
+      "quote": "Images support the following formats (MIME types):\n*   image/jpeg\n*   image/png\n*   image/gif\n*   image/webp\n*   image/bmp\n*   image/heic\n*   image/heif",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "reference_videos.formats：官方视觉文档列出 mp4/mpeg/mov/avi/webm 等",
+      "url": "https://platform.moonshot.ai/docs/guide/use-kimi-vision-model",
+      "quote": "Videos support the following formats (MIME types):\n*   video/mp4\n*   video/mpeg\n*   video/mov\n*   video/avi\n*   video/x-flv\n*   video/mpg\n*   video/webm\n*   video/wmv\n*   video/3gpp",
+      "retrieved_at": "2026-09-17"
+    }
+  ],
+  "notes": "kimi-k2.6 的上下文官方给出 256K tokens（价格表精确值 262,144 tokens）。最大输出（max_completion_tokens）官方仅在 Kimi K3 条目下说明默认值与上限，未公布该模型的上限，故 max_output_tokens 留空并列入 unknowns。 2026-09-17 按官方视觉文档补齐图片与视频 MIME。max_output_tokens 仍按原档案：仅 K3 有官方数字，其余保持 null 并列入 unknowns。",
+  "context_window_tokens": 262144,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image",
+    "video"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "unknowns": [
+    "max_output_tokens：官方仅说明 Kimi K3 的默认值 131072 与上限 1048576，未公布 kimi-k2.6 的最大输出 token 数"
+  ],
+  "reference_images": {
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "image/bmp",
+      "image/heic",
+      "image/heif"
+    ],
+    "source_claim": "官方视觉文档 Images support the following formats (MIME types)"
+  },
+  "reference_videos": {
+    "formats": [
+      "video/mp4",
+      "video/mpeg",
+      "video/mov",
+      "video/avi",
+      "video/x-flv",
+      "video/mpg",
+      "video/webm",
+      "video/wmv",
+      "video/3gpp"
+    ],
+    "source_claim": "官方视觉文档 Videos support the following formats (MIME types)"
+  }
+}

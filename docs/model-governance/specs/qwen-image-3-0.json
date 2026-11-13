@@ -1,0 +1,82 @@
+{
+  "model_id": "qwen-image-3-0",
+  "family": "image",
+  "vendor": "Alibaba",
+  "vendor_model_id": "qwen-image-3.0",
+  "capability": "图像生成与编辑（千问图像生成与编辑 3.0）",
+  "operations": ["text_to_image", "image_to_image"],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "I2I 场景单次最多传入 3 张图（1-3 张）",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "不传此参数为文生图（T2I）；传入此参数为图生图（I2I），支持传入 1-3 张图像。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图支持的文件格式",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "图像格式：JPG、JPEG、PNG、BMP、TIFF、WEBP 和 GIF。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单张参考图字节上限 10MB",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "图像大小：不超过 10MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单次最多输出 6 张图，默认 1 张",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "n integer （可选） 输出图像的数量，支持输出 1-6 张图片，默认值为 1。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出分辨率为像素面积区间而非枚举值",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "图像分辨率： 文生图（T2I） ：总像素需在 512*512 至 2048*2048 之间。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "宽高比限制 1:8 至 8:1",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "文生图（T2I） ：像素面积范围 512x512 至 2048x2048，宽高比限制 1:8 至 8:1。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出图片格式为 PNG",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "属性 url string 生成图像的 URL，格式为 PNG。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "最大 4.5k token 输入",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-3-0",
+      "quote": "指令理解清晰：支持最大 4.5k token 输入，复杂图文指令一次生成到位。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "模型定位与输入输出模态，并可基于 1-3 张参考图结合编辑指令进行精确编辑",
+      "url": "https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference",
+      "quote": "千问-图像生成与编辑 3.0 模型同时支持文生图（T2I）和图生图/图像编辑（I2I），可根据文本提示词直接生成图像，也可基于 1-3 张参考图结合编辑指令进行精确编辑。",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "reference_images": {
+    "max": 3,
+    "min": 1,
+    "formats": ["jpg", "jpeg", "png", "bmp", "tiff", "webp", "gif"],
+    "max_bytes_each": 10485760,
+    "source_claim": "I2I 场景单次最多传入 3 张图（1-3 张）"
+  },
+  "output_sizes": null,
+  "output_formats": ["png"],
+  "prompt_max_chars": null,
+  "unknowns": [
+    "提示词字符数上限：官方以 token 计量（最大 4.5k token 输入），未给出字符数口径",
+    "输出尺寸的具体枚举值：官方给的是像素面积区间 512x512 ~ 2048x2048 与宽高比 1:8 ~ 8:1，并允许 size=auto，未列出固定尺寸清单",
+    "参考图分辨率的硬性限制：官方只写「建议」宽高均在 384~2048 像素之间，不是强制上限"
+  ],
+  "notes": "官方页面路径写作 qwen-image-3-0，页内模型名写作 qwen-image-3.0，本档案 vendor_model_id 采用页内写法。三条硬限制均有逐字出处：I2I 1-3 张、单张 ≤10MB、输出 1-6 张。参考图格式官方列的是扩展名（JPG/JPEG/PNG/BMP/TIFF/WEBP/GIF），故 formats 按扩展名录入以保持与原文一致，未自行转换为 MIME。output_sizes 留 null 是因为官方只给区间不给枚举；输出格式 PNG 有明确出处。该模型在百炼上的 RPM 限流为 20。"
+}

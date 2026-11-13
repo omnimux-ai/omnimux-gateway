@@ -1,0 +1,117 @@
+{
+  "model_id": "gemini-3.1-pro",
+  "family": "llm",
+  "vendor": "Google",
+  "vendor_model_id": "gemini-3.1-pro-preview",
+  "capability": "多模态文本生成",
+  "operations": [
+    "chat"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-17",
+  "context_window_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "audio",
+    "pdf"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "输入 token 上限 1,048,576，输出 token 上限 65,536",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview",
+      "quote": "Input token limit 1,048,576 Output token limit 65,536",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输入模态支持 Text, Image, Video, Audio, and PDF，输出 Text",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview",
+      "quote": "Inputs Text, Image, Video, Audio, and PDF Output Text",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "支持上下文缓存与函数调用等能力",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview",
+      "quote": "Caching Supported Code execution Supported File search Supported (AI Studio only) Function calling Supported",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "reference_images.formats：官方图片理解文档列出 PNG/JPEG/WEBP/HEIC MIME",
+      "url": "https://ai.google.dev/gemini-api/docs/image-understanding",
+      "quote": "Gemini supports the following image format MIME types:\n\n*   PNG - `image/png`\n*   JPEG - `image/jpeg`\n*   WEBP - `image/webp`\n*   HEIC - `image/heic`",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "reference_images 含 image/heif：网关转换层 SupportedMimeTypes 明确支持",
+      "url": "repo:relaykit/relayconvert/internal/shared/gemini/request.go",
+      "quote": "\"image/heif\":      true,",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "reference_audios.formats：官方音频文档列出 WAV/MP3 MIME",
+      "url": "https://ai.google.dev/gemini-api/docs/audio",
+      "quote": "Gemini supports the following audio format MIME types:\n\n*   WAV - `audio/wav`\n*   MP3 - `audio/mp3`",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "reference_audios 含 audio/mpeg：网关转换层 IsSupportedMimeType 按 audio/ 前缀接受",
+      "url": "repo:relaykit/relayconvert/internal/shared/gemini/request.go",
+      "quote": "return supportedMimeTypes[mimeType] || strings.HasPrefix(mimeType, \"audio/\") || strings.HasPrefix(mimeType, \"video/\")",
+      "retrieved_at": "2026-10-15"
+    },
+    {
+      "claim": "reference_videos.formats：官方视频理解文档列出 mp4/mpeg/mov/avi 等 MIME",
+      "url": "https://ai.google.dev/gemini-api/docs/video-understanding",
+      "quote": "Gemini supports the following video format MIME types:\n\n*   `video/mp4`\n*   `video/mpeg`\n*   `video/mov`\n*   `video/avi`",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "input_modalities 含 pdf：官方文档理解页声明 Gemini 以原生视觉处理 PDF",
+      "url": "https://ai.google.dev/gemini-api/docs/document-processing",
+      "quote": "Gemini models can process documents in PDF format, using native vision to understand entire document contexts.",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "网关转换层将 application/pdf 转为 Gemini inlineData",
+      "url": "repo:relaykit/relayconvert/internal/shared/gemini/request.go",
+      "quote": "\"application/pdf\": true,",
+      "retrieved_at": "2026-09-17"
+    }
+  ],
+  "unknowns": [],
+  "notes": "官方正规型号为 gemini-3.1-pro-preview。OmniMux 公开 ID gemini-3.1-pro 为省略 -preview 尾缀的友好别名，上游特惠池渠道直接透传并路由至 Google 该官方型号。参数依据 Google 官方开发者文档。 2026-09-17 按官方图片/音频/视频/文档理解页与网关转换层补齐多模态格式信封；不编造单文件体积上限。",
+  "reference_images": {
+    "formats": [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/heic",
+      "image/heif"
+    ],
+    "source_claim": "官方图片理解文档支持 PNG/JPEG/WEBP/HEIC，网关转换层另支持 image/heif"
+  },
+  "reference_audios": {
+    "formats": [
+      "audio/mp3",
+      "audio/wav",
+      "audio/mpeg"
+    ],
+    "source_claim": "官方音频文档支持 WAV/MP3，网关转换层另支持 audio/mpeg"
+  },
+  "reference_videos": {
+    "formats": [
+      "video/mp4",
+      "video/mov",
+      "video/mpeg",
+      "video/avi",
+      "video/wmv",
+      "video/flv"
+    ],
+    "source_claim": "官方视频理解文档与网关转换层共同支持的标准视频输入格式"
+  }
+}

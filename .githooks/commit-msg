@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# If the commit touches core paths, require Core-Change-Approved trailer in the message.
+# Complements pre-commit (OMNIMUX_CORE_CHANGE_APPROVED=1 for the index check).
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+MSG_FILE="${1:-}"
+if [ -z "${MSG_FILE}" ] || [ ! -f "${MSG_FILE}" ]; then
+  exit 0
+fi
+
+PATHS_FILE="${ROOT}/scripts/ops/core-change-paths.txt"
+CORE_PREFIXES="$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' "${PATHS_FILE}" | sed 's|/*$|/|')"
+
+has_core=0
+while IFS= read -r f; do
+  [ -z "${f}" ] && continue
+  f="${f#./}"
+  old_ifs="${IFS}"
+  IFS='
+'
+  for p in ${CORE_PREFIXES}; do
+    case "${f}" in
+      "${p}"*) has_core=1; break ;;
+    esac
+  done
+  IFS="${old_ifs}"
+  [ "${has_core}" -eq 1 ] && break
+done <<EOF
+$(git diff --cached --name-only --diff-filter=ACMRD)
+EOF
+
+if [ "${has_core}" -eq 0 ]; then
+  exit 0
+fi
+
+if grep -Eq '^Core-Change-Approved:[[:space:]]*[^[:space:]].*' "${MSG_FILE}"; then
+  exit 0
+fi
+
+# After human approval, agents may pass the scope via env; append trailer once.
+if [ -n "${OMNIMUX_CORE_CHANGE_SCOPE:-}" ]; then
+  printf '\nCore-Change-Approved: %s\n' "${OMNIMUX_CORE_CHANGE_SCOPE}" >> "${MSG_FILE}"
+  echo "commit-msg: appended Core-Change-Approved: ${OMNIMUX_CORE_CHANGE_SCOPE}" >&2
+  exit 0
+fi
+
+cat >&2 <<'EOF'
+commit-msg: BLOCKED — core paths staged but message lacks:
+
+  Core-Change-Approved: <short scope>
+
+After human secondary approval, example:
+
+  OMNIMUX_CORE_CHANGE_APPROVED=1 OMNIMUX_CORE_CHANGE_SCOPE='stripe customer clear' \
+    git commit -m "fork: clear stale Stripe test customer on live checkout"
+
+EOF
+exit 1

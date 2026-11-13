@@ -1,0 +1,139 @@
+{
+ "model_id": "minimax-h3",
+ "family": "video",
+ "vendor": "MiniMax",
+ "vendor_model_id": "minimax/h3-max",
+ "capability": "视频生成（旗舰版）—— fal.ai 官方直连队列供给",
+ "operations": [
+  "text_to_video",
+  "first_frame",
+  "video_multi_ref"
+ ],
+ "gateway": {
+  "profile": "apimart_video",
+  "operations": [
+   "text_to_video",
+   "first_frame",
+   "end_frame",
+   "first_last_frame",
+   "video_multi_ref"
+  ],
+  "source_claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 minimax-h3 允许 text_to_video / first_frame / end_frame / first_last_frame / video_multi_ref"
+ },
+ "status": "documented",
+ "basis": "line_restricted",
+ "checked_at": "2026-09-16",
+ "sources": [
+  {
+   "claim": "本公开 ID 由渠道 44「[官方直连-fal.ai] MiniMax H3 视频」供给，渠道侧上游模型名为 minimax/h3-max",
+   "url": "repo:scripts/ops/config-baseline/channels.json",
+   "quote": "\"minimax-h3\": \"minimax/h3-max\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线提供三种操作：文生视频、首帧驱动图生视频、全能参考生视频；上游端点常量为 minimax/h3-max/text-to-video、minimax/h3-max/image-to-video 与 minimax/h3-max/reference-to-video",
+   "url": "repo:relay/channel/task/fal/constants.go",
+   "quote": "ModelMinimaxH3MaxReferenceToVideo  = \"minimax/h3-max/reference-to-video\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "首帧操作只接受 1 张图片，且不接受任何参考视频或参考音频",
+   "url": "repo:relay/channel/task/fal/media_inputs.go",
+   "quote": "first_frame requires exactly one image and no video or audio",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "全能参考生视频接受 1–12 个参考素材，其中参考图最多 9 张、参考视频最多 3 段、参考音频最多 3 段，且至少要有一张图或一段视频",
+   "url": "repo:relay/channel/task/fal/media_inputs.go",
+   "quote": "reference-to-video requires 1–12 references, at most 9 images, 3 videos and 3 audio files",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线输出时长只有 5 秒与 10 秒两档，未传时长时按 5 秒处理",
+   "url": "repo:relay/channel/task/fal/constants.go",
+   "quote": "Duration10 = \"10\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线输出分辨率只有 1080P、768P、480P 三档；720P 已退役，请求里出现 720p 会被直接拒绝",
+   "url": "repo:relay/channel/task/fal/payload.go",
+   "quote": "720p is retired for H3; explicitly select 768p",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线允许的画面比例只有 16:9、9:16、1:1、4:3、21:9 五种，未传时按 16:9 处理",
+   "url": "repo:relay/channel/task/fal/constants.go",
+   "quote": "AspectRatio4x3  = \"4:3\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线提示词长度上限为 50000 字符",
+   "url": "repo:relay/channel/task/fal/payload.go",
+   "quote": "if len([]rune(prompt)) > 50000",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 minimax-h3 允许 text_to_video / first_frame / end_frame / first_last_frame / video_multi_ref",
+   "url": "repo:relay/channel/task/apimart/video_contract.go",
+   "quote": "\"minimax-h3\": { opTextToVideo: true, opFirstFrame: true, opEndFrame: true, opFirstLastFrame: true, opVideoMultiRef: true, },",
+   "retrieved_at": "2026-11-08"
+  }
+ ],
+ "notes": "本档案描述的是我方 fal.ai 直连线路实际接受的信封（basis: line_restricted），不是 MiniMax 厂商对 H3 公布的全量能力。线路与厂商文档的差异是刻意的：①输出分辨率只到 1080P，厂商文档里 H3 的 2K 与本线无关，且 720P 已被显式拒绝；②时长只有 5 秒与 10 秒两档，厂商的 4–15 秒连续区间不适用；③操作只有三种，厂商的首尾帧（0/1/2 张图）与视频编辑在本线没有对应端点，故 first_last_frame 与 video_edit 不出现在 operations 中；④参考素材的上限是「全能参考生视频」这一条端点的口径，与首帧操作的「恰好 1 张图」是两个不同口径，前端校验要按操作分别取用。上一版档案把厂商 MiniMax-H3 的数字（768P/2K、4–15 秒、9 图 3 视频 3 音频、首尾帧、视频编辑）原样搬到本 ID 上，会让前端展示出本线根本不接受的档位与卡槽，属于与 seedance-2-5-task、minimax-h3-task 同一类缺陷，本次一并纠正。未声明的轴（音频、输出格式）一律保持缺省，缺省的含义是「未确证」，调用方不得用默认值替代。",
+ "unknowns": [
+  "输出视频是否携带音轨，仓内文档与 fal 侧实测记录均未说明，故 audio_supported 不声明",
+  "输出文件格式（容器与编码）未在仓内记录",
+  "参考素材的单文件大小与格式上限未在本线侧限制，未声明",
+  "输出帧率仓内实测记录为 25 FPS，但未作为可选项声明"
+ ],
+ "durations_seconds": {
+  "min": 5,
+  "max": 10,
+  "default": 5,
+  "allowed": [
+   5,
+   10
+  ]
+ },
+ "resolutions": [
+  "480P",
+  "768P",
+  "1080P"
+ ],
+ "aspect_ratios": [
+  "16:9",
+  "9:16",
+  "1:1",
+  "4:3",
+  "21:9"
+ ],
+ "reference_images": {
+  "min": 0,
+  "max": 9,
+  "source_claim": "全能参考生视频中参考图最多 9 张；首帧操作则恰好 1 张（reference-to-video requires 1–12 references, at most 9 images, 3 videos and 3 audio files）"
+ },
+ "reference_videos": {
+  "min": 0,
+  "max": 3,
+  "source_claim": "全能参考生视频中参考视频最多 3 段（reference-to-video requires 1–12 references, at most 9 images, 3 videos and 3 audio files）"
+ },
+ "reference_audios": {
+  "min": 0,
+  "max": 3,
+  "source_claim": "全能参考生视频中参考音频最多 3 段（reference-to-video requires 1–12 references, at most 9 images, 3 videos and 3 audio files）"
+ },
+ "prompt_max_chars": 50000,
+ "billing": {
+  "unit": "per_second",
+  "unit_label": {
+   "zh": "每秒",
+   "en": "per second"
+  },
+  "pricing_basis": "duration_seconds",
+  "unit_price_usd": 0.0714,
+  "notes": {
+   "zh": "按请求的视频时长计费",
+   "en": "Charged by the requested video duration"
+  }
+ }
+}

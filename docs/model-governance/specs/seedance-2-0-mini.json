@@ -1,0 +1,212 @@
+{
+  "model_id": "seedance-2-0-mini",
+  "family": "video",
+  "vendor": "Volcengine",
+  "vendor_model_id": "doubao-seedance-2-0-mini-260615",
+  "capability": "视频生成（全模态参考生视频 / 参考生视频 / 视频编辑 / 视频延长 / 首尾帧生视频 / 首帧生视频 / 文生视频，有声或无声）",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "first_last_frame_to_video",
+    "reference_to_video",
+    "video_edit",
+    "video_extend"
+  ],
+  "gateway": {
+    "profile": "apimart_video",
+    "operations": [
+      "text_to_video",
+      "first_frame",
+      "first_last_frame",
+      "video_multi_ref"
+    ],
+    "source_claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 seedance-2-0-mini 允许 text_to_video / first_frame / first_last_frame / video_multi_ref"
+  },
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "厂商侧真实模型 ID 为 doubao-seedance-2-0-mini-260615",
+      "url": "https://docs.volcengine.com/docs/82379/1330310?lang=zh",
+      "quote": "doubao-seedance-2-0-mini-260615",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedance 2.0 系列全模态参考生视频：参考图片 0-9 张、参考视频 0-3 个、参考音频 0-3 个，不可单独输入音频",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Doubao Seedance 2.0 系列（有声视频 / 无声视频）全模态参考生视频：输入参考图片（0-9 张）+ 参考视频（0-3 个）+ 参考音频（0-3 个）+ 文本提示词（可选）生成 1 个目标视频。注意不可单独输入音频，应至少包含 1 个参考视频或图片。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图片数量：Seedance 2.0 系列全模态参考生视频 1-9 张",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.0 系列全模态参考生视频：1-9 张",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单张图片格式与大小：jpeg/png/webp/bmp/tiff/gif 且额外支持 heic/heif，单张图片小于 30 MB",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "格式：jpeg、png、webp、bmp、tiff、gif。其中，Seedance 1.5 pro 及以上模型版本额外支持 heic、heif。宽高比（宽/高）：[0.4, 2.5] 宽高长度（px）：[300, 6000] 大小：单张图片小于 30 MB。请求体大小不超过 64 MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考视频数量与总时长：Seedance 2.0 系列最多 3 个参考视频，所有视频总时长不超过 15 s",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.0 系列：单个视频时长 [2, 15] s，最多传入 3 个参考视频，所有视频总时长不超过 15 s。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单个输入视频大小上限 200 MB",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "大小：单个视频不超过 200 MB。帧率（FPS）：[24, 60]",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考音频数量：Seedance 2.0 系列最多 3 段参考音频，单个音频不超过 15 MB，格式 wav/mp3",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.0 系列：单个音频时长 [2, 15] s，最多传入 3 段参考音频，所有音频总时长不超过 15 s。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考音频格式为 wav、mp3",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "格式：wav、mp3",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出视频时长取值范围 [4, 15] 秒（Seedance 2.0 系列）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.0 系列：取值范围 [4, 15]；或设置为 -1（智能选择）",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出分辨率可选值：Seedance 2.0 mini 默认 720p，可选 480p、720p（不支持 1080p）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.0 mini：默认值 720p；可选值 480p、720p",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedance 2.0 mini 分辨率仅 480p/720p，帧率 24 fps，时长 4~15 秒，视频格式 mp4（模型列表）",
+      "url": "https://docs.volcengine.com/docs/82379/1330310?lang=zh",
+      "quote": "分辨率: 480p（8bit 位深）720p（8bit 位深）帧率: 24 fps 时长: 4~15 秒 视频格式: mp4",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "1080p 档位 Seedance 2.0 fast/mini 暂不支持（官方像素表标注）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "1080p （Seedance 2.0 fast/mini 暂不支持）",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出宽高比可选值：16:9、4:3、1:1、3:4、9:16、21:9、adaptive",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "可选值：16:9、4:3、1:1、3:4、9:16、21:9、adaptive（根据任务类型和输入内容自动适配宽高比）",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedance 2.0 系列支持生成有声视频，有声视频均为单声道",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "生成的有声视频均为单声道，和传入的音频声道数无关。模型支持：Seedance 2.5 Seedance 2.0 系列 Seedance 1.5 pro",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "厂商对提示词只给建议字数（中文不超过 500 字、英文不超过 1000 词），未公布硬性上限",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "提示词字数建议：中文提示词不超过 500 字，英文提示词不超过 1000 词。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "Seedance 2.0 系列不支持直接上传含真人人脸的参考图 / 视频",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.5、Seedance 2.0 系列模型不支持直接上传含有真人人脸的参考图 / 视频。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：单张图片小于 30 MB → 31457280 字节（30 × 1024 × 1024）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "大小：单张图片小于 30 MB。请求体大小不超过 64 MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：单个视频不超过 200 MB → 209715200 字节（200 × 1024 × 1024）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "大小：单个视频不超过 200 MB。帧率（FPS）：[24, 60]",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方 MB 上限换算为字节：单个音频不超过 15 MB → 15728640 字节（15 × 1024 × 1024）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "大小：单个音频不超过 15 MB，请求体大小不超过 64 MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 seedance-2-0-mini 允许 text_to_video / first_frame / first_last_frame / video_multi_ref",
+      "url": "repo:relay/channel/task/apimart/video_contract.go",
+      "quote": "\"seedance-2-0-mini\": { opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true, },",
+      "retrieved_at": "2026-11-08"
+    }
+  ],
+  "notes": "火山方舟官方文档已完整核验：docs/82379/1520757（创建视频生成任务 API）+ docs/82379/1330310（模型列表）。厂商侧真实 ID = doubao-seedance-2-0-mini-260615。mini 与 fast 同为 Seedance 2.0 系列：分辨率仅 480p/720p（官方像素表明确标注「1080p（Seedance 2.0 fast/mini 暂不支持）」，模型列表亦只列这两个档位），输出时长 [4,15] 秒，输出格式仅 mp4，参考素材上限遵循 2.0 系列口径（图 1-9 张、视频 ≤3 个且总时长 ≤15 s、音频 ≤3 段且总时长 ≤15 s）。本档案的限制均逐条取自官方页面原文（未照抄任何兄弟档案）。注意「输入参考视频时长 [2,15] s」与「输出视频时长 [4,15] 秒」是两套口径。参考素材上限属「全模态参考生视频」模式，该模式与「图生视频-首帧 / 首尾帧」互斥。prompt_max_chars 为 null（官方只给建议值，未公布硬上限）。",
+  "reference_images": {
+    "max": 9,
+    "min": 1,
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/bmp",
+      "image/tiff",
+      "image/gif",
+      "image/heic",
+      "image/heif"
+    ],
+    "max_bytes_each": 31457280,
+    "source_claim": "Seedance 2.0 系列全模态参考生视频：1-9 张；单张图片小于 30 MB"
+  },
+  "reference_videos": {
+    "max": 3,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 209715200,
+    "source_claim": "Seedance 2.0 系列：最多传入 3 个参考视频；单个视频不超过 200 MB"
+  },
+  "reference_audios": {
+    "max": 3,
+    "min": 0,
+    "formats": [
+      "audio/wav",
+      "audio/mpeg"
+    ],
+    "max_bytes_each": 15728640,
+    "source_claim": "Seedance 2.0 系列：最多传入 3 段参考音频；单个音频不超过 15 MB"
+  },
+  "durations_seconds": {
+    "min": 4,
+    "max": 15
+  },
+  "resolutions": [
+    "480p",
+    "720p"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "21:9",
+    "adaptive"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": null,
+  "unknowns": [
+    "提示词硬性字符上限：官方只给建议（中文不超过 500 字、英文不超过 1000 词），未公布硬上限，故 prompt_max_chars 为 null。",
+    "输出音频规格（采样率、声道布局、编码）：官方仅说明有声视频为单声道，未公布采样率与编码参数。",
+    "参考素材合计上限：官方分别给出参考图 9 张 / 参考视频 3 个 / 参考音频 3 段，未公布三类合计的总数上限。",
+    "mini 与同系列标准版 / fast 的模型规模或质量档位：官方仅以名称与分辨率/价格区分，未公布模型规模参数，不得据名称推断质量。",
+    "各分辨率档位与宽高比的可用组合矩阵：官方给出 480p/720p 的官方像素表，未逐档声明是否存在不可用组合。"
+  ]
+}

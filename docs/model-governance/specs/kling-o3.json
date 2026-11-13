@@ -1,0 +1,116 @@
+{
+  "model_id": "kling-o3",
+  "family": "video",
+  "vendor": "Kuaishou（可灵 Kling）",
+  "vendor_model_id": "kling-3.0-omni",
+  "capability": "全能多模态 Omni 视频生成（文生/图生/多图/视频参考/音画同出）",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "reference_to_video",
+    "video_edit",
+    "first_last_frame"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "快手可灵官方端点为 /omni-video/kling-3.0-omni，即业界简称的 o3（Omni 3.0）",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni.md",
+      "quote": "Path: `/omni-video/kling-3.0-omni`",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方视频能力地图收录 Kling 3.0 Omni 模型，全能多模态输入，直出音画，支持 720P、1080P、4K",
+      "url": "https://klingai.com/document-api/guides/capability-map/video.md",
+      "quote": "| Kling 3.0 Omni | 全能多模态输入，有声角色驱动，直出音画和分镜 | 文本、图片、视频 | 3~15s | 720P、1080P、4K |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "视频时长支持 3 到 15 秒整数可选，分辨率支持 720p / 1080p / 4k，比例支持 16:9 / 9:16 / 1:1",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni.md",
+      "quote": "`settings.duration` | int | 否 | `5` | `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `11`, `12`, `13`, `14`, `15` | 生成视频时长，单位s",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文本提示词长度上限为 3072 个字符",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni.md",
+      "quote": "文本提示词内容，内容长度不能超过3072个字符，建议不超过2500个字符；必填",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图片支持 .jpg / .jpeg / .png，大小不能超过 50MB，与多图主体合计上限最多 7 张",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni.md",
+      "quote": "无参考视频+仅有多图主体时，参考图片与多图主体数量之和不得超过7。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考视频支持 .mp4 / .mov，大小不能超过 200MB，时长 3 至 15.5 秒，最多 1 段",
+      "url": "https://klingai.com/document-api/api/video/3-0-omni/video-omni.md",
+      "quote": "最多添加1段参考视频，添加参考视频后最多添加1个视频角色主体。",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "unknowns": [],
+  "reference_images": {
+    "max": 7,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png"
+    ],
+    "max_bytes_each": 52428800,
+    "source_claim": "图片格式支持 .jpg/.jpeg/.png，单张 ≤50MB，无参考视频时参考图片与多图主体之和最多 7 张"
+  },
+  "reference_videos": {
+    "max": 1,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 209715200,
+    "min_seconds": 3,
+    "max_seconds": 15.5,
+    "source_claim": "参考视频最多 1 段，时长 3–15.5 秒，单文件 ≤200MB，格式 .mp4/.mov"
+  },
+  "reference_audios": {
+    "max": null,
+    "min": 0,
+    "formats": null,
+    "max_bytes_each": null,
+    "source_claim": "官方支持生成原生音轨（native）与保留参考视频原声（original），未开放独立参考音频上传"
+  },
+  "durations_seconds": {
+    "min": 3,
+    "max": 15,
+    "allowed": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]
+  },
+  "resolutions": [
+    "720p",
+    "1080p",
+    "4k"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": 3072,
+  "notes": "快手可灵官方正式旗舰型号为 Kling 3.0 Omni（端点 /omni-video/kling-3.0-omni）。OmniMux 对外公开 ID kling-o3 系业内对 Kling 3.0 Omni 的通用缩写别名（类似 Kling O1，Omni 3.0 简写作 o3），上游中转渠道（Evolink 34 号）映射名即为 kling-o3-text-to-video。官方参数完整详尽，已全量核准归入 documented。"
+}

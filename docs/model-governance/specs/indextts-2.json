@@ -1,0 +1,60 @@
+{
+ "model_id": "indextts-2",
+ "family": "audio",
+ "vendor": "Bilibili",
+ "vendor_model_id": "indextts2-v1",
+ "capability": "语音/音频生成（IndexTTS-2 智能声音克隆与情绪语音合成）",
+ "operations": [
+  "text_to_speech",
+  "voice_clone",
+  "emotion_control"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-18",
+ "sources": [
+  {
+   "claim": "AutoDL.Art 平台 ComfyUI 工作流 indextts2-v1（IndexTTS-2 声音克隆）",
+   "url": "https://autodl.art/docs/comfyui_api/",
+   "quote": "基于文本 + 参考音频生成目标语音，保留说话人音色，支持情绪表达",
+   "retrieved_at": "2026-09-18"
+  },
+  {
+   "claim": "计费规则：按生成音频的实际时长计费，高峰/空闲时段 0.001元/秒，最低计费 0.010元（10秒起步）",
+   "url": "https://autodl.art/docs/comfyui_api/",
+   "quote": "根据生成音频的实际时长进行计费，最低计费￥0.010。高峰时段价格(08:00~24:00)：￥0.001 / 秒；空闲时段价格(00:00~08:00)：￥0.001 / 秒",
+   "retrieved_at": "2026-09-18"
+  }
+ ],
+ "audio_kind": "tts",
+ "input_formats": [
+  "wav",
+  "mp3"
+ ],
+ "output_formats": [
+  "wav"
+ ],
+ "reference_audios": {
+  "max": 2,
+  "formats": [
+   "wav",
+   "mp3"
+  ],
+  "source_claim": "支持音色参考音频 prompt_simple 与情感参考音频 emo_ref_audio"
+ },
+ "prompt_max_chars": 2048,
+ "unknowns": [],
+ "notes": "IndexTTS-2 声音克隆工作流，提供高保真音色复刻与多维度情绪控制（emo_calm, emo_happy, emo_angry, emo_sad 等）。上游通过 AutoDL 算力专线渠道接入，按实际音频时长计费，保底计费 10 秒。",
+ "billing": {
+  "unit": "per_second",
+  "unit_label": {
+   "zh": "每秒",
+   "en": "per second"
+  },
+  "pricing_basis": "duration_seconds",
+  "unit_price_usd": 0.005,
+  "notes": {
+   "zh": "按生成的音频时长计费，最低 10 秒起步",
+   "en": "Charged by audio duration, 10s minimum"
+  }
+ }
+}

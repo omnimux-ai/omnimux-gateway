@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor User as 访客 / 运营创作者
+    participant Router as TanStack Router
+    participant Landing as OmniMuxLanding (index.tsx)
+    participant PluginMarket as PluginMarket (Screen 5)
+    participant UseCases as UseCases (Screen 5.5)
+    participant Catalog as use-cases-catalog.ts
+    participant I18n as react-i18next (7 Locales)
+    participant DownloadCta as DownloadCta (Screen 6)
+    participant TestRunner as Vitest Runner (严过关 / QA)
+
+    %% 正常运行时用户访问与页面挂载序列
+    Note over User, DownloadCta: 用户访问落地页并浏览应用场景
+    User ->> Router: 访问 / (OmniMux 落地页)
+    Router ->> Landing: 挂载 OmniMuxLanding()
+    Landing ->> PluginMarket: 挂载渲染 <PluginMarket />
+    Note over Landing: 插入点：在 PluginMarket 与 DownloadCta 之间
+    Landing ->> UseCases: 挂载渲染 <UseCases />
+    activate UseCases
+    UseCases ->> Catalog: 读取默认场景配置 (USE_CASES_CATALOG)
+    Catalog -->> UseCases: 返回 3 组场景定义 (ShoppingBag, Megaphone, Sprout)
+    UseCases ->> I18n: t('omnimux_landing.useCases.*') 请求当前语言文案
+    I18n -->> UseCases: 返回本地化文案 (eyebrow, title, subtitle, items...)
+    UseCases -->> Landing: 渲染完成 (3 列暗调卡片，带 ARIA 标签)
+    deactivate UseCases
+    Landing ->> DownloadCta: 挂载渲染 <DownloadCta />
+
+    %% 视觉交互：极光紫流与悬停微浮
+    User ->> UseCases: 鼠标悬停卡片 (Hover on Card)
+    activate UseCases
+    UseCases -->> User: 触发 CSS translateY(-4px) + 极光紫光流与弥散阴影
+    deactivate UseCases
+
+    %% 自动化测试与质量契约验证序列
+    Note over TestRunner, UseCases: 自动化质量验收执行流程
+    TestRunner ->> Landing: 渲染整体落地页主节点
+    TestRunner ->> Landing: 校验 DOM 挂载顺序 (PluginMarket -> UseCases -> DownloadCta)
+    TestRunner ->> UseCases: 渲染独立 <UseCases /> 组件
+    TestRunner ->> UseCases: 验证 3 张场景卡片及图标组件 (ShoppingBag, Megaphone, Sprout)
+    TestRunner ->> I18n: 循环遍历 7 门语言字典 (zh, zh-TW, en, ja, fr, ru, vi)
+    I18n -->> TestRunner: 确认 omnimux_landing.useCases 命名空间零缺失
+    TestRunner ->> UseCases: 检查可访问性契约 (aria-labelledby, aria-hidden)
+    TestRunner -->> TestRunner: 验收全绿灯通过 (All Tests Passed)

@@ -1,0 +1,66 @@
+{
+  "model_id": "grok-4.20-multi-agent-0309",
+  "family": "llm",
+  "vendor": "xAI",
+  "vendor_model_id": "grok-4.20-multi-agent-0309",
+  "capability": "文本生成（多智能体并行研究）",
+  "operations": [
+    "chat_completion",
+    "multi_agent_research"
+  ],
+  "status": "retired",
+  "checked_at": "2026-09-14",
+  "context_window_tokens": 1000000,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "context_window_tokens = 1000000：官方模型卡 At a glance 写明该变体的上下文窗口为 1,000,000 tokens",
+      "url": "https://docs.x.ai/developers/models/grok-4.20-multi-agent-0309",
+      "quote": "- **Context window:** 1,000,000 tokens\n- **Model name:** `grok-4.20-multi-agent-0309`",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities = [\"text\", \"image\"]：官方模型卡写明模态为 text, image → text",
+      "url": "https://docs.x.ai/developers/models/grok-4.20-multi-agent-0309",
+      "quote": "- **Modalities:** text, image → text",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling = true：官方模型卡 Capabilities 段写明 Function calling: Yes（但仅限服务端内置工具，见 notes 中的限制条款）",
+      "url": "https://docs.x.ai/developers/models/grok-4.20-multi-agent-0309",
+      "quote": "- **Function calling:** Yes\n- **Structured outputs:** Yes\n- **Reasoning:** Yes",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling 的重要限制：官方多智能体文档明确写明该变体不支持客户端自定义工具（function calling），只支持内置工具（web_search / x_search / code_execution / collections_search）与远程 MCP 工具",
+      "url": "https://docs.x.ai/developers/model-capabilities/text/multi-agent",
+      "quote": "* **No client-side or custom tools:** Client-side tools (function calling) and custom tools are not currently supported by the multi-agent model variant. We do support a set of built-in tools (e.g., `web_search`, `x_search`) and remote MCP tools.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming = true：官方流式文档声明「所有具备文本输出能力的模型」均支持流式输出；本变体为文本输出模型且官方多智能体文档给出流式调用示例",
+      "url": "https://docs.x.ai/developers/model-capabilities/text/streaming",
+      "quote": "Streaming outputs is **supported by all models with text output capability** (Chat, Image Understanding, etc.).",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching = true：官方模型与定价页为该变体单列 Cached input 单价（$0.20 / 1M），即该变体参与缓存计费",
+      "url": "https://docs.x.ai/docs/models",
+      "quote": "| grok-4.20-multi-agent-0309 (< 200k prompt tokens) | 1M | $1.25 | $0.20 | $2.50 |",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "unknowns": [
+    "max_output_tokens：官方模型卡未公布该变体的输出令牌上限；且官方文档明确该变体不支持 max_tokens 参数，故无可用数字，留 null",
+    "官方多智能体文档的 Supported Models 段只列出别名 `grok-4.20-multi-agent`，未逐一列出 0309 快照 ID；快照与别名的对应关系仅由模型卡 Model name 字段给出"
+  ],
+  "notes": "带日期后缀的固定快照（0309）。官方模型卡标题为「Grok 4.20 Multi-Agent Beta」，Model name 字段明确写 `grok-4.20-multi-agent-0309`。三条必须在网关层注意的官方限制：① Chat Completions API 不支持该变体，必须走 Responses API 或 xAI SDK；② max_tokens 参数不支持；③ 客户端自定义 function calling 不支持，只有内置工具与远程 MCP 工具 —— 因此 tool_calling=true 表示「具备工具调用能力」，但不等于可直接透传客户端工具定义。官方文档当前以 SpaceXAI 署名，vendor 按对外展示写 xAI。 [2026-09-14 治理下架]: 按业务决策下架 grok-composer 及 4.3 及以下历史型号，仅保留 grok-4.5 与 grok-4.6。",
+  "retired_at": "2026-09-14"
+}

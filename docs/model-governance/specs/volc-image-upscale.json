@@ -1,0 +1,79 @@
+{
+  "model_id": "volc-image-upscale",
+  "family": "image",
+  "vendor": "Volcengine",
+  "vendor_model_id": "lens_vida_nnsr",
+  "capability": "图像超分辨率（2倍放大）",
+  "operations": [
+    "image_to_image"
+  ],
+  "status": "documented",
+  "checked_at": "2026-10-01",
+  "input_modalities": [
+    "image"
+  ],
+  "output_sizes": null,
+  "output_formats": [
+    "jpeg",
+    "png",
+    "bmp"
+  ],
+  "reference_images": {
+    "min": 1,
+    "max": 1,
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/bmp"
+    ],
+    "max_bytes_each": 5242880
+  },
+  "billing": {
+    "unit": "call",
+    "unit_label": {
+      "zh": "次",
+      "en": "call"
+    },
+    "unit_price_usd": 0.0008823529411764706,
+    "pricing_basis": "0.006 CNY / 6.8 FX = 0.0008823529411764706 USD",
+    "notes": {
+      "zh": "固定每次调用计费（0.006元/次），按 1 USD = 6.8 CNY 换算",
+      "en": "Fixed per-call billing (0.006 CNY/call) converted at 1 USD = 6.8 CNY"
+    }
+  },
+  "sources": [
+    {
+      "claim": "超分辨率算法固定算法标识为 lens_vida_nnsr",
+      "url": "https://docs.volcengine.com/docs/Largemodelofimagegeneration/CallingmethodV2-2?lang=zh",
+      "quote": "req_key 填写示例: lens_vida_nnsr",
+      "retrieved_at": "2026-10-01"
+    },
+    {
+      "claim": "图片输入尺寸约束：宽 50-2128，高 50-4064",
+      "url": "https://docs.volcengine.com/docs/Largemodelofimagegeneration/CallingmethodV2-2?lang=zh",
+      "quote": "宽区间 [50, 2128]，高区间 [50, 4064]",
+      "retrieved_at": "2026-10-01"
+    },
+    {
+      "claim": "图片大小不超过 5MB，格式支持 JPG、JPEG、PNG、BMP",
+      "url": "https://docs.volcengine.com/docs/Largemodelofimagegeneration/CallingmethodV2-2?lang=zh",
+      "quote": "图片大小不超过 5MB，格式支持 JPG、JPEG、PNG、BMP",
+      "retrieved_at": "2026-10-01"
+    },
+    {
+      "claim": "返回临时图片链接有效期为 24 小时",
+      "url": "https://docs.volcengine.com/docs/Largemodelofimagegeneration/CallingmethodV2-2?lang=zh",
+      "quote": "图片存储有效期为 24 小时",
+      "retrieved_at": "2026-10-01"
+    },
+    {
+      "claim": "官方控制台核验最低月调用量基准价格为 0.006 元/次",
+      "url": "https://console.volcengine.com/ai/ability/detail/4/5",
+      "quote": "0-50,000次 0.006元/次",
+      "retrieved_at": "2026-10-01"
+    }
+  ],
+  "unknowns": [
+    "输出图片的像素尺寸：官方只说明按输入图 2 倍放大，未给出固定尺寸列表或上限"
+  ]
+}

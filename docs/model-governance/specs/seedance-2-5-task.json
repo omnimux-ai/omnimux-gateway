@@ -1,0 +1,218 @@
+{
+ "model_id": "seedance-2-5-task",
+ "basis": "line_restricted",
+ "family": "video",
+ "vendor": "Volcengine",
+ "vendor_model_id": "doubao-seedance-2-5-260628",
+ "capability": "视频生成（全模态参考生视频 / 参考生视频 / 视频编辑 / 视频延长 / 首尾帧生视频 / 首帧生视频 / 文生视频，有声或无声）——OmniMux 按次计费别名",
+ "operations": [
+  "text_to_video",
+  "image_to_video",
+  "first_last_frame_to_video",
+  "reference_to_video",
+  "video_edit",
+  "video_extend"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "按次线路的实际打包规格：固定 30 秒、720p、16:9 与 9:16、最多 9 张参考图，且不接受视频与音频参考",
+   "url": "https://www.weijinapi.top/docs/",
+   "quote": "seedance2.5-9图 720p 固定 30 秒 16:9、9:16 9 0 0 seconds: 30；不支持视频、音频参考 ¥3.30/次",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "厂商侧真实模型 ID 为 doubao-seedance-2-5-260628",
+   "url": "https://docs.volcengine.com/docs/82379/1330310?lang=zh",
+   "quote": "doubao-seedance-2-5-260628",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "Seedance 2.5 全模态参考生视频：参考图片 0-30 张、参考视频 0-10 个、参考音频 0-10 个，支持 30 秒视频连贯直出",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "全模态参考生视频：输入参考图片（0-30 张）+ 参考视频（0-10 个）+ 参考音频（0-10 个）+ 文本提示词（可选）生成 1 个目标视频。支持仅传入音频。支持生成全新视频、编辑视频、延长视频，支持 30 秒视频连贯直出。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考图片数量：Seedance 2.5 全模态参考生视频 1-30 张",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "Seedance 2.5 全模态参考生视频：1-30 张",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "单张图片格式与大小：jpeg/png/webp/bmp/tiff/gif，Seedance 2.5 额外支持 heic/heif，单张图片小于 30 MB",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "格式：jpeg、png、webp、bmp、tiff、gif。其中，Seedance 1.5 pro 及以上模型版本额外支持 heic、heif。宽高比（宽/高）：[0.4, 2.5] 宽高长度（px）：[300, 6000] 大小：单张图片小于 30 MB。请求体大小不超过 64 MB。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考视频数量与大小：Seedance 2.5 最多 10 个参考视频，单个视频不超过 200 MB",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "Seedance 2.5：非视频编辑任务：单个视频时长 [2, 30] s。视频编辑任务：单个视频时长 [4, 30] s。最多传入 10 个参考视频，所有视频总时长不超过 30 s。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "单个输入视频大小上限 200 MB",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "大小：单个视频不超过 200 MB。帧率（FPS）：[24, 60]",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考音频数量与大小：Seedance 2.5 最多 10 段参考音频，单个音频不超过 15 MB，格式 wav/mp3",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "Seedance 2.5：单个音频时长 [2, 30] s，最多传入 10 段参考音频，所有音频总时长不超过 30 s。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考音频格式为 wav、mp3；单个音频不超过 15 MB",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "格式：wav、mp3",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出视频时长取值范围 [4, 30] 秒（Seedance 2.5）",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "Seedance 2.5：默认值 -1；取值范围 [4, 30]；或设置为 -1（智能选择）",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出分辨率可选值：Seedance 2.5 为 480p、720p、1080p（默认 720p）",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "Seedance 2.5：默认值 720p；可选值 480p、720p、1080p",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出宽高比可选值：16:9、4:3、1:1、3:4、9:16、21:9、adaptive",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "可选值：16:9、4:3、1:1、3:4、9:16、21:9、adaptive（根据任务类型和输入内容自动适配宽高比）",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "支持生成有声视频（Seedance 2.5 在列），有声视频均为单声道",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "生成的有声视频均为单声道，和传入的音频声道数无关。模型支持：Seedance 2.5 Seedance 2.0 系列 Seedance 1.5 pro",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "Seedance 2.5 输出帧率 24 fps、时长 4~30 秒、视频格式 mp4/mov（模型列表）",
+   "url": "https://docs.volcengine.com/docs/82379/1330310?lang=zh",
+   "quote": "帧率: 24 fps 时长: 4~30 秒 视频格式: mp4, mov",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "厂商对提示词只给建议字数（中文不超过 500 字、英文不超过 1000 词），未公布硬性上限",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "提示词字数建议：中文提示词不超过 500 字，英文提示词不超过 1000 词。字数过多易导致信息分散，模型可能忽略细节、仅关注重点，进而导致视频缺失部分元素。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "模型列表为每个能力只给出一个上游 Model ID，未列出任何按次计费的独立上游模型",
+   "url": "https://docs.volcengine.com/docs/82379/1330310?lang=zh",
+   "quote": "模型 ID（Model ID） 模型能力 输出视频格式 在线推理限流",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "官方 MB 上限换算为字节：单张图片小于 30 MB → 31457280 字节（30 × 1024 × 1024）",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "大小：单张图片小于 30 MB。请求体大小不超过 64 MB。",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "官方 MB 上限换算为字节：单个视频不超过 200 MB → 209715200 字节（200 × 1024 × 1024）",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "大小：单个视频不超过 200 MB。帧率（FPS）：[24, 60]",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "官方 MB 上限换算为字节：单个音频不超过 15 MB → 15728640 字节（15 × 1024 × 1024）",
+   "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+   "quote": "大小：单个音频不超过 15 MB，请求体大小不超过 64 MB。",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "notes": "【别名关系】seedance-2-5-task 是 OmniMux 侧「按次计费」的量纲别名，不是厂商的另一个模型。【本档案口径】以上能力值取实际供给线路（唯一在线渠道：维金按次特惠池 ch53，上游 seedance2.5-9图），不是厂商模型 doubao-seedance-2-5-260628 的全量能力；厂商侧能力见档案 seedance-2-5.json。【双重确认】上游官方文档公开表（www.weijinapi.top/docs）声明 720p / 固定 30 秒 / 16:9、9:16 / 图9·视0·音0；2026-09-15 08:53 真实出片实测（任务号 task_Wg31HV7aKbSsbSTxVz5TS6WGbu7JMlQA，9:16 / 30 秒 / 4 张参考图）用 ffprobe 读成品得 720×1280、30.08 秒、24 fps，与文档逐项一致。【硬约束】该线路不支持纯文生视频：不带参考图提交会被上游拒绝。前端 billing-dimension.ts 中手工维护的时长包络已完全收敛至本契约声明。",
+ "reference_images": {
+  "max": 9,
+  "min": 1,
+  "formats": [
+   "image/jpeg",
+   "image/png",
+   "image/webp",
+   "image/bmp",
+   "image/tiff",
+   "image/gif",
+   "image/heic",
+   "image/heif"
+  ],
+  "max_bytes_each": 31457280,
+  "source_claim": "实测（2026-09-15）：按次线路上游 `seedance2.5-9图` 官方文档公开表为 图9/视0/音0；不带参考图提交被拒（invalid_request「至少需要1张参考图」）。"
+ },
+ "reference_videos": {
+  "max": 0,
+  "min": 0,
+  "formats": [
+   "video/mp4",
+   "video/quicktime"
+  ],
+  "max_bytes_each": 209715200,
+  "source_claim": "官方公开表 max_videos=0：该按次线路不支持视频参考。"
+ },
+ "reference_audios": {
+  "max": 0,
+  "min": 0,
+  "formats": [
+   "audio/wav",
+   "audio/mpeg"
+  ],
+  "max_bytes_each": 15728640,
+  "source_claim": "官方公开表 max_audios=0：该按次线路不支持音频参考。"
+ },
+ "durations_seconds": {
+  "min": 30,
+  "max": 30,
+  "allowed": [
+   30
+  ]
+ },
+ "resolutions": [
+  "720p"
+ ],
+ "aspect_ratios": [
+  "16:9",
+  "9:16"
+ ],
+ "audio_supported": true,
+ "prompt_max_chars": null,
+ "unknowns": [
+  "上游按次线路的并发与排队策略：厂商文档未描述，本档案不覆盖。",
+  "提示词硬性字符上限：官方只给建议（中文不超过 500 字、英文不超过 1000 词），未公布硬上限。",
+  "输出音频规格（采样率、声道布局、编码）：官方仅说明有声视频为单声道。",
+  "按次线路的失败重试与幂等语义：厂商文档未描述按次形态，本档案不推断。"
+ ],
+ "routing": [
+  {
+   "group": "seedance-cheap",
+   "upstream_model_id": "seedance2.5-9图",
+   "channel_id": 53,
+   "channel_name": "[个人中转-维金] Seedance 按次特惠池",
+   "channel_type": 1,
+   "priority": 20,
+   "weight": 10,
+   "tier_note": "按次特惠计费专线（seedance-cheap 分组），上游限制最多传 9 张参考图（相比按秒全量版的 30 张更为收敛，单次计费成本更低）"
+  }
+ ],
+ "billing": {
+  "unit": "per_usage",
+  "unit_label": {
+   "zh": "按实际用量",
+   "en": "by reported usage"
+  },
+  "pricing_basis": "reported_usage",
+  "unit_price_usd": 0.558824,
+  "notes": {
+   "zh": "按实际用量计费，单价随档位（时长/分辨率）变化",
+   "en": "Charged by reported usage; the unit price varies with duration or resolution tier"
+  }
+ }
+}

@@ -1,0 +1,135 @@
+{
+  "model_id": "kling-v2-6",
+  "family": "video",
+  "vendor": "Kuaishou（可灵 Kling）",
+  "vendor_model_id": "kling-2.6",
+  "capability": "视频生成（音画同步）",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "first_last_frame",
+    "motion_control"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "官方模型名称为 Kling 2.6，输入支持文本、图片、视频，生成范围 3~10s，分辨率 720P / 1080P",
+      "url": "https://klingai.com/document-api/guides/capability-map/video",
+      "quote": "| Kling 2.6 | 音画同步生成，有声音更精彩 | 文本、图片、视频 | 3~10s | 720P、1080P |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频时长可选值仅 5 与 10 秒，默认 5 秒",
+      "url": "https://klingai.com/document-api/api/video/2-6/text-to-video",
+      "quote": "| `settings.duration` | int | 否 | `5` | `5`, `10` | 生成视频时长，单位s |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频分辨率可选 720p / 1080p，默认 720p",
+      "url": "https://klingai.com/document-api/api/video/2-6/text-to-video",
+      "quote": "| `settings.resolution` | string | 否 | `720p` | `720p`, `1080p` | 生成视频的清晰度 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频纵横比可选 16:9 / 9:16 / 1:1，默认 16:9",
+      "url": "https://klingai.com/document-api/api/video/2-6/text-to-video",
+      "quote": "| `settings.aspect_ratio` | string | 否 | `16:9` | `16:9`, `9:16`, `1:1` | 生成视频的画面纵横比（宽:高） |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "文生视频 prompt 长度不超过 2500 个字符",
+      "url": "https://klingai.com/document-api/api/video/2-6/text-to-video",
+      "quote": "- `prompt`: 内容长度不超过2500个字符。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "有声视频仅支持 1080P 清晰度",
+      "url": "https://klingai.com/document-api/api/video/2-6/text-to-video",
+      "quote": "- `settings.audio`: 生成有声视频时，仅支持1080P清晰度。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "图生视频参考素材类型为 prompt / first_frame / last_frame / voice，图片位只有首帧与尾帧（首帧必填、尾帧选填），即最多 2 张参考图",
+      "url": "https://klingai.com/document-api/api/video/2-6/image-to-video",
+      "quote": "| `contents[].type` | string | 是 | - | `prompt`, `first_frame`, `last_frame`, `voice` | 素材类型，支持：提示词、首帧图、尾帧图、音色 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图单张不超过 50MB（52428800 字节）",
+      "url": "https://klingai.com/document-api/api/video/2-6/image-to-video",
+      "quote": "- `contents[].type.first_frame / last_frame`: 图片文件大小不能超过50MB。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图格式支持 .jpg / .jpeg / .png",
+      "url": "https://klingai.com/document-api/api/video/2-6/image-to-video",
+      "quote": "- `contents[].type.first_frame / last_frame`: 图片格式支持.jpg / .jpeg / .png。",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "动作控制参考视频时长下限 3 秒，与视频朝向一致时最长 30 秒；与图片朝向一致时最长 10 秒",
+      "url": "https://klingai.com/document-api/api/video/2-6/motion-control",
+      "quote": "- `contents[].type.video`: 视频时长下限不短于3秒，时长上限与人物朝向参考（character_orientation）有关：",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "动作控制参考视频单文件不超过 100MB（104857600 字节），格式支持 .mp4 / .mov",
+      "url": "https://klingai.com/document-api/api/video/2-6/motion-control",
+      "quote": "- `contents[].type.video`: 视频文件大小不能超过100MB。",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "notes": "官方出处为可灵开放平台 Kling 2.6 文生视频 / 图生视频 / 动作控制三个 API 页面与官方视频能力地图。状态 documented：时长、分辨率、纵横比、参考图张数与大小、prompt 长度均有官方原文。口径提示：①文生视频 720P 仅支持无声视频，有声仅 1080P；②首尾帧仅 1080P 且仅无声视频（能力地图原文「首尾帧：支持: 仅1080P且仅无声视频」）；③声音控制（人声）仅支持 5s 或 10s 且 1080P。参考图张数上限 2 系由官方素材枚举（首帧+尾帧）直接读得。",
+  "unknowns": [
+    "参考视频（动作控制）的文件格式以外的字节细节官方已给出；参考音频独立上传上限未公布"
+  ],
+  "reference_images": {
+    "max": 2,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png"
+    ],
+    "max_bytes_each": 52428800,
+    "source_claim": "参考列表最多 2 张图片（首帧必填、尾帧选填）；单张 ≤50MB（52428800 字节）；格式 .jpg/.jpeg/.png"
+  },
+  "reference_videos": {
+    "max": 1,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 104857600,
+    "min_seconds": 3,
+    "max_seconds": 30,
+    "source_claim": "动作控制参考视频 1 段，时长 3–30 秒（随人物朝向），单文件 ≤100MB（104857600 字节），格式 .mp4/.mov"
+  },
+  "reference_audios": {
+    "max": null,
+    "min": 0,
+    "formats": null,
+    "max_bytes_each": null,
+    "source_claim": "官方未公布独立参考音频的数量与大小上限"
+  },
+  "durations_seconds": {
+    "min": 5,
+    "max": 10,
+    "allowed": [
+      5,
+      10
+    ]
+  },
+  "resolutions": [
+    "720p",
+    "1080p"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "9:16",
+    "1:1"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": 2500
+}

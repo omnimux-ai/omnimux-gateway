@@ -1,0 +1,67 @@
+classDiagram
+  class DagNode {
+    +string id
+    +DagNodeKind kind
+    +string labelKey
+    +string? badge
+    +number top
+    +number left
+    +DagMedia? media
+    +string? bodyKey
+    +string? titleKey
+    +string? subKey
+  }
+  class DagEdge {
+    +string from
+    +string to
+  }
+  class WorkflowScene {
+    +string id
+    +string titleKey
+    +string userPromptKey
+    +string thoughtKey
+    +string thumbSrc
+    +DagNode[] nodes
+    +DagEdge[] edges
+  }
+  class StepCard {
+    +string sysKey
+    +string titleKey
+    +string descKey
+    +string[] tags
+    +string imageSrc
+  }
+  class PluginCard {
+    +string labelKey
+    +string nameKey
+    +string[] tagsKeys
+    +string briefKey
+    +string imageSrc
+  }
+  class ChannelTile {
+    +string id
+    +string name
+    +ReactNode icon
+  }
+  class OrbitAsset {
+    +string id
+    +string src
+    +string? poster
+  }
+  class HeroScrollStage {
+    +render(assets, scenes)
+  }
+  class CanvasWorkspaceLayer {
+    +WorkflowScene[] scenes
+    +string initialSceneId
+  }
+  class DownloadChooser {
+    +size: 'md'|'lg'
+    +tone: 'dark'|'light'
+  }
+  WorkflowScene "1" o-- "many" DagNode
+  WorkflowScene "1" o-- "many" DagEdge
+  HeroScrollStage --> OrbitAsset : hero-orbit-layer
+  HeroScrollStage --> WorkflowScene : canvas-workspace-layer
+  CanvasWorkspaceLayer --> DagNode : dag-node
+  CanvasWorkspaceLayer --> DagEdge : dag-links

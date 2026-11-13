@@ -1,0 +1,10 @@
+{
+  "code": "DEVICE_NOT_MONTHLY",
+  "msg": "device not monthly-bound: require chargeMode=1 and hasBind=true",
+  "phoneId": "PHONE_ID",
+  "activitySource": "unknown",
+  "ownerHint": "",
+  "leaseExpiresAt": "",
+  "retryAfterSec": 0,
+  "hint": "Stop; bind monthly: phone/update chargeMode=1 then bootstrap phone/start; never on-demand hard-run."
+}

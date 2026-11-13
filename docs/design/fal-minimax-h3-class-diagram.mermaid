@@ -1,0 +1,142 @@
+classDiagram
+    direction TB
+
+    %% 核心网关与任务适配器
+    class TaskAdaptor {
+        +taskcommon.BaseBilling BaseBilling
+        +int ChannelType
+        +string baseURL
+        +string apiKey
+        +Init(info *RelayInfo)
+        +ValidateRequestAndSetAction(c *gin.Context, info *RelayInfo) *TaskError
+        +EstimateBilling(c *gin.Context, info *RelayInfo) map[string]float64
+        +AdjustBillingOnSubmit(info *RelayInfo, taskData []byte) map[string]float64
+        +AdjustBillingOnComplete(task *Task, taskResult *TaskInfo) int
+        +BuildRequestURL(info *RelayInfo) (string, error)
+        +BuildRequestHeader(c *gin.Context, req *http.Request, info *RelayInfo) error
+        +BuildRequestBody(c *gin.Context, info *RelayInfo) (io.Reader, error)
+        +DoRequest(c *gin.Context, info *RelayInfo, requestBody io.Reader) (*http.Response, error)
+        +DoResponse(c *gin.Context, resp *http.Response, info *RelayInfo) (string, []byte, *TaskError)
+        +FetchTask(baseUrl string, key string, body map[string]any, proxy string) (*http.Response, error)
+        +ParseTaskResult(respBody []byte) (*TaskInfo, error)
+        +GetModelList() []string
+        +GetChannelName() string
+    }
+
+    %% 上游 Payload 与 DTO 模型
+    class FalVideoSubmitPayload {
+        +string Prompt
+        +string ImageURL
+        +string VideoURL
+        +int Duration
+        +string AspectRatio
+        +string Resolution
+        +bool PromptOptimizer
+    }
+
+    class FalSubmitResponse {
+        +string RequestID
+        +string Status
+        +string ResponseURL
+        +string StatusURL
+        +string CancelURL
+        +string Detail
+    }
+
+    class FalStatusResponse {
+        +string Status
+        +int QueuePosition
+        +string ResponseURL
+        +FalErrorDetail Error
+    }
+
+    class FalResultResponse {
+        +FalVideoFile Video
+        +FalUsage Usage
+        +FalErrorDetail Detail
+    }
+
+    class FalVideoFile {
+        +string URL
+        +string ContentType
+        +string FileName
+        +int64 FileSize
+    }
+
+    class FalErrorDetail {
+        +string Message
+        +string Code
+    }
+
+    %% OmniMux 任务与计费实体
+    class Task {
+        +int64 ID
+        +string TaskID
+        +TaskPlatform Platform
+        +int UserId
+        +int ChannelId
+        +int Quota
+        +string Action
+        +TaskStatus Status
+        +string FailReason
+        +string Progress
+        +Properties Properties
+        +TaskPrivateData PrivateData
+        +RawMessage Data
+        +GetUpstreamTaskID() string
+        +GetResultURL() string
+        +UpdateWithStatus(oldStatus TaskStatus) (bool, error)
+    }
+
+    class TaskPrivateData {
+        +string Key
+        +string UpstreamTaskID
+        +string ResultURL
+        +string BillingSource
+        +int SubscriptionId
+        +int TokenId
+        +TaskBillingContext BillingContext
+    }
+
+    class TaskBillingContext {
+        +float64 ModelPrice
+        +float64 GroupRatio
+        +float64 ModelRatio
+        +map[string]float64 OtherRatios
+        +string OriginModelName
+        +bool PerCallBilling
+    }
+
+    class RelayInfo {
+        +string OriginModelName
+        +string UpstreamModelName
+        +string PublicTaskID
+        +int ChannelType
+        +string ChannelBaseUrl
+        +string ApiKey
+        +PriceData PriceData
+        +Billing Billing
+    }
+
+    class TaskInfo {
+        +int Code
+        +string TaskID
+        +string Status
+        +string Url
+        +string RemoteUrl
+        +string Progress
+        +string Reason
+    }
+
+    %% 关联与依赖关系
+    TaskAdaptor ..> FalVideoSubmitPayload : 组装上游请求
+    TaskAdaptor ..> FalSubmitResponse : 解析提交响应
+    TaskAdaptor ..> FalStatusResponse : 轮询队列状态
+    TaskAdaptor ..> FalResultResponse : 拉取最终视频结果
+    TaskAdaptor ..> TaskInfo : 产出状态机信息
+    FalResultResponse *-- FalVideoFile : 包含成片文件
+    FalStatusResponse *-- FalErrorDetail : 异常与拦截信息
+    Task *-- TaskPrivateData : 持久化私有凭证与计费快照
+    TaskPrivateData *-- TaskBillingContext : 差额结算与退款上下文
+    TaskAdaptor ..> RelayInfo : 读取渠道元数据与计费信息
+    TaskAdaptor ..> Task : 写入终态与成片URL

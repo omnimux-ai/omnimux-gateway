@@ -1,0 +1,129 @@
+{
+ "model_id": "gemini-3.8-flash",
+ "family": "llm",
+ "vendor": "Google",
+ "vendor_model_id": "gemini-3.8-flash",
+ "capability": "多模态文本生成",
+ "operations": [
+  "chat"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-16",
+ "context_window_tokens": 1048576,
+ "max_output_tokens": 65536,
+ "input_modalities": [
+  "text",
+  "image",
+  "video",
+  "audio",
+  "pdf"
+ ],
+ "reference_images": {
+  "formats": [
+   "image/png",
+   "image/jpeg",
+   "image/webp",
+   "image/heic",
+   "image/heif"
+  ],
+  "source_claim": "官方与网关支持的标准图片输入格式（image/png, image/jpeg, image/webp, image/heic, image/heif）"
+ },
+ "reference_audios": {
+  "formats": [
+   "audio/mp3",
+   "audio/wav",
+   "audio/mpeg"
+  ],
+  "source_claim": "官方与网关支持的标准音频输入格式（audio/mp3, audio/wav, audio/mpeg）"
+ },
+ "reference_videos": {
+  "formats": [
+   "video/mp4",
+   "video/mov",
+   "video/mpeg",
+   "video/avi",
+   "video/wmv",
+   "video/flv"
+  ],
+  "source_claim": "官方与网关支持的标准视频输入格式（video/mp4, video/mov, video/mpeg, video/avi, video/wmv, video/flv）"
+ },
+ "tool_calling": true,
+ "streaming": true,
+ "prompt_caching": true,
+ "reasoning_efforts": {
+  "low": "low",
+  "medium": "medium",
+  "high": "high"
+ },
+ "default_reasoning_effort": "medium",
+ "default_for": [
+  "chat",
+  "vision_chat"
+ ],
+ "sources": [
+  {
+   "claim": "context_window_tokens = 1048576（官方模型页 Input token limit）",
+   "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash",
+   "quote": "Input token limit 1,048,576",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "max_output_tokens = 65536（官方模型页 Output token limit）",
+   "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash",
+   "quote": "Output token limit 65,536",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "input_modalities 包含 Text, Image, Video, Audio, and PDF",
+   "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash",
+   "quote": "Inputs Text, Image, Video, Audio, and PDF",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "tool_calling = true（官方模型页 Function calling Supported）",
+   "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash",
+   "quote": "Function calling Supported",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "prompt_caching = true（官方模型页 Caching Supported）",
+   "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash",
+   "quote": "Caching Supported",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "streaming = true（官方 Streaming 文档描述的 API 级流式能力，非模型页逐模型声明）",
+   "url": "https://ai.google.dev/gemini-api/docs/streaming",
+   "quote": "When creating an Interaction, you can set stream: true to incrementally stream the response using server-sent events (SSE).",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "网关转换层 relaykit 支持将 application/pdf、audio/mp3、audio/wav、video/mp4 等转换为标准 Gemini inlineData",
+   "url": "repo:relaykit/relayconvert/internal/shared/gemini/request.go",
+   "quote": "\"application/pdf\": true,",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "reasoning_efforts = low / medium / high，默认 medium（官方 Gemini 3.8 Flash 文档的 thinking level）",
+   "url": "https://aistudio.google.com/docs/whats-new-gemini-3.8.md",
+   "quote": "tunable thinking levels (`low`, `medium`, `high`) ... Default thinking level `medium`",
+   "retrieved_at": "2026-11-10"
+  }
+ ],
+ "unknowns": [],
+ "notes": "官方模型页 https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash。针对下游客户端多模态接入规范：①PDF 文档：支持在 OpenAI 兼容端点以 image_url data URL（data:application/pdf;base64,...）传入，或在 Gemini 原生端点（/v1beta/models/...:generateContent）以 inlineData 传入；②音频与视频：支持标准 input_audio 或 image_url（data:audio/wav;base64,...）或原生 inlineData 传入；③专线保障：多模态复杂文件建议指定 X-Omnimux-Group: gemini-vertex 路由至官方 Vertex 直连专线（渠道 68），避免命中限制纯文本的第三方二手转接线。",
+ "billing": {
+  "unit": "per_token",
+  "unit_label": {
+   "zh": "每百万词元",
+   "en": "per 1M tokens"
+  },
+  "pricing_basis": "reported_tokens",
+  "model_ratio": 0.375,
+  "notes": {
+   "zh": "按上游返回的词元用量计费，单价为每百万词元美元价",
+   "en": "Charged by reported token usage; price is USD per 1M tokens"
+  },
+  "unit_price_usd": 0.75
+ }
+}

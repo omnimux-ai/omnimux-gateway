@@ -1,0 +1,51 @@
+sequenceDiagram
+    autonumber
+    actor Human as 运营/主理人
+    participant Collect as collect.js
+    participant Parser as evolink-html.js
+    participant Official as official-evolink-prices.json
+    participant IdMap as id-map-evolink.json
+    participant Ledger as models/*.json
+    participant Reprice as reprice.js
+    participant Pricing as lib/pricing.js
+    participant Check as check-pr.js
+    participant Audit as audit.js
+    participant Dry as align-dry-run.js
+    participant Prod as 生产 OmniMux GET /api/pricing
+
+    Human->>Collect: node collect.js --supplier=evolink
+    Collect->>Collect: GET evolink.ai/zh/pricing
+    Collect->>Parser: parseEvolinkPricingHtml(html)
+    Parser-->>Collect: rows[]
+    Collect->>Official: 全量覆盖写入快照
+    Collect->>IdMap: 读映射
+    Collect->>Ledger: 仅刷新 evolink.json 的 cost（不改 sell）
+    Collect-->>Human: parsed / unmatched 报告
+
+    Note over Human,Official: 用户根据基准表拍板 discount_rate<br/>写入 policy.official_discount.discount_rate
+
+    Human->>Reprice: node reprice.js --dry-run
+    Reprice->>Official: 读官方价
+    Reprice->>Ledger: 读全部账本
+    Reprice->>Pricing: suggestedSellByRow (按轨)
+    Pricing-->>Reprice: sellPatch + clamped 标记
+    Reprice-->>Human: 将更新 N 行 / 钳制 M 行 / 兜底 K 行
+
+    Human->>Reprice: node reprice.js --write
+    Reprice->>Ledger: 写 pricing_basis + official + sell
+    Note over Reprice,Prod: 禁止任何生产写入
+
+    Human->>Check: node check-pr.js
+    Check->>Pricing: 按轨验公式
+    Check-->>Human: fail_on 空则绿
+
+    Human->>Dry: node align-dry-run.js
+    Dry->>Prod: GET /api/pricing（只读）
+    Dry->>Ledger: 读新 sell
+    Dry-->>Human: ModelPrice / ModelRatio diff
+
+    Human->>Human: 确认 diff
+    Human->>Prod: 既有 merge-import（人操作）
+    Human->>Audit: node audit.js
+    Audit->>Prod: 只读对账
+    Audit-->>Human: SELL_MISMATCH 应清空

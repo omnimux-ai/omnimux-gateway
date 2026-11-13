@@ -1,0 +1,234 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/InstrumentSerif-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/InstrumentSerif-Italic.woff2') format('woff2');
+}
+
+/*
+ * OmniMux landing page — self-contained dark obsidian canvas.
+ * Colors align with DESIGN.md (§1.3 Dark Studio & §2) with Electric Violet
+ * (#7961F2) rationed to energy flows and accents (~5–10% of the surface).
+ * Palette baseline: obsidian black (#09090B), pure graphite card (#141416),
+ * white text (#FFFFFF), and Paper CTA (#FFFFFF on #0C0F17).
+ */
+.omnimux-landing {
+  --omx-type-body: 16px;
+  --omx-type-body-leading: 1.6;
+  --omx-type-support: 14px;
+  --omx-type-support-leading: 1.5;
+
+  /* ---- 字体族 Font Families ---- */
+  --omx-font-display-serif:
+    'Instrument Serif', 'Noto Serif SC', 'Noto Serif TC', 'Noto Serif JP',
+    'Songti SC', 'STSongti-SC-Regular', Georgia, serif;
+
+  /* ---- 表面 Surface (Dark Obsidian Baseline) ---- */
+  --omx-bg: #09090b;                   /* 页面画布: 纯深曜石底色 */
+  --omx-bg-muted: #121215;             /* 区块暗底 */
+  --omx-bg-sunken: #0c0c0e;            /* 内嵌下沉面 */
+  --omx-bg-elevated: #141416;          /* 抬升卡片: 纯深石墨灰 */
+  --omx-canvas-cool: #141416;          /* 控制台系暗面 */
+  --omx-neutral-soft: #1c1c20;         /* 中性暗灰块 */
+  --omx-surface-dark: #141416;         /* 暗房媒体面 */
+  --omx-surface-darker: #0c0c0e;       /* 极暗媒体面 */
+  --omx-surface-dark-raised: #1c1c20;  /* 暗面抬升块 */
+  --omx-surface-dark-raised-2: #242429;
+  --omx-surface-ink: #ffffff;          /* Paper CTA: 纯白操作按钮底 */
+  --omx-surface-ink-hover: #f0f0f2;    /* 白按钮悬浮态 */
+
+  /* ---- 描边 Border (暗色微光阶梯) ---- */
+  --omx-border-subtle: rgb(255 255 255 / 0.06);
+  --omx-border-mid: rgb(255 255 255 / 0.12);
+  --omx-hairline-cool: rgb(255 255 255 / 0.15);
+
+  /* ---- 暗面上的白 On-dark ---- */
+  --omx-on-dark-surface: rgb(255 255 255 / 0.06);
+  --omx-on-dark-surface-strong: rgb(255 255 255 / 0.45);
+  --omx-on-dark-border-soft: rgb(255 255 255 / 0.08);
+  --omx-on-dark-border: rgb(255 255 255 / 0.12);
+  --omx-on-dark-border-strong: rgb(255 255 255 / 0.18);
+  --omx-on-dark-text: #ffffff;
+  --omx-on-dark-text-soft: rgba(255, 255, 255, 0.72);
+  --omx-on-dark-text-faint: rgba(255, 255, 255, 0.40);
+  --omx-scrim: rgb(0 0 0 / 0.85);
+  --omx-scrim-soft: rgb(0 0 0 / 0.4);
+
+  /* ---- 品牌 Brand ---- */
+  --omx-brand-light: #9a88fa;
+  --omx-brand-soft: rgb(121 97 242 / 0.12);
+  --omx-brand-soft-2: rgb(121 97 242 / 0.18);
+  --omx-brand-border: rgb(121 97 242 / 0.30);
+  --omx-brand-grad-1: #6c5cf0;
+  --omx-brand-grad-2: #8a79f5;
+  --omx-brand-grad-3: #a08efc;
+  --omx-brand-shadow: rgb(121 97 242 / 0.25);
+
+  /* ---- 语义 Semantic ---- */
+  --omx-success: #4ade80;
+  --omx-success-soft: rgb(74 222 128 / 0.12);
+  --omx-error: #f87171;
+  --omx-dot: rgb(255 255 255 / 0.07);
+
+  /* ---- 补回：去重脚本曾用 split/join 同时删掉新旧两处 ---- */
+  --omx-border: rgb(255 255 255 / 0.08);
+  --omx-border-strong: rgb(255 255 255 / 0.16);
+  --omx-brand: #7961f2;
+  --omx-brand-dim: #6757e7;
+  --omx-brand-subtle: rgb(121 97 242 / 0.15);
+
+  /* ---- 深度阴影 Depth（DESIGN.md §6，暗黑工作室标准）---- */
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 10px 24px -4px rgb(0 0 0 / 0.7);
+  --shadow-brand: 0 10px 24px -4px rgb(121 97 242 / 0.25);
+  --omx-text: #ffffff;
+  --omx-text-muted: rgb(255 255 255 / 0.72);
+  --omx-text-faint: rgb(255 255 255 / 0.40);
+
+  --brand-indigo: var(--omx-brand);
+  --text-main: var(--omx-text);
+  --text-muted: var(--omx-text-muted);
+  --text-sub: var(--omx-text-faint);
+  --border-subtle: var(--omx-border);
+  --border-strong: var(--omx-border-strong);
+
+  /* Scroll morph CSS variables (driven by useScrollStageProgress) */
+  --omx-copy-opacity: 1;
+  --omx-copy-y: 0px;
+  --omx-orbit-opacity: 1;
+  --omx-orbit-scale: 1;
+  --omx-orbit-blur: 0px;
+  --omx-canvas-opacity: 0;
+  --omx-canvas-y: 90px;
+  --omx-canvas-scale: 1.22;
+  --omx-canvas-blur: 28px;
+
+  min-height: 100vh;
+  color-scheme: dark;
+  background-color: var(--omx-bg);
+  color: var(--omx-text);
+  font-family:
+    'Geist Variable', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.omnimux-landing .omx-mono {
+  font-family:
+    'Geist Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+}
+
+.omnimux-landing .omx-shell {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+@media (min-width: 640px) {
+  .omnimux-landing .omx-shell {
+    padding-inline: 60px;
+  }
+}
+
+.omnimux-landing .omx-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1.25rem;
+  border-radius: 9999px;
+  background-color: var(--omx-text);
+  color: var(--omx-bg-elevated);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    scale 150ms ease-out;
+}
+
+.omnimux-landing .omx-btn-primary:hover {
+  background-color: var(--omx-surface-ink-hover);
+  transform: translateY(-1px);
+}
+
+.omnimux-landing .omx-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1.25rem;
+  border: 1px solid var(--omx-border-strong);
+  border-radius: 9999px;
+  background-color: rgb(255 255 255 / 0.05);
+  color: var(--omx-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    scale 150ms ease-out;
+}
+
+.omnimux-landing .omx-btn-secondary:hover {
+  background-color: rgb(255 255 255 / 0.10);
+  transform: translateY(-1px);
+}
+
+
+/* Press feedback stays local to actionable controls. */
+.omnimux-landing :is(.omx-btn-primary, .omx-btn-secondary):not([data-static]):active {
+  scale: 0.96;
+}
+.omnimux-landing :is(.omx-btn-primary, .omx-btn-secondary):focus-visible {
+  outline: 3px solid var(--omx-brand);
+  outline-offset: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .omnimux-landing :is(.omx-btn-primary, .omx-btn-secondary) {
+    transition: none;
+  }
+  .omnimux-landing :is(.omx-btn-primary, .omx-btn-secondary):is(:hover, :active) {
+    transform: none;
+    scale: 1 !important;
+  }
+}
+
+/* In-page nav anchors: keep section tops below the 60–72px sticky header. */
+.omnimux-landing :is(#pricing, #works) {
+  scroll-margin-top: 88px;
+}

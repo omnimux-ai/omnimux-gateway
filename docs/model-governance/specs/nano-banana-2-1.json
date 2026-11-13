@@ -1,0 +1,142 @@
+{
+  "model_id": "nano-banana-2-1",
+  "family": "image",
+  "vendor": "Google",
+  "vendor_model_id": "gemini-nano-banana-2.1",
+  "capability": "图像生成（Google Gemini Nano Banana 2.1，文生图 MVP）",
+  "operations": [
+    "text_to_image"
+  ],
+  "status": "documented",
+  "checked_at": "2026-11-12",
+  "sources": [
+    {
+      "claim": "Nano Banana 2.1 支持 1K/2K/4K 分辨率与 14 宽高比；无 0.5K",
+      "url": "https://apimart.ai/model/nano-banana-2-1",
+      "quote": "resolution 1K/2K/4K; 14 aspect ratios; 0.5K unsupported",
+      "retrieved_at": "2026-11-11"
+    },
+    {
+      "claim": "EvoLink 产品页确认 nano-banana-2.1 与官方 Vertex 锚价（-15%）",
+      "url": "https://evolink.ai/zh/nano-banana-2-1",
+      "quote": "gemini-nano-banana-2.1; 1K $0.029 / 2K $0.043 / 4K $0.097 wholesale",
+      "retrieved_at": "2026-11-11"
+    }
+  ],
+  "output_sizes": [
+    "1K",
+    "2K",
+    "4K"
+  ],
+  "output_formats": [
+    "png",
+    "jpeg"
+  ],
+  "reference_images": {
+    "max": 0,
+    "min": 0,
+    "formats": [],
+    "source_claim": "MVP 文生图，参考图/分层二期"
+  },
+  "unknowns": [
+    "参考图/搜索增强/分层计费二期",
+    "提示词 token 上限未取自供应商文档"
+  ],
+  "notes": "单公开 ID；上游 APIMart gemini-nano-banana-2.1-ext（per-image, official_fallback=false）与 EvoLink gemini-nano-banana-2.1。异步 POST /v1/images/generations → GET /v1/tasks/{id}；网关统一显式默认 2K。 已知限制：模板默认 quality 语义已纠正为分辨率传输别名并新增 resolution；background 固定 opaque；seed 为模板默认未逐项校验；n 固定 1。",
+  "parameters": [
+    {
+      "name": "n",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1,
+      "default": 1,
+      "fixed": 1,
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "运行时 validateTextToImageMVPSurface 强制 n=1"
+      }
+    },
+    {
+      "name": "resolution",
+      "type": "enum",
+      "enum": [
+        "1K",
+        "2K",
+        "4K"
+      ],
+      "default": "2K",
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "网关仅接受 1K/2K/4K；未传默认 2K（统一跨渠道）"
+      }
+    },
+    {
+      "name": "aspect_ratio",
+      "type": "enum",
+      "enum": [
+        "auto",
+        "1:1",
+        "2:3",
+        "3:2",
+        "3:4",
+        "4:3",
+        "4:5",
+        "5:4",
+        "9:16",
+        "16:9",
+        "21:9",
+        "1:4",
+        "4:1",
+        "1:8",
+        "8:1"
+      ],
+      "default": "auto",
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "网关允许 auto 或 14 宽高比"
+      }
+    },
+    {
+      "name": "quality",
+      "type": "enum",
+      "enum": [
+        "1K",
+        "2K",
+        "4K"
+      ],
+      "default": "2K",
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "内部传输别名：EvoLink 以 quality 承载分辨率；客户端请使用 resolution（已知限制）"
+      }
+    },
+    {
+      "name": "background",
+      "type": "enum",
+      "enum": [
+        "opaque"
+      ],
+      "default": "opaque",
+      "fixed": "opaque",
+      "applies_to": [
+        "text_to_image"
+      ],
+      "limit_source": {
+        "kind": "policy_conservative",
+        "note": "模板默认项；运行时未校验 background（已知限制）"
+      }
+    }
+  ]
+}

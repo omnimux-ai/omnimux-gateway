@@ -1,0 +1,113 @@
+{
+ "model_id": "minimax-h3-turbo",
+ "family": "video",
+ "vendor": "MiniMax",
+ "vendor_model_id": "minimax/h3-max-turbo",
+ "capability": "视频生成（极速版）—— fal.ai 官方直连队列供给",
+ "operations": [
+  "text_to_video",
+  "first_frame"
+ ],
+ "gateway": {
+  "profile": "fal_h3_video",
+  "operations": [
+   "text_to_video",
+   "first_frame"
+  ],
+  "source_claim": "网关执行档案：fal media_inputs.go / constants.go 的 minimax/h3-max-turbo 只有文生视频与首帧图生视频两个分支"
+ },
+ "status": "documented",
+ "basis": "line_restricted",
+ "checked_at": "2026-09-16",
+ "sources": [
+  {
+   "claim": "本公开 ID 由渠道 44「[官方直连-fal.ai] MiniMax H3 视频」供给，渠道侧上游模型名为 minimax/h3-max-turbo",
+   "url": "repo:scripts/ops/config-baseline/channels.json",
+   "quote": "\"minimax-h3-turbo\": \"minimax/h3-max-turbo\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线只提供两种操作：文生视频与首帧驱动图生视频。上游端点常量只有 minimax/h3-max-turbo/text-to-video 与 minimax/h3-max-turbo/image-to-video 两条，不存在 reference-to-video",
+   "url": "repo:relay/channel/task/fal/constants.go",
+   "quote": "ModelMinimaxH3MaxTurboImageToVideo = \"minimax/h3-max-turbo/image-to-video\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "首帧操作只接受 1 张图片，且不接受任何参考视频或参考音频",
+   "url": "repo:relay/channel/task/fal/media_inputs.go",
+   "quote": "first_frame requires exactly one image and no video or audio",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线输出时长只有 5 秒与 10 秒两档，未传时长时按 5 秒处理",
+   "url": "repo:relay/channel/task/fal/constants.go",
+   "quote": "Duration5  = \"5\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线输出分辨率只有 1080P、768P、480P 三档；720P 已退役，请求里出现 720p 会被直接拒绝",
+   "url": "repo:relay/channel/task/fal/payload.go",
+   "quote": "720p is retired for H3; explicitly select 768p",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线允许的画面比例只有 16:9、9:16、1:1、4:3、21:9 五种，未传时按 16:9 处理",
+   "url": "repo:relay/channel/task/fal/constants.go",
+   "quote": "AspectRatio21x9 = \"21:9\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线提示词长度上限为 50000 字符",
+   "url": "repo:relay/channel/task/fal/payload.go",
+   "quote": "if len([]rune(prompt)) > 50000",
+   "retrieved_at": "2026-09-16"
+  }
+ ],
+ "notes": "本档案描述的是我方 fal.ai 直连线路实际接受的信封（basis: line_restricted），不是 MiniMax 厂商对 H3 系列公布的全量能力。线路与厂商文档的差异是刻意的：fal 侧把上游切到 minimax/h3-max-turbo（H3 Max 极速分支），它只开放文生视频与首帧图生视频两条端点，没有参考生视频，因此参考视频与参考音频两个轴在本线上不存在，而不是「暂未填写」。同理，输出分辨率只到 1080P，厂商文档里 H3 的 2K 与本线无关；时长也只有 5 秒与 10 秒两档，厂商的 4–15 秒连续区间不适用。上一版档案把厂商 MiniMax-H3 的数字（768P/2K、4–15 秒、9 图 3 视频 3 音频）原样搬到了本 ID 上，会让前端展示出本线根本不接受的档位，属于与 seedance-2-5-task、minimax-h3-task 同一类缺陷，本次一并纠正。未声明的轴（音频、参考视频、参考音频、输出格式）一律保持缺省，缺省的含义是「未确证」，调用方不得用默认值替代。",
+ "unknowns": [
+  "输出视频是否携带音轨，仓内文档与 fal 侧实测记录均未说明，故 audio_supported 不声明",
+  "输出文件格式（容器与编码）未在仓内记录",
+  "单张参考图的大小与格式上限未在本线侧限制，未声明",
+  "输出帧率仓内实测记录为 25 FPS，但未作为可选项声明"
+ ],
+ "durations_seconds": {
+  "min": 5,
+  "max": 10,
+  "default": 5,
+  "allowed": [
+   5,
+   10
+  ]
+ },
+ "resolutions": [
+  "480P",
+  "768P",
+  "1080P"
+ ],
+ "aspect_ratios": [
+  "16:9",
+  "9:16",
+  "1:1",
+  "4:3",
+  "21:9"
+ ],
+ "reference_images": {
+  "min": 1,
+  "max": 1,
+  "source_claim": "首帧操作只接受 1 张图片，且不接受任何参考视频或参考音频（first_frame requires exactly one image and no video or audio）"
+ },
+ "prompt_max_chars": 50000,
+ "billing": {
+  "unit": "per_usage",
+  "unit_label": {
+   "zh": "按实际用量",
+   "en": "by reported usage"
+  },
+  "pricing_basis": "reported_usage",
+  "unit_price_usd": 0.035,
+  "notes": {
+   "zh": "按实际用量计费，单价随档位（时长/分辨率）变化",
+   "en": "Charged by reported usage; the unit price varies with duration or resolution tier"
+  }
+ }
+}

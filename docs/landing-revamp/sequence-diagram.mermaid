@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant Route as routes/index.tsx
+  participant L as OmniMuxLanding
+  participant Stage as HeroScrollStage
+  participant SP as useScrollStageProgress
+  participant Orbit as HeroOrbitLayer
+  participant HO as useHeroOrbit
+  participant CW as CanvasWorkspaceLayer
+  participant DL as DagLinks
+
+  Route->>L: 挂载(landing.css 作用域 .omnimux-landing)
+  L->>Stage: 渲染 220vh runway + sticky viewport
+  Stage->>SP: effect: scroll listener(passive)+ rAF
+  SP-->>Stage: 写 --omx-copy-* / --omx-orbit-* / --omx-canvas-* CSS 变量
+  Stage->>Orbit: 渲染轨道 N 个 <figure>
+  Orbit->>HO: effect: rAF loop(phase+=speed·dt)
+  HO-->>Orbit: 直接写 item.style.transform/opacity/filter(不经 React setState)
+  Note over Stage: progress>0.38 → orbit 层 is-hidden,canvas 层可交互
+  Stage->>CW: 渲染 scenes[active]
+  CW->>DL: layoutEffect: getBoundingClientRect 锚点 → bezier path
+  CW->>CW: 点击 sidebar 工作区 → setActiveScene → 重渲染节点+连线

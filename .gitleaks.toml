@@ -1,0 +1,91 @@
+# Source-publication scan: gitleaks defaults plus allowlists for findings that
+# were each opened and confirmed not to be credentials. Every entry names the
+# exact file (and rule where it narrows further) so a real secret added to any
+# other file, or under another rule, still blocks the export.
+
+[extend]
+useDefault = true
+
+# Content-addressed thumbnail file names ("<16 hex>.webp"), not keys.
+[[allowlists]]
+description = "influencer motion catalog thumbnail hashes"
+targetRules = ["generic-api-key"]
+paths = ['''web/src/features/influencer/data/motion-explore\.json$''']
+
+# CLI skill examples run curl through `omnimux tokens exec`, which substitutes
+# the `__OMNIMUX_*__` placeholder at run time; no token is written in the doc.
+[[allowlists]]
+description = "CLI skill curl examples with the omnimux tokens exec placeholder"
+targetRules = ["curl-auth-header"]
+paths = ['''cli/skill/[^/]+/OMNIMUX\.md$''']
+regexes = ['''__OMNIMUX_[A-Z_]+__''']
+
+# Test fixtures seed obviously fake keys ("abcd1234...", "test_xi_api_...").
+[[allowlists]]
+description = "test fixtures with fake keys"
+targetRules = ["generic-api-key"]
+paths = [
+  '''controller/token_test\.go$''',
+  '''relay/channel/elevenlabs/adaptor_test\.go$''',
+  '''relay/helper/reasoning_suffix_test\.go$''',
+  '''web/scripts/lib/__tests__/inspiration-skillry\.test\.mjs$''',
+]
+
+# Identifiers that look like keys to the entropy rule: model ids, catalog
+# section keys, the auth-scheme version header and a jimeng request-key name.
+[[allowlists]]
+description = "model ids, section keys and protocol constants"
+targetRules = ["generic-api-key"]
+paths = [
+  '''web/src/features/inspiration-community/components/prompt-preview-modal\.tsx$''',
+  '''web/scripts/lib/inspiration-sources\.mjs$''',
+  '''middleware/auth\.go$''',
+  '''plugins/tasks/jimeng/plugin\.js$''',
+]
+
+# Code that parses or masks key formats rather than holding a key.
+[[allowlists]]
+description = "PEM header literal in the Vertex service-account parser"
+targetRules = ["private-key"]
+paths = ['''relay/channel/vertex/service_account\.go$''']
+
+[[allowlists]]
+description = "example in the key-masking comment"
+targetRules = ["gcp-api-key", "generic-api-key"]
+paths = ['''relaykit/relayconvert/kitutil/mask\.go$''']
+
+# desktop: public Star History chart URLs in the upstream README.
+[[allowlists]]
+description = "Star History chart query string in desktop READMEs"
+targetRules = ["generic-api-key"]
+paths = ['''-desktop-[^/]+/README(\.en)?\.md$''']
+regexes = ['''api\.star-history\.com''']
+
+# plugins: the OpenReel editor in omnimux-clip names actions and keyboard
+# combos ("clip/setChromaKey", "shift+arrowleft"); the entropy rule reads the
+# `Key` suffix as a credential.
+[[allowlists]]
+description = "OpenReel action names and keyboard shortcuts in omnimux-clip"
+targetRules = ["generic-api-key"]
+paths = [
+  '''/plugins/omnimux-clip/src/client/openreel/core/actions/action-history\.ts$''',
+  '''/plugins/omnimux-clip/src/client/openreel/web/services/keyboard-shortcuts\.ts$''',
+]
+
+# desktop: the Chrome DevTools frontend inside the public MIT DeepSeek inspector
+# package carries Google's public CrUX API key. It ships upstream on npm.
+[[allowlists]]
+description = "Chrome DevTools public CrUX key inside the vendored DeepSeek inspector"
+targetRules = ["gcp-api-key", "generic-api-key"]
+paths = ['''/vendor/dsh-runtime/.*deepseek-ai-dsh-experimental-inspector-.*\.tgz!/package/lib/devtools/chunks/common-[A-Za-z0-9_-]+\.js$''']
+
+# Public API docs use literal placeholder credentials in curl examples
+# (`sk-your-key`, `sk-your-token`); no real token is written there.
+[[allowlists]]
+description = "placeholder credentials in the public API documentation"
+targetRules = ["curl-auth-header"]
+paths = [
+  '''docs/api/file-storage-api-zh\.md$''',
+  '''docs/api/inspiration-publish-api-zh\.md$''',
+]
+regexes = ['''sk-your(-key|-token)''']

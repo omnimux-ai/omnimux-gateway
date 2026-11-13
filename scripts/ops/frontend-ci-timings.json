@@ -1,0 +1,6450 @@
+{
+  "schema_version": 1,
+  "vitest_version": "4.1.10",
+  "web_tree": "4b9027cce5888257d15da0b4f9f9a874a1b4c67d",
+  "control_sha256": {
+    "web/vitest.config.ts": "53c9f3e7d3b50cb1eb2e85699a8ecda9e1a5c4447d182f5a38ee5c9031a7b269",
+    "web/package.json": "ee6ed65307b52b0e6ea965a215893a355549ac7505f1e0447a41e909bd4e6ae5",
+    "web/bun.lock": "d98476a5fd8a38f1bff9c545a88453acf34242b71b8b1e1c4b9d937df5495362"
+  },
+  "measurement": "JSON endTime-startTime milliseconds; common overhead is median max(0, shard wall-sum file execution)/file count. Estimates are not wall-time predictions.",
+  "per_file_overhead_ms": 1911,
+  "samples": [
+    {
+      "run_id": "39121182584",
+      "artifact_id": "12134620611",
+      "artifact_name": "frontend-ci-39121182584-four-1-12134620611",
+      "source": "0a9bcef22b744c9ebacf9c90551b8d28af5e37c8",
+      "shard_index": 1,
+      "result_sha256": "d74452157b8ef9109261c7ec82ddaaba92e9f9eb61135882f3615276b380c3b0",
+      "inventory_sha256": "e9f315dbb01157341adc7156183ce0ec23d971fd3c7ab3e0629c28448adbddc5",
+      "report_sha256": "23019cf7f5a9d2f282843a6e15c6d56c70991a75ea9eccc6cfdfc8843ae009fd",
+      "wall_ms": 288895,
+      "sum_file_execution_ms": 91987
+    },
+    {
+      "run_id": "39121182584",
+      "artifact_id": "12134337762",
+      "artifact_name": "frontend-ci-39121182584-four-2-12134337762",
+      "source": "0a9bcef22b744c9ebacf9c90551b8d28af5e37c8",
+      "shard_index": 2,
+      "result_sha256": "5bb1ca87128dca8fb357d9ac399371e1a220b9968f8321905576c4ea7aef0b7a",
+      "inventory_sha256": "0c16cfac9c7f340b2cf33ec5df60fcf53b6878945a28936f1c4d1ceff73cad6d",
+      "report_sha256": "b77c4500c0f2810ca42404e9132acc5398590395d4653ba2c82cc22e86b1c584",
+      "wall_ms": 353272,
+      "sum_file_execution_ms": 159462
+    },
+    {
+      "run_id": "39121182584",
+      "artifact_id": "12133339886",
+      "artifact_name": "frontend-ci-39121182584-four-3-12133339886",
+      "source": "0a9bcef22b744c9ebacf9c90551b8d28af5e37c8",
+      "shard_index": 3,
+      "result_sha256": "504bfb8e3257bef2da81e32d54b60231d4077b94234de684965aea2f512c3150",
+      "inventory_sha256": "345831422228da7f62aa657a3b209408721b1a380933cc11db3f3edf1a4f67b5",
+      "report_sha256": "7d8b05096a9f7066f6857b280435a9343a7a38bdc2b2ef624a34329d6d367a52",
+      "wall_ms": 225079,
+      "sum_file_execution_ms": 117062
+    },
+    {
+      "run_id": "39121182584",
+      "artifact_id": "12133439651",
+      "artifact_name": "frontend-ci-39121182584-four-4-12133439651",
+      "source": "0a9bcef22b744c9ebacf9c90551b8d28af5e37c8",
+      "shard_index": 4,
+      "result_sha256": "99e4b742154b92921d147bdbe201c5d58476cc70f079c52063ff5c4ef5e2a450",
+      "inventory_sha256": "8dc0e775ef2489d80b2cd1be5bd4bce5ae88cc9136b427f826e88dc67a781c78",
+      "report_sha256": "59fd6b115f9272bd18125c2a5c7688623d72ff9aef0ef3294f78490d27d7b6bf",
+      "wall_ms": 264742,
+      "sum_file_execution_ms": 91088
+    },
+    {
+      "run_id": "39123369679",
+      "artifact_id": "12134264822",
+      "artifact_name": "frontend-ci-39123369679-four-1-12134264822",
+      "source": "6e7cee0d66cc67e7885844ba95965ab5152472a1",
+      "shard_index": 1,
+      "result_sha256": "8d20574473a51f04afcf7c386464e7b8f8262362b7460ca587a0ed91c310c9a7",
+      "inventory_sha256": "5462f06648851618d5e17e7a15131c2a1cb69b258c3750721ab32e60cc654ac6",
+      "report_sha256": "8825fb7e312ed9dd0d7a308f34a728645a0a33de225059ba32e63a0fab3bf946",
+      "wall_ms": 281707,
+      "sum_file_execution_ms": 89515
+    },
+    {
+      "run_id": "39123369679",
+      "artifact_id": "12135416183",
+      "artifact_name": "frontend-ci-39123369679-four-2-12135416183",
+      "source": "6e7cee0d66cc67e7885844ba95965ab5152472a1",
+      "shard_index": 2,
+      "result_sha256": "86ad5860f91927609e7c16235770330957d7a145ec41a3446ff970de84670d0a",
+      "inventory_sha256": "1b4be3041d4f119d6074326042767abcc06e23eb969e2be15548132535129dcd",
+      "report_sha256": "a5f6309abd0dd51976ac1b028d6959778a4e6ddc1c3e2f2cc09a0af930688a79",
+      "wall_ms": 355237,
+      "sum_file_execution_ms": 160586
+    },
+    {
+      "run_id": "39123369679",
+      "artifact_id": "12135535671",
+      "artifact_name": "frontend-ci-39123369679-four-3-12135535671",
+      "source": "6e7cee0d66cc67e7885844ba95965ab5152472a1",
+      "shard_index": 3,
+      "result_sha256": "1433b75fd70543401c97adee43dec0c91b17ccbad3414922defc6a23a0ec4a7c",
+      "inventory_sha256": "25afb6cfdc44fdace44326e34aa9bb026b47b2057a41cdc2e3d5127f302983f2",
+      "report_sha256": "0d241a046a365aba6bd90a5b8e9b9f5371d3bb13ad21a97200ee45517449ca41",
+      "wall_ms": 274631,
+      "sum_file_execution_ms": 144394
+    },
+    {
+      "run_id": "39123369679",
+      "artifact_id": "12134573629",
+      "artifact_name": "frontend-ci-39123369679-four-4-12134573629",
+      "source": "6e7cee0d66cc67e7885844ba95965ab5152472a1",
+      "shard_index": 4,
+      "result_sha256": "f35a656e517fa36cee19c50c6a67f445421025adaad7d7ad3a3b0e413b6af8dd",
+      "inventory_sha256": "a119c43509d61e4644661f12f2fbf422af7fc2793190c799a4040655905b42da",
+      "report_sha256": "1ef2232c609f170b76f13961cc93dd84854a4302330858ef6286fefc2540907a",
+      "wall_ms": 203055,
+      "sum_file_execution_ms": 71150
+    },
+    {
+      "run_id": "39122753465",
+      "artifact_id": "12135166936",
+      "artifact_name": "frontend-ci-39122753465-four-1-12135166936",
+      "source": "78e218bad09b70ccf680c4ba575dd39455004a75",
+      "shard_index": 1,
+      "result_sha256": "9f39b9e40d921c476dd49b11bc82fb277130b76e9f554b42ddee42816fc71936",
+      "inventory_sha256": "d6b7f16de9fd819f13f02cc45792db8d5f7051d1fd0e6d9274cec5bb16dce1eb",
+      "report_sha256": "708023436ad8c1f6d54285f0af0bd2ae9fe350a8f46cff302fb2353cffa0092e",
+      "wall_ms": 208339,
+      "sum_file_execution_ms": 65079
+    },
+    {
+      "run_id": "39122753465",
+      "artifact_id": "12134584368",
+      "artifact_name": "frontend-ci-39122753465-four-2-12134584368",
+      "source": "78e218bad09b70ccf680c4ba575dd39455004a75",
+      "shard_index": 2,
+      "result_sha256": "77181617a04f40f56b837b8875bf973f1893fd59fda57004515ff20195da6da3",
+      "inventory_sha256": "00eeedc5a689f29b0b8913d700b259283146e6db711f32b4ef625ef3975f465c",
+      "report_sha256": "3db4822ed53b98fb4cecbe5b491abc951cae3a73ace99c0864041fe763a493cb",
+      "wall_ms": 350587,
+      "sum_file_execution_ms": 157401
+    },
+    {
+      "run_id": "39122753465",
+      "artifact_id": "12135192180",
+      "artifact_name": "frontend-ci-39122753465-four-3-12135192180",
+      "source": "78e218bad09b70ccf680c4ba575dd39455004a75",
+      "shard_index": 3,
+      "result_sha256": "3a1f9c9a279bf96a601c4a9f1af1c139f9f2a557e597d8b6ee88e18513083043",
+      "inventory_sha256": "026004816dbf660fb9db39d4141123022b4efe075fe5defedd6f0dd1de1bd3d0",
+      "report_sha256": "ca088774a6cea9960f27cfd35cdd2b17fe663b3cd5ee84ca9b2a9a5a4de5381c",
+      "wall_ms": 356859,
+      "sum_file_execution_ms": 179045
+    },
+    {
+      "run_id": "39122753465",
+      "artifact_id": "12133939840",
+      "artifact_name": "frontend-ci-39122753465-four-4-12133939840",
+      "source": "78e218bad09b70ccf680c4ba575dd39455004a75",
+      "shard_index": 4,
+      "result_sha256": "1bb1e25e85b49b460b52eb112829d36490a16d45c8e458ec8aaeb572e64bbcb2",
+      "inventory_sha256": "289f26eeba83839b96ce259296758ae1d6711c1bfc5fec9b07d2749b0ebd8193",
+      "report_sha256": "3af36907e25ebf29d821b2ee49b97da7efa526b2943cc010752e61848e79fb0e",
+      "wall_ms": 162482,
+      "sum_file_execution_ms": 60863
+    }
+  ],
+  "files": {
+    "scripts/check-i18n-coverage.test.mjs": {
+      "sha256": "953e1a4b0ea8616081716de5308f340649551bdab9457d76c3a26cbf5fa4f908",
+      "samples_ms": [
+        [
+          0,
+          1752
+        ],
+        [
+          4,
+          1639
+        ],
+        [
+          8,
+          1311
+        ]
+      ]
+    },
+    "scripts/lib/__tests__/inspiration-facets.test.mjs": {
+      "sha256": "b9f2f414ac297454db84c6fec08724395ad3e5c666e42274fa408e5335905a09",
+      "samples_ms": [
+        [
+          2,
+          7
+        ],
+        [
+          6,
+          10
+        ],
+        [
+          10,
+          13
+        ]
+      ]
+    },
+    "scripts/lib/__tests__/inspiration-skillry.test.mjs": {
+      "sha256": "11c85818a29b0980fbe4527cd1199c751a68026c1528b9c1b0e40b19c36a5dbc",
+      "samples_ms": [
+        [
+          0,
+          20
+        ],
+        [
+          4,
+          19
+        ],
+        [
+          8,
+          14
+        ]
+      ]
+    },
+    "scripts/oxlint/__tests__/intl-locale.test.ts": {
+      "sha256": "9da1db7129fca36278fbfba30bb1be430a58ea6b94731191cb934d956564ad1f",
+      "samples_ms": [
+        [
+          0,
+          10
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          8,
+          6
+        ]
+      ]
+    },
+    "scripts/structured-data.test.mjs": {
+      "sha256": "7efd0bda60d510b89f94c3c8edb203ac1f18d4001e6689023b95f6cb8a0a25d1",
+      "samples_ms": [
+        [
+          3,
+          12
+        ],
+        [
+          7,
+          9
+        ],
+        [
+          11,
+          8
+        ]
+      ]
+    },
+    "src/__tests__/public-asset-routes.test.ts": {
+      "sha256": "f28c687f5f28ec6b66097c639cbc712c037c3129a8d03845aa02206c43819d33",
+      "samples_ms": [
+        [
+          0,
+          3
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          8,
+          2
+        ]
+      ]
+    },
+    "src/components/__tests__/date-picker-locale.test.tsx": {
+      "sha256": "93b72b82c87e73996637ddbc83a503288dde6a9288d5e3eb597a880c12920d41",
+      "samples_ms": [
+        [
+          2,
+          796
+        ],
+        [
+          6,
+          1134
+        ],
+        [
+          10,
+          1343
+        ]
+      ]
+    },
+    "src/components/__tests__/datetime-picker-time.test.tsx": {
+      "sha256": "1984529c7121affc24f7f947fc234ded0c8b6fc10e73274ef06cafdf4c0c6066",
+      "samples_ms": [
+        [
+          3,
+          118
+        ],
+        [
+          7,
+          88
+        ],
+        [
+          11,
+          76
+        ]
+      ]
+    },
+    "src/components/__tests__/theme-settings-entry.test.tsx": {
+      "sha256": "4746caab5e80fe1c3d4b456c2f12eec18a109f9947f1d287efd93f0c8eb8f752",
+      "samples_ms": [
+        [
+          2,
+          28
+        ],
+        [
+          6,
+          37
+        ],
+        [
+          10,
+          45
+        ]
+      ]
+    },
+    "src/components/ai-elements/__tests__/code-block-editor.test.tsx": {
+      "sha256": "7198cc63d16ea46e1879048bbb1313a00e0a1727994bdd3bbc2dbb6c18d2afb9",
+      "samples_ms": [
+        [
+          2,
+          216
+        ],
+        [
+          6,
+          305
+        ],
+        [
+          10,
+          343
+        ]
+      ]
+    },
+    "src/components/ai-elements/__tests__/response-fade-render.test.tsx": {
+      "sha256": "0264ed4de4f174eed971a392e8bf02594eaf81736e9fb2cd73933c2c9f7931c1",
+      "samples_ms": [
+        [
+          1,
+          269
+        ],
+        [
+          5,
+          266
+        ],
+        [
+          9,
+          267
+        ]
+      ]
+    },
+    "src/components/ai-elements/__tests__/response-fade.test.ts": {
+      "sha256": "a31e5b36a8058bde8c9ffc20914e80dd2880c6e86c5e5982b39806095cbe78ba",
+      "samples_ms": [
+        [
+          1,
+          21
+        ],
+        [
+          5,
+          22
+        ],
+        [
+          9,
+          21
+        ]
+      ]
+    },
+    "src/components/data-table/core/__tests__/pagination.test.tsx": {
+      "sha256": "1592686d119c48714f6435177c38c6855e3a812c2433fb261e86fe9e2e05bfe1",
+      "samples_ms": [
+        [
+          3,
+          338
+        ],
+        [
+          7,
+          252
+        ],
+        [
+          11,
+          209
+        ]
+      ]
+    },
+    "src/components/data-table/toolbar/__tests__/mobile-filter.test.tsx": {
+      "sha256": "8b20ddf8afbe0ce4d5bfbacfff2d4802e715487be8bb7b92de8b4228a70243b7",
+      "samples_ms": [
+        [
+          2,
+          504
+        ],
+        [
+          6,
+          589
+        ],
+        [
+          10,
+          739
+        ]
+      ]
+    },
+    "src/components/floating-window/__tests__/floating-window.test.tsx": {
+      "sha256": "3f1b67f4344605687a846c27e8577fa412e20def08338415de8f59da018edcdc",
+      "samples_ms": [
+        [
+          0,
+          461
+        ],
+        [
+          4,
+          438
+        ],
+        [
+          8,
+          325
+        ]
+      ]
+    },
+    "src/components/json-code-editor/__tests__/json-code-editor-utils.test.ts": {
+      "sha256": "5d1e409d55b05d9e872a8308c2cc2033e926f9374fb0448882fa970a5af54c1d",
+      "samples_ms": [
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          9,
+          5
+        ]
+      ]
+    },
+    "src/components/json-code-editor/__tests__/json-code-editor.test.tsx": {
+      "sha256": "3f05e833a62dc1fb7147ff70d9602d5f14af6cef7ddb101ed893f2003bdba6ea",
+      "samples_ms": [
+        [
+          3,
+          403
+        ],
+        [
+          7,
+          288
+        ],
+        [
+          11,
+          248
+        ]
+      ]
+    },
+    "src/components/model-group-selector/__tests__/group-detail.test.ts": {
+      "sha256": "534d9f17255b4ed17003a6d9cfb835ad5fa705c1bb0189aed47b1703906c2323",
+      "samples_ms": [
+        [
+          1,
+          8
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          9,
+          6
+        ]
+      ]
+    },
+    "src/components/model-group-selector/__tests__/layout.test.ts": {
+      "sha256": "a2e31412452c267fa2e057be1ed15fb3810175a14fed16c658635ed092529aa1",
+      "samples_ms": [
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          9,
+          4
+        ]
+      ]
+    },
+    "src/components/multi-select/__tests__/option-hint.test.tsx": {
+      "sha256": "332b9d4724a1ec3e04630db4be4bebd1f42c7f06cd1d6dd409ee5d55af620204",
+      "samples_ms": [
+        [
+          1,
+          431
+        ],
+        [
+          5,
+          436
+        ],
+        [
+          9,
+          503
+        ]
+      ]
+    },
+    "src/components/multi-select/__tests__/option-icon.test.tsx": {
+      "sha256": "11b5537a7d9f45e7c2e462666d715ad1fe62e1f672831080a149ebf6364c38e5",
+      "samples_ms": [
+        [
+          1,
+          476
+        ],
+        [
+          5,
+          422
+        ],
+        [
+          9,
+          395
+        ]
+      ]
+    },
+    "src/components/multi-select/__tests__/selection.test.tsx": {
+      "sha256": "b7442fe0cccd5e58e37e347b26d1fba9a253ae3f1b2a4bb19bfbb7878fc647e5",
+      "samples_ms": [
+        [
+          3,
+          1483
+        ],
+        [
+          7,
+          1186
+        ],
+        [
+          11,
+          1002
+        ]
+      ]
+    },
+    "src/components/ui/__tests__/combobox.test.tsx": {
+      "sha256": "88609c261e96c373ca131845707367cab8d497dcdbb07c68569c20d6d5e41a15",
+      "samples_ms": [
+        [
+          3,
+          1697
+        ],
+        [
+          7,
+          1344
+        ],
+        [
+          11,
+          1182
+        ]
+      ]
+    },
+    "src/components/ui/__tests__/dialog-layout.test.tsx": {
+      "sha256": "258a548cedfe762e13fa80454bc3d30559c14e83afbc12ba8ba9bb0804ea1417",
+      "samples_ms": [
+        [
+          0,
+          474
+        ],
+        [
+          4,
+          460
+        ],
+        [
+          8,
+          327
+        ]
+      ]
+    },
+    "src/components/ui/__tests__/label.test.tsx": {
+      "sha256": "51c05a7106dfd67808ab3e7ca9f822abeb11fd25e542af5c83f0892da7cf4a96",
+      "samples_ms": [
+        [
+          2,
+          187
+        ],
+        [
+          6,
+          245
+        ],
+        [
+          10,
+          285
+        ]
+      ]
+    },
+    "src/components/ui/__tests__/markdown.test.tsx": {
+      "sha256": "9836899252cb9524d3111cba5344f6f136f5913ee9ec2746cc6d9b9448e7c60a",
+      "samples_ms": [
+        [
+          1,
+          177
+        ],
+        [
+          5,
+          174
+        ],
+        [
+          9,
+          167
+        ]
+      ]
+    },
+    "src/components/ui/__tests__/portal-container.test.tsx": {
+      "sha256": "8006de9a3e7eaec6eb48b643d1c5fb744cf8beecc69f13e09a5f77420bc49c7b",
+      "samples_ms": [
+        [
+          1,
+          1293
+        ],
+        [
+          5,
+          1133
+        ],
+        [
+          9,
+          1125
+        ]
+      ]
+    },
+    "src/components/ui/dropdown-menu.test.tsx": {
+      "sha256": "a0a33b465434ea5b4ce96062934a6fa710eea812853b10d773fa2cbc982c4cbe",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    "src/context/__tests__/dark-only.test.tsx": {
+      "sha256": "377ef04e4333edac2d5908f8897e7611131ce3a39075e3655453d9981c81ada3",
+      "samples_ms": [
+        [
+          2,
+          120
+        ],
+        [
+          6,
+          159
+        ],
+        [
+          10,
+          184
+        ]
+      ]
+    },
+    "src/context/__tests__/theme-preferences.test.tsx": {
+      "sha256": "0d7e4b4136e4203bef8d8201a2a0d4411e5358929793c5705b1f908c08ebf93b",
+      "samples_ms": [
+        [
+          2,
+          279
+        ],
+        [
+          6,
+          334
+        ],
+        [
+          10,
+          412
+        ]
+      ]
+    },
+    "src/features/about/__tests__/content.test.tsx": {
+      "sha256": "3c130a2d1a246f26d38a4cde19af85ab84bf23c2d4553fc5141064efc5a5ab9b",
+      "samples_ms": [
+        [
+          0,
+          273
+        ],
+        [
+          4,
+          268
+        ],
+        [
+          8,
+          207
+        ]
+      ]
+    },
+    "src/features/auth/api.test.ts": {
+      "sha256": "601d95c7f2f4a0706f2e4901fb8129215296314b97b06f781c046ffd2704a2c0",
+      "samples_ms": [
+        [
+          0,
+          30
+        ],
+        [
+          4,
+          30
+        ],
+        [
+          8,
+          22
+        ]
+      ]
+    },
+    "src/features/auth/cli-login/__tests__/authorization.test.tsx": {
+      "sha256": "8a29f0f11b87361a9092f16f2aed1bb93bbf2190a6ecd1da80e6d6e9f3a4882a",
+      "samples_ms": [
+        [
+          3,
+          3450
+        ],
+        [
+          7,
+          2471
+        ],
+        [
+          11,
+          2123
+        ]
+      ]
+    },
+    "src/features/auth/components/__tests__/legal-copy.test.tsx": {
+      "sha256": "a27c3e52f9200d2280391f8742946c6b459f84ab6a6bc08d6d4993af89e81383",
+      "samples_ms": [
+        [
+          3,
+          229
+        ],
+        [
+          7,
+          170
+        ],
+        [
+          11,
+          145
+        ]
+      ]
+    },
+    "src/features/auth/hooks/__tests__/login-redirect.test.tsx": {
+      "sha256": "9e9ef8729afcf83091a0fc0165f897bbf4171347e3c7d4fb1dfa9edb47b47637",
+      "samples_ms": [
+        [
+          3,
+          26
+        ],
+        [
+          7,
+          17
+        ],
+        [
+          11,
+          15
+        ]
+      ]
+    },
+    "src/features/auth/lib/__tests__/login-destination.test.ts": {
+      "sha256": "793cabaf67f06604dc9d778859c0247d195a78cd250dcd9d10663e5b53d8817a",
+      "samples_ms": [
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ]
+    },
+    "src/features/auth/lib/__tests__/oauth-callback-mode.test.ts": {
+      "sha256": "06f0e63a84b107ff4f7ba75f906075986053e2eee20fe5e8349372617761c2d0",
+      "samples_ms": [
+        [
+          1,
+          6
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          9,
+          6
+        ]
+      ]
+    },
+    "src/features/auth/lib/__tests__/oauth-popup.test.ts": {
+      "sha256": "3e97fd7539235d59cf8a6d5c568173014d500c9f781fc5f879daae0b6461aded",
+      "samples_ms": [
+        [
+          0,
+          30
+        ],
+        [
+          4,
+          30
+        ],
+        [
+          8,
+          21
+        ]
+      ]
+    },
+    "src/features/auth/lib/auth-redirect.test.ts": {
+      "sha256": "6f44d9b8aea931d470e9522b0586a2b408cefda608f73b3d3ce1674feaf15a8d",
+      "samples_ms": [
+        [
+          3,
+          5
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/auth/lib/oauth-bind-window.test.ts": {
+      "sha256": "37a751e89203ba616bfdf869c2647f8dbb095d4a3847aaa975cf09c0066452ab",
+      "samples_ms": [
+        [
+          2,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          10,
+          5
+        ]
+      ]
+    },
+    "src/features/auth/lib/telegram-login.test.ts": {
+      "sha256": "6ea6c2d63544a2db780ab1d792664b4e28f0e5a86699ad3ef336fe7b76158438",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    "src/features/auth/otp/__tests__/login-verification.test.tsx": {
+      "sha256": "9076754a6d65696f0f686099aa91f9ae3f31a3c864f52a14a94c6d13d03aff3e",
+      "samples_ms": [
+        [
+          0,
+          1169
+        ],
+        [
+          4,
+          1080
+        ],
+        [
+          8,
+          798
+        ]
+      ]
+    },
+    "src/features/auth/passkey/__tests__/domain-verification.test.tsx": {
+      "sha256": "e103d4872fd0e469aac1360e58e78c9a40adc9cf82343a79956c6d40f29c12ee",
+      "samples_ms": [
+        [
+          2,
+          651
+        ],
+        [
+          6,
+          843
+        ],
+        [
+          10,
+          1014
+        ]
+      ]
+    },
+    "src/features/auth/secure-verification/__tests__/verification-api.test.ts": {
+      "sha256": "f7462b4cd104d14995bf7a07aedd76b5232bdc45cd3dce25fe976af1275ad242",
+      "samples_ms": [
+        [
+          1,
+          357
+        ],
+        [
+          5,
+          416
+        ],
+        [
+          9,
+          404
+        ]
+      ]
+    },
+    "src/features/auth/secure-verification/__tests__/verification-flow.test.tsx": {
+      "sha256": "6d4f9c20ac0829d14b0289da5ead45d60972945ad1cc6bb542e47164227ad564",
+      "samples_ms": [
+        [
+          2,
+          1211
+        ],
+        [
+          6,
+          1480
+        ],
+        [
+          10,
+          1762
+        ]
+      ]
+    },
+    "src/features/auth/sign-up/__tests__/generate-username.test.ts": {
+      "sha256": "cb72ad9a54c82a876187354e2d1b1fbb2e93e8ca287316b5b9f67ed5c91c6023",
+      "samples_ms": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          13
+        ],
+        [
+          8,
+          3
+        ]
+      ]
+    },
+    "src/features/auth/sign-up/__tests__/signup-flow.test.tsx": {
+      "sha256": "923dffa730629bc05328e5d75bafdab1d6b023692d5cbedc06e203197c303ed3",
+      "samples_ms": [
+        [
+          1,
+          1074
+        ],
+        [
+          5,
+          1078
+        ],
+        [
+          9,
+          1157
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/channel-configuration.test.tsx": {
+      "sha256": "5872ea49124a57b503759dc694ff3f6d49956f17077e3f9f6ce66aa837b58896",
+      "samples_ms": [
+        [
+          2,
+          42387
+        ],
+        [
+          6,
+          52092
+        ],
+        [
+          10,
+          66678
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/channel-quick-options.test.tsx": {
+      "sha256": "51784401c59061c43bbd6d35036680463b6c35a8be0d5f1f4d674e47651b9165",
+      "samples_ms": [
+        [
+          1,
+          1219
+        ],
+        [
+          5,
+          1227
+        ],
+        [
+          9,
+          1219
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/channels-columns-status-tooltip-content.test.tsx": {
+      "sha256": "bc85b569147c74a65972d44efb741ec092adf582231c70b8efcc9cb9834d6ea9",
+      "samples_ms": [
+        [
+          3,
+          371
+        ],
+        [
+          7,
+          292
+        ],
+        [
+          11,
+          256
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/inference-status.test.tsx": {
+      "sha256": "a899787a1458141fa53e4879bbd0e0e8dc141caa046e5cc6a54fe7007d7b9607",
+      "samples_ms": [
+        [
+          3,
+          3202
+        ],
+        [
+          7,
+          2376
+        ],
+        [
+          11,
+          2207
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/model-mapping-batch-dialog.test.tsx": {
+      "sha256": "ad1e3f94eb8383d022b1399c65612af290ba2b9203b4374121871f320a7c79d3",
+      "samples_ms": [
+        [
+          0,
+          3954
+        ],
+        [
+          4,
+          3633
+        ],
+        [
+          8,
+          2692
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/model-mapping-editor.test.tsx": {
+      "sha256": "f4b9517b3dd070e3163800064d2cd5736df69a2f014451ca0bc5c0d3673fef48",
+      "samples_ms": [
+        [
+          1,
+          1706
+        ],
+        [
+          5,
+          1708
+        ],
+        [
+          9,
+          1657
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/param-override-editor.test.tsx": {
+      "sha256": "aa32e7a6e9c41f4e42570fab1bf2969b1b1dcaa8a7936a5b411a30a523f61b63",
+      "samples_ms": [
+        [
+          0,
+          6261
+        ],
+        [
+          4,
+          6124
+        ],
+        [
+          8,
+          4432
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/provider-selection.test.tsx": {
+      "sha256": "24f638038cfb3ffb9c792f461b0cd1657bd2e1bc1aa76992a8928213cb708ef0",
+      "samples_ms": [
+        [
+          0,
+          18044
+        ],
+        [
+          4,
+          18023
+        ],
+        [
+          8,
+          12731
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/responses-websocket-setting.test.tsx": {
+      "sha256": "6b7533ca5e704ba4714f4049befcadaafbc7bcdd9ee3e2c534302e390d74877a",
+      "samples_ms": [
+        [
+          2,
+          405
+        ],
+        [
+          6,
+          472
+        ],
+        [
+          10,
+          563
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/table-refresh.test.tsx": {
+      "sha256": "bbacef786aa94540d1902c27c6499b91bfd45f2353a074ab8f30b7eb425bf918",
+      "samples_ms": [
+        [
+          0,
+          775
+        ],
+        [
+          4,
+          720
+        ],
+        [
+          8,
+          548
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/upstream-model-selection.test.tsx": {
+      "sha256": "5cff8444c3b55976c4cc72be026b2780c40c4928e3886088493051cafa705163",
+      "samples_ms": [
+        [
+          2,
+          957
+        ],
+        [
+          6,
+          1155
+        ],
+        [
+          10,
+          1371
+        ]
+      ]
+    },
+    "src/features/channels/components/__tests__/upstream-update-dialog.test.tsx": {
+      "sha256": "8eb74a6e623226b3f246216502b8281d7a43f87e0c2d2548e15e203d1a1e8c36",
+      "samples_ms": [
+        [
+          3,
+          2681
+        ],
+        [
+          7,
+          2101
+        ],
+        [
+          11,
+          1653
+        ]
+      ]
+    },
+    "src/features/channels/components/channel-type-badge.test.tsx": {
+      "sha256": "fbaae9eea189c0532ad2a0221904449ce2225edac4fa0193d2a85cced70665ec",
+      "samples_ms": [
+        [
+          2,
+          57
+        ],
+        [
+          6,
+          86
+        ],
+        [
+          10,
+          98
+        ]
+      ]
+    },
+    "src/features/channels/components/dialogs/__tests__/ollama-models-localization.test.tsx": {
+      "sha256": "82e457c72bb61eb662b491e03d4688d89aa64e8f77a89f5db3278fdeb13db160",
+      "samples_ms": [
+        [
+          3,
+          694
+        ],
+        [
+          7,
+          499
+        ],
+        [
+          11,
+          410
+        ]
+      ]
+    },
+    "src/features/channels/hooks/__tests__/channel-key-disclosure.test.tsx": {
+      "sha256": "22d0149eda5196534b25735fe9c8f0e3ba02a6d3d8b20ae5f1e181cf9dbe5a2a",
+      "samples_ms": [
+        [
+          3,
+          860
+        ],
+        [
+          7,
+          655
+        ],
+        [
+          11,
+          568
+        ]
+      ]
+    },
+    "src/features/channels/hooks/__tests__/use-redirect-panel-placement.test.tsx": {
+      "sha256": "fb93b84e950ebd409f837f9cb20e269d4ccd204aa70c68bb44b07daa820f313f",
+      "samples_ms": [
+        [
+          2,
+          22
+        ],
+        [
+          6,
+          27
+        ],
+        [
+          10,
+          33
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/channel-field-update.test.ts": {
+      "sha256": "4a80cd62e40f85c88f4d87e525e9488df438bdd7695ec13d436444259771efc0",
+      "samples_ms": [
+        [
+          3,
+          4
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/channel-table-row-id.test.ts": {
+      "sha256": "665f6969d23c630fbad5d191ab178b4f082ec1d5a26b8ac3dc4b3069929b0003",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          10,
+          4
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/channel-type-options.test.ts": {
+      "sha256": "32b4a143d466d84191f4545ce21173dbcfe294966413730a2aa57ae9c28d81a8",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/header-passthrough.test.ts": {
+      "sha256": "8a66d50e173ff4750d5b6dac383ac6d937a319b6897116817bca911590bcfb1c",
+      "samples_ms": [
+        [
+          3,
+          7
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/inference-status.test.ts": {
+      "sha256": "b6c32c19164a51a38f3882e599a4b3b57d9e764afb4a4780de977715d8c18b75",
+      "samples_ms": [
+        [
+          1,
+          12
+        ],
+        [
+          5,
+          12
+        ],
+        [
+          9,
+          11
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/model-mapping-rules.test.ts": {
+      "sha256": "c9593d9c189fcfc1c137fc01e498881d87d51d5981b6270491b81dca2a896a75",
+      "samples_ms": [
+        [
+          3,
+          6
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/model-naming-patterns.test.ts": {
+      "sha256": "f90a3b6deb40658c10b131a386a22116a9272c0bbeb1a535b3c639595802cc9b",
+      "samples_ms": [
+        [
+          0,
+          15
+        ],
+        [
+          4,
+          12
+        ],
+        [
+          8,
+          9
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/new-api-channel.test.ts": {
+      "sha256": "d2ae2a853b364fedcbf6fcd8341cbdee9eb204a2c1b52f6d3e6cce10fe9b34a2",
+      "samples_ms": [
+        [
+          0,
+          30
+        ],
+        [
+          4,
+          22
+        ],
+        [
+          8,
+          16
+        ]
+      ]
+    },
+    "src/features/channels/lib/__tests__/task-plugin-base-url.test.ts": {
+      "sha256": "cb2c3aab550bdec6f4edd6478df4e1f35b1b18911ece9438f2770533b01307ae",
+      "samples_ms": [
+        [
+          1,
+          6
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          9,
+          6
+        ]
+      ]
+    },
+    "src/features/dashboard/components/overview/__tests__/setup-guide.test.tsx": {
+      "sha256": "53b06baa0fa00d98b147bc47f9f52c2974926971967fe0f8659a1b98fb3a2e46",
+      "samples_ms": [
+        [
+          1,
+          1719
+        ],
+        [
+          5,
+          1716
+        ],
+        [
+          9,
+          1699
+        ]
+      ]
+    },
+    "src/features/dashboard/lib/__tests__/charts.test.ts": {
+      "sha256": "5309af006c12702345dd946ba3a8d545c65069a9f3e94508ccf32e823ee2febb",
+      "samples_ms": [
+        [
+          0,
+          32
+        ],
+        [
+          4,
+          31
+        ],
+        [
+          8,
+          28
+        ]
+      ]
+    },
+    "src/features/dashboard/lib/flow-selection.test.ts": {
+      "sha256": "d0398edb5b121533e32cdd86c673d80f3c89f31d40df26848ba383ea6e875848",
+      "samples_ms": [
+        [
+          3,
+          6
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/dashboard/lib/flow.test.ts": {
+      "sha256": "c2aae66130c0509cf1120036112dfbe06617a5eb5cf4c94620a266c0d21a6aee",
+      "samples_ms": [
+        [
+          2,
+          42
+        ],
+        [
+          6,
+          38
+        ],
+        [
+          10,
+          57
+        ]
+      ]
+    },
+    "src/features/errors/__tests__/general-error.test.tsx": {
+      "sha256": "5c3b8dd615af31fe4e61c4490bb6a90a8aae92aec6d5111a92b5d868f530360f",
+      "samples_ms": [
+        [
+          1,
+          404
+        ],
+        [
+          5,
+          400
+        ],
+        [
+          9,
+          409
+        ]
+      ]
+    },
+    "src/features/hosted-admin/components/__tests__/pool-page.test.tsx": {
+      "sha256": "b996f90b471cf7d5dd99bf728de3d6988528e772fa88588a79cdf51060a7e8fa",
+      "samples_ms": [
+        [
+          1,
+          136
+        ],
+        [
+          5,
+          135
+        ],
+        [
+          9,
+          138
+        ]
+      ]
+    },
+    "src/features/hosted-admin/components/__tests__/tasks-page.test.tsx": {
+      "sha256": "ba912ee7a1131041bbefe687731487a33b8b85a395ce7ea0c71bfaa2709b565b",
+      "samples_ms": [
+        [
+          0,
+          74
+        ],
+        [
+          4,
+          74
+        ],
+        [
+          8,
+          55
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/accepted-task.test.tsx": {
+      "sha256": "f7b8c992387c5be3f0c2d3d25dad11485359223e247587fe14821c686d400c02",
+      "samples_ms": [
+        [
+          3,
+          51
+        ],
+        [
+          7,
+          42
+        ],
+        [
+          11,
+          34
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/animal-builder.test.tsx": {
+      "sha256": "58d65d393ff24d9a7a4822a7692d02f1a8899194b1ab693057eaebdbddb1bbf9",
+      "samples_ms": [
+        [
+          3,
+          782
+        ],
+        [
+          7,
+          568
+        ],
+        [
+          11,
+          468
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/animal-history.test.ts": {
+      "sha256": "74f03ca1c2e96aac59f19000ece8c6357eaf25f8d5236705a0b3d956a0cd9aff",
+      "samples_ms": [
+        [
+          0,
+          15
+        ],
+        [
+          4,
+          15
+        ],
+        [
+          8,
+          12
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/animal-motion.test.tsx": {
+      "sha256": "738479d68fbca0bf651da5fb469312a3d92eb0ca6f4532f4b4b945babe27ae93",
+      "samples_ms": [
+        [
+          0,
+          29
+        ],
+        [
+          4,
+          28
+        ],
+        [
+          8,
+          21
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/animal-picker.test.tsx": {
+      "sha256": "c5ad94b3985f7110597d75b974bbb5694e43ba6143a40f02542ab8333724c43a",
+      "samples_ms": [
+        [
+          3,
+          737
+        ],
+        [
+          7,
+          544
+        ],
+        [
+          11,
+          456
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/animal-prompt.test.ts": {
+      "sha256": "2b7e165b7eb40ede46fb79f41bed192f2ee7b0a06a66ac01a089ade4806502f7",
+      "samples_ms": [
+        [
+          1,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          9,
+          3
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/animal-selection.test.tsx": {
+      "sha256": "44138b864e05e8621e8018fc00d9213ccb300aeb70e3fd2c97d0c5c968249121",
+      "samples_ms": [
+        [
+          0,
+          42
+        ],
+        [
+          4,
+          45
+        ],
+        [
+          8,
+          33
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/animal-workbench.test.tsx": {
+      "sha256": "24768bc508ad5011f986efe28e2a386f0964f09ea24dd9a6f88b667e5a2ba91c",
+      "samples_ms": [
+        [
+          0,
+          968
+        ],
+        [
+          4,
+          1019
+        ],
+        [
+          8,
+          783
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/browser-video-metadata.test.ts": {
+      "sha256": "dcc7f764dcbd9f57284f63d99c9ad7ca3ffd4782fd343c080e28765d948a6f45",
+      "samples_ms": [
+        [
+          2,
+          81
+        ],
+        [
+          6,
+          44
+        ],
+        [
+          10,
+          56
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/builder-random-session.test.tsx": {
+      "sha256": "743ff66d7e31949e2d11b2a86330d8828e61dd38fcff4fdad5f9ba006ce303fc",
+      "samples_ms": [
+        [
+          1,
+          92
+        ],
+        [
+          5,
+          83
+        ],
+        [
+          9,
+          81
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/catalog.test.ts": {
+      "sha256": "1df439018bf350c0d153c9645f0dbd3378c009837beb52b862633245fcae9231",
+      "samples_ms": [
+        [
+          1,
+          11
+        ],
+        [
+          5,
+          12
+        ],
+        [
+          9,
+          11
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/character-assets.test.tsx": {
+      "sha256": "a8abcf1a3f3e49aa614366441abd610b74564a82fe706c9c8e620c1c1a66e68c",
+      "samples_ms": [
+        [
+          1,
+          804
+        ],
+        [
+          5,
+          804
+        ],
+        [
+          9,
+          792
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/character-slot.test.tsx": {
+      "sha256": "d93941517fc7c8d3d1aa0114b68668b3430a1dafa0df88cb08128f79cf2257a4",
+      "samples_ms": [
+        [
+          1,
+          982
+        ],
+        [
+          5,
+          958
+        ],
+        [
+          9,
+          984
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/direct-delivery.test.ts": {
+      "sha256": "b0f5dd32eb5af33b676ea16e8eb1b4f27415803f60b8cadf45374888129b7ac4",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/direct-upload.test.ts": {
+      "sha256": "a8892ab66911db43247964367d41a95826d18d88c2ec67524307b18329e217bb",
+      "samples_ms": [
+        [
+          0,
+          13
+        ],
+        [
+          4,
+          13
+        ],
+        [
+          8,
+          10
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/explore-grid-perf.test.tsx": {
+      "sha256": "7217f36711d8c0c22ac38d1f2403249c23c18b3d64fc204aa6d9702012a91827",
+      "samples_ms": [
+        [
+          0,
+          245
+        ],
+        [
+          4,
+          244
+        ],
+        [
+          8,
+          177
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/explore-skeleton.test.tsx": {
+      "sha256": "18330da11a16d124f55606a3fdbe5318ee308078d9214f196c5ae4f1052c15d0",
+      "samples_ms": [
+        [
+          3,
+          161
+        ],
+        [
+          7,
+          121
+        ],
+        [
+          11,
+          105
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/explore-tab.test.ts": {
+      "sha256": "9eb2039484452b99e297b5f936568536de2b22e9f85129b53112c84c5beccc65",
+      "samples_ms": [
+        [
+          3,
+          5
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/feed-grid.test.tsx": {
+      "sha256": "23e226d055cf8c221ed0ed025ab93bedad866930b7d70fba8779246229b923e4",
+      "samples_ms": [
+        [
+          2,
+          384
+        ],
+        [
+          6,
+          493
+        ],
+        [
+          10,
+          602
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/generate-bar.test.tsx": {
+      "sha256": "92dc895bbd55a2ab17e2f1d039a31e98d990d35d5630b7c1cd6065866fa533c5",
+      "samples_ms": [
+        [
+          1,
+          279
+        ],
+        [
+          5,
+          269
+        ],
+        [
+          9,
+          269
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/generation-queue.test.tsx": {
+      "sha256": "e844fdec9c40daa7c4fd92dc2713836dbe51ba04dcd18eb6ceae93dd85813f6b",
+      "samples_ms": [
+        [
+          3,
+          138
+        ],
+        [
+          7,
+          108
+        ],
+        [
+          11,
+          90
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/guest-draft.test.ts": {
+      "sha256": "d0a38ac2c9a1da8efb8bfe7019246c4e092713c69b62e07a805c7ed5eda24d4b",
+      "samples_ms": [
+        [
+          0,
+          8
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          8,
+          6
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/guest-gate.test.tsx": {
+      "sha256": "3b76f8e849ffb388efc2e62e70f1bd26df12f18ec4346e809694d1236dd20024",
+      "samples_ms": [
+        [
+          2,
+          1636
+        ],
+        [
+          6,
+          1919
+        ],
+        [
+          10,
+          2350
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/history-cache.test.ts": {
+      "sha256": "07be0e2e39e1049aeaef0bdd212f3a9b2d7260b940463bb2f9500b863de57a99",
+      "samples_ms": [
+        [
+          0,
+          9
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          8,
+          7
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/history-enrichment.test.tsx": {
+      "sha256": "ffd1c47385fba016c2effba4c66722c609b612c91ac99119328b88a303b5d166",
+      "samples_ms": [
+        [
+          2,
+          77
+        ],
+        [
+          6,
+          108
+        ],
+        [
+          10,
+          130
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/history-preview-stack.test.tsx": {
+      "sha256": "ae123050c74632eaeea499ec61605be13125e84c5f534624fd06c5e10775d6a1",
+      "samples_ms": [
+        [
+          2,
+          567
+        ],
+        [
+          6,
+          722
+        ],
+        [
+          10,
+          903
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/history.test.ts": {
+      "sha256": "fe36bd34af35aafeb0700819d00779e399b95782832e930012d4a38ef9cbc343",
+      "samples_ms": [
+        [
+          1,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          9,
+          8
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/image-mask-intent.test.tsx": {
+      "sha256": "dc2811160b95249206f761b10cc3c1d639a523649c3b5beb803cb3a405222db3",
+      "samples_ms": [
+        [
+          3,
+          5153
+        ],
+        [
+          7,
+          3831
+        ],
+        [
+          11,
+          2933
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/image-mode-boundary.test.tsx": {
+      "sha256": "9d5781523c75a12288e925e6ee8330132e4307673a51e73a7e31172c28c90005",
+      "samples_ms": [
+        [
+          3,
+          5470
+        ],
+        [
+          7,
+          4031
+        ],
+        [
+          11,
+          3098
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/image-mode-state.test.tsx": {
+      "sha256": "ea8ee3336e6d7914cc516261c39a87ab744a9b593be1190e5a8d8ad1712c9f81",
+      "samples_ms": [
+        [
+          2,
+          17
+        ],
+        [
+          6,
+          24
+        ],
+        [
+          10,
+          28
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/image-reference-workbench.test.tsx": {
+      "sha256": "e29bc962fb5402be29f4cb9d46c7084c904de76dade7ccaed1af6fdaeddd7a99",
+      "samples_ms": [
+        [
+          1,
+          31314
+        ],
+        [
+          5,
+          31422
+        ],
+        [
+          9,
+          29790
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/image-reference.test.tsx": {
+      "sha256": "ba0577ea8af935605d39bd866b4437a36ca861bc4558a0184b3770fed71c14b7",
+      "samples_ms": [
+        [
+          3,
+          428
+        ],
+        [
+          7,
+          267
+        ],
+        [
+          11,
+          214
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/library-cache.test.ts": {
+      "sha256": "51b61f345df51602202df519b63af7fe348900fdc87af590f87e8328bfac4bc8",
+      "samples_ms": [
+        [
+          1,
+          13
+        ],
+        [
+          5,
+          13
+        ],
+        [
+          9,
+          13
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/media-slot.test.tsx": {
+      "sha256": "5ec890fd4db7a484b6bfff34c7c095538455f71bd9df6f0a2a57db684ee152fe",
+      "samples_ms": [
+        [
+          0,
+          701
+        ],
+        [
+          4,
+          687
+        ],
+        [
+          8,
+          486
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/mention-editor.test.tsx": {
+      "sha256": "d41b73ca9e212407051d2332bb995679dad1a6944bdb44efd2476105e7d7d875",
+      "samples_ms": [
+        [
+          1,
+          1285
+        ],
+        [
+          5,
+          1289
+        ],
+        [
+          9,
+          1270
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/mention.test.ts": {
+      "sha256": "5e73206b1c1602288554f1fbb01d0d712530543b85d3761545dd0c42dc19179d",
+      "samples_ms": [
+        [
+          1,
+          10
+        ],
+        [
+          5,
+          10
+        ],
+        [
+          9,
+          9
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-catalogue-i18n.test.tsx": {
+      "sha256": "56ae87385979549eb1466be70e680bd6233695e3cce14f6f0bf9879bdfb9022a",
+      "samples_ms": [
+        [
+          0,
+          566
+        ],
+        [
+          4,
+          548
+        ],
+        [
+          8,
+          398
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-inspection.test.ts": {
+      "sha256": "024f7cda09b2c37a7a6c8e17848f4486586612d800ba1ef43be55d13687bf577",
+      "samples_ms": [
+        [
+          3,
+          8
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-mode.test.ts": {
+      "sha256": "435403689351aabeec978b8282833d41aae3f4467b6690565ca3ec45b945e35d",
+      "samples_ms": [
+        [
+          3,
+          7
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-panel.test.tsx": {
+      "sha256": "34329329c2ba61579281c8861ae96a7945a3d311a534bd7db26adfc19625af72",
+      "samples_ms": [
+        [
+          0,
+          4054
+        ],
+        [
+          4,
+          3857
+        ],
+        [
+          8,
+          2766
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-resolution.test.ts": {
+      "sha256": "40d6e6455fa4b684117e041d459e52292c94988bed44e90115e11b416469b0bb",
+      "samples_ms": [
+        [
+          2,
+          221
+        ],
+        [
+          6,
+          290
+        ],
+        [
+          10,
+          343
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-style-dialog.test.tsx": {
+      "sha256": "b398b752b687d2efeda4316a4f93d2309ec8a24bcfe05fd99d9de3892aa53db2",
+      "samples_ms": [
+        [
+          1,
+          2133
+        ],
+        [
+          5,
+          2102
+        ],
+        [
+          9,
+          2074
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-style-row.test.tsx": {
+      "sha256": "7bed23522e46e336c976a4251759dbd9a24bd63aa78ec00e3f8b1de1e96a9e28",
+      "samples_ms": [
+        [
+          0,
+          329
+        ],
+        [
+          4,
+          310
+        ],
+        [
+          8,
+          235
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-style-state.test.ts": {
+      "sha256": "438bbd87ac7ed00b68a10f62647af12d4b02367622f9cb4334a4b3a6449e76c2",
+      "samples_ms": [
+        [
+          2,
+          19
+        ],
+        [
+          6,
+          26
+        ],
+        [
+          10,
+          30
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-style-submit.test.tsx": {
+      "sha256": "76f664bf6121a515812cad64d0ad49b6abcd382c4f7e5a76ebf92df7b37991a5",
+      "samples_ms": [
+        [
+          0,
+          4552
+        ],
+        [
+          4,
+          4299
+        ],
+        [
+          8,
+          3119
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-style.test.ts": {
+      "sha256": "6845e08f9c5cb5d9f54f37dfe481958b8864cb5584d07f69c6d5373c3b4f5f95",
+      "samples_ms": [
+        [
+          3,
+          6
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-video-validation.test.ts": {
+      "sha256": "7dc8c524ff55687f93aad6ec7a1d5ce512517226d56427e902343c941f4ff168",
+      "samples_ms": [
+        [
+          0,
+          96
+        ],
+        [
+          4,
+          101
+        ],
+        [
+          8,
+          65
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion-visual-styles.test.ts": {
+      "sha256": "b26c40a2bae5158be5de04a056798e5f06db1ef6d03432c6a0872cd4bcbb091b",
+      "samples_ms": [
+        [
+          3,
+          51
+        ],
+        [
+          7,
+          41
+        ],
+        [
+          11,
+          31
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/motion.test.ts": {
+      "sha256": "7ca88e37c98bced48bba4e10c9d82f6a16c3b30762bffe427df224a16c1cb468",
+      "samples_ms": [
+        [
+          3,
+          8
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/multiview-accepted.test.tsx": {
+      "sha256": "3a095530f564de7645897300fe86d7f240c06d04c4372d8f36a707158425e1c0",
+      "samples_ms": [
+        [
+          3,
+          73
+        ],
+        [
+          7,
+          57
+        ],
+        [
+          11,
+          54
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/multiview-submit.test.tsx": {
+      "sha256": "04edd23936c6aa13d7548fbec01d65889d019441eade4bb59e6f41373da9e33d",
+      "samples_ms": [
+        [
+          3,
+          1739
+        ],
+        [
+          7,
+          1285
+        ],
+        [
+          11,
+          1169
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/multiview.test.ts": {
+      "sha256": "786b29c82f32702b95d05e6f27cf1510b09218a5acc733a6be8ef08914b1a79b",
+      "samples_ms": [
+        [
+          2,
+          6
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          10,
+          9
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/option-card.test.tsx": {
+      "sha256": "bca85d4500ef97c8811cb66dd7f348a542949caf85deb175db42fe7908a44fdb",
+      "samples_ms": [
+        [
+          2,
+          686
+        ],
+        [
+          6,
+          785
+        ],
+        [
+          10,
+          917
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/prefetch.test.ts": {
+      "sha256": "4e47c4bb835a535b4af032c3fc226aa38572a2c21fa7356e0aae6c69523a8628",
+      "samples_ms": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          8,
+          4
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/presets.test.ts": {
+      "sha256": "f2c3c69050fa3e68a8df8183439df3ac45080664a2c2773b977bddb4bc34c514",
+      "samples_ms": [
+        [
+          3,
+          47
+        ],
+        [
+          7,
+          32
+        ],
+        [
+          11,
+          26
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/preview-recovery.test.tsx": {
+      "sha256": "e8519258f344adf0536d408528069ee417435fe6515c31029ff14b9395540dd1",
+      "samples_ms": [
+        [
+          1,
+          500
+        ],
+        [
+          5,
+          502
+        ],
+        [
+          9,
+          516
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/preview-reference.test.ts": {
+      "sha256": "ae32f8fc2c4c6467eddcdea23e0e4a20e386d9115aabd1fcd04e1431f00a5f91",
+      "samples_ms": [
+        [
+          3,
+          5
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/prompt.test.ts": {
+      "sha256": "4dfc2b153c8c9570f5eeb3beae320f1a32ac10c210390b90eff0d81123dc7015",
+      "samples_ms": [
+        [
+          2,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          10,
+          5
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/publish-preset-dialog.test.tsx": {
+      "sha256": "169af6d30bb9038a707f9947918918afb2bf2b694452d84edebe70536ff21d24",
+      "samples_ms": [
+        [
+          1,
+          592
+        ],
+        [
+          5,
+          582
+        ],
+        [
+          9,
+          598
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/publish-preset-errors.test.tsx": {
+      "sha256": "fa48ee32a8977568cdcd89498aac8ab7be3826c162010def970a713a967cdab3",
+      "samples_ms": [
+        [
+          0,
+          447
+        ],
+        [
+          4,
+          430
+        ],
+        [
+          8,
+          322
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/publish-preset.test.ts": {
+      "sha256": "cd7da7e65e9a13687c5ab64e867e62ae4612e1ec57918ab4f0c2593cf704309b",
+      "samples_ms": [
+        [
+          2,
+          4
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          10,
+          6
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/queue-notice.test.tsx": {
+      "sha256": "9b2df9109d1675903d48dd00a89829cffcc2f94b7b0766cff5eebebe8b69b626",
+      "samples_ms": [
+        [
+          3,
+          28
+        ],
+        [
+          7,
+          18
+        ],
+        [
+          11,
+          15
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/randomize.test.ts": {
+      "sha256": "36a445214667ebf75938f53eae9547aa8c9e059e495d54f23244d9ae17c2b180",
+      "samples_ms": [
+        [
+          3,
+          850
+        ],
+        [
+          7,
+          602
+        ],
+        [
+          11,
+          459
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/reference-candidates.test.ts": {
+      "sha256": "46ae665285cf669b42f9e6a7383f47dda16ebbaaf60a18afd6a45c9b6574eb84",
+      "samples_ms": [
+        [
+          1,
+          20
+        ],
+        [
+          5,
+          20
+        ],
+        [
+          9,
+          20
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/reference-picker-position.test.tsx": {
+      "sha256": "18cf957213839a1f87dc4ecb79b45191f5a59ebc5e53a17945d66ad663628d0e",
+      "samples_ms": [
+        [
+          0,
+          346
+        ],
+        [
+          4,
+          355
+        ],
+        [
+          8,
+          264
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/reference-picker-shell.test.tsx": {
+      "sha256": "8da737376a64dfe97a14bc26167310b115ea9781d14d8ade1dd554eeef0100c3",
+      "samples_ms": [
+        [
+          2,
+          288
+        ],
+        [
+          6,
+          346
+        ],
+        [
+          10,
+          411
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/reference-route.test.ts": {
+      "sha256": "7c22f7235556e1c3641ec965d05f9de78c27d6205f838315a690a7d7b6c2f211",
+      "samples_ms": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          8,
+          3
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/result-review.test.tsx": {
+      "sha256": "ee36c2c380983938c4fe7aa9bcf42f7f2e1ae43af5189e3f8e17549ac51f4f55",
+      "samples_ms": [
+        [
+          0,
+          436
+        ],
+        [
+          4,
+          435
+        ],
+        [
+          8,
+          323
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/segmented-toggle.test.tsx": {
+      "sha256": "7eaf9686b526b26ea970fe43104106742e5082571265f4ee193bcf455eba491f",
+      "samples_ms": [
+        [
+          3,
+          225
+        ],
+        [
+          7,
+          157
+        ],
+        [
+          11,
+          132
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/sheet-submit.test.ts": {
+      "sha256": "04cad5b97bdc1d8cea0056ba628810bf8765f50ddb4d9317dbb55cffe1dc265a",
+      "samples_ms": [
+        [
+          1,
+          12
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          9,
+          12
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/sidebar-settings.test.tsx": {
+      "sha256": "764d42d4fcfb48bf18a76e524658510e2e1c879dbe67822e2fc86e7a42990be9",
+      "samples_ms": [
+        [
+          3,
+          490
+        ],
+        [
+          7,
+          371
+        ],
+        [
+          11,
+          311
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/source-tabs.test.tsx": {
+      "sha256": "ea6d431ff66a1ed45b47ae8959bd630eae1a2d31e477d79f18439c398c27b683",
+      "samples_ms": [
+        [
+          2,
+          3178
+        ],
+        [
+          6,
+          3998
+        ],
+        [
+          10,
+          4855
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/source.test.ts": {
+      "sha256": "ed780a6aaa174b89e05e299a18dc87a2ac02ec3426f810eece65784b10d39200",
+      "samples_ms": [
+        [
+          0,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          8,
+          5
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/submit-conflict.test.tsx": {
+      "sha256": "c5b3bbee888f5b76168a96cbff51cc641d82df9548feb4c8e28117e7ec9fb433",
+      "samples_ms": [
+        [
+          1,
+          10967
+        ],
+        [
+          5,
+          11044
+        ],
+        [
+          9,
+          10766
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/submit-payload.test.ts": {
+      "sha256": "19f80f0ed88bbd713de7464ab9520f38c74edc8d4690e881f53f681374583947",
+      "samples_ms": [
+        [
+          2,
+          8
+        ],
+        [
+          6,
+          10
+        ],
+        [
+          10,
+          13
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/task-card-interaction.test.tsx": {
+      "sha256": "c0f680a9316214e830323850b956cf7561c43ef6e3abd94ff69dc82df15e9f60",
+      "samples_ms": [
+        [
+          3,
+          341
+        ],
+        [
+          7,
+          251
+        ],
+        [
+          11,
+          219
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/task-page.test.ts": {
+      "sha256": "bbbd12037b132ea35be1ffa7347e14b48c1ba129d1d87a4b277521fd68173269",
+      "samples_ms": [
+        [
+          0,
+          10
+        ],
+        [
+          4,
+          7
+        ],
+        [
+          8,
+          5
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/task-preview-dialog.test.tsx": {
+      "sha256": "29e389b09f32aefc5e3f157e651f72be5cc928af19cf51be413494361f867e94",
+      "samples_ms": [
+        [
+          0,
+          1313
+        ],
+        [
+          4,
+          1249
+        ],
+        [
+          8,
+          877
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/task-preview-info.test.tsx": {
+      "sha256": "39fdee2c6750e9d48d0749a30a37f8af115d151553639d317aea0d637d106c76",
+      "samples_ms": [
+        [
+          1,
+          321
+        ],
+        [
+          5,
+          327
+        ],
+        [
+          9,
+          346
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/taxonomy.test.ts": {
+      "sha256": "ed2e5230e572f352d5e5e20ed61d6d242380c7931a3d19700330bced3999d300",
+      "samples_ms": [
+        [
+          2,
+          75
+        ],
+        [
+          6,
+          103
+        ],
+        [
+          10,
+          120
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/unified-history.test.tsx": {
+      "sha256": "8362891f52c53d110af63973655a2e9189e5e6863af9056d467c06661862f577",
+      "samples_ms": [
+        [
+          2,
+          9995
+        ],
+        [
+          6,
+          11886
+        ],
+        [
+          10,
+          14009
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/upload-library-storage.test.ts": {
+      "sha256": "12a1a50a176f65391bfac7780da962082be02056ca5d8037cfeb13ed67f8dfeb",
+      "samples_ms": [
+        [
+          1,
+          27
+        ],
+        [
+          5,
+          29
+        ],
+        [
+          9,
+          27
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/upload-library.test.tsx": {
+      "sha256": "c5b1898829ed02eac7d2ad7b0d26ba6d72b52218fd40591605a27ef462b84a02",
+      "samples_ms": [
+        [
+          0,
+          186
+        ],
+        [
+          4,
+          182
+        ],
+        [
+          8,
+          165
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/upload-state.test.tsx": {
+      "sha256": "8fb5ecf0d9d131b3c3b8a59a01fe8e8c9aba9fb86382fba3b6971ef033073f33",
+      "samples_ms": [
+        [
+          2,
+          4917
+        ],
+        [
+          6,
+          6448
+        ],
+        [
+          10,
+          8099
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/video-picker-panel.test.tsx": {
+      "sha256": "8d6bdd68c47337dce459c22140d8a8175e72ccafe060925ef71a131cf15cf58e",
+      "samples_ms": [
+        [
+          1,
+          1224
+        ],
+        [
+          5,
+          1197
+        ],
+        [
+          9,
+          1166
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/video-reference-selection.test.tsx": {
+      "sha256": "e09faf0101d1741ebb82cd88035acbbee9324fd80dbbe462c4497c9ec56d5910",
+      "samples_ms": [
+        [
+          0,
+          104
+        ],
+        [
+          4,
+          101
+        ],
+        [
+          8,
+          69
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/workbench-mode.test.ts": {
+      "sha256": "ece7512b99b380ded1cd3f07af60c8804e782c45e63db8e404574b7145cd21f8",
+      "samples_ms": [
+        [
+          0,
+          5
+        ],
+        [
+          4,
+          7
+        ],
+        [
+          8,
+          4
+        ]
+      ]
+    },
+    "src/features/influencer/__tests__/workbench.test.tsx": {
+      "sha256": "1c4794a8e4153d0cbadb5cf4e7e046bde82287a4bf44af081135627f295ab45d",
+      "samples_ms": [
+        [
+          0,
+          678
+        ],
+        [
+          4,
+          665
+        ],
+        [
+          8,
+          501
+        ]
+      ]
+    },
+    "src/features/influencer/components/fullscreen-preview-dialog/__tests__/interaction.test.tsx": {
+      "sha256": "fe675c6e15f43b349666d71bbb4d74d165647d297613553c48630f6840f8d81c",
+      "samples_ms": [
+        [
+          3,
+          484
+        ],
+        [
+          7,
+          356
+        ],
+        [
+          11,
+          301
+        ]
+      ]
+    },
+    "src/features/influencer/components/motion-preset-dialog/__tests__/interaction.test.tsx": {
+      "sha256": "06ef4c0febb6ad23c360b33bfefbff1efb36e690028567120d09cebea3845015",
+      "samples_ms": [
+        [
+          2,
+          644
+        ],
+        [
+          6,
+          795
+        ],
+        [
+          10,
+          946
+        ]
+      ]
+    },
+    "src/features/influencer/components/multi-view-dialog/__tests__/recovery.test.tsx": {
+      "sha256": "e7fdaf4813a3555b4998b2135f5d346d220dedf920c58625a4c9c99c8a836c5e",
+      "samples_ms": [
+        [
+          3,
+          718
+        ],
+        [
+          7,
+          534
+        ],
+        [
+          11,
+          467
+        ]
+      ]
+    },
+    "src/features/influencer/components/preset-preview-dialog/__tests__/actions.test.tsx": {
+      "sha256": "52a2840aec82210363dc3a945bbc0645b2316704cc2b5a77f0b7ba0e9a7f19d9",
+      "samples_ms": [
+        [
+          3,
+          658
+        ],
+        [
+          7,
+          487
+        ],
+        [
+          11,
+          419
+        ]
+      ]
+    },
+    "src/features/influencer/components/preview-details/__tests__/disclosure.test.tsx": {
+      "sha256": "3d08efc4d4401d449dd4e99618b002af5711eac3071c613d1dc1b014e64587ab",
+      "samples_ms": [
+        [
+          1,
+          313
+        ],
+        [
+          5,
+          325
+        ],
+        [
+          9,
+          327
+        ]
+      ]
+    },
+    "src/features/inspiration-community/api/__tests__/tiktok-mapping.test.ts": {
+      "sha256": "18fceeca02a7c9af1b387ee0a550f5dc201a56f1a08310d92fb22fbb2e2ba4d9",
+      "samples_ms": [
+        [
+          1,
+          13
+        ],
+        [
+          5,
+          13
+        ],
+        [
+          9,
+          13
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/ad-detail-modal.test.tsx": {
+      "sha256": "f0b04bb37ec3ee09c749a5b864c713ae1c19085f4faf687fecee87f8ae7f7a29",
+      "samples_ms": [
+        [
+          1,
+          1296
+        ],
+        [
+          5,
+          1317
+        ],
+        [
+          9,
+          1323
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/category-chip-limit.test.tsx": {
+      "sha256": "58e08387325de2803bf3b8c817e480b64705cdfcad04a95fb1586b58d891abb3",
+      "samples_ms": [
+        [
+          0,
+          2053
+        ],
+        [
+          4,
+          1960
+        ],
+        [
+          8,
+          1433
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/localization.test.tsx": {
+      "sha256": "bee26d6a3c961be4109e3000cd6ae22055eef555e9274f2bc27a47b94951a30d",
+      "samples_ms": [
+        [
+          2,
+          1084
+        ],
+        [
+          6,
+          1363
+        ],
+        [
+          10,
+          1649
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/model-drilldown.test.tsx": {
+      "sha256": "2c0171a71a97e56cab5a83c842c60bea27624a7d1e64b33f93a60a22a07bcdee",
+      "samples_ms": [
+        [
+          1,
+          5073
+        ],
+        [
+          5,
+          5025
+        ],
+        [
+          9,
+          4918
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/prompt-detail-card.test.tsx": {
+      "sha256": "2f635e81d1703cff7065b3c1f12ec6e63283554b52a3a05cfcf6891df8724589",
+      "samples_ms": [
+        [
+          0,
+          291
+        ],
+        [
+          4,
+          280
+        ],
+        [
+          8,
+          209
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/prompt-preview-modal.test.tsx": {
+      "sha256": "ed6e19bee4582e17befede7cf510b340f8d8b7a7a9ba70fde1a45d6cd11a4629",
+      "samples_ms": [
+        [
+          2,
+          760
+        ],
+        [
+          6,
+          937
+        ],
+        [
+          10,
+          1094
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/tiktok-ad-card.test.tsx": {
+      "sha256": "f31a358775eb3a134e05eb8164ed640f87fabc9a559607fb7ee4c545d4bd1e6b",
+      "samples_ms": [
+        [
+          2,
+          214
+        ],
+        [
+          6,
+          267
+        ],
+        [
+          10,
+          314
+        ]
+      ]
+    },
+    "src/features/inspiration-community/components/__tests__/tiktok-ad-gallery.test.tsx": {
+      "sha256": "b1564d4d0452009974862f0a9610af90d7daa5cf2cefddf5c616a05d6b66e13b",
+      "samples_ms": [
+        [
+          3,
+          2643
+        ],
+        [
+          7,
+          1941
+        ],
+        [
+          11,
+          1718
+        ]
+      ]
+    },
+    "src/features/inspiration-community/hooks/__tests__/tiktok-feed-state.test.ts": {
+      "sha256": "63f7083ec1dcfab11d36ba1b982586102ae3004501bb7ed171a1b366d7561245",
+      "samples_ms": [
+        [
+          3,
+          4
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/inspiration-community/hooks/__tests__/use-cover-load-state.test.tsx": {
+      "sha256": "e0106881964707ec5807f1107f58f20c0c68b89a6dc64d8e47ff00a482e4e746",
+      "samples_ms": [
+        [
+          2,
+          17
+        ],
+        [
+          6,
+          21
+        ],
+        [
+          10,
+          25
+        ]
+      ]
+    },
+    "src/features/inspiration-community/hooks/__tests__/use-inspiration-catalog.test.tsx": {
+      "sha256": "573a43be48f4294bf604442fe5c0a72794d5bed5ce4f2c9330b453a048ccfaf5",
+      "samples_ms": [
+        [
+          3,
+          356
+        ],
+        [
+          7,
+          274
+        ],
+        [
+          11,
+          234
+        ]
+      ]
+    },
+    "src/features/inspiration-community/hooks/__tests__/use-tiktok-ads.test.tsx": {
+      "sha256": "4d0bb34a6ef2d36dfce9b451e31d4d75971ea594b6ced0052d89954ebc1e333b",
+      "samples_ms": [
+        [
+          1,
+          557
+        ],
+        [
+          5,
+          556
+        ],
+        [
+          9,
+          553
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/catalog.test.ts": {
+      "sha256": "92679c4a9dc203278cd4ab1aec301ab77491f4ef965ce74d64fda6749a8284d9",
+      "samples_ms": [
+        [
+          1,
+          14
+        ],
+        [
+          5,
+          14
+        ],
+        [
+          9,
+          14
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/facets.test.ts": {
+      "sha256": "d4cfb58dda0a2cf8707bc50addd1b27cb2664415e66eb36ab452bd3625372cbb",
+      "samples_ms": [
+        [
+          2,
+          12
+        ],
+        [
+          6,
+          16
+        ],
+        [
+          10,
+          19
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/filter.test.ts": {
+      "sha256": "d438c082a2844c5059f84f6e7b2f3734e2a232a9f99e4c274dcc35cd30873926",
+      "samples_ms": [
+        [
+          3,
+          19
+        ],
+        [
+          7,
+          15
+        ],
+        [
+          11,
+          11
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/format.test.ts": {
+      "sha256": "fe701ea41a74fef6e48a4466a716c379f905a155e382dc3dc550c6c8393fcb5e",
+      "samples_ms": [
+        [
+          1,
+          20
+        ],
+        [
+          5,
+          20
+        ],
+        [
+          9,
+          20
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/item-text.test.ts": {
+      "sha256": "b708749ac1ad2198c90cc9cbd88a744f88a3c22650734a98eb2504e3d41a74e3",
+      "samples_ms": [
+        [
+          0,
+          5
+        ],
+        [
+          4,
+          7
+        ],
+        [
+          8,
+          4
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/media.test.ts": {
+      "sha256": "e282c5c323a36e95d2b08650608f4e8a2b39eec459483f147297328c07a5eee9",
+      "samples_ms": [
+        [
+          3,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          11,
+          2
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/model-mapping.test.ts": {
+      "sha256": "f27f41bcb7ce92823e277441c09bfe71360d3b3bf1e5e553b7778f7df9910522",
+      "samples_ms": [
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          9,
+          5
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/tiktok-query.test.ts": {
+      "sha256": "f9ffce2ef1d89ec7c7a6393975f4878d09e1d512bb07b9491c5b7cf23ac35874",
+      "samples_ms": [
+        [
+          2,
+          6
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          10,
+          9
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/waterfall.test.ts": {
+      "sha256": "216a1ff366b555121f1840046e604cf7ff0762ae98eb6bc037309d275a871c61",
+      "samples_ms": [
+        [
+          3,
+          4
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/inspiration-community/lib/__tests__/zone-groups.test.ts": {
+      "sha256": "5d7bc9a48e2f5801a28ad7571249a43e35bde45791a32cba1f3e5b1becfbb055",
+      "samples_ms": [
+        [
+          0,
+          9
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          8,
+          6
+        ]
+      ]
+    },
+    "src/features/keys/components/__tests__/api-addresses.test.tsx": {
+      "sha256": "d79549c9b52283074117315a65aa7e50c64a28f7feec4ef098c5eacb7f7b99e1",
+      "samples_ms": [
+        [
+          0,
+          1272
+        ],
+        [
+          4,
+          1263
+        ],
+        [
+          8,
+          928
+        ]
+      ]
+    },
+    "src/features/keys/components/__tests__/api-key-group-cell.test.tsx": {
+      "sha256": "772230f867b03970e3aff4cb3ac1c2d87019acea1c349b37551d1f63483c2071",
+      "samples_ms": [
+        [
+          1,
+          389
+        ],
+        [
+          5,
+          390
+        ],
+        [
+          9,
+          396
+        ]
+      ]
+    },
+    "src/features/keys/components/__tests__/api-key-group-combobox.test.tsx": {
+      "sha256": "2c049701b80b8a3b494db2a2ec79fcd6ac0db24b5cbaf77e7e2526a597f5a39e",
+      "samples_ms": [
+        [
+          1,
+          535
+        ],
+        [
+          5,
+          550
+        ],
+        [
+          9,
+          551
+        ]
+      ]
+    },
+    "src/features/keys/components/__tests__/api-key-listing.test.tsx": {
+      "sha256": "0ff14b9f7ba9d802e7926ce4d0555aef6ad0a7bf28d1869c7d6500f713164d4f",
+      "samples_ms": [
+        [
+          3,
+          3659
+        ],
+        [
+          7,
+          2627
+        ],
+        [
+          11,
+          2494
+        ]
+      ]
+    },
+    "src/features/keys/components/__tests__/api-keys-mutate-drawer.test.tsx": {
+      "sha256": "3ad96ae1585dcff6ffb43a139d7723d41389fceb29e4fb10085af09f0b88715e",
+      "samples_ms": [
+        [
+          2,
+          748
+        ],
+        [
+          6,
+          938
+        ],
+        [
+          10,
+          1129
+        ]
+      ]
+    },
+    "src/features/keys/components/__tests__/auto-group-order-editor.test.tsx": {
+      "sha256": "9de4c88769f1e78970155dc345332a55ef3b1756a2173d98fc40dedcb6885eb2",
+      "samples_ms": [
+        [
+          0,
+          838
+        ],
+        [
+          4,
+          786
+        ],
+        [
+          8,
+          560
+        ]
+      ]
+    },
+    "src/features/keys/components/dialogs/__tests__/cc-switch-dialog.test.tsx": {
+      "sha256": "d15e687f214a353d4bbc0b83c8bb0f01227082e18a9454772d2eba3c49fd0487",
+      "samples_ms": [
+        [
+          2,
+          1951
+        ],
+        [
+          6,
+          2279
+        ],
+        [
+          10,
+          2678
+        ]
+      ]
+    },
+    "src/features/keys/lib/__tests__/auto-group-form.test.ts": {
+      "sha256": "46687af80f047ea45fc1eb46ecbe8ae02e2a6f2e2ea99c78b865f3d1e18e9e3d",
+      "samples_ms": [
+        [
+          3,
+          19
+        ],
+        [
+          7,
+          14
+        ],
+        [
+          11,
+          11
+        ]
+      ]
+    },
+    "src/features/legal-pages/__tests__/content.test.ts": {
+      "sha256": "244363467035f74f0fb67bea49abdf843681a7d2702ac88086c9e61b307b51c0",
+      "samples_ms": [
+        [
+          2,
+          22
+        ],
+        [
+          6,
+          26
+        ],
+        [
+          10,
+          32
+        ]
+      ]
+    },
+    "src/features/model-playground/components/__tests__/mode-form.test.tsx": {
+      "sha256": "39dc016f82544d03bad3e1fe7888bf516b6ba203b595dc7e0e4aaaa12e484765",
+      "samples_ms": [
+        [
+          1,
+          1930
+        ],
+        [
+          5,
+          1979
+        ],
+        [
+          9,
+          1982
+        ]
+      ]
+    },
+    "src/features/model-playground/components/__tests__/mode-selector.test.tsx": {
+      "sha256": "86e52ca20f30b29c9bc78eeff0c358ead1a9ed37f420f336b830389f3ee5272d",
+      "samples_ms": [
+        [
+          0,
+          396
+        ],
+        [
+          4,
+          397
+        ],
+        [
+          8,
+          276
+        ]
+      ]
+    },
+    "src/features/model-playground/components/__tests__/model-group-routing.test.tsx": {
+      "sha256": "cbf9b60caccf224d10611aac2fee3c0bc7827abb1d59d9853246f42548fb997a",
+      "samples_ms": [
+        [
+          0,
+          784
+        ],
+        [
+          4,
+          793
+        ],
+        [
+          8,
+          579
+        ]
+      ]
+    },
+    "src/features/model-playground/components/__tests__/playground-history.test.tsx": {
+      "sha256": "d74174c025ed68c301956358e0dcd9051c473ce1d81ed29a4aa2e58dbdc72a1d",
+      "samples_ms": [
+        [
+          0,
+          637
+        ],
+        [
+          4,
+          591
+        ],
+        [
+          8,
+          419
+        ]
+      ]
+    },
+    "src/features/model-playground/components/__tests__/playground-preview.test.tsx": {
+      "sha256": "7f848f22d0eb97e79ab7ed4debad25acccdd04385c971cca239d97d82cf00916",
+      "samples_ms": [
+        [
+          1,
+          288
+        ],
+        [
+          5,
+          279
+        ],
+        [
+          9,
+          281
+        ]
+      ]
+    },
+    "src/features/model-playground/hooks/__tests__/use-generation.test.ts": {
+      "sha256": "79bfe63cef4e25b660a89e7024a9b5240e47a264bafbb4480d1299c3dc24562c",
+      "samples_ms": [
+        [
+          0,
+          44
+        ],
+        [
+          4,
+          32
+        ],
+        [
+          8,
+          24
+        ]
+      ]
+    },
+    "src/features/model-playground/hooks/__tests__/use-playground-history.test.ts": {
+      "sha256": "b722a2f747f1653eba97ab6533737d9c09e6b33f3fb588c316df95ca22bd53ce",
+      "samples_ms": [
+        [
+          3,
+          77
+        ],
+        [
+          7,
+          71
+        ],
+        [
+          11,
+          67
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/billing-dimension.test.ts": {
+      "sha256": "09d98a6e43f4d98d283b471a5e4e4dbbc02a686b55e4a8b94a9cae34706f3b21",
+      "samples_ms": [
+        [
+          3,
+          8
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/billing-register-ledger.test.ts": {
+      "sha256": "fc4a8c10bc55e1612df6f866a7453fba099d5f9065aed237dbd7bf9ca6dc0947",
+      "samples_ms": [
+        [
+          3,
+          12
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          11,
+          6
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/build-operation-schema.test.ts": {
+      "sha256": "65994f1368da1edd6a753e7a57cc27307014f45cf93c05c0effaec961c58f5e3",
+      "samples_ms": [
+        [
+          3,
+          8
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          11,
+          5
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/contract-render-parity.test.ts": {
+      "sha256": "675100337f3c5e718f04d6e08db11afb636f778816488a6f271e27469afed87b",
+      "samples_ms": [
+        [
+          1,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          9,
+          8
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/image-reference.test.ts": {
+      "sha256": "a61d19d0a2455720a1f871f152ce27ba57eb001de23c96f22e7b7f0510edefeb",
+      "samples_ms": [
+        [
+          3,
+          8
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          11,
+          6
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/intent-precheck.test.ts": {
+      "sha256": "84176f618b1ca96682f88d7ae4f45f383f88bf64881c6b2840111e5227748448",
+      "samples_ms": [
+        [
+          0,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          8,
+          4
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/media-selection.test.ts": {
+      "sha256": "bf273920e25cf3c5bb25bf56a0d647203aa2128b0daab3eef6e07480c0c8af7f",
+      "samples_ms": [
+        [
+          3,
+          9
+        ],
+        [
+          7,
+          7
+        ],
+        [
+          11,
+          6
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/media-validation.test.ts": {
+      "sha256": "ea5d995b86d016ae0932fd09cfd010395c1f0b8b7315cc28b7003d15d465cb90",
+      "samples_ms": [
+        [
+          3,
+          7
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/operation-matrix.test.ts": {
+      "sha256": "78a7e012eada35c664eb7eb779ca08720c4a26299b98748949e068697be91b6b",
+      "samples_ms": [
+        [
+          0,
+          10
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          8,
+          7
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/param-schema.test.ts": {
+      "sha256": "75a5ce380a749b165f5602784f6f7736e6528277da2bd46ee60e39667a0cfb62",
+      "samples_ms": [
+        [
+          1,
+          17
+        ],
+        [
+          5,
+          17
+        ],
+        [
+          9,
+          16
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/quote.test.ts": {
+      "sha256": "aaaba457ecec227bfa765ea84f443d8c07cc897a9c9038fddaaeaf756f5c6044",
+      "samples_ms": [
+        [
+          3,
+          11
+        ],
+        [
+          7,
+          8
+        ],
+        [
+          11,
+          6
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/reference-limits.test.ts": {
+      "sha256": "df40e7b4803330c36f7823806d1357a08fbad53f12698b9adb30c7bad24566e2",
+      "samples_ms": [
+        [
+          0,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          8,
+          3
+        ]
+      ]
+    },
+    "src/features/model-playground/lib/__tests__/submit-body.test.ts": {
+      "sha256": "398831c2aa3e9c901c8552fb4877a8e7e027209c7f08d1528ed4be16dc21b347",
+      "samples_ms": [
+        [
+          3,
+          9
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          11,
+          5
+        ]
+      ]
+    },
+    "src/features/model-playground/transport/__tests__/gateway-transport.test.ts": {
+      "sha256": "5b3bef2a25e27d2dcdcc5850d4d3785de90603fcb467a2544247456a9465df58",
+      "samples_ms": [
+        [
+          1,
+          17
+        ],
+        [
+          5,
+          18
+        ],
+        [
+          9,
+          17
+        ]
+      ]
+    },
+    "src/features/model-playground/transport/__tests__/mock-transport.test.ts": {
+      "sha256": "645c5548e91286489293bfa8f22bf21e27b8bb344e9df1f0abb889d0a5b72493",
+      "samples_ms": [
+        [
+          2,
+          4
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          10,
+          7
+        ]
+      ]
+    },
+    "src/features/model-pricing/__tests__/editor-currency.test.tsx": {
+      "sha256": "1759281fd6b74ead6b443ec91343fe7239dea9edc536f7ad42bdf03c64a25e77",
+      "samples_ms": [
+        [
+          1,
+          13890
+        ],
+        [
+          5,
+          13951
+        ],
+        [
+          9,
+          13671
+        ]
+      ]
+    },
+    "src/features/model-pricing/__tests__/editor-layout.test.tsx": {
+      "sha256": "d6ed72e3e2e99f00be3a95f505a325439f0102eb309598de6b0894ceb1b6f78c",
+      "samples_ms": [
+        [
+          0,
+          5049
+        ],
+        [
+          4,
+          4813
+        ],
+        [
+          8,
+          3796
+        ]
+      ]
+    },
+    "src/features/model-pricing/__tests__/pricing.test.ts": {
+      "sha256": "295396a19b085a167067a9268a240afa0ddb89e5a03872817573b736ac346951",
+      "samples_ms": [
+        [
+          3,
+          14
+        ],
+        [
+          7,
+          10
+        ],
+        [
+          11,
+          15
+        ]
+      ]
+    },
+    "src/features/model-pricing/__tests__/save-errors.test.tsx": {
+      "sha256": "4ee6a86b8525faddb7b456a7184cb4ed17ca0e95ef30626a70e4d6a1d91580c0",
+      "samples_ms": [
+        [
+          3,
+          1495
+        ],
+        [
+          7,
+          1112
+        ],
+        [
+          11,
+          1022
+        ]
+      ]
+    },
+    "src/features/models/__tests__/metadata-editing.test.tsx": {
+      "sha256": "86bf25e3e8647ae0acd428876643d08b4145736ced9f84bc91d78463f6215b64",
+      "samples_ms": [
+        [
+          1,
+          9346
+        ],
+        [
+          5,
+          10516
+        ],
+        [
+          9,
+          10325
+        ]
+      ]
+    },
+    "src/features/models/__tests__/metadata-sync.test.tsx": {
+      "sha256": "a0ccfa07bd05d6131073640fe373582d6997e489a9ef258c7d56dc5d297ae300",
+      "samples_ms": [
+        [
+          1,
+          6003
+        ],
+        [
+          5,
+          6031
+        ],
+        [
+          9,
+          6102
+        ]
+      ]
+    },
+    "src/features/models/__tests__/model-deletion.test.tsx": {
+      "sha256": "1948a078d664d1af5cc59e57f1af1329ecadd8304a5fe0d1f707be881bc9e646",
+      "samples_ms": [
+        [
+          1,
+          952
+        ],
+        [
+          5,
+          960
+        ],
+        [
+          9,
+          943
+        ]
+      ]
+    },
+    "src/features/models/__tests__/model-listing.test.tsx": {
+      "sha256": "ff64a1122592cf819fe71d8d28b83c2695c6f812e57896cfba1f58e96bbdca7e",
+      "samples_ms": [
+        [
+          2,
+          6501
+        ],
+        [
+          6,
+          8065
+        ],
+        [
+          10,
+          10297
+        ]
+      ]
+    },
+    "src/features/models/__tests__/vendor-management.test.tsx": {
+      "sha256": "4907caaf2bf707d81a696cffee26d3a6aaa484d06e60fa3e616380a5d059d318",
+      "samples_ms": [
+        [
+          1,
+          2317
+        ],
+        [
+          5,
+          2317
+        ],
+        [
+          9,
+          2266
+        ]
+      ]
+    },
+    "src/features/models/hooks/__tests__/deployment-error-localization.test.ts": {
+      "sha256": "2dfcd2270d0b5c6b25eb22efcbbb55d8636fb03b1d9d511281af098092b72a76",
+      "samples_ms": [
+        [
+          3,
+          70
+        ],
+        [
+          7,
+          66
+        ],
+        [
+          11,
+          62
+        ]
+      ]
+    },
+    "src/features/performance-metrics/__tests__/summary.test.tsx": {
+      "sha256": "ade4d4ec32380d10c13dfdb2725a453620162b90921357c8ed5f1293a52ebc4c",
+      "samples_ms": [
+        [
+          1,
+          492
+        ],
+        [
+          5,
+          482
+        ],
+        [
+          9,
+          502
+        ]
+      ]
+    },
+    "src/features/playground/__tests__/account-storage.test.tsx": {
+      "sha256": "5dde91f55a998239ae19b3e88f403cc103e940d129e789557c417ab27ab1695c",
+      "samples_ms": [
+        [
+          2,
+          547
+        ],
+        [
+          6,
+          661
+        ],
+        [
+          10,
+          800
+        ]
+      ]
+    },
+    "src/features/playground/components/message/__tests__/playground-message-editor.test.tsx": {
+      "sha256": "82976d378588be86def9a7f28930f5bec522ffeebca06f07362ca3fe4f2dfa84",
+      "samples_ms": [
+        [
+          0,
+          761
+        ],
+        [
+          4,
+          757
+        ],
+        [
+          8,
+          560
+        ]
+      ]
+    },
+    "src/features/playground/hooks/use-stream-request.test.ts": {
+      "sha256": "4a4a4459e53b7b5437c4cdd3746535b172d49ea7a4959a927a94b68b9cc0993f",
+      "samples_ms": [
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ]
+    },
+    "src/features/playground/lib/storage/__tests__/storage.test.ts": {
+      "sha256": "a806db82c49b57127b096f7c63606195fc7aded36c5262d44f6b271fc47584ac",
+      "samples_ms": [
+        [
+          2,
+          7
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          10,
+          12
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/breakdown-tier-match.test.ts": {
+      "sha256": "cca8e57771b943d636a065c9fa9119f92f1e037d59cdca016b745ebca912ec07",
+      "samples_ms": [
+        [
+          0,
+          15
+        ],
+        [
+          4,
+          15
+        ],
+        [
+          8,
+          11
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/dynamic-price.test.ts": {
+      "sha256": "ee3c1af5c7bad1b584466430ab970a929f3166f545b3fb6966d9eba4a6228871",
+      "samples_ms": [
+        [
+          1,
+          57
+        ],
+        [
+          5,
+          58
+        ],
+        [
+          9,
+          60
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/locale-namespace.test.ts": {
+      "sha256": "7b924a1b47ad0c044b4911a7b6901d7049a6c849d8075ad0744d883828f73ed0",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          10,
+          4
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/model-cards.test.tsx": {
+      "sha256": "c72d003febae60d8298919d2429417d70d04239a9ae8fa51d466987396caa3e1",
+      "samples_ms": [
+        [
+          0,
+          2189
+        ],
+        [
+          4,
+          2086
+        ],
+        [
+          8,
+          1551
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/model-page-parity.test.tsx": {
+      "sha256": "572623205d7e05317b834b86e22903585d9779d21dcf2b5be2295ace77d8ca2c",
+      "samples_ms": [
+        [
+          0,
+          655
+        ],
+        [
+          4,
+          660
+        ],
+        [
+          8,
+          472
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/pricing-controls.test.tsx": {
+      "sha256": "52649f20c512283111b3b5ed1019eda81263187f1ae6f0b0283a9060d1fab112",
+      "samples_ms": [
+        [
+          0,
+          1749
+        ],
+        [
+          4,
+          1725
+        ],
+        [
+          8,
+          1243
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/public-pricing-view.test.tsx": {
+      "sha256": "16f06e7b1e5b94227820b7c4d349d8e1ffbf2c6b0f25b8cd77fe524efc25786e",
+      "samples_ms": [
+        [
+          0,
+          928
+        ],
+        [
+          4,
+          850
+        ],
+        [
+          8,
+          601
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/task-expr.test.ts": {
+      "sha256": "be085a5ad159fb2a1449794b01ff63c1739ff1c9c4a39f15fc25afa9afe16c11",
+      "samples_ms": [
+        [
+          1,
+          22
+        ],
+        [
+          5,
+          31
+        ],
+        [
+          9,
+          22
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/task-matrix-display.test.ts": {
+      "sha256": "a63c41bc2026d238d59db65bb9c8e549eb3958fca27dd9c21956722beee4578a",
+      "samples_ms": [
+        [
+          3,
+          45
+        ],
+        [
+          7,
+          34
+        ],
+        [
+          11,
+          28
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/task-matrix.test.ts": {
+      "sha256": "1819fbb54042553ec30d0d6fd0ef83c0fc5a9312aab28c895ecb9a6948583bcf",
+      "samples_ms": [
+        [
+          0,
+          29
+        ],
+        [
+          4,
+          30
+        ],
+        [
+          8,
+          22
+        ]
+      ]
+    },
+    "src/features/pricing/__tests__/task-price-display.test.tsx": {
+      "sha256": "4ea112664c4efff18eb4d06aca52b4416599703c5b8704ed6d3681cce62aefe7",
+      "samples_ms": [
+        [
+          2,
+          1460
+        ],
+        [
+          6,
+          1857
+        ],
+        [
+          10,
+          2284
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/billing-hero.test.tsx": {
+      "sha256": "6a521e579cddba389b52371c3cff1e4397115e0267cb51c8eccbcb0f8118fab2",
+      "samples_ms": [
+        [
+          2,
+          180
+        ],
+        [
+          6,
+          232
+        ],
+        [
+          10,
+          290
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/billing-method-steps.test.tsx": {
+      "sha256": "d5e925d09957c5ad4212a230b77f67d2df31c017a489df24d108ca4d4eeff393",
+      "samples_ms": [
+        [
+          2,
+          133
+        ],
+        [
+          6,
+          162
+        ],
+        [
+          10,
+          198
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/model-group-nav.test.tsx": {
+      "sha256": "9f55e541e24ce54eb2b10bd44ba08dcf39e0718b70a235462ae138ee4139ca6e",
+      "samples_ms": [
+        [
+          3,
+          233
+        ],
+        [
+          7,
+          171
+        ],
+        [
+          11,
+          147
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/model-pricing-card.test.tsx": {
+      "sha256": "2df9f98abfd3b9085d1a394f4b475bc36ab08ffff34314e9a00c556935a2fcc3",
+      "samples_ms": [
+        [
+          0,
+          434
+        ],
+        [
+          4,
+          426
+        ],
+        [
+          8,
+          313
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/pricing-offline-banner.test.tsx": {
+      "sha256": "49d7ccff12698b2dc5fa3decdb15450e719c90f4f795722e6b8d020f520f0d01",
+      "samples_ms": [
+        [
+          0,
+          212
+        ],
+        [
+          4,
+          232
+        ],
+        [
+          8,
+          157
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/public-pricing-toolbar.test.tsx": {
+      "sha256": "b0bb14f807b98781843e82b3ddac67857591c6ced595e822cab71f7616bd50b5",
+      "samples_ms": [
+        [
+          3,
+          278
+        ],
+        [
+          7,
+          209
+        ],
+        [
+          11,
+          174
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/saving-badge.test.tsx": {
+      "sha256": "361bcb08aaaff8e137ba613079411b8c2a6a556be31f93d0d5414e1722a419b3",
+      "samples_ms": [
+        [
+          3,
+          75
+        ],
+        [
+          7,
+          50
+        ],
+        [
+          11,
+          41
+        ]
+      ]
+    },
+    "src/features/pricing/components/__tests__/tier-price-table.test.tsx": {
+      "sha256": "21e704edc9e98e16a14de6b87fafc12d9d47677fb2b22c0a06daf2deb378fc83",
+      "samples_ms": [
+        [
+          3,
+          360
+        ],
+        [
+          7,
+          260
+        ],
+        [
+          11,
+          218
+        ]
+      ]
+    },
+    "src/features/pricing/hooks/__tests__/use-public-pricing-filters.test.ts": {
+      "sha256": "a830cf339f3fc68821454bfd36ceb2b097461b5373952a8c3a7ef63dc291e7eb",
+      "samples_ms": [
+        [
+          1,
+          25
+        ],
+        [
+          5,
+          23
+        ],
+        [
+          9,
+          23
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/billing-expression.test.ts": {
+      "sha256": "b04258ffa87e9d6764d20122d5c3d2fbc68eff797acce1f342b907cb3d76e253",
+      "samples_ms": [
+        [
+          3,
+          85
+        ],
+        [
+          7,
+          65
+        ],
+        [
+          11,
+          52
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/cache.test.ts": {
+      "sha256": "12b43510ca557a4b8cd41ce7ad0efbc2edd0ffd8a2f3c115b61cc4c56af18e11",
+      "samples_ms": [
+        [
+          0,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          8,
+          5
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/credits.test.ts": {
+      "sha256": "389b541f73530e85b4a1f2112bab5d39a63c18d0b301a1e85922ca0fc3ef9678",
+      "samples_ms": [
+        [
+          2,
+          14
+        ],
+        [
+          6,
+          18
+        ],
+        [
+          10,
+          24
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/model-contract.test.ts": {
+      "sha256": "d0fd99907dc7628e3ace6a9b20f2712d480b84be5a75281ee959adc45b4aace9",
+      "samples_ms": [
+        [
+          3,
+          6
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          4
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/model-helpers.test.ts": {
+      "sha256": "2d3ef1f14ef0f399b7016370a82eae34f1224a87d082783a5dd6f836bb18795d",
+      "samples_ms": [
+        [
+          0,
+          11
+        ],
+        [
+          4,
+          11
+        ],
+        [
+          8,
+          12
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/model-page-pricing.test.ts": {
+      "sha256": "801c2f3e70393cd6500e834d9ed89e779cb29cf43bc67216948be148aa7e1e07",
+      "samples_ms": [
+        [
+          2,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          10,
+          6
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/official-brand-prices.test.ts": {
+      "sha256": "cfdd3b10e7c1f16bdbb47d4ed2f44ced9dfa10e813b478901dbae54b07f11ac4",
+      "samples_ms": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          8,
+          3
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/saving-display.test.ts": {
+      "sha256": "228e816ca025670dfa11b7062c035a51597a7bc5f3e8ffee1f9b11d0db4a669c",
+      "samples_ms": [
+        [
+          1,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          9,
+          5
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/time-rule-expr.test.ts": {
+      "sha256": "ecf06292bfa2ed5f5ebcd48a4cc136c7b269cecf2714f449fe10a5cba1a13798",
+      "samples_ms": [
+        [
+          3,
+          13
+        ],
+        [
+          7,
+          9
+        ],
+        [
+          11,
+          7
+        ]
+      ]
+    },
+    "src/features/pricing/lib/__tests__/transform.test.ts": {
+      "sha256": "954ba477394557e72a439a19e046aa9fec4d81349032f38e6be41fc5baab29e0",
+      "samples_ms": [
+        [
+          0,
+          24
+        ],
+        [
+          4,
+          24
+        ],
+        [
+          8,
+          18
+        ]
+      ]
+    },
+    "src/features/profile/__tests__/settings.test.tsx": {
+      "sha256": "91a7c96e6925a90aa2029cc9ba90e28796a43538304d62adb90c57c9577ecc98",
+      "samples_ms": [
+        [
+          3,
+          332
+        ],
+        [
+          7,
+          250
+        ],
+        [
+          11,
+          219
+        ]
+      ]
+    },
+    "src/features/redemption-codes/components/__tests__/bulk-delete.test.tsx": {
+      "sha256": "4e61c6071c1124c9177f5d9a5650d066157a2ebb4d77b848fa640992093cab58",
+      "samples_ms": [
+        [
+          1,
+          1332
+        ],
+        [
+          5,
+          1264
+        ],
+        [
+          9,
+          1244
+        ]
+      ]
+    },
+    "src/features/redemption-codes/components/__tests__/redemptions-export.test.tsx": {
+      "sha256": "0ba5c0f87ceb120625635a449a47fb06a6a7f32c6e78517fb20a855aadb755eb",
+      "samples_ms": [
+        [
+          0,
+          2308
+        ],
+        [
+          4,
+          2480
+        ],
+        [
+          8,
+          1675
+        ]
+      ]
+    },
+    "src/features/redemption-codes/components/__tests__/redemptions-mutate-drawer.test.tsx": {
+      "sha256": "77ba7aef3834ad0c06560908ca8989925528d2a523262f926a4c545c9ea9848f",
+      "samples_ms": [
+        [
+          0,
+          1199
+        ],
+        [
+          4,
+          1157
+        ],
+        [
+          8,
+          828
+        ]
+      ]
+    },
+    "src/features/security/__tests__/account-security.test.tsx": {
+      "sha256": "2ee5bf2accc254d300dbf07c7cf084e270a697fa4dcd4d9e60c6abe401949751",
+      "samples_ms": [
+        [
+          1,
+          5114
+        ],
+        [
+          5,
+          5294
+        ],
+        [
+          9,
+          5105
+        ]
+      ]
+    },
+    "src/features/security/__tests__/enrollment.test.tsx": {
+      "sha256": "8261b9888f5c2967cbb8042d64cd5964582d620f7f2d83390615282aedebff1d",
+      "samples_ms": [
+        [
+          2,
+          2457
+        ],
+        [
+          6,
+          3025
+        ],
+        [
+          10,
+          3694
+        ]
+      ]
+    },
+    "src/features/security/__tests__/page.test.tsx": {
+      "sha256": "7cbaa5c979278f75df1d7d0741a35a772ec3fbdf46ff38f4998a04ea1788e738",
+      "samples_ms": [
+        [
+          0,
+          1467
+        ],
+        [
+          4,
+          1430
+        ],
+        [
+          8,
+          1035
+        ]
+      ]
+    },
+    "src/features/security/components/__tests__/access-token-create-dialog.test.tsx": {
+      "sha256": "e4ebd8c4942837848a8f4bf8c9ce463012aa1f56782da1e0fb64e25522c4b8ff",
+      "samples_ms": [
+        [
+          1,
+          3523
+        ],
+        [
+          5,
+          3475
+        ],
+        [
+          9,
+          3402
+        ]
+      ]
+    },
+    "src/features/security/components/__tests__/access-tokens-card.test.tsx": {
+      "sha256": "b3bc64fef6391e8ead7c67ea8a379d3576d5127954d37e17af91dbf7a50025d4",
+      "samples_ms": [
+        [
+          3,
+          6675
+        ],
+        [
+          7,
+          4974
+        ],
+        [
+          11,
+          4378
+        ]
+      ]
+    },
+    "src/features/security/components/__tests__/login-session-item.test.tsx": {
+      "sha256": "3b0b7d98c74fec8b8c671577e121fb0755ce6daf0d63124044d0b3e4a7e94b42",
+      "samples_ms": [
+        [
+          3,
+          95
+        ],
+        [
+          7,
+          59
+        ],
+        [
+          11,
+          56
+        ]
+      ]
+    },
+    "src/features/security/components/__tests__/login-session-utils.test.ts": {
+      "sha256": "21d1f954aca7c0c4b2c9e399df04428e37209bc6f3730f818d5dca2e3cc3c92f",
+      "samples_ms": [
+        [
+          3,
+          4
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/security/components/__tests__/privacy-card.test.tsx": {
+      "sha256": "07a3b54252a0358aed0ed8e228630302ada64e9af01ff4247eb3ebbb3fa3d1aa",
+      "samples_ms": [
+        [
+          0,
+          482
+        ],
+        [
+          4,
+          492
+        ],
+        [
+          8,
+          376
+        ]
+      ]
+    },
+    "src/features/site-metadata/__tests__/build-contract.test.ts": {
+      "sha256": "7c46db72bf4a19f2e20afd71568c45d8960e4ec5c49c3e24a2392c011c6094d2",
+      "samples_ms": [
+        [
+          1,
+          3
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ]
+    },
+    "src/features/site-metadata/__tests__/metadata.test.ts": {
+      "sha256": "5d0388572234f49340217b28e035b8ce48ddfc95aa5b1da74af8d0ecb1dbd188",
+      "samples_ms": [
+        [
+          1,
+          103
+        ],
+        [
+          5,
+          100
+        ],
+        [
+          9,
+          104
+        ]
+      ]
+    },
+    "src/features/system-info/__tests__/system-tasks-panel.test.tsx": {
+      "sha256": "c7a9faee361c3a608daccca36122c296dcae2b92cd30a622233f558b96704101",
+      "samples_ms": [
+        [
+          0,
+          1635
+        ],
+        [
+          4,
+          1554
+        ],
+        [
+          8,
+          1148
+        ]
+      ]
+    },
+    "src/features/system-settings/__tests__/pricing-sync.test.tsx": {
+      "sha256": "babfc0dcdbd9751e8e2ab4681e8d4bd3b12b2085ae43213814a8235ff1e2ca46",
+      "samples_ms": [
+        [
+          2,
+          2607
+        ],
+        [
+          6,
+          3123
+        ],
+        [
+          10,
+          3682
+        ]
+      ]
+    },
+    "src/features/system-settings/__tests__/task-public-address.test.ts": {
+      "sha256": "3365f125320e665f283d73d57273a0c6b7a64c092740853232146d7aad537a05",
+      "samples_ms": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          8,
+          2
+        ]
+      ]
+    },
+    "src/features/system-settings/auth/__tests__/oauth-settings.test.tsx": {
+      "sha256": "1c07a248a5ba98b422cbfc329bf196c5a5364d43d71a629a76d35f64e6a0caf7",
+      "samples_ms": [
+        [
+          2,
+          2161
+        ],
+        [
+          6,
+          2607
+        ],
+        [
+          10,
+          3136
+        ]
+      ]
+    },
+    "src/features/system-settings/auth/__tests__/passkey-settings.test.tsx": {
+      "sha256": "dfdc50e5fea6cb4729b98e55ac85a294b00417d9c8944bfc8c8543bc0db0ac37",
+      "samples_ms": [
+        [
+          1,
+          6361
+        ],
+        [
+          5,
+          6365
+        ],
+        [
+          9,
+          6181
+        ]
+      ]
+    },
+    "src/features/system-settings/general/__tests__/pre-consume-settings.test.tsx": {
+      "sha256": "6e81a7afe36c7c309948df3aa0b95ce9a181ca3b282d08750aebcedb1791c9da",
+      "samples_ms": [
+        [
+          2,
+          1068
+        ],
+        [
+          6,
+          1258
+        ],
+        [
+          10,
+          1514
+        ]
+      ]
+    },
+    "src/features/system-settings/maintenance/__tests__/log-settings.test.tsx": {
+      "sha256": "0b8c86b09da8b23110df9546821adf097ee558175f3ca069856279fa5d54c0fd",
+      "samples_ms": [
+        [
+          1,
+          998
+        ],
+        [
+          5,
+          989
+        ],
+        [
+          9,
+          1001
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/group-auto-limit-validation.test.ts": {
+      "sha256": "9bec7dd84086e54fe9aaed9db0de557a26bf2d70b031be4a55ebde66d4a38d3a",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/group-pricing-decimals.test.tsx": {
+      "sha256": "c318775b5873834142616f537707415389023c7d220a668d5b76b80799a02f69",
+      "samples_ms": [
+        [
+          2,
+          850
+        ],
+        [
+          6,
+          1177
+        ],
+        [
+          10,
+          1363
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/group-settings.test.tsx": {
+      "sha256": "66852e8630103f9313ef1c46301455d9eb102e4f5499731a93d9519d06f175e3",
+      "samples_ms": [
+        [
+          2,
+          3077
+        ],
+        [
+          6,
+          3746
+        ],
+        [
+          10,
+          4441
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/model-ratio-table-selection.test.tsx": {
+      "sha256": "d2d081ca0282dd0a8a0140aa201edd2b7a2e795e7b990735a40f65cc3654bb34",
+      "samples_ms": [
+        [
+          0,
+          1355
+        ],
+        [
+          4,
+          1364
+        ],
+        [
+          8,
+          951
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/plugin-pricing.test.tsx": {
+      "sha256": "e1407fba28822a9cc44e40213a4c2c7e8078a242a22f41ccb47add66bfd1ac8b",
+      "samples_ms": [
+        [
+          3,
+          2447
+        ],
+        [
+          7,
+          1825
+        ],
+        [
+          11,
+          1559
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/request-simulation.test.tsx": {
+      "sha256": "8ba15ac14c7bb8191c93a4c0dd0f5b8b7cc40d06b2d0244a3a595b3df625ff27",
+      "samples_ms": [
+        [
+          1,
+          1865
+        ],
+        [
+          5,
+          1841
+        ],
+        [
+          9,
+          1844
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/task-pricing-copy.test.tsx": {
+      "sha256": "490f8061b5e578c7438e63ff21f5a574c3adfcf68f181b34620a678eaeb947c9",
+      "samples_ms": [
+        [
+          0,
+          3319
+        ],
+        [
+          4,
+          3038
+        ],
+        [
+          8,
+          2197
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/tool-price-validation.test.tsx": {
+      "sha256": "0e6b2e235d11784e5e14ea7228bf8b188141cbfbe1c1075f917300106fb94901",
+      "samples_ms": [
+        [
+          2,
+          523
+        ],
+        [
+          6,
+          698
+        ],
+        [
+          10,
+          810
+        ]
+      ]
+    },
+    "src/features/system-settings/models/__tests__/visual-billing-editor.test.tsx": {
+      "sha256": "65d033dae28135f8ec0daebd8b0d4c78e5097d5bc03d168f90ac7456c054746c",
+      "samples_ms": [
+        [
+          1,
+          18634
+        ],
+        [
+          5,
+          18225
+        ],
+        [
+          9,
+          18194
+        ]
+      ]
+    },
+    "src/features/system-settings/request-policies/__tests__/channel-health-layout.test.tsx": {
+      "sha256": "c9ab87c3a70a0a7b033459fab9c7be4db9ca7d139e8891262595eed051f2dbd7",
+      "samples_ms": [
+        [
+          1,
+          547
+        ],
+        [
+          5,
+          566
+        ],
+        [
+          9,
+          570
+        ]
+      ]
+    },
+    "src/features/system-settings/request-policies/__tests__/routing.test.tsx": {
+      "sha256": "68d76df1d2b690e43ad57da06cddb9ed65b3d8c538a0a599510b017831fef599",
+      "samples_ms": [
+        [
+          3,
+          15089
+        ],
+        [
+          7,
+          11362
+        ],
+        [
+          11,
+          8027
+        ]
+      ]
+    },
+    "src/features/system-settings/request-policies/__tests__/settings.test.tsx": {
+      "sha256": "60012b0346b75cbe045b613df92150191f178344fba9229331af6c8f92dad83a",
+      "samples_ms": [
+        [
+          2,
+          2520
+        ],
+        [
+          6,
+          3077
+        ],
+        [
+          10,
+          3484
+        ]
+      ]
+    },
+    "src/features/system-update/__tests__/releases.test.ts": {
+      "sha256": "3f3ed1c36853f07c4bac28bed4f255d152dc9fafa3071559e5f37c7bcc487e14",
+      "samples_ms": [
+        [
+          2,
+          8
+        ],
+        [
+          6,
+          11
+        ],
+        [
+          10,
+          14
+        ]
+      ]
+    },
+    "src/features/system-update/__tests__/update-checking.test.tsx": {
+      "sha256": "92615f86cdbe9584aa5543e698d09d24a74bb72f5a517bcf37cbeb4b2e617965",
+      "samples_ms": [
+        [
+          1,
+          3401
+        ],
+        [
+          5,
+          3439
+        ],
+        [
+          9,
+          3386
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/enabled-option.test.ts": {
+      "sha256": "5710259de72dcdf3a91aac8dbe699f280d85e2faa74df00b35c652f6f43b8e3a",
+      "samples_ms": [
+        [
+          2,
+          3
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          10,
+          4
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/marketplace-install-dialog.test.tsx": {
+      "sha256": "fb5361258c1ae782b1ef643dd48322322271f05982eb23d13f3b142831f2464e",
+      "samples_ms": [
+        [
+          1,
+          5960
+        ],
+        [
+          5,
+          6099
+        ],
+        [
+          9,
+          5935
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/marketplace-panel.test.tsx": {
+      "sha256": "02605ebc05decc09c972decbf78d562e10d2178c4c6adcfef6ad5da6dc4183ee",
+      "samples_ms": [
+        [
+          0,
+          488
+        ],
+        [
+          4,
+          489
+        ],
+        [
+          8,
+          351
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/marketplace-plugin-logo.test.tsx": {
+      "sha256": "0cecff385dfd65d26148f0aeb2d1373a14942a1f6409250930a3ab56ae86b80e",
+      "samples_ms": [
+        [
+          2,
+          59
+        ],
+        [
+          6,
+          78
+        ],
+        [
+          10,
+          96
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/marketplace.test.ts": {
+      "sha256": "26e2de144fea82bdcdebb82cc9d50f1db3c384fb3ef95f84c1ae8c3a4487e48c",
+      "samples_ms": [
+        [
+          0,
+          17
+        ],
+        [
+          4,
+          16
+        ],
+        [
+          8,
+          12
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-card.test.tsx": {
+      "sha256": "e17f303c7c3044c78dd22b38810a6a09d01290c6f08de25a9b74b0d6c138c952",
+      "samples_ms": [
+        [
+          2,
+          257
+        ],
+        [
+          6,
+          309
+        ],
+        [
+          10,
+          385
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-changelog-panel.test.tsx": {
+      "sha256": "943bcdfe4e61507d6cb2848d8b8167ad21c5b86429ba0a2ba7588cb52cbbae44",
+      "samples_ms": [
+        [
+          1,
+          594
+        ],
+        [
+          5,
+          599
+        ],
+        [
+          9,
+          601
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-changelog.test.ts": {
+      "sha256": "c9a073cb46ce29cb2d474dfb51ccff5161c50546993b69ddca53286e9dacadd1",
+      "samples_ms": [
+        [
+          1,
+          83
+        ],
+        [
+          5,
+          86
+        ],
+        [
+          9,
+          83
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-detail-sheet.test.tsx": {
+      "sha256": "43988ae90a2f7908dfcd3c5221b43f634d504e45c4f3174c5eaeff1aeabbe09d",
+      "samples_ms": [
+        [
+          1,
+          3889
+        ],
+        [
+          5,
+          3933
+        ],
+        [
+          9,
+          3865
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-icon-file.test.ts": {
+      "sha256": "884e6f4170821f5a55e3170a6e98485acf052588dd5dc2deac989dff769cf901",
+      "samples_ms": [
+        [
+          2,
+          7
+        ],
+        [
+          6,
+          9
+        ],
+        [
+          10,
+          10
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-icon-image.test.tsx": {
+      "sha256": "e8f784166312765cd670e6b817716a0243de9a8b60f55ec47b038a9f9a856a9d",
+      "samples_ms": [
+        [
+          0,
+          233
+        ],
+        [
+          4,
+          244
+        ],
+        [
+          8,
+          197
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-icon.test.ts": {
+      "sha256": "ba3f2b45980896027d8ef51ae5816c8c99a6a9f99c8575556de0218c1ab5ae81",
+      "samples_ms": [
+        [
+          0,
+          8
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          8,
+          5
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-meta-preview.test.ts": {
+      "sha256": "8c72229637081e1c00e7973830c3122f01b03bab0bb56a5cbb1dcac5bc06b77f",
+      "samples_ms": [
+        [
+          2,
+          64
+        ],
+        [
+          6,
+          88
+        ],
+        [
+          10,
+          103
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugin-url.test.ts": {
+      "sha256": "f1ffd486eeb53f72d188c1c64ec8ffd60fc959701728572a1bbadedd35e0b368",
+      "samples_ms": [
+        [
+          1,
+          19
+        ],
+        [
+          5,
+          19
+        ],
+        [
+          9,
+          18
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/plugins-table.test.tsx": {
+      "sha256": "42bc62374e8369bbc24617ec6b1348d2ef88ecca4d784d251cc69e1486b6217a",
+      "samples_ms": [
+        [
+          2,
+          1732
+        ],
+        [
+          6,
+          2026
+        ],
+        [
+          10,
+          2379
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/upload-dialog.test.tsx": {
+      "sha256": "5022cf27c4eaee54e136344a8a9f49d1b8328a14d3a6015a659c00839d0d3ef7",
+      "samples_ms": [
+        [
+          0,
+          4346
+        ],
+        [
+          4,
+          4227
+        ],
+        [
+          8,
+          3020
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/usage-schema-table.test.tsx": {
+      "sha256": "6dacda5de9f2acee78b8db46764c3aa6668286b70f55bd2af34d07cf220198e9",
+      "samples_ms": [
+        [
+          2,
+          248
+        ],
+        [
+          6,
+          325
+        ],
+        [
+          10,
+          400
+        ]
+      ]
+    },
+    "src/features/task-plugins/__tests__/website.test.tsx": {
+      "sha256": "d989e30ea74f2794cfdafa5c198e158554057b84b0dcd93259a28fa27733c059",
+      "samples_ms": [
+        [
+          2,
+          221
+        ],
+        [
+          6,
+          288
+        ],
+        [
+          10,
+          357
+        ]
+      ]
+    },
+    "src/features/usage-logs/__tests__/access.test.ts": {
+      "sha256": "6702f4d482dbfffb1318e6cc4c8036c5756271196434690ceb1ac20f7e6551ac",
+      "samples_ms": [
+        [
+          1,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          9,
+          2
+        ]
+      ]
+    },
+    "src/features/usage-logs/__tests__/artifacts.test.ts": {
+      "sha256": "2b88311abde2526d6b8ebe1a0f412470d846935d38dbfbac8a440b1792ba5cda",
+      "samples_ms": [
+        [
+          1,
+          8
+        ],
+        [
+          5,
+          9
+        ],
+        [
+          9,
+          8
+        ]
+      ]
+    },
+    "src/features/usage-logs/__tests__/mobile-layout.test.ts": {
+      "sha256": "750a63c1d28d63eaa6d8792dd863e1943895efb97bb819ea27b6d9b2fbb53e76",
+      "samples_ms": [
+        [
+          2,
+          1
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    },
+    "src/features/usage-logs/__tests__/task-details.test.ts": {
+      "sha256": "c1e70e663858c8cdb83c93d3ebe123919eafea1e144eff27999c7bbd4a15ff08",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    "src/features/usage-logs/audit/__tests__/details.test.tsx": {
+      "sha256": "83a032b2220eda6bf67fde87275ade58bc0b19427bae2ccc7b8b3c754edae92c",
+      "samples_ms": [
+        [
+          2,
+          2131
+        ],
+        [
+          6,
+          2494
+        ],
+        [
+          10,
+          3111
+        ]
+      ]
+    },
+    "src/features/usage-logs/audit/__tests__/viewer.test.tsx": {
+      "sha256": "094589e14d7581a820b4419074c1db6efbc4bcc3b57b291a4e8591748ff84a25",
+      "samples_ms": [
+        [
+          2,
+          8726
+        ],
+        [
+          6,
+          11388
+        ],
+        [
+          10,
+          14719
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/billing-source-visibility.test.tsx": {
+      "sha256": "ef6e8e762bb02f373be744d7ee493cb3ad2107a6bcbfa0949d022e6fbd831ea4",
+      "samples_ms": [
+        [
+          0,
+          2443
+        ],
+        [
+          4,
+          2343
+        ],
+        [
+          8,
+          1727
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/cost-display.test.tsx": {
+      "sha256": "1f1064aaa985fd1dcbc760ef5235dd70a71434c7922b645e4d85b5e5ffe4cde1",
+      "samples_ms": [
+        [
+          2,
+          434
+        ],
+        [
+          6,
+          508
+        ],
+        [
+          10,
+          638
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/detail-preview.test.tsx": {
+      "sha256": "2ca03ac75356355d0407b8816c6cc3197ef553bfdfe8cc8e3c3baaf1860250d3",
+      "samples_ms": [
+        [
+          0,
+          1232
+        ],
+        [
+          4,
+          1138
+        ],
+        [
+          8,
+          822
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/export-dialog.test.tsx": {
+      "sha256": "f15499abd761dbf68e6eeb59cfdfab86960d24a3906a865057259354dbe7ce3f",
+      "samples_ms": [
+        [
+          3,
+          964
+        ],
+        [
+          7,
+          752
+        ],
+        [
+          11,
+          619
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/group-filter.test.tsx": {
+      "sha256": "d153ea743dedb35752e902324e0bb74a3313b73358dd8069e8d968d6100f45ac",
+      "samples_ms": [
+        [
+          2,
+          2024
+        ],
+        [
+          6,
+          2434
+        ],
+        [
+          10,
+          2902
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/log-type-filter.test.tsx": {
+      "sha256": "1ec76bfbeb2711dae252170ed06aae5c1f1ca9080e85b39fbf6ea6ad4e7bc221",
+      "samples_ms": [
+        [
+          0,
+          1162
+        ],
+        [
+          4,
+          1178
+        ],
+        [
+          8,
+          831
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/mobile-card.test.tsx": {
+      "sha256": "dc0cd7cb99ebbb7ea23b77cd00f9ea1596175a161a883c356fddf3cddc9c0dfa",
+      "samples_ms": [
+        [
+          0,
+          1432
+        ],
+        [
+          4,
+          1406
+        ],
+        [
+          8,
+          1028
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/mobile-filter.test.tsx": {
+      "sha256": "5ecc99ff3354353b10f3530ccf14aee329231d2c7d3bb115a8fd3d4e45172a08",
+      "samples_ms": [
+        [
+          1,
+          2404
+        ],
+        [
+          5,
+          2449
+        ],
+        [
+          9,
+          2400
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/model-badge.test.tsx": {
+      "sha256": "9812015d4ae1aa223b71432cdd66980c63995f8e04c80ffae7f811204b965592",
+      "samples_ms": [
+        [
+          3,
+          13080
+        ],
+        [
+          7,
+          12641
+        ],
+        [
+          11,
+          12480
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/quota-adjustment.test.tsx": {
+      "sha256": "3c44d900a800f753ec809f1a4130f276d194344cf6cb7ddb35b9c96573592252",
+      "samples_ms": [
+        [
+          2,
+          471
+        ],
+        [
+          6,
+          557
+        ],
+        [
+          10,
+          674
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/reject-reason.test.tsx": {
+      "sha256": "459b1bf686cb90e1d19ac614fc41950f0eba39a31aada73766ebe0594553b186",
+      "samples_ms": [
+        [
+          1,
+          285
+        ],
+        [
+          5,
+          311
+        ],
+        [
+          9,
+          319
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/task-artifacts-cell.test.tsx": {
+      "sha256": "2fa806ce6e947cb85055b1583ff8ec436da91c0670bf06d191bcf25fd9331596",
+      "samples_ms": [
+        [
+          3,
+          200
+        ],
+        [
+          7,
+          152
+        ],
+        [
+          11,
+          123
+        ]
+      ]
+    },
+    "src/features/usage-logs/components/__tests__/usage-facts.test.tsx": {
+      "sha256": "1bff9fb6afa4701931e66bde1f2ce42baa4f4096db607de7371437d20c7671a1",
+      "samples_ms": [
+        [
+          3,
+          542
+        ],
+        [
+          7,
+          384
+        ],
+        [
+          11,
+          327
+        ]
+      ]
+    },
+    "src/features/usage-logs/lib/__tests__/billing-source.test.ts": {
+      "sha256": "d16aa17b0227eac119a7f18c219a5b8e88ffd6dd6e9b5c01c6ba22844aa422c2",
+      "samples_ms": [
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ]
+    },
+    "src/features/usage-logs/lib/__tests__/export.test.ts": {
+      "sha256": "3537a50c7fcaa1232b45a667d8bda370c0e75c80681e2409d7319a4de11ac867",
+      "samples_ms": [
+        [
+          1,
+          25
+        ],
+        [
+          5,
+          25
+        ],
+        [
+          9,
+          25
+        ]
+      ]
+    },
+    "src/features/usage-logs/lib/__tests__/response-model.test.ts": {
+      "sha256": "77ff7534d1ad23764bea7fe61546a64cd0f753ed6905f491110c89e13f8531cd",
+      "samples_ms": [
+        [
+          2,
+          3
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          10,
+          5
+        ]
+      ]
+    },
+    "src/features/usage-logs/lib/__tests__/token-name.test.ts": {
+      "sha256": "951fd7052a65e238eb5ac7f084a0949efb07300dd75fc9618772b3ba5092130b",
+      "samples_ms": [
+        [
+          3,
+          5
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/usage-logs/lib/__tests__/tool-surcharge.test.ts": {
+      "sha256": "49ac269327977be93f20450c085e8f6b423ca7fa86fad791165c530aad016b7c",
+      "samples_ms": [
+        [
+          3,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/features/users/components/__tests__/group-filter.test.tsx": {
+      "sha256": "dfa77f90c57c754f296e84bb5a8cec66f8c39db21cec49c0a253aacf57707697",
+      "samples_ms": [
+        [
+          3,
+          1508
+        ],
+        [
+          7,
+          1072
+        ],
+        [
+          11,
+          947
+        ]
+      ]
+    },
+    "src/features/users/components/__tests__/permissions.test.tsx": {
+      "sha256": "7107ca4aad39a2fccce3c985a109f16128af02e2877c50a75d56ebe4969f5901",
+      "samples_ms": [
+        [
+          0,
+          1768
+        ],
+        [
+          4,
+          1821
+        ],
+        [
+          8,
+          1381
+        ]
+      ]
+    },
+    "src/features/users/components/__tests__/quota-display.test.tsx": {
+      "sha256": "de92865f0a6e2e71d12f1924e23276642313fd8296754ce5b45aefa153e523aa",
+      "samples_ms": [
+        [
+          3,
+          2118
+        ],
+        [
+          7,
+          1597
+        ],
+        [
+          11,
+          1330
+        ]
+      ]
+    },
+    "src/features/users/components/__tests__/step-up-verification.test.tsx": {
+      "sha256": "bcba33faf6054343450675619c02391e87dbbb1bc48591340dcd26063e38dc19",
+      "samples_ms": [
+        [
+          2,
+          726
+        ],
+        [
+          6,
+          862
+        ],
+        [
+          10,
+          1032
+        ]
+      ]
+    },
+    "src/features/users/components/dialogs/__tests__/user-binding-dialog.test.tsx": {
+      "sha256": "cc929621ec599df5699441c2ba8c3848d637cf749a07955f7c3940783b4cc3b3",
+      "samples_ms": [
+        [
+          3,
+          2529
+        ],
+        [
+          7,
+          1922
+        ],
+        [
+          11,
+          1667
+        ]
+      ]
+    },
+    "src/features/wallet/__tests__/copy.test.tsx": {
+      "sha256": "5cdc0cc8be0a5e491ed48e2b73580ae669d454dfb1e70845f27ef815d525617f",
+      "samples_ms": [
+        [
+          1,
+          659
+        ],
+        [
+          5,
+          597
+        ],
+        [
+          9,
+          661
+        ]
+      ]
+    },
+    "src/features/wallet/hooks/use-payment.test.ts": {
+      "sha256": "de4d3d29280e8d96888d700f1fd3de1839fef73d26cb28b7f440efbe38449a6c",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    "src/features/wallet/lib/__tests__/payment-icons.test.tsx": {
+      "sha256": "d9c334eee54c1e7fa115934b9ebc9552486c20362991127217403a52a79ac8fc",
+      "samples_ms": [
+        [
+          2,
+          108
+        ],
+        [
+          6,
+          153
+        ],
+        [
+          10,
+          175
+        ]
+      ]
+    },
+    "src/features/wallet/lib/payment.test.ts": {
+      "sha256": "75030aa75f3b48ccea07002287c23b84d46bfef8a04d006ce6ae5f6413abf0a0",
+      "samples_ms": [
+        [
+          3,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          3
+        ]
+      ]
+    },
+    "src/hooks/__tests__/sidebar-config.test.tsx": {
+      "sha256": "6848b3983f1e2b4fab631a361ac114766dcc5cda956ef42cb6eeadfa889a3b9f",
+      "samples_ms": [
+        [
+          3,
+          67
+        ],
+        [
+          7,
+          50
+        ],
+        [
+          11,
+          38
+        ]
+      ]
+    },
+    "src/hooks/__tests__/use-top-nav-links.test.tsx": {
+      "sha256": "1ce3b91f8856c0c80b06522fe854fe247b3c9d6255c9020e2554b803b7857300",
+      "samples_ms": [
+        [
+          2,
+          32
+        ],
+        [
+          6,
+          42
+        ],
+        [
+          10,
+          49
+        ]
+      ]
+    },
+    "src/i18n/__tests__/lazy-locales.test.tsx": {
+      "sha256": "eba890c13d0784214603d8bde19c74d8e0fcbbfbc4cddb10bbdbb860b9839d27",
+      "samples_ms": [
+        [
+          1,
+          109
+        ],
+        [
+          5,
+          109
+        ],
+        [
+          9,
+          112
+        ]
+      ]
+    },
+    "src/i18n/languages.test.ts": {
+      "sha256": "b1854b2cbe1deb85eb4b45ee0b2550dc678ab5a2314dce53cc64ca22268acb14",
+      "samples_ms": [
+        [
+          2,
+          2
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          10,
+          3
+        ]
+      ]
+    },
+    "src/lib/__tests__/http-cache.test.ts": {
+      "sha256": "68d9a97a886f923124e146d47d218771051fc79ea0434b700b27986f2cb04181",
+      "samples_ms": [
+        [
+          1,
+          12
+        ],
+        [
+          5,
+          12
+        ],
+        [
+          9,
+          11
+        ]
+      ]
+    },
+    "src/lib/__tests__/lobe-icon.test.tsx": {
+      "sha256": "8ab0c6f11946c7bf1bb5fdecf4d350de513050dbb333299db9638223a28df1d4",
+      "samples_ms": [
+        [
+          3,
+          1633
+        ],
+        [
+          7,
+          1594
+        ],
+        [
+          11,
+          1578
+        ]
+      ]
+    },
+    "src/lib/__tests__/localized-text.test.ts": {
+      "sha256": "9df8ad0d7410b2d44a542a6b9e11436665561cdda48be5dfcb84a25e63261b5e",
+      "samples_ms": [
+        [
+          1,
+          12
+        ],
+        [
+          5,
+          12
+        ],
+        [
+          9,
+          12
+        ]
+      ]
+    },
+    "src/lib/__tests__/server-error-localization.test.ts": {
+      "sha256": "7185e5e16044054725616071d9522907954a257b4fdf2b43d174db8f78395024",
+      "samples_ms": [
+        [
+          0,
+          7
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          8,
+          4
+        ]
+      ]
+    },
+    "src/lib/__tests__/server-error-notifications.test.ts": {
+      "sha256": "d6b5ddeb0572207b3535f24107106eee9e653ac37f2c0eddb3fb7ba746b05082",
+      "samples_ms": [
+        [
+          0,
+          74
+        ],
+        [
+          4,
+          72
+        ],
+        [
+          8,
+          54
+        ]
+      ]
+    },
+    "src/lib/__tests__/status-query.test.tsx": {
+      "sha256": "53f089c32856be2cf894a39ac5dd0fb188ad1bd36eb1c8ac918e13d396a8fd57",
+      "samples_ms": [
+        [
+          2,
+          182
+        ],
+        [
+          6,
+          182
+        ],
+        [
+          10,
+          191
+        ]
+      ]
+    },
+    "src/lib/auth-session.test.ts": {
+      "sha256": "30bca6ce5a8797a51a4dacc2bb1bd49e6a3dd79a20e429d8b1b528b6b9969492",
+      "samples_ms": [
+        [
+          0,
+          18
+        ],
+        [
+          4,
+          16
+        ],
+        [
+          8,
+          12
+        ]
+      ]
+    },
+    "src/lib/legacy-route.test.ts": {
+      "sha256": "bac3c0b2cdc68e56f7aadc174651527680a6de404911249edb417f316ba1e5a8",
+      "samples_ms": [
+        [
+          1,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          9,
+          5
+        ]
+      ]
+    },
+    "src/lib/server-error-message.test.ts": {
+      "sha256": "0b20bd846ceb8736e5f7a4416037b92fa8f9941a4b49d6a2db7769b759c19603",
+      "samples_ms": [
+        [
+          3,
+          7
+        ],
+        [
+          7,
+          6
+        ],
+        [
+          11,
+          5
+        ]
+      ]
+    }
+  }
+}

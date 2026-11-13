@@ -1,0 +1,52 @@
+{
+  "model_id": "jev",
+  "family": "llm",
+  "vendor": "TypeSafe AI",
+  "vendor_model_id": "jev-latest",
+  "capability": "System One judgment",
+  "operations": [
+    "judgment"
+  ],
+  "status": "partial",
+  "checked_at": "2026-09-27",
+  "context_window_tokens": null,
+  "input_modalities": null,
+  "sources": [
+    {
+      "claim": "The direct System One probe submitted a Jev judgment task and received a successful response.",
+      "url": "repo:.reports/probes/channel-74-jev.json",
+      "quote": "直连 POST https://api.typesafe.ai/v1/systemone 真实提交 Noul 判定任务",
+      "retrieved_at": "2026-09-26"
+    },
+    {
+      "claim": "The verified upstream alias for Jev is jev-latest.",
+      "url": "repo:.reports/probes/channel-74-jev.json",
+      "quote": "jev-latest",
+      "retrieved_at": "2026-09-26"
+    },
+    {
+      "claim": "TypeSafe's official pricing record lists input tokens at $0.042 per 1M tokens and output tokens free.",
+      "url": "repo:scripts/ops/model-audit-ledger.json",
+      "quote": "TypeSafe 官方定价表（$0.042/1M input tokens，output tokens 免费）",
+      "retrieved_at": "2026-09-26"
+    }
+  ],
+  "unknowns": [
+    "TypeSafe's cited model documentation does not establish a context window limit.",
+    "input_modalities: TypeSafe's cited model documentation does not establish supported input modalities."
+  ],
+  "notes": "Capability claims are limited to the verified System One judgment probe. The TypeSafe model docs are indexed in scripts/ops/model-audit-ledger.json at https://docs.typesafe.ai/models (Models > Jev 1.13); no context-window, modality, streaming, or tool-calling limits are asserted. Pricing is descriptive: input tokens are $0.042 per 1M tokens and output tokens are free; ModelRatio is 0.021.",
+  "billing": {
+    "unit": "per_token",
+    "unit_label": {
+      "zh": "每百万词元",
+      "en": "per 1M tokens"
+    },
+    "pricing_basis": "reported_tokens",
+    "model_ratio": 0.021,
+    "notes": {
+      "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。",
+      "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free."
+    }
+  }
+}

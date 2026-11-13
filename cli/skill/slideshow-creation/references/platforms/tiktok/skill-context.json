@@ -1,0 +1,40 @@
+{
+  "platform": "tiktok",
+  "skillSummary": "TikTok Photo Mode 的核心是「视觉驱动信息」——用户在 FYP 快速滑动，没有耐心看长文，每一页必须是零食化的信息块。第一张图决定生死，Overlay Text 是王道，图片切换节奏潜意识匹配背景音乐的 Beat。",
+  "relevantTechniques": [
+    {
+      "name": "视觉钩子策略",
+      "description": "第一张图（Cover Slide）必须在 0.5 秒内抓住眼球。使用高反差视觉（红色箭头、圈出重点）和直击痛点的文案（不是 'How to clean'，而是 'Stop cleaning like THIS ❌'）。",
+      "applicability": "用于首图设计"
+    },
+    {
+      "name": "三种高转化首图公式",
+      "description": "A. 否定/避坑型：利用损失厌恶（'Stop [Habit] if you want [Result]'）；B. 懒人/捷径型：利用少出力多得利心理（'Lazy girl guide to...'）；C. POV/代入型：利用身份认同（'To all the [Identity] struggling with...'）。",
+      "applicability": "用于首图文案设计"
+    },
+    {
+      "name": "5页叙事框架",
+      "description": "P1 Hook（痛点/承诺）→ P2 Retention（第一个价值点，证明不是标题党）→ P3 Value/Twist（核心干货/反转）→ P4 Sub-Value（补充细节）→ P5 CTA（引导收藏/关注）。",
+      "applicability": "用于轮播图整体结构设计"
+    },
+    {
+      "name": "信息切片策略",
+      "description": "每一页只讲一个点。长文字必须切碎。错误：一页写50字三个步骤的原理；正确：每个步骤单独一页，配合简短 Overlay Text。",
+      "applicability": "用于内容拆分和排版"
+    },
+    {
+      "name": "Overlay Text 脚本化",
+      "description": "为每一页精确设计图上文字：位置在屏幕中间偏上（Safe Zone），高对比度（黑底白字），不超过7个单词。脚本需包含 Visual（画面）+ Text（图上文字）+ Note（设计备注）。",
+      "applicability": "用于详细脚本撰写"
+    }
+  ],
+  "keyInsights": [
+    "Overlay Text Is King：TikTok 用户更看重图片上的大字，而非图片精美度",
+    "使用 TikTok 内置字体风格，避免 Canva 模板等过度设计",
+    "真实照片 > 完美图库：手机直出甚至有点模糊的照片更有原生感",
+    "面部特写 + 眼神接触（Eye Contact）的照片点击率更高",
+    "视觉连贯性：同一场景、同一光线、同一出镜人，让用户感觉在看定格动画"
+  ],
+  "suggestedApproach": "先用三种高转化公式之一设计首图 Hook，然后按 5 页框架拆分内容，为每页撰写 Overlay Text 脚本（Visual + Text + Note），最后检查视觉连贯性和信息切片是否到位。",
+  "version": "2026-01-30"
+}

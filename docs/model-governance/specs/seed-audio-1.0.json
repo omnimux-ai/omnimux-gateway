@@ -1,0 +1,153 @@
+{
+ "model_id": "seed-audio-1.0",
+ "family": "audio",
+ "vendor": "火山引擎",
+ "vendor_model_id": "seed-audio-1.0",
+ "capability": "语音/音频生成（Audio 1.0 非流式音频生成：语音合成 + 场景音效）",
+ "operations": [
+  "text_to_speech",
+  "voice_clone",
+  "reference_audio_generation",
+  "reference_image_generation"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "厂商侧模型标识就是 seed-audio-1.0（Audio 1.0 接口 model 参数取值）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "Model version identifier. Value: `seed-audio-1.0`",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "单次输出音频最长 120 秒；非流式 HTTP 接口",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "A non-streaming audio generation API based on HTTP. It supports uploading multiple reference audio clips or images to generate audio, and lets you describe the desired sound effects, timbre, and more in natural language. Ideal for audiobooks, voiceovers, gaming, and similar scenarios. Currently supports audio output up to 120 seconds.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "文本提示词（text_prompt）上限 3000 字符",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "The prompt used to synthesize audio, or the text to be synthesized. Up to 3000 characters.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考音频最多 3 段，每段 ≤ 30 秒、≤ 10 MB（10485760 字节），格式 wav / mp3 / pcm / ogg_opus",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "Up to three reference audio clips are supported. Each clip can be up to 30 seconds and no larger than 10 MB. Supported formats: `wav`/`mp3`/`pcm`/`ogg_opus`.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "参考图最多 1 张、≤ 10 MB，格式 jpeg / png / webp；参考图不能与参考音频混用",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "Only one reference image is supported, no larger than 10 MB. Supported formats: `jpeg`/`png`/`webp`.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出音频格式 wav / mp3 / pcm / ogg_opus，默认 wav",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "Output format: `wav`/`mp3`/`pcm`/`ogg_opus`. Default `wav`.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "支持语言 21 种（English / Chinese / Japanese / Korean / Mexican Spanish / Indonesian / German / Brazilian / Portuguese / French / Thai / Vietnamese / Malay / Filipino / Italian / Russian / Dutch / Polish / Turkish / Swedish / Castilian Spanish）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "Supports `English` `Chinese` `Japanese` `Korean` `Mexican Spanish` `Indonesian` `German` `Brazilian` `Portuguese` `French` `Thai` `Vietnamese` `Malay` `Filipino` `Italian` `Russian` `Dutch` `Polish` `Turkish` `Swedish` `Castilian Spanish`",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "可作为参考音色的 speaker 取值：TTS2.0 音色或克隆音色（即具备音色克隆能力）",
+   "url": "https://docs.byteplus.com/en/docs/byteplusvoice/seedaudio-01",
+   "quote": "Speaker ID. You can use a [TTS2.0](https://docs.byteplus.com/en/docs/byteplusvoice/voicelist) voice or a cloned voice.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "厂商身份：Seed Audio 1.0 由字节跳动 Seed 团队发布，并说明它在一个统一框架里生成语音、音效与环境声",
+   "url": "https://seed.bytedance.com/en/blog/from-speech-to-audio-creation-introducing-the-seed-audio-1-0-audio-creation-model",
+   "quote": "It is an audio creation model that generates speech, sound effects, ambience, and other scene-level audio elements within one unified framework. Given a prompt, Seed Audio 1.0 can produce coordinated audio with character performance, timing, background texture, and sound design shaped together. That scene-level approach also changes what the model can do with speech itself.",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "audio_kind": "tts",
+ "input_formats": [
+  "wav",
+  "mp3",
+  "pcm",
+  "ogg_opus"
+ ],
+ "max_input_bytes": 10485760,
+ "max_input_seconds": 30,
+ "output_formats": [
+  "wav",
+  "mp3",
+  "pcm",
+  "ogg_opus"
+ ],
+ "voices": null,
+ "languages": [
+  "English",
+  "Chinese",
+  "Japanese",
+  "Korean",
+  "Mexican Spanish",
+  "Indonesian",
+  "German",
+  "Brazilian",
+  "Portuguese",
+  "French",
+  "Thai",
+  "Vietnamese",
+  "Malay",
+  "Filipino",
+  "Italian",
+  "Russian",
+  "Dutch",
+  "Polish",
+  "Turkish",
+  "Swedish",
+  "Castilian Spanish"
+ ],
+ "reference_audios": {
+  "max": 3,
+  "max_seconds_each": 30,
+  "max_bytes_each": 10485760,
+  "formats": [
+   "wav",
+   "mp3",
+   "pcm",
+   "ogg_opus"
+  ],
+  "source_claim": "参考音频最多 3 段，每段 ≤ 30 秒、≤ 10 MB，格式 wav / mp3 / pcm / ogg_opus"
+ },
+ "reference_images": {
+  "max": 1,
+  "max_bytes_each": 10485760,
+  "formats": [
+   "jpeg",
+   "png",
+   "webp"
+  ],
+  "source_claim": "参考图最多 1 张、≤ 10 MB，格式 jpeg / png / webp"
+ },
+ "max_output_seconds": 120,
+ "prompt_max_chars": 3000,
+ "unknowns": [
+  "可用音色（speaker）总数：官方只说可用 TTS2.0 音色或克隆音色，未给出数量，故 voices 记 null",
+  "计费口径（按字符 / 按秒 / 按次）未在可读的官方页面中确认"
+ ],
+ "notes": "上游出处用的是字节跳动官方国际站 BytePlus（Seed Speech）的 API 参考页 docs.byteplus.com；本模型在我们的目录里挂在「官方直连-火山」线路（渠道 43，type 45 VolcEngine，upstream_id 与公开 ID 相同）。火山引擎 CN 站（docs.volcengine.com/docs/6561/*）为 JS 渲染，本环境取不到正文，故 CN 侧页面未能并列核对。要点：max_input_seconds=30 与 max_input_bytes=10MB 指的是【单段参考音频】的上限，不是整次请求上限；请求上限体现在 text_prompt ≤ 3000 字符与输出 ≤ 120 秒。audio_kind 记为 tts（主体是语音合成），但该模型同时支持参考音频（音色克隆）与参考图生成、以及音效/环境声，故 operations 另列 voice_clone 与两种 reference 生成。",
+ "billing": {
+  "unit": "per_token",
+  "unit_label": {
+   "zh": "每百万词元",
+   "en": "per 1M tokens"
+  },
+  "pricing_basis": "reported_tokens",
+  "model_ratio": 7.5,
+  "notes": {
+   "zh": "按上游返回的词元用量计费，单价为每百万词元美元价",
+   "en": "Charged by reported token usage; price is USD per 1M tokens"
+  },
+  "unit_price_usd": 15.0
+ }
+}

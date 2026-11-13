@@ -1,0 +1,81 @@
+{
+  "model_id": "minimax-h3-lip-sync",
+  "family": "video",
+  "vendor": "MiniMax",
+  "vendor_model_id": "minimax/h3-max/lip-sync/image-to-video",
+  "capability": "对口型图生视频——根据肖像图片与音频生成口型同步的视频，fal.ai 官方直连",
+  "operations": [
+    "lip_sync"
+  ],
+  "gateway": {
+    "profile": "fal_h3_lip_sync",
+    "operations": [
+      "lip_sync"
+    ],
+    "source_claim": "网关执行档案：fal payload.go 的 buildLipSyncPayload 只接受一张肖像图与一段音频，不消费 prompt"
+  },
+  "status": "documented",
+  "basis": "line_restricted",
+  "checked_at": "2026-09-19",
+  "sources": [
+    {
+      "claim": "本公开 ID 由渠道 44「[官方直连-fal.ai] MiniMax H3 视频」供给，渠道侧上游模型名为 minimax/h3-max/lip-sync/image-to-video",
+      "url": "repo:scripts/ops/config-baseline/channels.json",
+      "quote": "\"minimax-h3-lip-sync\": \"minimax/h3-max/lip-sync/image-to-video\"",
+      "retrieved_at": "2026-09-19"
+    },
+    {
+      "claim": "本线提供对口型图生视频操作，上游端点常量为 minimax/h3-max/lip-sync/image-to-video",
+      "url": "repo:relay/channel/task/fal/constants.go",
+      "quote": "ModelMinimaxH3MaxLipSyncImageToVideo = \"minimax/h3-max/lip-sync/image-to-video\"",
+      "retrieved_at": "2026-09-19"
+    },
+    {
+      "claim": "本线要求 image_url 与 audio_url 必填，不需要文本 prompt",
+      "url": "repo:relay/channel/task/fal/payload.go",
+      "quote": "buildLipSyncPayload",
+      "retrieved_at": "2026-09-19"
+    },
+    {
+      "claim": "本线输出分辨率支持 480P、768P、1080P、2K，默认 768P",
+      "url": "repo:relay/channel/task/fal/payload.go",
+      "quote": "extractLipSyncResolution",
+      "retrieved_at": "2026-09-19"
+    }
+  ],
+  "notes": "本档案描述的是 fal.ai 官方直连对口型图生视频模型（minimax/h3-max/lip-sync/image-to-video），由肖像图片和人声音频驱动生成口型与表情高度同步的带货视频。",
+  "durations_seconds": {
+    "min": 5,
+    "max": 15,
+    "default": 5
+  },
+  "resolutions": [
+    "480P",
+    "768P",
+    "1080P",
+    "2K"
+  ],
+  "reference_images": {
+    "min": 1,
+    "max": 1,
+    "source_claim": "buildLipSyncPayload requires image_url: exactly one portrait image"
+  },
+  "reference_audios": {
+    "min": 1,
+    "max": 1,
+    "source_claim": "buildLipSyncPayload requires audio_url: exactly one audio track"
+  },
+  "billing": {
+    "unit": "per_second",
+    "unit_label": {
+      "zh": "每秒",
+      "en": "per second"
+    },
+    "pricing_basis": "duration_seconds",
+    "unit_price_usd": 0.125,
+    "notes": {
+      "zh": "按实际视频时长按秒计费（特惠 1.25 积分/秒）",
+      "en": "Billed per second of generated video"
+    }
+  }
+}

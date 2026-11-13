@@ -1,0 +1,50 @@
+{
+  "model_id": "suno",
+  "family": "audio",
+  "vendor": "Suno",
+  "vendor_model_id": "suno-v6",
+  "capability": "AI 音乐生成（含人声演唱、全配器伴奏与歌词直出）",
+  "operations": [
+    "music_generation"
+  ],
+  "status": "documented",
+  "default_for": ["text_to_music"],
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "Suno 官方核心模型体系为 v6 系列（含 v6、v6-wild、v6-mini），支持全风格高品质音乐生成",
+      "url": "https://help.suno.com/en/articles/13924737",
+      "quote": "Current Models: v6",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单次音乐生成最长可达 8 分钟（480 秒），并支持延长续写",
+      "url": "https://help.suno.com/en/articles/13924929",
+      "quote": "Suno can generate up to 8 minutes of music in a single generation across v6, v6-wild, and v6-mini",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "输出音频支持 MP3 格式，并支持高保真 WAV 与分轨 Stems 下载",
+      "url": "https://help.suno.com/en/articles/13926081",
+      "quote": "MP3 • Available for song downloads on all plans",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "audio_kind": "music",
+  "input_formats": [
+    "text",
+    "audio"
+  ],
+  "max_input_bytes": null,
+  "max_input_seconds": null,
+  "output_formats": [
+    "mp3",
+    "wav"
+  ],
+  "voices": "支持男女声智能匹配或纯伴奏生成",
+  "languages": "支持中、英等多语言歌词输入与演唱",
+  "unknowns": [
+    "输入参考音频文件大小（字节上限）官方未给出具体数值限制"
+  ],
+  "notes": "出处为 Suno 官方帮助中心与知识库（help.suno.com，2026年9月最新官方维护）。Suno 核心生成大模型为 v6 系列（含 v6、v6-wild、v6-mini），单曲生成上限长达 8 分钟（480 秒），输出原生支持 MP3/WAV。OmniMux 对外公开 ID suno 系音乐生成通用入口，上游挂载 APIMart 专线（/v1/music/generations）。"
+}

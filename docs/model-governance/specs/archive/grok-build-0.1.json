@@ -1,0 +1,59 @@
+{
+  "model_id": "grok-build-0.1",
+  "family": "llm",
+  "vendor": "xAI",
+  "vendor_model_id": "grok-build-0.1",
+  "capability": "文本生成（编码与智能体工作流）",
+  "operations": [
+    "chat_completion"
+  ],
+  "status": "retired",
+  "checked_at": "2026-09-14",
+  "context_window_tokens": 256000,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "context_window_tokens = 256000：官方模型卡 At a glance 写明上下文窗口为 256,000 tokens",
+      "url": "https://docs.x.ai/developers/models/grok-build-0.1",
+      "quote": "- **Context window:** 256,000 tokens\n- **Model name:** `grok-build-0.1`",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities = [\"text\", \"image\"]：官方模型卡写明模态为 text, image → text",
+      "url": "https://docs.x.ai/developers/models/grok-build-0.1",
+      "quote": "- **Modalities:** text, image → text",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling = true：官方模型卡 Capabilities 段写明 Function calling: Yes",
+      "url": "https://docs.x.ai/developers/models/grok-build-0.1",
+      "quote": "- **Function calling:** Yes\n- **Structured outputs:** Yes\n- **Reasoning:** Yes",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming = true：官方流式文档声明「所有具备文本输出能力的模型」均支持流式输出，本模型为文本输出模型故适用",
+      "url": "https://docs.x.ai/developers/model-capabilities/text/streaming",
+      "quote": "Streaming outputs is **supported by all models with text output capability** (Chat, Image Understanding, etc.).",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching = true：官方模型与定价页为该模型单列 Cached input 单价（$0.20 / 1M），即该模型参与缓存计费",
+      "url": "https://docs.x.ai/docs/models",
+      "quote": "| grok-build-0.1 (< 200k prompt tokens) | 256k | $1.00 | $0.20 | $2.00 |",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "unknowns": [
+    "max_output_tokens：官方模型卡未公布该模型的输出令牌上限，未在 docs.x.ai 找到数字声明，故留 null",
+    "本模型官方模型卡未列出 reasoning efforts 档位（同族的 grok-4.5 / grok-4.6 / grok-4.3 均列出），故不推断其推理强度档位"
+  ],
+  "notes": "该 ID 是「Grok Build」产品线下的编码模型，官方发布说明称其「Currently in early access（早期访问）」，稳定性弱于 GA 模型，接入时需要额外留意。官方给出的别名为 grok-code-fast-1 / grok-code-fast / grok-code-fast-1-0825，因此历史目录里若出现这些 ID，指向的是同一模型。官方模型卡未标注 Batch API 支持（Not supported）。官方文档当前以 SpaceXAI 署名，vendor 按对外展示写 xAI。 [2026-09-14 治理下架]: 按业务决策下架 grok-composer 及 4.3 及以下历史型号，仅保留 grok-4.5 与 grok-4.6。",
+  "retired_at": "2026-09-14"
+}

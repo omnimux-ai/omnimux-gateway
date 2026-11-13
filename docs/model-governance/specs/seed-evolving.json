@@ -1,0 +1,62 @@
+{
+  "model_id": "seed-evolving",
+  "family": "llm",
+  "vendor": "ByteDance",
+  "vendor_model_id": "doubao-seed-evolving",
+  "capability": "多模态理解（文本 / 图像 / 视频输入）的对话生成、深度思考、工具调用与 GUI 任务处理",
+  "operations": [
+    "chat_completion",
+    "streaming",
+    "tool_calling",
+    "structured_output",
+    "deep_thinking",
+    "image_input",
+    "video_input",
+    "prompt_caching"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-18",
+  "context_window_tokens": 1048576,
+  "max_output_tokens": 262144,
+  "input_modalities": [
+    "text",
+    "image",
+    "video"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "context_window_tokens=1048576（官方模型列表「长度限制（token）」列：上下文窗口 1024k）",
+      "url": "https://console.volcengine.com/ark/region:cn-beijing/docs/ark/Modellist?lang=zh",
+      "quote": "doubao-seed-evolving 快速迭代模型 深度思考 文本生成 多模态理解 GUI 任务处理 工具调用 结构化输出（推荐使用 json_schema 模式） 上下文窗口: 1024k",
+      "retrieved_at": "2026-09-18"
+    },
+    {
+      "claim": "max_output_tokens=262144（官方模型列表：最大回答(默认 4k) 256k；最大输入 1024k；最大思维链 256k）",
+      "url": "https://console.volcengine.com/ark/region:cn-beijing/docs/ark/Modellist?lang=zh",
+      "quote": "最大输入: 1024k 最大回答(默认 4k): 256k 最大思维链: 256k",
+      "retrieved_at": "2026-09-18"
+    },
+    {
+      "claim": "限流 500 RPM / 1000000 TPM（官方模型列表「限流」列）",
+      "url": "https://console.volcengine.com/ark/region:cn-beijing/docs/ark/Modellist?lang=zh",
+      "quote": "最大 RPM: 500 最大 TPM: 1000000",
+      "retrieved_at": "2026-09-18"
+    },
+    {
+      "claim": "input_modalities 含 text/image/video，且支持工具调用、结构化输出与深度思考（官方模型列表「能力支持」列）",
+      "url": "https://console.volcengine.com/ark/region:cn-beijing/docs/ark/Modellist?lang=zh",
+      "quote": "深度思考 文本生成 多模态理解 GUI 任务处理 工具调用 结构化输出（推荐使用 json_schema 模式）",
+      "retrieved_at": "2026-09-18"
+    },
+    {
+      "claim": "prompt_caching=true（官方定价表为该模型单独列出「缓存命中」与「缓存存储」两列，按百万 token 计价）",
+      "url": "https://console.volcengine.com/ark/region:cn-beijing/docs/ark/model-pricing?lang=zh",
+      "quote": "doubao-seed-evolving 输入长度 [0, 1024] 6.00 - 0.017 1.20 - 30.00",
+      "retrieved_at": "2026-09-18"
+    }
+  ],
+  "notes": "basis 留空：本档案的数字全部来自厂商官方模型列表，我方线路未做收窄（代码侧只认 line_restricted，vendor_official 不在允许集合内，见 modelcontracts/contracts_test.go:178）。厂商侧真实 ID 为 doubao-seed-evolving（方舟模型列表与 /api/v3/models 均确认存在，domain=VLM）。公开 ID 去掉云前缀 doubao-，与同厂 seedance-*/seedream-* 命名一致。streaming 由方舟 OpenAI 兼容端点 /api/v3/chat/completions 提供，本轮以真实调用（stream=true）确认，官方文档页未单独引述该布尔项；模型列表页给出的是能力与长度限制。定价见 scripts/ops/pricing-ledger/models/volcengine-official.json：官方刊例价 输入 6.00 / 缓存命中 1.20 / 输出 30.00 元每百万 token（CNY，按 fx.json 6.8 折算 USD）。"
+}

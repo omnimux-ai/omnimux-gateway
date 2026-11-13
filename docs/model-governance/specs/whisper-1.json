@@ -1,0 +1,68 @@
+{
+  "model_id": "whisper-1",
+  "family": "audio",
+  "vendor": "OpenAI",
+  "vendor_model_id": "whisper-1",
+  "capability": "语音识别（转录 / 翻译 / 语种识别）",
+  "operations": ["transcription", "translation", "language_identification"],
+  "status": "documented",
+  "default_for": ["speech_to_text"],
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "whisper-1 为通用语音识别模型，支持多语种识别、语音翻译与语种识别；输入模态 audio、输出模态 text",
+      "url": "https://platform.openai.com/docs/models/whisper-1",
+      "quote": "Whisper is a general-purpose speech recognition model, trained on a large dataset of diverse audio. You can also use it as a multitask model to perform multilingual speech recognition as well as speech translation and language identification.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方端点支持情况：转写 v1/audio/transcriptions 支持，其余端点（含语音生成 v1/audio/speech、Realtime、Batch）均不支持",
+      "url": "https://platform.openai.com/docs/models/whisper-1",
+      "quote": "| Transcription | `v1/audio/transcriptions` | Supported |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "翻译用法：用 /v1/audio/translations 配 whisper-1，把录音翻译成英文",
+      "url": "https://platform.openai.com/docs/guides/speech-to-text",
+      "quote": "To translate a completed audio recording into English, use `/v1/audio/translations` with `whisper-1`.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "单文件大小上限 25 MB（26214400 字节）；支持输入格式 mp3 / mp4 / mpeg / mpga / m4a / wav / webm",
+      "url": "https://platform.openai.com/docs/guides/speech-to-text",
+      "quote": "Files can be up to 25 MB. Supported input formats are mp3, mp4, mpeg, mpga, m4a, wav, and webm.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "语言数量：支持 98 种语言（准确率因语种而异）",
+      "url": "https://platform.openai.com/docs/guides/speech-to-text",
+      "quote": "Whisper supports 98 languages, but accuracy varies by language.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "词级 / 片段级时间戳（timestamp_granularities[]）只有 whisper-1 支持",
+      "url": "https://platform.openai.com/docs/guides/speech-to-text",
+      "quote": "The `timestamp_granularities[]` parameter is only supported for `whisper-1`.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "提示词（prompt）上限 224 tokens",
+      "url": "https://platform.openai.com/docs/guides/speech-to-text",
+      "quote": "For `whisper-1`, prompts have a 224-token limit and provide less control than the recommended transcription model.",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "audio_kind": "asr",
+  "input_formats": ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"],
+  "max_input_bytes": 26214400,
+  "max_input_seconds": null,
+  "output_formats": ["text"],
+  "voices": null,
+  "languages": 98,
+  "unknowns": [
+    "单次转写音频的时长上限：官方只给出 25 MB 文件上限，未公布时长上限，故 max_input_seconds 记 null",
+    "输出结果的具体载体格式（json / text / srt / vtt 等 response_format 取值）未在官方页面上找到可引用的枚举，故 output_formats 仅记 text",
+    "音色：ASR 模型无音色概念，voices 记 null"
+  ],
+  "notes": "官方口径（2026-09-14 核）：文件转写接口单文件 ≤ 25 MB，prompt ≤ 224 tokens，语音翻译端点 v1/audio/translations 明确指定 whisper-1，词/片段级时间戳仅 whisper-1 支持；定价 $0.006/分钟。官方现在把 gpt-transcribe 列为新项目首选（本档案不替它下结论），whisper-1 仍在官方模型目录中可用且在其独有场景（翻译、时间戳）仍被官方指引引用。本档案数字全部来自上列 platform.openai.com 官方页；音频时长上限官方未公布，不臆测。"
+}

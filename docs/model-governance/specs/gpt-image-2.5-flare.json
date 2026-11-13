@@ -1,0 +1,95 @@
+{
+ "model_id": "gpt-image-2.5-flare",
+ "family": "image",
+ "vendor": "OpenAI",
+ "vendor_model_id": "gpt-image-2.5-flare",
+ "capability": "图像生成与编辑（日常高质、低延迟）",
+ "operations": [
+  "text_to_image",
+  "image_to_image"
+ ],
+ "status": "documented",
+ "checked_at": "2026-09-14",
+ "sources": [
+  {
+   "claim": "官方模型页确认 gpt-image-2.5-flare 是 OpenAI 自有模型 ID，默认快照为 gpt-image-2.5-flare-2026-09-08",
+   "url": "https://developers.openai.com/api/docs/models/gpt-image-2.5-flare",
+   "quote": "Model ID: `gpt-image-2.5-flare`",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "该模型支持的质量档位为 low / medium / high / xhigh / max / auto",
+   "url": "https://developers.openai.com/api/docs/models/gpt-image-2.5-flare",
+   "quote": "It supports `low`, `medium`, `high`, `xhigh`, `max`, and `auto` quality settings.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "GPT image 系列模型单次最多 16 张参考图",
+   "url": "https://developers.openai.com/api/reference/resources/images",
+   "quote": "Input image references to edit. For GPT image models, you can provide up to 16 images.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "提示词最大 32000 字符",
+   "url": "https://developers.openai.com/api/reference/resources/images",
+   "quote": "A text description of the desired image(s). The maximum length is 32000 characters for the GPT image models, 1000 characters for `dall-e-2` and 4000 characters for `dall-e-3`.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "官方推荐输出尺寸 1024x1024 / 1536x1024 / 1024x1536",
+   "url": "https://developers.openai.com/api/docs/guides/image-generation",
+   "quote": "Recommended sizes | `1024x1024` (square), `1536x1024` (landscape), `1024x1536` (portrait) |",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "输出格式默认为 png，可选 jpeg / webp",
+   "url": "https://developers.openai.com/api/docs/guides/image-generation",
+   "quote": "The default format is `png`, but you can also request `jpeg` or `webp`.",
+   "retrieved_at": "2026-09-14"
+  },
+  {
+   "claim": "本模型是 OpenAI 官方模型，不是第三方转售 ID",
+   "url": "https://developers.openai.com/api/docs/guides/image-generation",
+   "quote": "With the Image API, set `model` to `gpt-image-2.5-sunburst` or `gpt-image-2.5-flare` directly.",
+   "retrieved_at": "2026-09-14"
+  }
+ ],
+ "reference_images": {
+  "max": 16,
+  "min": 0,
+  "formats": null,
+  "max_bytes_each": null,
+  "source_claim": "GPT image 系列模型单次最多 16 张参考图"
+ },
+ "output_sizes": [
+  "1024x1024",
+  "1536x1024",
+  "1024x1536"
+ ],
+ "output_formats": [
+  "png",
+  "jpeg",
+  "webp"
+ ],
+ "prompt_max_chars": 32000,
+ "unknowns": [
+  "参考图接受的图片格式（官方只列出 base64 / URL / file_id 三种传入方式，未枚举 MIME 类型）",
+  "单张参考图字节上限（官方只有「编辑图与其遮罩 < 50MB」的表述，未定义单文件上限）",
+  "自定义尺寸下的完整像素范围（指南给出的 655,360 ~ 8,294,400 像素与单边 3840 上限以「both models」表述，未逐模型确认）",
+  "单次请求输出张数上限 n 的官方数值"
+ ],
+ "notes": "纠正一处目录假设：flare 后缀不是第三方转售标识，gpt-image-2.5-flare 是 OpenAI 官方公开模型 ID，有独立官方模型页（https://developers.openai.com/api/docs/models/gpt-image-2.5-flare ），默认快照 gpt-image-2.5-flare-2026-09-08。官方端点表显示该模型支持 v1/images/generations 与 v1/images/edits，不支持 Responses 与 Batch。16 张参考图与 32000 字符提示词来自 OpenAI 官方 Images API 参考，该页以 \"GPT image models\" 为口径，2.5 代两个模型都在覆盖范围内；这两条不是从兄弟档案照抄，而是同一官方页面对整个 GPT image 系列的统一约束。",
+ "billing": {
+  "unit": "per_image",
+  "unit_label": {
+   "zh": "每张",
+   "en": "per image"
+  },
+  "pricing_basis": "image_count",
+  "unit_price_usd": 0.014706,
+  "notes": {
+   "zh": "按产出的图片张数计费",
+   "en": "Charged by the number of produced images"
+  }
+ }
+}

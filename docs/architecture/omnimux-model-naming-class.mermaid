@@ -1,0 +1,44 @@
+classDiagram
+  class ModelRef {
+    +string id
+    +DataSourceKind source
+    +string sourceLocator
+    +string[] tags
+    +string mappingRight
+  }
+  class AliasEntry {
+    +string from
+    +string to
+    +string level
+    +string status
+    +string retire_at
+    +bool billing_merge
+  }
+  class AliasTable {
+    +AliasEntry[] aliases
+    +resolve(id) string
+    +assertAcyclic() void
+  }
+  class Rule {
+    +string id
+    +run(ctx) RuleResult[]
+  }
+  class RulePipeline {
+    +Rule[] rules
+    +runAll(refs) LintReport
+  }
+  class LintReport {
+    +summary
+    +findings
+    +exit_code
+  }
+  class ChannelMapping {
+    +string[] models
+    +map~string,string~ model_mapping
+  }
+  AliasTable --> AliasEntry
+  RulePipeline --> Rule
+  RulePipeline --> LintReport
+  RulePipeline --> AliasTable
+  RulePipeline --> ModelRef
+  ChannelMapping ..> AliasTable : models only canonical

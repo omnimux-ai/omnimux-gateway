@@ -1,0 +1,1323 @@
+{
+  "cases": [
+    {
+      "name": "text-to-video defaults to the cheapest standard workflow",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "model": "minimax-h3-video",
+            "prompt": "a cat"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_lightx2v_no_pic",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "768p竖",
+          "duration": 5
+        },
+        "action": "text_to_video"
+      }
+    },
+    {
+      "name": "text-to-video at 480p for 15s",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "480p",
+            "duration": 15
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_lightx2v_no_pic",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "480p竖",
+          "duration": 15
+        },
+        "action": "text_to_video"
+      }
+    },
+    {
+      "name": "image-reference at 768p",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p",
+            "images": [
+              "https://cdn.example/a.png"
+            ]
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_802",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "768p竖(768*1376)",
+          "duration": 5,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "image-reference at 736p for exactly the 12s ceiling",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "736p",
+            "duration": 12,
+            "ref_image_0": "https://cdn.example/a.png"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_b99_003_12s",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "736p竖",
+          "duration": 12,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "image-reference at 480p for 13s trims every 10s workflow",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "480p",
+            "duration": 13,
+            "ref_image_0": "https://cdn.example/a.png"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_802",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "480p竖(480*864)",
+          "duration": 13,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "first-last-frame at 768p",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p",
+            "first_frame": "https://cdn.example/f.png",
+            "last_frame": "https://cdn.example/l.png"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_lightx2v",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "768p竖",
+          "duration": 5,
+          "first_frame": "https://cdn.example/f.png",
+          "last_frame": "https://cdn.example/l.png"
+        },
+        "action": "first_last_frame"
+      }
+    },
+    {
+      "name": "image-audio (prompt + image + audio)",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p",
+            "ref_image_0": "https://cdn.example/a.png",
+            "ref_audio_0": "https://cdn.example/a.mp3"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_803",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "768p竖(768*1376)",
+          "duration": 5,
+          "ref_image_0": "https://cdn.example/a.png",
+          "ref_audio_0": "https://cdn.example/a.mp3"
+        },
+        "action": "image_audio"
+      }
+    },
+    {
+      "name": "lip-sync keeps the upstream audio_duration field",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "resolution": "768p",
+            "ref_image_0": "https://cdn.example/a.png",
+            "ref_audio_0": "https://cdn.example/a.mp3"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_image_audio_to_video",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "resolution": "768p竖",
+          "audio_duration": 5,
+          "ref_image_0": "https://cdn.example/a.png",
+          "ref_audio_0": "https://cdn.example/a.mp3"
+        },
+        "action": "lip_sync"
+      }
+    },
+    {
+      "name": "motion transfer sends no duration or resolution",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "ref_image": "https://cdn.example/a.png",
+            "ref_video": "https://cdn.example/v.mp4",
+            "seed": 7
+          },
+          "model": "wan-2-2-animate",
+          "upstreamModel": "wan-2-2-animate",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/wan2.2animate-v4-motion_retargeting",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "ref_image": "https://cdn.example/a.png",
+          "ref_video": "https://cdn.example/v.mp4",
+          "seed": 7
+        },
+        "action": "motion_transfer"
+      }
+    },
+    {
+      "name": "text-to-speech passes emotion vectors through",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt_text": "你好世界",
+            "prompt_simple": "https://cdn.example/voice.wav",
+            "emo_happy": 0.5,
+            "emo_random": true
+          },
+          "model": "indextts-2",
+          "upstreamModel": "indextts-2",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/indextts2-v1",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt_text": "你好世界",
+          "prompt_simple": "https://cdn.example/voice.wav",
+          "emo_happy": 0.5,
+          "emo_random": true
+        },
+        "action": "text_to_speech"
+      }
+    },
+    {
+      "name": "tier pin fast",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p",
+            "ref_image_0": "https://cdn.example/a.png"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "fast",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_zm_u08",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "768p竖",
+          "duration": 5,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "tier pin pro",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p",
+            "ref_image_0": "https://cdn.example/a.png"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "pro",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_zm_u24",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "768p竖",
+          "duration": 5,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "workflowId pin skips shape dispatch",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p",
+            "ref_image_0": "https://cdn.example/a.png"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax_h3_lightx2v_v5",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_lightx2v_v5",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "768p竖",
+          "duration": 5,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "1080p is rejected, not silently downgraded",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "1080p"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expectedError": "autodl: resolution 1080p is not offered; supported resolutions are 480p, 736p, 768p, 1088p, 1440p (1080p exists upstream but has no published price)"
+    },
+    {
+      "name": "image-reference at 1088p picks the cheapest capable workflow",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "1088p",
+            "images": [
+              "https://cdn.example/a.png"
+            ]
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_802",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "1088p竖(1088*1920)",
+          "duration": 5,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "image-reference at 1440p picks the cheapest capable workflow",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "1440p",
+            "images": [
+              "https://cdn.example/a.png"
+            ]
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/minimax_h3_802",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        },
+        "body": {
+          "prompt": "a cat",
+          "resolution": "1440p竖(1440*2560)",
+          "duration": 5,
+          "ref_image_0": "https://cdn.example/a.png"
+        },
+        "action": "image_to_video"
+      }
+    },
+    {
+      "name": "736p beyond 12s has no candidate and says so",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "736p",
+            "duration": 13,
+            "ref_image_0": "https://cdn.example/a.png"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expectedError": "supports shape image-reference with resolution 736p and duration 13s"
+    },
+    {
+      "name": "a tier pin never falls back across tiers",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "pro",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expectedError": "no workflow in tier \"pro\" of model \"minimax-h3-video\" supports shape text-to-video"
+    },
+    {
+      "name": "motion shape has no H3 workflow",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "ref_video": "https://cdn.example/v.mp4"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expectedError": "supports shape motion with duration 5s"
+    },
+    {
+      "name": "motion-transfer model rejects an image-only request",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "ref_image": "https://cdn.example/a.png"
+          },
+          "model": "wan-2-2-animate",
+          "upstreamModel": "wan-2-2-animate",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expectedError": "no workflow in tier \"standard\" of model \"wan-2-2-animate\" supports shape image-reference"
+    },
+    {
+      "name": "voice synthesis requires the voice reference",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt_text": "你好"
+          },
+          "model": "indextts-2",
+          "upstreamModel": "indextts-2",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expectedError": "workflow indextts2-v1 requires prompt_simple"
+    },
+    {
+      "name": "non-integer duration is rejected",
+      "hook": "buildSubmitRequest",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "duration": 2.5
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        }
+      ],
+      "expectedError": "duration must be an integer number of seconds"
+    },
+    {
+      "name": "submit response keeps the public task id and pins the chosen workflow",
+      "hook": "parseSubmitResponse",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        },
+        {
+          "statusCode": 200,
+          "headers": {},
+          "body": {
+            "code": 0,
+            "msg": "ok",
+            "data": {
+              "task_id": "task-123",
+              "status": "QUEUED",
+              "client_id": "c-1"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "taskId": "task-123",
+        "taskData": {
+          "code": 0,
+          "msg": "ok",
+          "data": {
+            "task_id": "task-123",
+            "status": "QUEUED",
+            "client_id": "c-1"
+          }
+        },
+        "state": {
+          "workflowId": "minimax_h3_lightx2v_no_pic",
+          "publicId": "minimax-h3-video",
+          "shape": "text-to-video",
+          "billingMode": "per_second",
+          "seconds": 5,
+          "resolution": "768p"
+        }
+      }
+    },
+    {
+      "name": "submit envelope error surfaces the upstream message",
+      "hook": "parseSubmitResponse",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        },
+        {
+          "statusCode": 200,
+          "headers": {},
+          "body": {
+            "code": 4001,
+            "msg": "invalid token"
+          }
+        }
+      ],
+      "expectedError": "invalid token"
+    },
+    {
+      "name": "submit response without task_id fails",
+      "hook": "parseSubmitResponse",
+      "args": [
+        {
+          "requestBody": {
+            "prompt": "a cat",
+            "resolution": "768p"
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token",
+          "action": ""
+        },
+        {
+          "statusCode": 200,
+          "headers": {},
+          "body": {
+            "code": 0,
+            "data": {}
+          }
+        }
+      ],
+      "expectedError": "has no task_id"
+    },
+    {
+      "name": "query targets the result endpoint with the raw channel token",
+      "hook": "buildQueryRequest",
+      "args": [
+        {
+          "taskId": "task-123",
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token"
+        }
+      ],
+      "expected": {
+        "url": "https://autodl.art/api/v1/comfyui/comfyui_workflow/result/task-123",
+        "method": "GET",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "test-token"
+        }
+      }
+    },
+    {
+      "name": "RUNNING maps to IN_PROGRESS",
+      "hook": "parseTaskResult",
+      "args": [
+        {},
+        {
+          "code": 0,
+          "data": {
+            "status": "RUNNING"
+          }
+        },
+        {
+          "status": 200,
+          "headers": {}
+        }
+      ],
+      "expected": {
+        "status": "IN_PROGRESS",
+        "progress": "50%"
+      }
+    },
+    {
+      "name": "SUCCESS takes the first result URL",
+      "hook": "parseTaskResult",
+      "args": [
+        {},
+        {
+          "code": 0,
+          "data": {
+            "status": "SUCCESS",
+            "duration": 8,
+            "results": [
+              "https://cdn.example/out.mp4?sig=1",
+              "https://cdn.example/out2.mp4"
+            ]
+          }
+        },
+        {
+          "status": 200,
+          "headers": {}
+        }
+      ],
+      "expected": {
+        "status": "SUCCESS",
+        "progress": "100%",
+        "url": "https://cdn.example/out.mp4?sig=1"
+      }
+    },
+    {
+      "name": "SUCCESS accepts object results",
+      "hook": "parseTaskResult",
+      "args": [
+        {},
+        {
+          "code": 0,
+          "data": {
+            "status": "SUCCESS",
+            "results": [
+              {
+                "url": "https://cdn.example/out.mp4"
+              }
+            ]
+          }
+        },
+        {
+          "status": 200,
+          "headers": {}
+        }
+      ],
+      "expected": {
+        "status": "SUCCESS",
+        "progress": "100%",
+        "url": "https://cdn.example/out.mp4"
+      }
+    },
+    {
+      "name": "FAILED maps to FAILURE with the upstream reason",
+      "hook": "parseTaskResult",
+      "args": [
+        {},
+        {
+          "code": 0,
+          "data": {
+            "status": "FAILED",
+            "msg": "nsfw"
+          }
+        },
+        {
+          "status": 200,
+          "headers": {}
+        }
+      ],
+      "expected": {
+        "status": "FAILURE",
+        "progress": "100%",
+        "reason": "nsfw"
+      }
+    },
+    {
+      "name": "a busy envelope is a failure, not a poll failure",
+      "hook": "parseTaskResult",
+      "args": [
+        {},
+        {
+          "code": 5001,
+          "msg": "upstream busy"
+        },
+        {
+          "status": 200,
+          "headers": {}
+        }
+      ],
+      "expected": {
+        "status": "FAILURE",
+        "progress": "100%",
+        "reason": "upstream busy"
+      }
+    },
+    {
+      "name": "an unknown status stays UNKNOWN",
+      "hook": "parseTaskResult",
+      "args": [
+        {},
+        {
+          "code": 0,
+          "data": {
+            "status": "PAUSED"
+          }
+        },
+        {
+          "status": 200,
+          "headers": {}
+        }
+      ],
+      "expected": {
+        "status": "UNKNOWN",
+        "reason": "unrecognized status: PAUSED"
+      }
+    },
+    {
+      "name": "video facts carry seconds and the resolved tier",
+      "hook": "extractUsage",
+      "args": [
+        {
+          "requestBody": {
+            "model": "minimax-h3-video",
+            "prompt": "a cat",
+            "resolution": "768p",
+            "duration": 6
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video"
+        }
+      ],
+      "expected": {
+        "seconds": 6,
+        "resolution": "768p"
+      }
+    },
+    {
+      "name": "billing ratios use the same facts",
+      "hook": "extractUsage",
+      "args": [
+        {
+          "requestBody": {
+            "model": "minimax-h3-video",
+            "prompt": "a cat",
+            "resolution": "480p",
+            "duration": 6
+          },
+          "model": "minimax-h3-video",
+          "upstreamModel": "minimax-h3-video",
+          "usagePurpose": "billing_ratios"
+        }
+      ],
+      "expected": {
+        "seconds": 6,
+        "resolution": "480p"
+      }
+    },
+    {
+      "name": "motion transfer reports seconds only",
+      "hook": "extractUsage",
+      "args": [
+        {
+          "requestBody": {
+            "model": "wan-2-2-animate",
+            "ref_image": "https://cdn.example/a.png",
+            "ref_video": "https://cdn.example/v.mp4",
+            "duration": 9
+          },
+          "model": "wan-2-2-animate",
+          "upstreamModel": "wan-2-2-animate"
+        }
+      ],
+      "expected": {
+        "seconds": 9
+      }
+    },
+    {
+      "name": "per-second speech synthesis reports usage facts with floor",
+      "hook": "extractUsage",
+      "args": [
+        {
+          "requestBody": {
+            "model": "indextts-2",
+            "prompt_text": "你好",
+            "prompt_simple": "https://cdn.example/v.wav"
+          },
+          "model": "indextts-2",
+          "upstreamModel": "indextts-2"
+        }
+      ],
+      "expected": {
+        "seconds": 10
+      }
+    },
+    {
+      "name": "completion bills the requested duration, not the upstream processing time",
+      "hook": "extractUsageOnComplete",
+      "args": [
+        {
+          "state": {
+            "billingMode": "per_second",
+            "seconds": 5,
+            "resolution": "768p"
+          }
+        },
+        {
+          "status": "SUCCESS"
+        },
+        {
+          "code": 0,
+          "data": {
+            "status": "SUCCESS",
+            "duration": 123
+          }
+        }
+      ],
+      "expected": {
+        "seconds": 5,
+        "resolution": "768p"
+      }
+    },
+    {
+      "name": "a 1s 1088p request is never billed as its 123s processing time",
+      "hook": "extractUsageOnComplete",
+      "args": [
+        {
+          "state": {
+            "billingMode": "per_second",
+            "seconds": 1,
+            "resolution": "1088p"
+          }
+        },
+        {
+          "status": "SUCCESS"
+        },
+        {
+          "code": 0,
+          "data": {
+            "status": "SUCCESS",
+            "duration": 123,
+            "results": [{ "url": "https://cdn.example/clip.mp4" }]
+          }
+        }
+      ],
+      "expected": {
+        "seconds": 1,
+        "resolution": "1088p"
+      }
+    },
+    {
+      "name": "completion reports the requested duration when the upstream omits duration",
+      "hook": "extractUsageOnComplete",
+      "args": [
+        {
+          "state": {
+            "billingMode": "per_second",
+            "seconds": 5,
+            "resolution": "736p"
+          }
+        },
+        {
+          "status": "SUCCESS"
+        },
+        {
+          "code": 0,
+          "data": {
+            "status": "SUCCESS"
+          }
+        }
+      ],
+      "expected": {
+        "seconds": 5,
+        "resolution": "736p"
+      }
+    },
+    {
+      "name": "completion reports nothing for per-call models",
+      "hook": "extractUsageOnComplete",
+      "args": [
+        {
+          "state": {
+            "billingMode": "per_call"
+          }
+        },
+        {
+          "status": "SUCCESS"
+        },
+        {
+          "code": 0,
+          "data": {
+            "status": "SUCCESS"
+          }
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "a finished task exposes one video artifact",
+      "hook": "listArtifacts",
+      "args": [
+        {
+          "taskId": "t1",
+          "status": "SUCCESS",
+          "action": "text_to_video",
+          "data": {
+            "code": 0,
+            "data": {
+              "status": "SUCCESS",
+              "results": [
+                "https://cdn.example/out.mp4"
+              ]
+            }
+          },
+          "producerVersion": "1.0.0"
+        }
+      ],
+      "expected": [
+        {
+          "key": "video",
+          "type": "video",
+          "mimeType": "video/mp4"
+        }
+      ]
+    },
+    {
+      "name": "speech output is an audio artifact",
+      "hook": "listArtifacts",
+      "args": [
+        {
+          "taskId": "t1",
+          "status": "SUCCESS",
+          "action": "text_to_video",
+          "data": {
+            "code": 0,
+            "data": {
+              "status": "SUCCESS",
+              "results": [
+                "https://cdn.example/out.wav"
+              ]
+            }
+          },
+          "producerVersion": "1.0.0"
+        }
+      ],
+      "expected": [
+        {
+          "key": "audio",
+          "type": "audio",
+          "mimeType": "audio/wav"
+        }
+      ]
+    },
+    {
+      "name": "a running task has no artifact",
+      "hook": "listArtifacts",
+      "args": [
+        {
+          "taskId": "t1",
+          "status": "IN_PROGRESS",
+          "action": "text_to_video",
+          "data": {
+            "code": 0,
+            "data": {
+              "status": "RUNNING"
+            }
+          },
+          "producerVersion": "1.0.0"
+        }
+      ],
+      "expected": []
+    },
+    {
+      "name": "content requests proxy the short-lived upstream URL",
+      "hook": "buildContentRequest",
+      "args": [
+        {
+          "artifactKey": "video",
+          "data": {
+            "code": 0,
+            "data": {
+              "status": "SUCCESS",
+              "results": [
+                "https://cdn.example/out.mp4"
+              ]
+            }
+          },
+          "clientRequest": {
+            "method": "GET",
+            "headers": {}
+          },
+          "baseUrl": "https://autodl.art",
+          "apiKey": "test-token"
+        }
+      ],
+      "expected": {
+        "url": "https://cdn.example/out.mp4",
+        "method": "GET",
+        "credentialless": true
+      }
+    },
+    {
+      "name": "an unknown artifact key is not proxied",
+      "hook": "buildContentRequest",
+      "args": [
+        {
+          "artifactKey": "video",
+          "data": {},
+          "clientRequest": {
+            "method": "GET",
+            "headers": {}
+          }
+        }
+      ],
+      "expectedError": "artifact_not_found"
+    },
+    {
+      "name": "Responses input text becomes a video prompt",
+      "hook": "protocols",
+      "path": [
+        "openai_responses",
+        "decodeRequest"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "minimax-h3-video",
+              "input": "a cat walking on the beach"
+            }
+          },
+          "model": "minimax-h3-video",
+          "stream": false
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "minimax-h3-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "model": "minimax-h3-video",
+          "prompt": "a cat walking on the beach"
+        }
+      }
+    },
+    {
+      "name": "Responses input must be a string or array",
+      "hook": "protocols",
+      "path": [
+        "openai_responses",
+        "decodeRequest"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "minimax-h3-video",
+              "input": {
+                "text": "bad"
+              }
+            }
+          },
+          "model": "minimax-h3-video"
+        }
+      ],
+      "expectedError": "input must be a string or array"
+    },
+    {
+      "name": "OpenAI Video submit carries seconds as duration",
+      "hook": "protocols",
+      "path": [
+        "openai_video",
+        "decodeRequest"
+      ],
+      "args": [
+        {
+          "body": {
+            "kind": "json",
+            "value": {
+              "model": "minimax-h3-video",
+              "prompt": "a cat",
+              "seconds": 6
+            }
+          },
+          "model": "minimax-h3-video"
+        }
+      ],
+      "expected": {
+        "kind": "submit",
+        "model": "minimax-h3-video",
+        "action": "text_to_video",
+        "requestBody": {
+          "model": "minimax-h3-video",
+          "prompt": "a cat",
+          "duration": 6
+        }
+      }
+    },
+    {
+      "name": "OpenAI Video retrieve renders the task envelope",
+      "hook": "protocols",
+      "path": [
+        "openai_video",
+        "render"
+      ],
+      "args": [
+        {
+          "model": "minimax-h3-video"
+        },
+        {
+          "task_id": "task-123",
+          "status": "IN_PROGRESS",
+          "progress": "42%",
+          "created_at": 10,
+          "updated_at": 20,
+          "properties": {
+            "origin_model_name": "minimax-h3-video"
+          }
+        }
+      ],
+      "expected": {
+        "id": "task-123",
+        "object": "video",
+        "model": "minimax-h3-video",
+        "status": "in_progress",
+        "progress": 42,
+        "created_at": 10,
+        "completed_at": 20
+      }
+    }
+  ]
+}

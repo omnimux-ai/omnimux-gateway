@@ -1,0 +1,128 @@
+.idea
+.review
+.vscode
+.zed
+.history
+upload
+*.exe
+*.db
+build
+*.db-journal
+*.db-shm
+*.db-wal
+logs
+web/dist
+web/node_modules
+.env
+one-api
+new-api
+/__debug_bin*
+.DS_Store
+tiktoken_cache
+.eslintcache
+.gocache
+.gomodcache/
+.cache
+.plans
+.claude
+.cursor
+
+electron/node_modules
+electron/dist
+/data/
+.gomodcache/
+.gocache-temp
+.gopath
+.test
+token_estimator_test.go
+skills-lock.json
+.playwright-mcp
+
+# Local-only live probes and scratch test workspaces.
+.local-tests/
+relaykit/relayconvert/chat_responses_live_local_test.go
+service/openaicompat/chat_responses_live_local_test.go
+go.work
+go.work.sum
+
+# Fork / local operator secrets and scratch (never commit)
+.worktrees/
+.env.bak
+.env.*.local
+.local-backup-*/
+start-supabase-with-proxy.sh
+supabase/.temp/
+supabase/.branches
+.agents/skills/newapi/.env
+.agents/**/.env
+*.pem
+*.key
+id_rsa*
+credentials.json
+service-account*.json
+
+# Ad-hoc database dumps and exports (never version: tasks.private_data stores
+# the channel API key in plaintext for GoEasy/Gemini/Vertex/NewAPI channels).
+# Reviewed migrations under bin/ stay tracked.
+/*.sql
+/*.sql.gz
+/*.dump
+backups-*/
+*black-cards*.sql
+
+# apikey.fun smoke outputs
+scripts/ops/apikeyfun/smoke-report-*.json
+
+# smoke-canary local reports
+scripts/ops/smoke-canary/reports/
+scripts/ops/smoke-canary/smoke-report-*.json
+
+# Local scratch, agent temp dumps, Cloudflare Wrangler (never commit)
+tmp/
+.tmp-*/
+.tmp-*.png
+.wrangler/
+
+# pricing ledger runtime outputs
+scripts/ops/pricing-ledger/reports/
+scripts/ops/pricing-ledger/snapshots/
+
+# channel catalog matrix runtime
+scripts/ops/channel-catalog/reports/
+
+# Local UI skill links and Worker development state
+deploy/worker-proxy/.wrangler/
+/.agents/skills/better-interface
+/.agents/skills/explain-interface
+/.agents/skills/interface-review
+/.agents/skills/better-colors
+/.agents/skills/better-ui
+/.agents/skills/better-typography
+/.agents/skills/better-accessibility
+/.agents/skills/better-layout
+/.agents/skills/variant
+/.agents/skills/frontend-design
+/.agents/skills/better-writing
+/.agents/skills/break
+
+# Project-local managed recovery points
+.agent-backups/
+
+# 本地密钥库：只存在于本机，绝不入库。
+# 脚本改为运行时读取（环境变量 <SUPPLIER>_KEY_<CHANNEL_ID> 优先，其次本文件），
+# 见 scripts/ops/lib/local-secrets.js。禁止再把 sk-* 硬编码回任何被跟踪的文件。
+scripts/ops/.secrets.local.json
+node_modules
+
+# Local-only agent/operator scratch (never commit)
+# Heavy, rebuildable agent working output; evidence stays in .agent-reports/.
+.agent-workspaces/
+.agent-reports-reference-picker-lint-baseline.log
+.artifacts/
+.demo-assets/
+.dsh-kanban-flow.json
+# Per-task demo and probe directories. Ignoring the directory keeps a stray
+# `git add -A` from sweeping tens of MB of screenshots into a commit.
+.scratch/
+__pycache__/
+*.pyc

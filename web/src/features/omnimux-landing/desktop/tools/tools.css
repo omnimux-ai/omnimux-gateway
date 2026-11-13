@@ -1,0 +1,455 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/* TikTok downloader tool pages. Scoped under `.omc`, reusing the homepage
+   tokens and classes from desktop-cn.css (.btn, .h1, .h2, .composer, .c-tabs,
+   .skill, .faq-list, .final-card). Only tool-specific layout lives here. */
+.omc .tool {
+  position: relative;
+  text-align: center;
+  padding: clamp(120px, 14vw, 152px) 0 40px;
+  isolation: isolate;
+}
+.omc .tool .h1 {
+  font-size: clamp(40px, 5.4vw, 64px);
+}
+.omc .tool-crumb {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg-3);
+  margin-bottom: 16px;
+}
+.omc .tool-crumb a:hover {
+  color: var(--fg);
+}
+.omc .tool-sub {
+  max-width: 640px;
+  margin: 16px auto 0;
+  color: var(--fg-2);
+  font-size: clamp(16px, 1.4vw, 18px);
+  text-wrap: balance;
+}
+.omc .tool-kind {
+  margin-top: 32px;
+}
+.omc .tool-kind a {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--fg-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.omc .tool-kind a .ico {
+  width: 15px;
+  height: 15px;
+}
+.omc .tool-kind a[aria-current='page'] {
+  background: var(--fg);
+  color: #16131f;
+  font-weight: 600;
+}
+.omc .tool-box.composer {
+  margin-top: 16px;
+  padding: 12px;
+}
+.omc .tool-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.omc .tool-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 8px 0 14px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hair);
+}
+.omc .tool-field:focus-within {
+  border-color: var(--hair-3);
+}
+.omc .tool-field[data-invalid='true'] {
+  border-color: rgba(242, 133, 140, 0.55);
+}
+.omc .tool-field > .ico {
+  color: var(--fg-3);
+}
+.omc .tool-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 16px;
+  color: var(--fg);
+}
+.omc .tool-field input::placeholder {
+  color: var(--fg-3);
+}
+.omc .tool-paste {
+  flex: none;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--fg-2);
+  border: 1px solid var(--hair-2);
+}
+.omc .tool-paste:hover {
+  color: var(--fg);
+  border-color: var(--hair-3);
+}
+.omc .tool-box .tool-go {
+  height: 52px;
+  border-radius: 16px;
+  padding: 0 24px;
+}
+.omc .tool-go[disabled],
+.omc .tool-go[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.omc .tool-spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(22, 19, 31, 0.25);
+  border-top-color: #16131f;
+  animation: tool-spin 0.8s linear infinite;
+}
+@keyframes tool-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.omc .tool-ts {
+  margin: 12px 4px 0;
+  min-height: 65px;
+}
+.omc .tool-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--fg-3);
+}
+.omc .tool-meta b {
+  color: var(--fg-2);
+  font-weight: 500;
+  font-family: var(--mono);
+}
+/* result card */
+.omc .tool-result {
+  max-width: 760px;
+  margin: 16px auto 0;
+  text-align: left;
+  border-radius: 24px;
+  border: 1px solid var(--hair-2);
+  background: var(--panel);
+  padding: 16px;
+}
+.omc .tool-vid {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.omc .tool-vid video {
+  width: 100%;
+  aspect-ratio: 9/16;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #000;
+  border: 1px solid var(--hair);
+}
+.omc .tool-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.omc .tool-who i {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7f68f5, #ab9cff);
+}
+.omc .tool-who b {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.omc .tool-who span {
+  display: block;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.omc .tool-desc {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--fg-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.omc .tool-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.omc .tool-chips span {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hair-2);
+  font-size: 12px;
+  color: var(--fg-2);
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+}
+.omc .tool-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+}
+.omc .tool-acts .btn {
+  width: 100%;
+}
+.omc .tool-divider {
+  height: 1px;
+  background: var(--hair);
+  margin: 16px 0;
+}
+.omc .tool-photo-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.omc .tool-photo-head .tool-spacer {
+  flex: 1;
+}
+.omc .tool-lock {
+  font-size: 12px;
+  color: var(--fg-3);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.omc .tool-lock .ico {
+  width: 14px;
+  height: 14px;
+}
+.omc .tool-imgs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.omc .tool-img {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  aspect-ratio: 3/4;
+  background: #000;
+}
+.omc .tool-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omc .tool-img .tool-n {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  font: 600 12px var(--mono);
+  background: rgba(8, 7, 12, 0.7);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.omc .tool-img a {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(244, 242, 251, 0.92);
+  color: #16131f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.omc .tool-img a .ico {
+  width: 16px;
+  height: 16px;
+}
+.omc .tool-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+/* sections */
+.omc .tool-sec {
+  padding-block: clamp(48px, 6vw, 80px);
+}
+.omc .tool-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 40px;
+}
+.omc .tool-step {
+  border: 1px solid var(--hair);
+  border-radius: 20px;
+  background: var(--panel);
+  padding: 24px;
+}
+.omc .tool-step i {
+  font: 600 12px var(--mono);
+  color: var(--violet-hi);
+  font-style: normal;
+}
+.omc .tool-step h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+.omc .tool-step p {
+  font-size: 14px;
+  color: var(--fg-2);
+  margin-top: 8px;
+}
+.omc .tool-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: center;
+  border: 1px solid var(--hair-2);
+  border-radius: 24px;
+  background: linear-gradient(
+    135deg,
+    rgba(121, 97, 242, 0.14),
+    rgba(20, 18, 27, 0.6)
+  );
+  padding: clamp(24px, 4vw, 40px);
+}
+.omc .tool-cta .h2 {
+  text-align: left;
+  font-size: clamp(28px, 3.4vw, 44px);
+}
+.omc .tool-cta p {
+  color: var(--fg-2);
+  margin-top: 12px;
+}
+.omc .tool-cta .tool-btns {
+  margin-top: 24px;
+}
+.omc .tool-pair {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.omc .tool-pair figure {
+  position: relative;
+  width: 150px;
+  aspect-ratio: 9/16;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--hair-2);
+}
+.omc .tool-pair img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omc .tool-pair figcaption {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  font-size: 12px;
+  background: rgba(8, 7, 12, 0.7);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.omc .tool-faq {
+  margin-top: 32px;
+}
+.omc .tool-rel {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+@media (max-width: 860px) {
+  .omc .tool-vid,
+  .omc .tool-cta {
+    grid-template-columns: 1fr;
+  }
+  .omc .tool-vid video {
+    max-width: 280px;
+    margin-inline: auto;
+  }
+  .omc .tool-steps {
+    grid-template-columns: 1fr;
+  }
+  .omc .tool-imgs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .omc .tool-row {
+    flex-wrap: wrap;
+  }
+  .omc .tool-box .tool-go {
+    width: 100%;
+  }
+}
+.omc .tool-sec .h2 {
+  text-align: center;
+}
+.omc .tool-sec .tool-cta .h2 {
+  text-align: left;
+}
+.omc .tool-sec-tight {
+  padding-top: 0;
+}

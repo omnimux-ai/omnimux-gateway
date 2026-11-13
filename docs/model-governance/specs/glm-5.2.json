@@ -1,0 +1,69 @@
+{
+  "model_id": "glm-5.2",
+  "family": "llm",
+  "vendor": "智谱",
+  "vendor_model_id": "glm-5.2",
+  "capability": "文本对话、推理与工具调用（旗舰基座模型）",
+  "operations": [
+    "chat_completion",
+    "streaming",
+    "tool_calling",
+    "prompt_caching"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "context_window_tokens=1000000 且 max_output_tokens=131072（官方模型概览表：1M / 128K）",
+      "url": "https://docs.bigmodel.cn/cn/guide/start/model-overview",
+      "quote": "| GLM-5.2 | 支撑复杂长程任务稳定执行 Coding 能力大幅提升，从代码生成走向工程交付 | 1M | 128K |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "context_window_tokens=1000000（详情页：真正可用的 1M 上下文）",
+      "url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.2",
+      "quote": "支持真正可用的 1M 上下文，实测可承载项目级工程上下文",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities=[\"text\"]（模型页输入模态为文本，输出模态亦为文本）",
+      "url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.2",
+      "quote": "输入模态 文本 输出模态 文本",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming=true（模型页能力支持列出流式输出）",
+      "url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.2",
+      "quote": "流式输出：支持实时流式响应，提升用户交互体验",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling=true（模型页能力支持列出 Function Calling）",
+      "url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.2",
+      "quote": "Function Calling：强大的工具调用能力，支持多种外部工具集成",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching=true（模型页能力支持列出上下文缓存）",
+      "url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.2",
+      "quote": "上下文缓存：智能缓存机制，优化长对话性能",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching=true（官方缓存文档明确列名 GLM-5.2、GLM-5.1、GLM-5 系列）",
+      "url": "https://docs.bigmodel.cn/cn/guide/capabilities/cache",
+      "quote": "广泛兼容性：支持所有主流模型，包括 GLM-5.2、GLM-5.1、GLM-5 系列等",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "notes": "上下文 1M、最大输出 128K 有官方模型概览表与详情页两处出处；详情页 Card 另给出输入/输出模态均为「文本」。",
+  "context_window_tokens": 1000000,
+  "max_output_tokens": 131072,
+  "input_modalities": [
+    "text"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "unknowns": []
+}

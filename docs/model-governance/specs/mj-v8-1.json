@@ -1,0 +1,79 @@
+{
+  "model_id": "mj-v8-1",
+  "family": "image",
+  "vendor": "Midjourney",
+  "vendor_model_id": "Midjourney V8.1",
+  "capability": "图像生成（文生图 / 图生图 / HD 高清出图）",
+  "operations": ["text_to_image", "image_to_image"],
+  "status": "partial",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "V8.1 于 2026-04-14 发布，2026-06-10 至 2026-07-23 为默认版本",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "V8.1 V8.1 released on April 14, 2026, and was the default version from June 10 to July 23, 2026.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "V8.1 提供 HD 出图，可生成 2048px 高清图而无需放大",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "V8.1 features HD images, allowing you to generate higher resolution 2K images, without upscaling.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "HD 开关用 --sd 与 --hd 参数",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "You can turn on HD images in the Version section of the settings panel on web, or by using the --sd and --hd parameters.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方版本对照表中 V8.1 & V8.2 一列的 HD 图像为 2048px，最大宽高比 14:1（HD 为 4:1）",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "Feature Compatibility & Comparison Chart V6 V7 V8.1 & V8.2 Max. Aspect Ratio 14:1 14:1 14:1 (4:1 for HD)",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "V8.1 的参考图（Image Prompt）支持的文件扩展名",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32040250122381-Image-Prompts",
+      "quote": "Your image file should end in .png, .gif, .webp, .jpg, or .jpeg.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "官方允许一次使用多张参考图，但未给出张数上限",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32040250122381-Image-Prompts",
+      "quote": "Upload two or more images without text to blend them together—similar to using the Blend command in Discord.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图权重 --iw 在 V8.1 的取值范围为 0-3",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32040250122381-Image-Prompts",
+      "quote": "Version 8.1 Version 7 Niji 7 Image Weight Default 1 1 1 Image Weight Range 0 - 3 0 - 3 0 - 2",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "V8.1 支持通过 --version 或 --v 选择",
+      "url": "https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version",
+      "quote": "Explore and switch between Midjourney versions using the version parameter: --version or --v",
+      "retrieved_at": "2026-09-14"
+    }
+  ],
+  "reference_images": {
+    "max": null,
+    "min": 0,
+    "formats": ["png", "gif", "webp", "jpg", "jpeg"],
+    "max_bytes_each": null,
+    "source_claim": "官方允许一次使用多张参考图，但未给出张数上限"
+  },
+  "output_sizes": null,
+  "output_formats": null,
+  "prompt_max_chars": null,
+  "unknowns": [
+    "单次参考图（Image Prompt）张数上限：官方只说明「两张以上」的用法，未公布上限数字",
+    "单张参考图字节上限",
+    "V8.1 的完整输出尺寸矩阵：官方只给出「HD 图像 2048px」这一条（且对照表把 V8.1 与 V8.2 合并标注），未列出各宽高比下的像素尺寸",
+    "输出图片文件格式（官方文档未声明下载文件格式）",
+    "提示词字符数上限：官方「Prompt Basics」未公布数值",
+    "Midjourney 无公开官方 API；本档案描述的是官方产品文档口径，OmniMux 的接入经由第三方渠道，上游并不承诺同等行为"
+  ],
+  "notes": "重要版本事实：Midjourney 当前默认版本已是 V8.2（2026-07-24 起），V8.1 不再是默认版本，但官方版本对照表仍将其列为可用版本。V8.1 的官方卖点是速度（官方称标准任务比早期版本快约 4-5 倍）与 HD 2K 出图。输出尺寸字段留 null 的原因：官方把 V8.1 与 V8.2 合并在同一列标注 2048px，未单独给出 V8.1 的尺寸矩阵；不套用 V8.2 文章里「1:1 下 HD 2048x2048 / SD 1024x1024」的表述，因为那段原文明确写的是 version 8.2。官方帮助中心对普通 UA 返回 Cloudflare 403，本档案内容经该站官方 Zendesk Help Center JSON 接口取得。"
+}

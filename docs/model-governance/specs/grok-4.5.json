@@ -1,0 +1,83 @@
+{
+  "model_id": "grok-4.5",
+  "family": "llm",
+  "vendor": "xAI",
+  "vendor_model_id": "grok-4.5",
+  "capability": "文本生成（编码与智能体任务）",
+  "operations": [
+    "chat_completion"
+  ],
+  "status": "partial",
+  "checked_at": "2026-09-17",
+  "context_window_tokens": 500000,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "reasoning_efforts": {
+    "low": "low",
+    "medium": "medium",
+    "high": "high"
+  },
+  "default_reasoning_effort": "high",
+  "sources": [
+    {
+      "claim": "context_window_tokens = 500000：官方模型卡 At a glance 写明上下文窗口为 500,000 tokens",
+      "url": "https://docs.x.ai/developers/models/grok-4.5",
+      "quote": "- **Context window:** 500,000 tokens\n- **Model name:** `grok-4.5`",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities = [\"text\", \"image\"]：官方模型卡写明模态为 text, image → text",
+      "url": "https://docs.x.ai/developers/models/grok-4.5",
+      "quote": "- **Modalities:** text, image → text",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling = true：官方模型卡 Capabilities 段写明 Function calling: Yes",
+      "url": "https://docs.x.ai/developers/models/grok-4.5",
+      "quote": "- **Function calling:** Yes\n- **Structured outputs:** Yes\n- **Reasoning:** Yes",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming = true：官方流式文档声明「所有具备文本输出能力的模型」均支持流式输出，本模型为文本输出模型故适用",
+      "url": "https://docs.x.ai/developers/model-capabilities/text/streaming",
+      "quote": "Streaming outputs is **supported by all models with text output capability** (Chat, Image Understanding, etc.).",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching = true：官方模型与定价页为该模型单列 Cached input 单价（$0.30 / 1M），即该模型参与缓存计费",
+      "url": "https://docs.x.ai/docs/models",
+      "quote": "| grok-4.5 (< 200k prompt tokens) | 500k | $2.00 | $0.30 | $6.00 |",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "reference_images.formats：官方图像理解文档仅列出 jpg/jpeg 与 png",
+      "url": "https://docs.x.ai/developers/model-capabilities/images/understanding",
+      "quote": "Supported image file types: `jpg/jpeg` or `png`.",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "reasoning_efforts = low / medium / high，默认 high（官方 xAI Reasoning 文档；grok-4.5 不支持 xhigh）",
+      "url": "https://docs.x.ai/developers/model-capabilities/text/reasoning.md",
+      "quote": "`grok-4.7`, `grok-4.6`, and `grok-4.5` support the `reasoning_effort` parameter... If not specified, `reasoning_effort` defaults to `\"high\"`.",
+      "retrieved_at": "2026-11-10"
+    }
+  ],
+  "unknowns": [
+    "max_output_tokens：官方模型卡未公布该模型的输出令牌上限，未在 docs.x.ai 找到数字声明，故留 null（同族的 grok-4.6 官方明确写了 no text output limit，但该表述未施加于 grok-4.5，不套用）",
+    "端点层默认值（max_completion_tokens 未设置时 128,000）是 /v1/chat/completions 的通用默认，不是本模型规格，不写入"
+  ],
+  "notes": "官方模型卡未标注 Batch API 支持（写作 Not supported）。推理强度受支持档位为 low / medium / high（xhigh 不支持），默认为 high；官方推理文档明确「grok-4.6 and grok-4.5 support the reasoning_effort parameter」且该参数默认 high、推理无法关闭 —— 注意 grok-4.3 的档位里额外有 none，本模型没有。别名含 grok-4.5-latest 与 grok-build-latest。官方文档当前以 SpaceXAI 署名，vendor 按对外展示写 xAI。 2026-09-17 按官方图像理解文档补齐图片 MIME（仅 jpg/jpeg 与 png）。max_output_tokens 保持原档案口径，不编造数字。",
+  "reference_images": {
+    "formats": [
+      "image/jpeg",
+      "image/png"
+    ],
+    "source_claim": "官方图像理解文档：Supported image file types jpg/jpeg or png"
+  }
+}

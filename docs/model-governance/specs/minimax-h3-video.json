@@ -1,0 +1,159 @@
+{
+ "model_id": "minimax-h3-video",
+ "family": "video",
+ "vendor": "MiniMax",
+ "vendor_model_id": "autodl-comfyui-h3-workflows",
+ "capability": "MiniMax H3 ComfyUI 工作流原生视频生成（AutoDL 算力专线）",
+ "operations": [
+  "text_to_video",
+  "first_last_frame",
+  "video_multi_ref",
+  "digital_human"
+ ],
+ "gateway": {
+  "profile": "autodl_h3_video",
+  "operations": [
+   "text_to_video",
+   "first_last_frame",
+   "video_multi_ref",
+   "digital_human"
+  ],
+  "source_claim": "网关执行档案：AutoDL task plugin 对 minimax-h3-video 提供 text-to-video / first-last-frame / image-reference / lip-sync 四种真实工作流形状，对应契约操作 text_to_video / first_last_frame / video_multi_ref / digital_human"
+ },
+ "status": "documented",
+ "basis": "line_restricted",
+ "checked_at": "2026-09-16",
+ "sources": [
+  {
+   "claim": "本公开 ID 由渠道 70、71、72 三条 AutoDL 线路供给，分别映射 standard、fast、pro 三档工作流池；三档共用同一个公开 ID",
+   "url": "repo:scripts/ops/config-baseline/channels.json",
+   "quote": "\"minimax-h3-video\": \"standard\"",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线由 AutoDL ComfyUI 工作流插件承载，插件公开的模型清单为 minimax-h3-video、wan-2-2-animate、indextts-2",
+   "url": "repo:plugins/tasks/autodl/plugin.js",
+   "quote": "models: [\"minimax-h3-video\", \"wan-2-2-animate\", \"indextts-2\"],",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "公开分辨率枚举含 480p/736p/768p/1088p/1440p（以插件 schema 为准）；上游 1080p（三个工作流，成本 0.10-0.11 CNY/s）仍不对公网开放",
+   "url": "repo:plugins/tasks/autodl/plugin.js",
+   "quote": "enum: [\"480p\", \"736p\", \"768p\", \"1088p\", \"1440p\"],",
+   "retrieved_at": "2026-10-24"
+  },
+  {
+   "claim": "1088p/1440p 自 2026-10-24 起对公网开放（六个工作流），按秒计费无分辨率维度，故由任务计费表达式按分辨率定价；1080p 仍列为 excludedResolutions，请求会被拒绝",
+   "url": "repo:plugins/tasks/autodl/plugin.js",
+   "quote": "\"excludedResolutions\": [\"1080p\"],",
+   "retrieved_at": "2026-10-24"
+  },
+  {
+   "claim": "H3 工作流接受 1–15 秒的时长请求，其中 12 秒工作流上限为 12 秒",
+   "url": "repo:plugins/tasks/autodl/plugin.js",
+   "quote": "H3 workflows accept 1-15, the",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "单个工作流最多接受 9 张参考图（ref_image_0 到 ref_image_8），最多 3 段参考音频（ref_audio_0 到 ref_audio_2）",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"imageFields\": [\"ref_image_0\", \"ref_image_1\", \"ref_image_2\", \"ref_image_3\", \"ref_image_4\", \"ref_image_5\", \"ref_image_6\", \"ref_image_7\", \"ref_image_8\"],",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线没有任何参考视频入口：全部 14 个工作流的 videoField 均为空",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"videoField\": null,",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "分辨率按横、竖、方形三种朝向提供（如 768p横 / 768p竖 / 768p(1:1)），对应 16:9、9:16、1:1 三种画面比例",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"768p\": [\"768p横\", \"768p竖\", \"768p(1:1)\"]",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "本线工作流覆盖文生视频、首尾帧过渡、参考图生视频、图音驱动与对口型等形态，其中对口型工作流的时长由输入音频长度决定（durationField 为 audio_duration）",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"durationField\": \"audio_duration\",",
+   "retrieved_at": "2026-09-16"
+  },
+  {
+   "claim": "AutoDL task plugin 的 ACTION_BY_SHAPE 定义真实执行形状与任务动作映射：text-to-video、first-last-frame、image-reference、lip-sync",
+   "url": "repo:plugins/tasks/autodl/plugin.js",
+   "quote": "const ACTION_BY_SHAPE = {\n  \"text-to-video\": \"text_to_video\",\n  \"image-reference\": \"image_to_video\",\n  \"first-last-frame\": \"first_last_frame\",\n  \"image-audio\": \"image_audio\",\n  \"lip-sync\": \"lip_sync\",",
+   "retrieved_at": "2026-11-08"
+  },
+  {
+   "claim": "minimax-h3-video（standard 档）的 minimax_h3_b99_001 工作流 shape 为 text-to-video",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"workflowId\": \"minimax_h3_b99_001\",\n      \"publicId\": \"minimax-h3-video\",\n      \"tier\": \"standard\",\n      \"billingMode\": \"per_second\",\n      \"shapes\": [\"text-to-video\"],",
+   "retrieved_at": "2026-11-08"
+  },
+  {
+   "claim": "minimax-h3-video（standard 档）的 minimax_h3_b99_002 工作流 shape 为 first-last-frame",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"workflowId\": \"minimax_h3_b99_002\",\n      \"publicId\": \"minimax-h3-video\",\n      \"tier\": \"standard\",\n      \"billingMode\": \"per_second\",\n      \"shapes\": [\"first-last-frame\"],",
+   "retrieved_at": "2026-11-08"
+  },
+  {
+   "claim": "minimax-h3-video（standard 档）的 minimax_h3_b99_003_12s 工作流 shape 为 image-reference（参考图生视频）",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"workflowId\": \"minimax_h3_b99_003_12s\",\n      \"publicId\": \"minimax-h3-video\",\n      \"tier\": \"standard\",\n      \"billingMode\": \"per_second\",\n      \"shapes\": [\"image-reference\"],",
+   "retrieved_at": "2026-11-08"
+  },
+  {
+   "claim": "minimax-h3-video 的 minimax_h3_image_audio_to_video 工作流 shape 为 lip-sync（图音驱动/对口型，契约记为 digital_human）",
+   "url": "repo:plugins/tasks/autodl/cap.gen.js",
+   "quote": "\"workflowId\": \"minimax_h3_image_audio_to_video\",\n      \"publicId\": \"minimax-h3-video\",\n      \"tier\": \"standard\",\n      \"billingMode\": \"per_second\",\n      \"shapes\": [\"lip-sync\"],",
+   "retrieved_at": "2026-11-08"
+  }
+ ],
+ "notes": "本档案描述的是我方 AutoDL ComfyUI 线路实际接受的信封（basis: line_restricted），不是 MiniMax 厂商对 H3 公布的全量能力。差异集中在四处：①分辨率只到 768p，厂商的 2K 与本线无关，且本线另有厂商文档没有的 736p 档；②时长从 1 秒起（厂商为 4 秒起），上限 15 秒与厂商一致，但存在 12 秒与 10 秒的短上限工作流，故不声明 allowed 列表；③本线完全没有参考视频入口，厂商的「参考视频 ≤3 段」在本线不存在；④画面比例由工作流的分辨率朝向（横/竖/方形）表达，不是独立的比例参数。上一版档案把厂商 MiniMax-H3 的数字（768P/2K、4–15 秒、3 段参考视频）原样搬到本 ID 上，会让前端展示出本线根本不接受的档位与卡槽，属于与 seedance-2-5-task、minimax-h3-task 同一类缺陷，本次一并纠正。operations 用的是仓内统一的视频操作词表：首尾帧过渡记为 first_last_frame，参考图与图音驱动记为 video_multi_ref，对口型记为 digital_human。三档工作流（standard/fast/pro）共用本档案，档位差异只体现在价格与工作流选择上，不改变能力信封。",
+ "unknowns": [
+  "输出视频是否携带音轨：本线存在图音驱动与对口型工作流（输出时长由输入音频决定），但仓内无明文声明输出带音轨，故 audio_supported 不声明",
+  "输出文件格式（容器与编码）未在仓内记录",
+  "参考图与参考音频的单个文件大小上限未在插件侧限制，未声明",
+  "各工作流的画面比例是否存在 16:9 / 9:16 / 1:1 之外的变体未在仓内记录",
+  "提示词长度上限未在插件侧限制，未声明"
+ ],
+ "durations_seconds": {
+  "min": 1,
+  "max": 15
+ },
+ "resolutions": [
+  "480p",
+  "736p",
+  "768p",
+  "1088p",
+  "1440p"
+ ],
+ "aspect_ratios": [
+  "16:9",
+  "9:16",
+  "1:1"
+ ],
+ "reference_images": {
+  "min": 0,
+  "max": 9,
+  "source_claim": "单个工作流最多接受 9 张参考图（ref_image_0 到 ref_image_8）"
+ },
+ "reference_audios": {
+  "min": 0,
+  "max": 3,
+  "source_claim": "单个工作流最多接受 3 段参考音频（ref_audio_0 到 ref_audio_2）"
+ },
+ "billing": {
+  "unit": "per_second",
+  "unit_label": {
+   "zh": "每秒",
+   "en": "per second"
+  },
+  "pricing_basis": "duration_seconds",
+  "unit_price_usd": 0.025,
+  "notes": {
+   "zh": "按请求的视频时长计费；每秒单价随分辨率变化：480p/736p/768p 为 $0.025，1088p 为 $0.030，1440p 为 $0.035（由任务计费表达式按 resolution 定价，分组倍率仍叠加）",
+   "en": "Charged by the requested video duration; the per-second rate varies with resolution: $0.025 for 480p/736p/768p, $0.030 for 1088p, $0.035 for 1440p (priced by resolution in the task billing expression; group ratios still apply)"
+  }
+ }
+}

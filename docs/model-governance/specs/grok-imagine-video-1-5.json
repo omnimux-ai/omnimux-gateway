@@ -1,0 +1,146 @@
+{
+  "model_id": "grok-imagine-video-1-5",
+  "family": "video",
+  "vendor": "xAI",
+  "vendor_model_id": "grok-imagine-video-1.5",
+  "capability": "视频生成与编辑",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "reference_to_video",
+    "first_last_frame",
+    "video_edit",
+    "video_extend"
+  ],
+  "gateway": {
+    "profile": "apimart_video",
+    "operations": [
+      "text_to_video",
+      "video_multi_ref"
+    ],
+    "source_claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 grok-imagine-video-1-5 允许 text_to_video / video_multi_ref"
+  },
+  "status": "documented",
+  "checked_at": "2026-09-14",
+  "sources": [
+    {
+      "claim": "官方模型 ID 为 grok-imagine-video-1.5；文生视频原生支持 1080p",
+      "url": "https://docs.x.ai/developers/model-capabilities/video/generation",
+      "quote": "On `grok-imagine-video-1.5`, text-to-video supports native 1080p.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "时长可配置，允许范围 1–15 秒",
+      "url": "https://docs.x.ai/developers/model-capabilities/video/generation",
+      "quote": "Control video length with the `duration` parameter. The allowed range is 1–15 seconds.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "分辨率可选 480p / 720p / 1080p；1080p 仅在 grok-imagine-video-1.5 的文生视频与图生视频可用，参考生视频上限 720p",
+      "url": "https://docs.x.ai/developers/model-capabilities/video/generation",
+      "quote": "**Note:** `1080p` is supported on `grok-imagine-video-1.5` for text-to-video and image-to-video. Reference-to-video is capped at 720p.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "视频默认带音轨，可用 generate_audio=False 生成无声视频",
+      "url": "https://docs.x.ai/developers/model-capabilities/video/generation",
+      "quote": "Generated videos include an audio track by default. Pass `generate_audio=False` to request a silent video",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "纵横比可选值 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3",
+      "url": "https://docs.x.ai/developers/rest-api-reference/inference/videos",
+      "quote": "`aspect_ratio` (\"1:1\" | \"16:9\" | \"9:16\" | \"4:3\" | \"3:4\" | \"3:2\" | \"2:3\")",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "duration 取值范围 [1, 15]，默认 8 秒",
+      "url": "https://docs.x.ai/developers/rest-api-reference/inference/videos",
+      "quote": "`duration` (integer | null) — Video duration in seconds. Range: \\[1, 15]. Default: 8.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "分辨率枚举 480p / 720p / 1080p",
+      "url": "https://docs.x.ai/developers/rest-api-reference/inference/videos",
+      "quote": "`resolution` (\"480p\" | \"720p\" | \"1080p\")",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "外部音频参考片段最长 15 秒，且最多 3 条",
+      "url": "https://docs.x.ai/developers/rest-api-reference/inference/videos",
+      "quote": "caller-supplied clips must be at most 15 seconds long. Only\n  supported by select video models; at most 3 entries.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考图支持 JPEG / PNG / WebP",
+      "url": "https://docs.x.ai/developers/rest-api-reference/inference/videos",
+      "quote": "The file must be an image (JPEG, PNG, or WebP) and fully uploaded.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "参考生视频最多 3 个预设音色",
+      "url": "https://docs.x.ai/developers/model-capabilities/video/reference-to-video",
+      "quote": "give your subject a voice by passing up to **3** preset voices with `reference_audios`",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 grok-imagine-video-1-5 允许 text_to_video / video_multi_ref",
+      "url": "repo:relay/channel/task/apimart/video_contract.go",
+      "quote": "\"grok-imagine-video-1-5\": { opTextToVideo: true, opVideoMultiRef: true, },",
+      "retrieved_at": "2026-11-08"
+    }
+  ],
+  "notes": "官方出处为 docs.x.ai 的 Video Generation 能力页与 REST API 参考（videos）。状态 documented：时长、分辨率、纵横比、音频参考与参考图格式均有官方原文。唯一未公布项是「参考图数量上限」与「prompt 字符上限」，已列入 unknowns 并留 null。注意官方明确 1080p 只在文生/图生可用，参考生视频封顶 720p，前端限制表不应给参考模式放 1080p。视频编辑（edit）不接受自定义 duration/resolution/aspect_ratio，输出继承源视频（时长上限 8.7 秒、分辨率封顶 720p）。",
+  "unknowns": [
+    "参考图数量上限：官方页面未公布（仓库前端注释同样记录厂商未公布图片上限）",
+    "prompt 字符上限未公布",
+    "参考图单文件字节上限未公布"
+  ],
+  "reference_images": {
+    "max": null,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ],
+    "max_bytes_each": null,
+    "source_claim": "官方只公布参考图格式（JPEG/PNG/WebP），未公布参考图数量上限"
+  },
+  "reference_videos": {
+    "max": 0,
+    "min": 0,
+    "formats": null,
+    "max_bytes_each": null,
+    "source_claim": "官方视频工作流只有 image-to-video / video-editing / reference-to-video / extension，不接受视频作为参考输入"
+  },
+  "reference_audios": {
+    "max": 3,
+    "min": 0,
+    "formats": null,
+    "max_bytes_each": null,
+    "max_seconds_each": 15,
+    "source_claim": "参考音色最多 3 条，外部音频片段最长 15 秒"
+  },
+  "durations_seconds": {
+    "min": 1,
+    "max": 15,
+    "default": 8
+  },
+  "resolutions": [
+    "480p",
+    "720p",
+    "1080p"
+  ],
+  "aspect_ratios": [
+    "1:1",
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "3:2",
+    "2:3"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": null
+}

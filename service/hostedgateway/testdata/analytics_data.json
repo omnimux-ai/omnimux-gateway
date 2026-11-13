@@ -1,0 +1,28 @@
+{
+  "code": 0,
+  "msg": "success",
+  "hint": "",
+  "data": {
+    "items": [
+      {
+        "account": "redacted",
+        "channel": 0,
+        "playCount": 0,
+        "followerCount": 92,
+        "commentCount": 0,
+        "diggCount": 0,
+        "dataDate": 1786838753
+      },
+      {
+        "account": "stale",
+        "channel": 0,
+        "playCount": -1,
+        "followerCount": 0,
+        "commentCount": 0,
+        "diggCount": 0,
+        "dataDate": 1786838753
+      }
+    ],
+    "total": 10
+  }
+}

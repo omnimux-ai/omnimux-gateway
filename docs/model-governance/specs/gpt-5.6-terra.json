@@ -1,0 +1,70 @@
+{
+  "model_id": "gpt-5.6-terra",
+  "family": "llm",
+  "vendor": "OpenAI",
+  "vendor_model_id": "gpt-5.6-terra",
+  "capability": "文本生成（文本+图像输入）",
+  "operations": [
+    "chat"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-17",
+  "context_window_tokens": 1050000,
+  "max_output_tokens": 128000,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "sources": [
+    {
+      "claim": "context_window_tokens（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "quote": "- 1,050,000 context window",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_output_tokens（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "quote": "- 128,000 max output tokens",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "quote": "Input modalities: text, image",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming / tool_calling（function_calling）/ prompt_caching 均列于官方 Supported features",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "quote": "- streaming\n- structured_outputs\n- function_calling\n- file_search\n- image_input\n- web_search\n- prompt_caching",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_input_tokens（官方模型页 Model details）",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "quote": "- Maximum input tokens: 922,000",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "reference_images.formats：官方视觉指南 Supported inputs 列出 PNG/JPEG/WEBP/GIF",
+      "url": "https://developers.openai.com/api/docs/guides/images-vision",
+      "quote": "| File types | PNG (`.png`), JPEG (`.jpeg` or `.jpg`), WEBP (`.webp`), and non-animated GIF (`.gif`) |",
+      "retrieved_at": "2026-09-17"
+    }
+  ],
+  "unknowns": [],
+  "notes": "数值取自官方模型页 https://developers.openai.com/api/docs/models/gpt-5.6-terra（其 .md 版本）。 官方 Default snapshot：gpt-5.6-terra。 官方另列 Maximum input tokens：922,000。 tool_calling 对应官方 Supported features 中的 function_calling；prompt_caching 与 streaming 均为官方明确列出项。 2026-09-17 按官方视觉指南补齐图片 MIME（PNG/JPEG/WEBP/非动画 GIF）。未写入单图体积上限：官方以 patch 预算约束，未给出统一字节数。",
+  "reference_images": {
+    "formats": [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/gif"
+    ],
+    "source_claim": "官方视觉指南 Supported inputs：PNG、JPEG、WEBP、non-animated GIF"
+  }
+}

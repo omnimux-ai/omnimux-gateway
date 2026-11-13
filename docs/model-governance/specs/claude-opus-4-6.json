@@ -1,0 +1,94 @@
+{
+  "model_id": "claude-opus-4-6",
+  "family": "llm",
+  "vendor": "Anthropic",
+  "vendor_model_id": "claude-opus-4-6",
+  "capability": "文本与图像理解的对话、推理与工具调用（Claude 家族）",
+  "operations": [
+    "chat_completion",
+    "streaming",
+    "tool_calling",
+    "image_input",
+    "prompt_caching",
+    "pdf_input"
+  ],
+  "status": "documented",
+  "checked_at": "2026-09-17",
+  "sources": [
+    {
+      "claim": "context_window_tokens=1000000",
+      "url": "https://platform.claude.com/docs/en/models/opus-4-6/overview",
+      "quote": "Context window 1M tokens",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_output_tokens=128000",
+      "url": "https://platform.claude.com/docs/en/models/opus-4-6/overview",
+      "quote": "Max output 128K tokens",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "max_output_tokens（Batch API beta 上限 300000）",
+      "url": "https://platform.claude.com/docs/en/models/opus-4-6/overview",
+      "quote": "Max output (Batch API, beta) 300K tokens",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "input_modalities=[\"text\",\"image\"]（文本与图像输入，文本输出）",
+      "url": "https://platform.claude.com/docs/en/models/opus-4-6/overview",
+      "quote": "Input → output Text and images → text",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "tool_calling=true（官方工具调用文档：Claude 平台级 function calling 能力）",
+      "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview",
+      "quote": "Tool use (also called function calling) lets Claude call functions that you define or that Anthropic provides.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "streaming=true（Messages API 支持 stream 参数流式返回 SSE）",
+      "url": "https://platform.claude.com/docs/en/build-with-claude/streaming",
+      "quote": "When creating a Message, you can set \"stream\": true to incrementally stream the response using server-sent events (SSE).",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "prompt_caching=true（官方：所有在役 Claude 模型均支持提示缓存）",
+      "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching",
+      "quote": "Prompt caching (both automatic and explicit) is supported on all active Claude models.",
+      "retrieved_at": "2026-09-14"
+    },
+    {
+      "claim": "reference_images.formats：官方视觉文档列出 JPEG/PNG/GIF/WebP",
+      "url": "https://platform.claude.com/docs/en/build-with-claude/vision",
+      "quote": "Claude supports JPEG, PNG, GIF, and WebP images (`image/jpeg`, `image/png`, `image/gif`, `image/webp`). Animations are unsupported, and only the first frame is used.",
+      "retrieved_at": "2026-09-17"
+    },
+    {
+      "claim": "input_modalities 含 pdf：官方 PDF 文档（平台级）声明所有在役模型均支持 PDF",
+      "url": "https://platform.claude.com/docs/en/build-with-claude/pdf-support",
+      "quote": "All active models support PDF processing. For PDF support through Amazon Bedrock's Converse API, see Amazon Bedrock PDF support.",
+      "retrieved_at": "2026-09-17"
+    }
+  ],
+  "notes": "数值取自 Anthropic 官方模型页（platform.claude.com）。该模型处于官方 Legacy models 分组，状态为 Active (legacy)；其 tool_calling 出处为官方平台级工具调用文档，模型页未逐条复述。官方另标注 Batch API（beta）最大输出 300K tokens，仅批处理路径适用。 streaming 与 prompt_caching 的出处为 Messages API / 提示缓存官方文档（平台级，官方未按模型逐条加限制）。 2026-09-17 按官方视觉文档补齐图片 MIME；PDF 能力取自平台级 PDF 文档（All active models support PDF processing），模型页未逐条复述。未写入单图字节上限：直连 API 与 Bedrock 口径不同，本线路未单独核验。",
+  "context_window_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "input_modalities": [
+    "text",
+    "image",
+    "pdf"
+  ],
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "unknowns": [],
+  "reference_images": {
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp"
+    ],
+    "source_claim": "官方视觉文档：Claude supports JPEG, PNG, GIF, and WebP images"
+  }
+}

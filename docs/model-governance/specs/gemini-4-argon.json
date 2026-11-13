@@ -1,0 +1,92 @@
+{
+  "model_id": "gemini-4-argon",
+  "family": "llm",
+  "vendor": "Google",
+  "vendor_model_id": "gemini-4-argon",
+  "capability": "原生多模态理解与文本生成",
+  "operations": [
+    "chat"
+  ],
+  "status": "partial",
+  "basis": "line_restricted",
+  "checked_at": "2026-10-18",
+  "context_window_tokens": null,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "pdf"
+  ],
+  "reference_images": {
+    "formats": [
+      "image/png"
+    ]
+  },
+  "reference_videos": {
+    "formats": [
+      "video/mp4"
+    ]
+  },
+  "streaming": true,
+  "tool_calling": true,
+  "reasoning_efforts": {
+    "low": "low",
+    "medium": "medium",
+    "high": "high"
+  },
+  "default_reasoning_effort": "medium",
+  "service_notes": "使用 Gemini 原生内容接口，输出为文字或结构化结果。支持独立系统指令、PNG 单图与多图、MP4 视频、视频与图片联合输入、PDF、结构化结果、流式返回、低思考档和单轮函数调用请求。函数调用结果由调用方执行。短素材示例不代表最大容量；音频准确性、其他格式、长素材、最大上下文和最大输出未建立服务承诺。",
+  "billing": {
+    "unit": "per_token",
+    "unit_label": {
+      "zh": "每百万词元",
+      "en": "per 1M tokens"
+    },
+    "pricing_basis": "reported_tokens",
+    "notes": {
+      "zh": "按实际报告用量结算，每百万词元输入 1.7 美元、输出 8.5 美元、缓存读取 0.086 美元；每次最低 0.01/68 美元，按本站最小计费单位取整。官方输入基准为每百万词元 4 美元，实际售价由模型专属计费规则确定。输入包含已报告的工具输入，输出包含已报告的思考；缓存是输入子集，各计一次。",
+      "en": "Charges use reported usage: USD 1.7 per 1M input tokens, USD 8.5 per 1M output tokens and USD 0.086 per 1M cached input tokens, with a USD 0.01/68 minimum per request rounded to the gateway billing unit. The official input anchor is USD 4 per 1M tokens; model-specific billing rules determine the effective selling price. Input includes reported tool-use input; output includes reported thinking. Cached tokens are an input subset, counted once."
+    },
+    "model_ratio": 2
+  },
+  "sources": [
+    {
+      "claim": "Google 官方型号为 gemini-4-argon；官方输入模态为文字、图片、视频、音频和 PDF。本服务仅公布已验证的文字、PNG 图片、MP4 视频和 PDF 输入子集，不据此填写本站数值上限。",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-4-argon",
+      "quote": "Inputs Text, Image, Video, Audio, and PDF",
+      "retrieved_at": "2026-10-17"
+    },
+    {
+      "claim": "平台级官方请求说明支持独立系统指令；该说明不等于所有上游均完整透传每个字段。",
+      "url": "https://ai.google.dev/gemini-api/docs/text-generation",
+      "quote": "You can guide the behavior of Gemini models with system instructions.",
+      "retrieved_at": "2026-10-17"
+    },
+    {
+      "claim": "Google 官方原生机器契约定义 responseSchema；本服务结构化结果使用 responseMimeType=application/json 与 responseSchema，不据此承诺其他结构化变体。",
+      "url": "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta",
+      "quote": "Optional. Output schema of the generated candidate text.",
+      "retrieved_at": "2026-10-17"
+    },
+    {
+      "claim": "本仓原生请求结构为系统指令、内容、生成配置、工具和流式请求提供合同；实际服务边界只取已验证子集。",
+      "url": "repo:relaykit/dto/gemini.go",
+      "quote": "type GeminiChatRequest struct {",
+      "retrieved_at": "2026-10-18"
+    },
+    {
+      "claim": "reasoning_efforts = low / medium / high，默认 medium（官方 Gemini 4 Argon 文档的 thinking level）",
+      "url": "https://aistudio.google.com/docs/whats-new-gemini-4-argon.md",
+      "quote": "tunable thinking levels (`low`, `medium`, `high`) ... Default thinking level `medium`",
+      "retrieved_at": "2026-11-10"
+    }
+  ],
+  "unknowns": [
+    "context_window_tokens 与 max_output_tokens 的本站有效上限尚未实测确认，不将供应商公布的上限当作本站承诺。",
+    "音频输入准确性、其他图片/视频格式、长素材、大文件、逐帧理解和多轮工具执行不在当前服务承诺范围。",
+    "显式缓存创建与复用尚未验收；只有上游实际报告的缓存读取用量进入对应计费项。",
+    "供应商报告的 modelVersion 不能独立证明后台模型权重身份。"
+  ],
+  "notes": "本档案记录原生服务的已验证共同能力子集。实测包含完整短视频及多张 PNG 的同次输入，不把测试素材的时长、大小或输出预算编成生产上限。官方输入/输出/缓存参考基准为每百万词元 4/20/0.2 美元；实际售价遵循本模型专属计费规则。运行时可用性以公开目录和真实调用为准。"
+}
