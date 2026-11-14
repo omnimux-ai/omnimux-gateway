@@ -34,7 +34,7 @@ export const enFaq: LandingFaqCopy = {
   items: [
     {
       q: 'Is OmniMux open source?',
-      a: 'Yes. The desktop client, the plugins and the gateway source are published per release at github.com/omnimux-ai/omnimux-ai under AGPL-3.0. The hosted service keeps its channel credentials, pricing ledger, operations and user data out of scope.',
+      a: 'Yes. The desktop client and the plugins are published at github.com/omnimux-ai/omnimux-client, and the gateway source at github.com/omnimux-ai/omnimux-gateway, under AGPL-3.0. The hosted service keeps its channel credentials, pricing ledger, operations and user data out of scope.',
     },
     {
       q: 'What can the OmniMux Agent do?',

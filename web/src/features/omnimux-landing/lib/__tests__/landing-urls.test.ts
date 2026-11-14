@@ -35,7 +35,10 @@ describe('landing hero and navigation urls', () => {
   })
 
   test('points at the public source repository', () => {
-    assert.equal(DESKTOP_GITHUB_URL, 'https://github.com/omnimux-ai/omnimux-ai')
+    assert.equal(
+      DESKTOP_GITHUB_URL,
+      'https://github.com/omnimux-ai/omnimux-client'
+    )
   })
 
   test('points at the Discord community', () => {

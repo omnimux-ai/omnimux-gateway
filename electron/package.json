@@ -21,7 +21,7 @@
   "author": "QuantumNous",
   "repository": {
     "type": "git",
-    "url": "https://github.com/omnimux-ai/omnimux-ai"
+    "url": "https://github.com/omnimux-ai/omnimux-gateway"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

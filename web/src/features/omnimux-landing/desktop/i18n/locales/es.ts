@@ -736,7 +736,7 @@ export const es: LandingCopy = {
     items: [
       {
         q: '¿OmniMux es de código abierto?',
-        a: 'Sí. El cliente de escritorio, los plugins y el código del gateway se publican por versión en github.com/omnimux-ai/omnimux-ai bajo AGPL-3.0. El servicio alojado mantiene fuera de alcance las credenciales de canales, el libro de precios, la operación y los datos de usuarios.',
+        a: 'Sí. El cliente de escritorio y los plugins se publican en github.com/omnimux-ai/omnimux-client, y el código del gateway en github.com/omnimux-ai/omnimux-gateway, bajo AGPL-3.0. El servicio alojado mantiene fuera de alcance las credenciales de canales, el libro de precios, la operación y los datos de usuarios.',
       },
       {
         q: '¿Qué puede hacer el Agent de OmniMux?',

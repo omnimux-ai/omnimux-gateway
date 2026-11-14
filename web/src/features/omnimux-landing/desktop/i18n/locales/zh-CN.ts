@@ -674,7 +674,7 @@ export const zhCN: LandingCopy = {
     items: [
       {
         q: 'OmniMux 是开源的吗？',
-        a: '是。桌面端、插件与网关源码按版本发布在 github.com/omnimux-ai/omnimux-ai（AGPL-3.0）。托管服务的渠道凭据、定价账本、运维与用户数据不在开源范围内。',
+        a: '是。桌面端与插件源码发布在 github.com/omnimux-ai/omnimux-client，网关源码发布在 github.com/omnimux-ai/omnimux-gateway（AGPL-3.0）。托管服务的渠道凭据、定价账本、运维与用户数据不在开源范围内。',
       },
       {
         q: 'OmniMux Agent 能做什么？',
