@@ -91,6 +91,7 @@ export const zhCN: LandingCopy = {
     dlMacArm: 'macOS（Apple 芯片）',
     dlMacIntel: 'macOS（Intel）',
     dlWinX64: 'Windows（64 位）',
+    dlUnavailable: '稳定版本发布中，暂时无法下载',
     skillsLabel: '技能',
     skillsAria: '技能',
     skills: [
@@ -280,7 +281,11 @@ export const zhCN: LandingCopy = {
 
     breakdown: {
       tabsAria: '拆解对象',
-      tabs: { video: '视频', account: '竞品账号 · 示意', category: '品类趋势 · 示意' },
+      tabs: {
+        video: '视频',
+        account: '竞品账号 · 示意',
+        category: '品类趋势 · 示意',
+      },
       statsViews: '1500万+ 播放',
       statsLikes: '32万+ 点赞',
       why: '为什么能卖',
@@ -717,12 +722,16 @@ export const zhCN: LandingCopy = {
   download: {
     title: '在 OmniMux 桌面端继续',
     desc: '下载安装后登录，即可开始创作。',
+    version: '稳定版 {version}',
     close: '关闭',
-    macTitle: '下载 macOS 版（Universal）',
-    macSub: 'macOS 12+ · Apple 芯片与 Intel 通用',
+    macArmTitle: '下载 macOS 版（Apple 芯片）',
+    macArmSub: 'macOS 12+ · M 系列芯片',
+    macIntelTitle: '下载 macOS 版（Intel）',
+    macIntelSub: 'macOS 12+ · Intel 芯片',
     winTitle: '下载 Windows 版（x64 安装包）',
     winSub: 'Windows 10 / 11 x64',
     recommended: '推荐',
+    unavailable: '暂不可下载：稳定版本尚未发布',
     notePre: '若 Windows 提示「已保护你的电脑」：点击',
     noteMore: '更多信息',
     noteRun: '仍要运行',

@@ -16,6 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import drinkAd from '../../assets/cn/land/drink_ad_right.mp4'
+import kitchenB from '../../assets/cn/land/kitchen-b.webp'
+import kitchen from '../../assets/cn/land/kitchen.webp'
+import pizza from '../../assets/cn/land/pizza.webp'
+import polkaB from '../../assets/cn/land/polka-b.webp'
+import polka from '../../assets/cn/land/polka.webp'
+import redB from '../../assets/cn/land/red-b.webp'
+import red from '../../assets/cn/land/red.mp4'
+import serumMain from '../../assets/cn/land/serum_main.mp4'
+import ugcDemo from '../../assets/cn/land/ugc_demo_left.mp4'
 import appdemoPoster from '../../assets/cn/posters/appdemo.jpg'
 import chasingPoster from '../../assets/cn/posters/chasing.jpg'
 import drinkPoster from '../../assets/cn/posters/drink_ad_right.jpg'
@@ -27,16 +37,6 @@ import spotlightPoster from '../../assets/cn/posters/spotlight.jpg'
 import tryonPoster from '../../assets/cn/posters/tryon.jpg'
 import ugcPoster from '../../assets/cn/posters/ugc_demo_left.jpg'
 import vfxPoster from '../../assets/cn/posters/vfx.jpg'
-import kitchenB from '../../assets/cn/land/kitchen-b.webp'
-import kitchen from '../../assets/cn/land/kitchen.webp'
-import pizza from '../../assets/cn/land/pizza.webp'
-import polkaB from '../../assets/cn/land/polka-b.webp'
-import polka from '../../assets/cn/land/polka.webp'
-import redB from '../../assets/cn/land/red-b.webp'
-import drinkAd from '../../assets/cn/land/drink_ad_right.mp4'
-import red from '../../assets/cn/land/red.mp4'
-import serumMain from '../../assets/cn/land/serum_main.mp4'
-import ugcDemo from '../../assets/cn/land/ugc_demo_left.mp4'
 import canSq from '../../assets/cn/set/can-sq.jpg'
 import can from '../../assets/cn/set/can.jpg'
 import d1 from '../../assets/cn/set/d1.jpg'
@@ -58,17 +58,18 @@ import tryonProduct from '../../assets/cn/tpl/tryon-product.webp'
 import tryon from '../../assets/cn/tpl/tryon.mp4'
 import vfx from '../../assets/cn/tpl/vfx.mp4'
 
-export const DOWNLOAD_MAC =
-  'https://dl.omnimux.ai/releases/latest/OmniMux-universal.dmg'
+// Legacy `releases/latest/` symlinks. Older shipped apps still read these to
+// check for updates, so they stay here as the network-error fallback target; the
+// live download URLs come from `desktop-release.ts` (version-stable.json).
 export const DOWNLOAD_MAC_ARM64 =
   'https://dl.omnimux.ai/releases/latest/OmniMux-arm64.dmg'
 export const DOWNLOAD_MAC_X64 =
   'https://dl.omnimux.ai/releases/latest/OmniMux-x64.dmg'
 export const DOWNLOAD_WIN =
   'https://dl.omnimux.ai/releases/latest/OmniMux-x64-Setup.exe'
-// The public source repository. The hero links here for readers who want the
-// code before the binary; it is not a download.
-export const SOURCE_REPO = 'https://github.com/omnimux-ai/omnimux-ai'
+// The public desktop-client source repository. The hero links here for readers
+// who want the code before the binary; it is not a download.
+export const SOURCE_REPO = 'https://github.com/omnimux-ai/omnimux-client'
 
 export type IconName =
   | 'flame'

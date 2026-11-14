@@ -18,7 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createContext, useContext } from 'react'
 
-export type DownloadTarget = 'mac' | 'win'
+import type { DesktopRelease } from './desktop-release'
+
+/**
+ * The three installers a visit can resolve to. Apple silicon and Intel Macs
+ * get distinct builds, so the target itself carries the chip.
+ */
+export type DownloadTarget = 'mac-arm64' | 'mac-x64' | 'win'
 
 export type MacArch = 'arm64' | 'x64'
 
@@ -38,15 +44,26 @@ export const DownloadContext = createContext<{
    */
   platform: DetectedPlatform
   /**
-   * The Mac chip this visit most likely needs, resolved after mount.
-   * `null` while detection is still running or when the visitor is not on a
-   * Mac; callers fall back to the Apple-silicon build, which is the common
-   * case.
+   * The Mac chip this visit most likely needs, derived from `platform`.
+   * `null` on Windows, unknown platforms, and before detection settles;
+   * callers fall back to the Apple-silicon build, which is the common case.
    */
   macArch: MacArch | null
+  /**
+   * Stable-channel release state. `loading` / `fallback` resolve to the
+   * `releases/latest/` symlinks; `ready` pins the exact version; `unavailable`
+   * means the download controls must be disabled.
+   */
+  release: DesktopRelease
   /** Starts the installer download for `platform`; false when unknown. */
   downloadDirect: () => boolean
-}>({ open: () => {}, platform: null, macArch: null, downloadDirect: () => false })
+}>({
+  open: () => {},
+  platform: null,
+  macArch: null,
+  release: { status: 'loading' },
+  downloadDirect: () => false,
+})
 
 export function useDownload() {
   return useContext(DownloadContext)

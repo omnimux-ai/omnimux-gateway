@@ -21,25 +21,40 @@ import { useDownload } from './download-context'
 import { Icon } from './icons'
 
 export function CnFinalCta() {
-  const { open } = useDownload()
-  const copy = useCopy().finalCta
+  const { open, release } = useDownload()
+  const copy = useCopy()
+  const finalCta = copy.finalCta
+  const unavailable = release.status === 'unavailable'
+  const disabledTitle = unavailable ? copy.download.unavailable : undefined
   return (
     <section className='sec final' id='download'>
       <div className='wrap'>
         <div className='final-card'>
-          <h2 className='h2'>{copy.h2}</h2>
-          <p className='lead'>{copy.lead}</p>
+          <h2 className='h2'>{finalCta.h2}</h2>
+          <p className='lead'>{finalCta.lead}</p>
           <div className='btns'>
-            <button className='btn btn-primary' type='button' onClick={() => open('mac')}>
+            <button
+              className='btn btn-primary'
+              type='button'
+              disabled={unavailable}
+              title={disabledTitle}
+              onClick={() => open('mac-arm64')}
+            >
               <Icon name='apple' filled />
-              {copy.dlMac}
+              {finalCta.dlMac}
             </button>
-            <button className='btn btn-ghost' type='button' onClick={() => open('win')}>
+            <button
+              className='btn btn-ghost'
+              type='button'
+              disabled={unavailable}
+              title={disabledTitle}
+              onClick={() => open('win')}
+            >
               <Icon name='win' filled />
-              {copy.dlWin}
+              {finalCta.dlWin}
             </button>
           </div>
-          <small>{copy.note}</small>
+          <small>{finalCta.note}</small>
         </div>
         <div className='bigmark' aria-hidden='true'>
           OmniMux

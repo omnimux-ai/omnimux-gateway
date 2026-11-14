@@ -24,11 +24,12 @@ export default defineConfig({
   ...baseConfig,
   test: {
     ...baseConfig.test,
+    // Glob the whole directory so every desktop-landing component test is part
+    // of this gate, including new files (e.g. desktop-release.test.ts). These
+    // suites use Vitest; the root config excludes landing __tests__ because other
+    // landing suites use node:test, so this local config is the entry point.
     include: [
-      'src/features/omnimux-landing/desktop/components/__tests__/cn-i18n.test.tsx',
-      'src/features/omnimux-landing/desktop/components/__tests__/cn-landing.test.tsx',
-      'src/features/omnimux-landing/desktop/components/__tests__/cn-nav-auth.test.tsx',
-      'src/features/omnimux-landing/desktop/components/__tests__/detect-platform.test.ts',
+      'src/features/omnimux-landing/desktop/components/__tests__/*.test.{ts,tsx}',
     ],
     exclude: [],
   },

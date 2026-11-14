@@ -22,8 +22,13 @@ import { useDownload } from './download-context'
 import { Icon } from './icons'
 
 export function CnSurfaces() {
-  const { open, downloadDirect } = useDownload()
-  const copy = useCopy().surfaces
+  const { open, downloadDirect, release } = useDownload()
+  const fullCopy = useCopy()
+  const copy = fullCopy.surfaces
+  const downloadUnavailable = release.status === 'unavailable'
+  const downloadTitle = downloadUnavailable
+    ? fullCopy.download.unavailable
+    : undefined
 
   return (
     <section className='sec' id='surfaces'>
@@ -59,23 +64,49 @@ export function CnSurfaces() {
                 </div>
                 <div className='mini-vids'>
                   <span>
-                    <img src={ASSETS.durabilityPoster} alt='' loading='lazy' decoding='async' />
+                    <img
+                      src={ASSETS.durabilityPoster}
+                      alt=''
+                      loading='lazy'
+                      decoding='async'
+                    />
                   </span>
                   <span>
-                    <img src={ASSETS.ugcPoster} alt='' loading='lazy' decoding='async' />
+                    <img
+                      src={ASSETS.ugcPoster}
+                      alt=''
+                      loading='lazy'
+                      decoding='async'
+                    />
                   </span>
                   <span>
-                    <img src={ASSETS.selfiePoster} alt='' loading='lazy' decoding='async' />
+                    <img
+                      src={ASSETS.selfiePoster}
+                      alt=''
+                      loading='lazy'
+                      decoding='async'
+                    />
                   </span>
                   <span>
-                    <img src={ASSETS.redPoster} alt='' loading='lazy' decoding='async' />
+                    <img
+                      src={ASSETS.redPoster}
+                      alt=''
+                      loading='lazy'
+                      decoding='async'
+                    />
                   </span>
                 </div>
               </div>
             </div>
-            <button className='sc-cta' type='button' onClick={() => {
+            <button
+              className='sc-cta'
+              type='button'
+              disabled={downloadUnavailable}
+              title={downloadTitle}
+              onClick={() => {
                 if (!downloadDirect()) open()
-              }}>
+              }}
+            >
               {copy.desktop.cta}
               <Icon name='right' />
             </button>
@@ -99,7 +130,9 @@ export function CnSurfaces() {
                 <div>
                   <b>$</b> omnimux skill install --user
                 </div>
-                <div className='okl'>✓ Skills installed to ~/.agents/skills</div>
+                <div className='okl'>
+                  ✓ Skills installed to ~/.agents/skills
+                </div>
               </div>
             </div>
             <a className='sc-cta' href='https://docs.omnimux.ai'>
@@ -119,7 +152,12 @@ export function CnSurfaces() {
             <div className='sc-mock'>
               <div style={{ padding: 0, overflow: 'hidden' }}>
                 <div className='ext'>
-                  <img src={ASSETS.polkaB} alt='' loading='lazy' decoding='async' />
+                  <img
+                    src={ASSETS.polkaB}
+                    alt=''
+                    loading='lazy'
+                    decoding='async'
+                  />
                   <div className='capsule'>
                     <span>
                       <Icon name='bulb' />
@@ -137,9 +175,15 @@ export function CnSurfaces() {
                 </div>
               </div>
             </div>
-            <button className='sc-cta' type='button' onClick={() => {
+            <button
+              className='sc-cta'
+              type='button'
+              disabled={downloadUnavailable}
+              title={downloadTitle}
+              onClick={() => {
                 if (!downloadDirect()) open()
-              }}>
+              }}
+            >
               {copy.ext.cta}
               <Icon name='right' />
             </button>
