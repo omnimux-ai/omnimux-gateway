@@ -203,6 +203,12 @@ jobs:
         run: bun run typecheck
       - name: Translation coverage
         run: bun run i18n:check
+      # The root vitest.config.ts excludes landing __tests__ (other landing
+      # suites use node:test), so the desktop-landing component tests run here
+      # through their own config. This keeps the download-page regression
+      # (desktop-release.test.ts) inside the required frontend gate.
+      - name: Desktop landing component tests
+        run: bun run test --config src/features/omnimux-landing/desktop/components/__tests__/vitest.config.ts
 
   frontend-tests:
     name: Frontend full tests (${{ matrix.id }})
