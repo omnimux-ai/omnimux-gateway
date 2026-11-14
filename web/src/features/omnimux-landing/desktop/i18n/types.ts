@@ -216,6 +216,8 @@ export interface LandingCopy {
     dlMacArm: string
     dlMacIntel: string
     dlWinX64: string
+    /** Shown as the disabled split button's title when the channel is down. */
+    dlUnavailable: string
     skillsLabel: string
     skillsAria: string
     skills: readonly { icon: IconName; label: string; fill: string }[]
@@ -456,12 +458,18 @@ export interface LandingCopy {
   download: {
     title: string
     desc: string
+    /** Dialog subtitle when the stable version is known; `{version}` is replaced. */
+    version: string
     close: string
-    macTitle: string
-    macSub: string
+    macArmTitle: string
+    macArmSub: string
+    macIntelTitle: string
+    macIntelSub: string
     winTitle: string
     winSub: string
     recommended: string
+    /** Disabled-state reason shown in `title` / `aria` when no stable build exists. */
+    unavailable: string
     notePre: string
     noteMore: string
     noteRun: string

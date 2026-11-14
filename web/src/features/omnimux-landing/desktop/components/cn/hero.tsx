@@ -20,14 +20,8 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useLanding } from '../../i18n'
 import type { LandingLang } from '../../i18n/types'
-import {
-  DOWNLOAD_MAC_ARM64,
-  DOWNLOAD_MAC_X64,
-  DOWNLOAD_WIN,
-  REEL_MEDIA,
-  SOURCE_REPO,
-  type Mode,
-} from './data'
+import { REEL_MEDIA, SOURCE_REPO, type Mode } from './data'
+import { releaseUrls } from './desktop-release'
 import { useDownload } from './download-context'
 import { usePrefersReducedMotion } from './hooks'
 import { Icon } from './icons'
@@ -53,7 +47,7 @@ const TAB_ICONS = { agent: 'spark', video: 'video', image: 'img' } as const
 const SPACED_H1_LANGS: ReadonlySet<LandingLang> = new Set(['en', 'es', 'id'])
 
 export function CnHero() {
-  const { open, platform, macArch } = useDownload()
+  const { open, platform, macArch, release } = useDownload()
   const reduced = usePrefersReducedMotion()
   const landing = useLanding()
   const copy = landing.copy.hero
@@ -131,9 +125,14 @@ export function CnHero() {
 
   // Unknown chip defaults to the Apple-silicon build: every Mac sold since
   // late 2020 is arm64, and an Intel user gets a clear "cannot open" rather
-  // than a silently wrong installer.
-  let dlMainHref = macArch === 'x64' ? DOWNLOAD_MAC_X64 : DOWNLOAD_MAC_ARM64
-  if (platform === 'win') dlMainHref = DOWNLOAD_WIN
+  // than a silently wrong installer. `null` means the stable channel is
+  // unavailable, so the controls render disabled instead of linking a dead URL.
+  const urls = releaseUrls(release)
+  let dlMainHref: string | null = null
+  if (urls) {
+    if (platform === 'win') dlMainHref = urls.win
+    else dlMainHref = macArch === 'x64' ? urls.x64 : urls.arm64
+  }
 
   return (
     <section className='hero' id='top'>
@@ -216,7 +215,11 @@ export function CnHero() {
               {copy.modes[mode].model ? (
                 <span className='c-model'>{copy.modes[mode].model}</span>
               ) : null}
-              <button type='submit' className='c-send' aria-label={copy.sendAria}>
+              <button
+                type='submit'
+                className='c-send'
+                aria-label={copy.sendAria}
+              >
                 <Icon name='up' />
               </button>
             </div>
@@ -242,12 +245,14 @@ export function CnHero() {
 
         <div className='hero-dl'>
           <div
-            className={`split-dl${dlOpen ? ' open' : ''}${dlPlacement === 'up' ? ' up' : ''}`}
+            className={`split-dl${dlOpen ? ' open' : ''}${dlPlacement === 'up' ? ' up' : ''}${urls ? '' : ' is-disabled'}`}
             ref={dlRef}
           >
             <a
               className='split-main'
-              href={dlMainHref}
+              href={dlMainHref ?? undefined}
+              aria-disabled={urls ? undefined : true}
+              title={urls ? undefined : copy.dlUnavailable}
             >
               <svg
                 aria-hidden='true'
@@ -285,30 +290,35 @@ export function CnHero() {
               </svg>
             </button>
             <div className='split-menu' ref={menuRef} role='menu'>
-              <a
-                className='split-item'
-                href={DOWNLOAD_MAC_ARM64}
-                role='menuitem'
-                onClick={() => setDlOpen(false)}
-              >
-                <span className='t'>{copy.dlMacArm}</span>
-              </a>
-              <a
-                className='split-item'
-                href={DOWNLOAD_MAC_X64}
-                role='menuitem'
-                onClick={() => setDlOpen(false)}
-              >
-                <span className='t'>{copy.dlMacIntel}</span>
-              </a>
-              <a
-                className='split-item'
-                href={DOWNLOAD_WIN}
-                role='menuitem'
-                onClick={() => setDlOpen(false)}
-              >
-                <span className='t'>{copy.dlWinX64}</span>
-              </a>
+              {(
+                [
+                  { href: urls?.arm64, label: copy.dlMacArm },
+                  { href: urls?.x64, label: copy.dlMacIntel },
+                  { href: urls?.win, label: copy.dlWinX64 },
+                ] as const
+              ).map((item) =>
+                item.href ? (
+                  <a
+                    key={item.label}
+                    className='split-item'
+                    href={item.href}
+                    role='menuitem'
+                    onClick={() => setDlOpen(false)}
+                  >
+                    <span className='t'>{item.label}</span>
+                  </a>
+                ) : (
+                  <span
+                    key={item.label}
+                    className='split-item dis'
+                    role='menuitem'
+                    aria-disabled='true'
+                    title={copy.dlUnavailable}
+                  >
+                    <span className='t'>{item.label}</span>
+                  </span>
+                )
+              )}
             </div>
           </div>
 

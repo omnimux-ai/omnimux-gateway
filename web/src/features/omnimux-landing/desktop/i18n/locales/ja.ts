@@ -91,6 +91,7 @@ export const ja: LandingCopy = {
     dlMacArm: 'macOS（Apple シリコン）',
     dlMacIntel: 'macOS（Intel）',
     dlWinX64: 'Windows（64 ビット）',
+    dlUnavailable: '安定版の公開中のため、現在ダウンロードできません',
     skillsLabel: 'スキル',
     skillsAria: 'スキル',
     skills: [
@@ -177,7 +178,8 @@ export const ja: LandingCopy = {
     msgPre: 'このバズ動画を使って',
     msgProducts: ['@ペットフード', '@サロペット', '@イヤホン'],
     msgPost: 'に 1 本ずつ作成し、そのまま投稿できる形で 15 秒。',
-    linkCard: 'tiktok.com/@pet.diary/video/73421 · 猫との日常、キャットフード開封',
+    linkCard:
+      'tiktok.com/@pet.diary/video/73421 · 猫との日常、キャットフード開封',
     doneBreakdown: '参考動画が売れた理由を分析しました',
     kv: [
       { k: '冒頭', v: '最初の 2 秒でビフォーアフター' },
@@ -750,12 +752,16 @@ export const ja: LandingCopy = {
   download: {
     title: 'OmniMux デスクトップで続ける',
     desc: 'ダウンロード・インストールしてログインすれば、すぐ制作を始められます。',
+    version: '安定版 {version}',
     close: '閉じる',
-    macTitle: 'macOS 版をダウンロード（Universal）',
-    macSub: 'macOS 12+ · Apple Silicon・Intel 対応',
+    macArmTitle: 'macOS 版をダウンロード（Apple Silicon）',
+    macArmSub: 'macOS 12+ · M シリーズチップ',
+    macIntelTitle: 'macOS 版をダウンロード（Intel）',
+    macIntelSub: 'macOS 12+ · Intel チップ',
     winTitle: 'Windows 版をダウンロード（x64 インストーラー）',
     winSub: 'Windows 10 / 11 x64',
     recommended: 'おすすめ',
+    unavailable: 'ダウンロードできません：安定版がまだ公開されていません',
     notePre: 'Windows に「PC が保護されました」と表示されたら',
     noteMore: '詳細情報',
     noteRun: '実行',
@@ -771,7 +777,10 @@ export const ja: LandingCopy = {
         links: [
           { label: '料金', href: '/pricing' },
           { label: 'インスピレーション', href: '/inspiration' },
-          { label: 'AI インフルエンサースタジオ', href: '/ai-influencer-studio' },
+          {
+            label: 'AI インフルエンサースタジオ',
+            href: '/ai-influencer-studio',
+          },
           { label: 'デスクトップ版をダウンロード', href: '#download' },
         ],
       },

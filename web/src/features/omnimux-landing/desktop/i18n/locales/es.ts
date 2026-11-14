@@ -96,6 +96,8 @@ export const es: LandingCopy = {
     dlMacArm: 'macOS (Apple Silicon)',
     dlMacIntel: 'macOS (Intel)',
     dlWinX64: 'Windows (64 bits)',
+    dlUnavailable:
+      'Descarga no disponible mientras se publica la versión estable',
     skillsLabel: 'Skills',
     skillsAria: 'Skills',
     skills: [
@@ -182,7 +184,8 @@ export const es: LandingCopy = {
     msgPre: 'Usa este vídeo viral para crear un vídeo de 15 s para',
     msgProducts: ['@ComidaMascota', '@Overol', '@Auriculares'],
     msgPost: 'y publícalos, 15 s cada uno.',
-    linkCard: 'tiktok.com/@pet.diary/video/73421 · gato jugando + unboxing de pienso',
+    linkCard:
+      'tiktok.com/@pet.diary/video/73421 · gato jugando + unboxing de pienso',
     doneBreakdown: 'Analizado por qué vende el vídeo de referencia',
     kv: [
       { k: 'Gancho', v: 'Antes/después en los primeros 2 s' },
@@ -781,12 +784,17 @@ export const es: LandingCopy = {
   download: {
     title: 'Continúa en OmniMux Desktop',
     desc: 'Descarga, instala e inicia sesión para empezar a crear.',
+    version: 'Versión estable {version}',
     close: 'Cerrar',
-    macTitle: 'Descargar para macOS (Universal)',
-    macSub: 'macOS 12+ · Apple silicon e Intel',
+    macArmTitle: 'Descargar para macOS (Apple Silicon)',
+    macArmSub: 'macOS 12+ · chip serie M',
+    macIntelTitle: 'Descargar para macOS (Intel)',
+    macIntelSub: 'macOS 12+ · chip Intel',
     winTitle: 'Descargar para Windows (instalador x64)',
     winSub: 'Windows 10 / 11 x64',
     recommended: 'Recomendado',
+    unavailable:
+      'Descarga no disponible: aún no se ha publicado una versión estable',
     notePre: 'Si Windows dice "Windows protected your PC": haz clic en',
     noteMore: 'Más información',
     noteRun: 'Ejecutar de todos modos',

@@ -96,6 +96,7 @@ export const id: LandingCopy = {
     dlMacArm: 'macOS (Apple Silicon)',
     dlMacIntel: 'macOS (Intel)',
     dlWinX64: 'Windows (64-bit)',
+    dlUnavailable: 'Unduhan tidak tersedia saat versi stabil sedang dirilis',
     skillsLabel: 'Skill',
     skillsAria: 'Skill',
     skills: [
@@ -182,7 +183,8 @@ export const id: LandingCopy = {
     msgPre: 'Pakai video viral ini untuk membuat satu video',
     msgProducts: ['@MakananHewan', '@Overall', '@Earbuds'],
     msgPost: '— siap dipublikasikan, masing-masing 15 detik.',
-    linkCard: 'tiktok.com/@pet.diary/video/73421 · kucing lucu + unboxing cat food',
+    linkCard:
+      'tiktok.com/@pet.diary/video/73421 · kucing lucu + unboxing cat food',
     doneBreakdown: 'Sudah dibedah kenapa video referensi ini laku',
     kv: [
       { k: 'Hook', v: 'Before/after di 2 detik pertama' },
@@ -760,12 +762,16 @@ export const id: LandingCopy = {
   download: {
     title: 'Lanjutkan di OmniMux Desktop',
     desc: 'Unduh, instal, dan masuk untuk mulai membuat.',
+    version: 'Versi stabil {version}',
     close: 'Tutup',
-    macTitle: 'Unduh untuk macOS (Universal)',
-    macSub: 'macOS 12+ · Apple silicon & Intel',
+    macArmTitle: 'Unduh untuk macOS (Apple Silicon)',
+    macArmSub: 'macOS 12+ · chip seri M',
+    macIntelTitle: 'Unduh untuk macOS (Intel)',
+    macIntelSub: 'macOS 12+ · chip Intel',
     winTitle: 'Unduh untuk Windows (installer x64)',
     winSub: 'Windows 10 / 11 x64',
     recommended: 'Direkomendasikan',
+    unavailable: 'Unduhan tidak tersedia: versi stabil belum dirilis',
     notePre: 'Jika Windows menampilkan "Windows protected your PC": klik',
     noteMore: 'More info',
     noteRun: 'Run anyway',

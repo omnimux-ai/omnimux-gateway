@@ -217,6 +217,11 @@ For commercial licensing, please contact support@quantumnous.com
 .omc .split-item {display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;text-decoration:none;color:var(--fg-2);text-align:left;white-space:nowrap;transition:background .15s,color .15s}
 .omc .split-item:hover {background:var(--wash);color:var(--fg)}
 .omc .split-item .t {font-size:14px;font-weight:400}
+.omc .split-dl.is-disabled {opacity:.45}
+.omc .split-dl.is-disabled .split-main,
+.omc .split-dl.is-disabled .split-caret {cursor:not-allowed;pointer-events:none}
+.omc .split-item.dis {color:var(--fg-3);cursor:not-allowed;pointer-events:none}
+.omc .btn:disabled,.omc .sc-cta:disabled {opacity:.45;cursor:not-allowed}
 .omc .reel {display:flex;justify-content:center;align-items:flex-start;gap:clamp(8px,1.1vw,16px);margin-top:clamp(48px,6vw,72px);padding-bottom:24px;perspective:1400px}
 .omc .reel-card {--w:clamp(118px,11.2vw,172px);position:relative;flex:none;width:var(--w);aspect-ratio:9/16;border-radius:18px;overflow:hidden;background:var(--panel-2);border:1px solid var(--hair-2);box-shadow:0 30px 60px -28px rgba(0,0,0,.9);transform:translateY(var(--y,0)) rotate(var(--r,0deg));animation:fly 1s cubic-bezier(.2,.75,.2,1) both;animation-delay:calc(var(--i) * 80ms + 150ms)}
 .omc .reel-card video,
@@ -715,6 +720,8 @@ dialog.dl {margin:auto;width:min(520px,100% - 32px);border:1px solid var(--hair-
 .omc .dl-opt span {font-size:12.5px;color:var(--fg-3)}
 .omc .dl-opt em {margin-left:auto;font-style:normal;font-size:12px;color:var(--fg);border:1px solid var(--hair-3);border-radius:999px;padding:1px 8px;visibility:hidden}
 .omc .dl-opt.rec em {visibility:visible}
+.omc .dl-opt.dis {opacity:.45;cursor:not-allowed}
+.omc .dl-opt.dis:hover {border-color:var(--hair-2);background:none}
 .omc .dl-note {margin-top:16px;font-size:12.5px;color:var(--fg-3);line-height:1.7}
 .omc .dl-note b {color:var(--fg-2);font-weight:500}
 @media (prefers-reduced-motion:reduce) {

@@ -27,8 +27,13 @@ import {
 } from 'react'
 
 import { useCopy } from '../../i18n'
-import { detectMacArch, detectPlatform } from './detect-platform'
-import { DOWNLOAD_MAC, DOWNLOAD_WIN } from './data'
+import {
+  fetchDesktopRelease,
+  releaseUrls,
+  type DesktopRelease,
+  type ReleaseUrls,
+} from './desktop-release'
+import { detectPlatform } from './detect-platform'
 import {
   DownloadContext,
   type DetectedPlatform,
@@ -37,53 +42,88 @@ import {
 } from './download-context'
 import { Icon } from './icons'
 
+function urlFor(urls: ReleaseUrls, target: DownloadTarget): string {
+  if (target === 'win') return urls.win
+  return target === 'mac-x64' ? urls.x64 : urls.arm64
+}
+
+function archOf(platform: DetectedPlatform): MacArch | null {
+  if (platform === 'mac-arm64') return 'arm64'
+  if (platform === 'mac-x64') return 'x64'
+  return null
+}
+
 export function DownloadProvider(props: { children: ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [recommended, setRecommended] = useState<DownloadTarget>('mac')
+  const [recommended, setRecommended] = useState<DownloadTarget>('mac-arm64')
   const [platform, setPlatform] = useState<DetectedPlatform>(null)
-  const [macArch, setMacArch] = useState<MacArch | null>(null)
+  const [release, setRelease] = useState<DesktopRelease>({ status: 'loading' })
 
   // Detection touches `navigator`, so it runs after mount to keep the server
   // and first client render identical.
-  useEffect(() => setPlatform(detectPlatform()), [])
   useEffect(() => {
     let stale = false
-    void detectMacArch().then((arch) => {
-      if (!stale) setMacArch(arch)
-    })
+    void (async () => {
+      const next = await detectPlatform()
+      if (!stale) setPlatform(next)
+    })()
     return () => {
       stale = true
     }
   }, [])
 
-  const open = useCallback((target?: DownloadTarget) => {
-    setRecommended(target ?? detectPlatform() ?? 'mac')
-    const dialog = dialogRef.current
-    if (dialog && !dialog.open) dialog.showModal()
+  // Read the stable-channel manifest after mount for the same reason. A 404
+  // resolves to `unavailable` (disable the UI); any other failure to `fallback`
+  // (point at the `releases/latest/` symlinks).
+  useEffect(() => {
+    let stale = false
+    void (async () => {
+      const next = await fetchDesktopRelease()
+      if (!stale) setRelease(next)
+    })()
+    return () => {
+      stale = true
+    }
   }, [])
+
+  const open = useCallback(
+    (target?: DownloadTarget) => {
+      setRecommended(target ?? platform ?? 'mac-arm64')
+      const dialog = dialogRef.current
+      if (dialog && !dialog.open) dialog.showModal()
+    },
+    [platform]
+  )
 
   const downloadDirect = useCallback(() => {
     if (!platform) return false
-    const href = platform === 'win' ? DOWNLOAD_WIN : DOWNLOAD_MAC
+    const urls = releaseUrls(release)
+    if (!urls) return false
     const anchor = document.createElement('a')
-    anchor.href = href
+    anchor.href = urlFor(urls, platform)
     anchor.download = ''
     anchor.rel = 'noopener'
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
     return true
-  }, [platform])
+  }, [platform, release])
+
+  const macArch = archOf(platform)
 
   const value = useMemo(
-    () => ({ open, platform, macArch, downloadDirect }),
-    [open, platform, macArch, downloadDirect]
+    () => ({ open, platform, macArch, release, downloadDirect }),
+    [open, platform, macArch, release, downloadDirect]
   )
 
   return (
     <DownloadContext.Provider value={value}>
       {props.children}
-      <DownloadDialog dialogRef={dialogRef} recommended={recommended} />
+      <DownloadDialog
+        dialogRef={dialogRef}
+        recommended={recommended}
+        release={release}
+      />
     </DownloadContext.Provider>
   )
 }
@@ -91,9 +131,39 @@ export function DownloadProvider(props: { children: ReactNode }) {
 function DownloadDialog(props: {
   dialogRef: RefObject<HTMLDialogElement | null>
   recommended: DownloadTarget
+  release: DesktopRelease
 }) {
-  const { dialogRef, recommended } = props
+  const { dialogRef, recommended, release } = props
   const copy = useCopy().download
+  const urls = releaseUrls(release)
+  const version = release.status === 'ready' ? release.version : null
+
+  const options: {
+    target: DownloadTarget
+    icon: 'apple' | 'win'
+    title: string
+    sub: string
+  }[] = [
+    {
+      target: 'mac-arm64',
+      icon: 'apple',
+      title: copy.macArmTitle,
+      sub: copy.macArmSub,
+    },
+    {
+      target: 'mac-x64',
+      icon: 'apple',
+      title: copy.macIntelTitle,
+      sub: copy.macIntelSub,
+    },
+    {
+      target: 'win',
+      icon: 'win',
+      title: copy.winTitle,
+      sub: copy.winSub,
+    },
+  ]
+
   return (
     <dialog
       className='dl'
@@ -108,7 +178,9 @@ function DownloadDialog(props: {
         <img src='/logo.svg' alt='' />
         <div>
           <h2 id='dlTitle'>{copy.title}</h2>
-          <p>{copy.desc}</p>
+          <p>
+            {version ? copy.version.replace('{version}', version) : copy.desc}
+          </p>
         </div>
         <button
           className='dl-x'
@@ -120,28 +192,39 @@ function DownloadDialog(props: {
         </button>
       </div>
       <div className='dl-opts'>
-        <a
-          className={`dl-opt${recommended === 'mac' ? ' rec' : ''}`}
-          href={DOWNLOAD_MAC}
-        >
-          <Icon name='apple' filled />
-          <div>
-            <b>{copy.macTitle}</b>
-            <span>{copy.macSub}</span>
-          </div>
-          <em>{copy.recommended}</em>
-        </a>
-        <a
-          className={`dl-opt${recommended === 'win' ? ' rec' : ''}`}
-          href={DOWNLOAD_WIN}
-        >
-          <Icon name='win' filled />
-          <div>
-            <b>{copy.winTitle}</b>
-            <span>{copy.winSub}</span>
-          </div>
-          <em>{copy.recommended}</em>
-        </a>
+        {options.map((option) => {
+          const href = urls ? urlFor(urls, option.target) : null
+          if (!href) {
+            return (
+              <span
+                key={option.target}
+                className='dl-opt dis'
+                aria-disabled='true'
+                title={copy.unavailable}
+              >
+                <Icon name={option.icon} filled />
+                <div>
+                  <b>{option.title}</b>
+                  <span>{option.sub}</span>
+                </div>
+              </span>
+            )
+          }
+          return (
+            <a
+              key={option.target}
+              className={`dl-opt${recommended === option.target ? ' rec' : ''}`}
+              href={href}
+            >
+              <Icon name={option.icon} filled />
+              <div>
+                <b>{option.title}</b>
+                <span>{option.sub}</span>
+              </div>
+              <em>{copy.recommended}</em>
+            </a>
+          )
+        })}
       </div>
       <p className='dl-note'>
         {copy.notePre} <b>{copy.noteMore}</b> → <b>{copy.noteRun}</b>

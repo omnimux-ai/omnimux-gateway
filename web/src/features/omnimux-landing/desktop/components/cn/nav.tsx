@@ -75,7 +75,7 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
   const [scrolled, setScrolled] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [signOutOpen, setSignOutOpen] = useState(false)
-  const { open, downloadDirect } = useDownload()
+  const { open, downloadDirect, release } = useDownload()
   const user = useAuthStore((state) => state.auth.user)
   const isWalletVisible = useIsSidebarModuleVisible('/wallet')
   const isSecurityVisible = useIsSidebarModuleVisible('/security')
@@ -308,6 +308,12 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
             <button
               className='btn btn-sm btn-ghost'
               type='button'
+              disabled={release.status === 'unavailable'}
+              title={
+                release.status === 'unavailable'
+                  ? copy.download.unavailable
+                  : undefined
+              }
               onClick={() => {
                 if (!downloadDirect()) open()
               }}

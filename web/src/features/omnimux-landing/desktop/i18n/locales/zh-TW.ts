@@ -91,6 +91,7 @@ export const zhTW: LandingCopy = {
     dlMacArm: 'macOS（Apple 晶片）',
     dlMacIntel: 'macOS（Intel）',
     dlWinX64: 'Windows（64 位元）',
+    dlUnavailable: '穩定版本發布中，暫時無法下載',
     skillsLabel: '技能',
     skillsAria: '技能',
     skills: [
@@ -280,7 +281,11 @@ export const zhTW: LandingCopy = {
 
     breakdown: {
       tabsAria: '拆解對象',
-      tabs: { video: '影片', account: '競品帳號 · 示意', category: '品類趨勢 · 示意' },
+      tabs: {
+        video: '影片',
+        account: '競品帳號 · 示意',
+        category: '品類趨勢 · 示意',
+      },
       statsViews: '1500萬+ 播放',
       statsLikes: '32萬+ 按讚',
       why: '為什麼能賣',
@@ -717,12 +722,16 @@ export const zhTW: LandingCopy = {
   download: {
     title: '在 OmniMux 桌面版繼續',
     desc: '下載安裝後登入，即可開始創作。',
+    version: '穩定版 {version}',
     close: '關閉',
-    macTitle: '下載 macOS 版（Universal）',
-    macSub: 'macOS 12+ · Apple 晶片與 Intel 通用',
+    macArmTitle: '下載 macOS 版（Apple 晶片）',
+    macArmSub: 'macOS 12+ · M 系列晶片',
+    macIntelTitle: '下載 macOS 版（Intel）',
+    macIntelSub: 'macOS 12+ · Intel 晶片',
     winTitle: '下載 Windows 版（x64 安裝程式）',
     winSub: 'Windows 10 / 11 x64',
     recommended: '推薦',
+    unavailable: '暫不可下載：穩定版本尚未發布',
     notePre: '若 Windows 提示「已保護你的電腦」：點擊',
     noteMore: '其他資訊',
     noteRun: '仍要執行',

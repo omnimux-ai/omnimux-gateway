@@ -47,7 +47,9 @@ function stubNavigator(init: {
           getHighEntropyValues: () =>
             init.userAgentDataArchitecture === null
               ? Promise.reject(new Error('unsupported hint'))
-              : Promise.resolve({ architecture: init.userAgentDataArchitecture }),
+              : Promise.resolve({
+                  architecture: init.userAgentDataArchitecture,
+                }),
         }
       : undefined
   vi.stubGlobal('navigator', {
@@ -59,7 +61,7 @@ function stubNavigator(init: {
 }
 
 // Wrap the Mac-arm detection fixtures so the stubbed navigator reports a
-// desktop Mac; every detectMacArch case needs that base.
+// desktop Mac; every Mac case needs that base.
 function stubMacNavigator(
   overrides: Omit<Parameters<typeof stubNavigator>[0], 'userAgent'> = {}
 ) {
@@ -71,48 +73,59 @@ afterEach(() => {
 })
 
 describe('detectPlatform', () => {
-  it('picks the Windows installer for a Windows desktop', () => {
+  it('picks the Windows installer for a Windows desktop', async () => {
     stubNavigator({ userAgent: WIN_UA, platform: 'Win32' })
-    expect(detectPlatform()).toBe('win')
+    await expect(detectPlatform()).resolves.toBe('win')
   })
 
-  it('picks the macOS installer for an Apple desktop', () => {
+  it('picks the arm64 macOS installer for an Apple desktop with no chip hint', async () => {
     stubNavigator({ userAgent: MAC_UA, platform: 'MacIntel' })
-    expect(detectPlatform()).toBe('mac')
+    await expect(detectPlatform()).resolves.toBe('mac-arm64')
   })
 
-  it('trusts userAgentData.platform when the UA string is ambiguous', () => {
+  it('picks the x64 macOS installer for an Intel Mac', async () => {
+    stubMacNavigator({ userAgentDataArchitecture: 'x86' })
+    await expect(detectPlatform()).resolves.toBe('mac-x64')
+  })
+
+  it('picks the arm64 macOS installer for an Apple-silicon hint', async () => {
+    stubMacNavigator({ userAgentDataArchitecture: 'arm' })
+    await expect(detectPlatform()).resolves.toBe('mac-arm64')
+  })
+
+  it('trusts userAgentData.platform when the UA string is ambiguous', async () => {
     // A UA-reduced browser drops the OS token; the structured hint still knows.
     stubNavigator({
-      userAgent: 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+      userAgent:
+        'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
       platform: '',
       userAgentDataPlatform: 'Windows',
     })
-    expect(detectPlatform()).toBe('win')
+    await expect(detectPlatform()).resolves.toBe('win')
   })
 
-  it('refuses to guess on a phone', () => {
+  it('refuses to guess on a phone', async () => {
     stubNavigator({ userAgent: IPHONE_UA, platform: 'iPhone' })
-    expect(detectPlatform()).toBeNull()
+    await expect(detectPlatform()).resolves.toBeNull()
   })
 
-  it('refuses to guess on Android', () => {
+  it('refuses to guess on Android', async () => {
     stubNavigator({ userAgent: ANDROID_UA, platform: 'Linux armv8l' })
-    expect(detectPlatform()).toBeNull()
+    await expect(detectPlatform()).resolves.toBeNull()
   })
 
-  it('treats a touch-enabled Mac UA as iPadOS, not macOS', () => {
+  it('treats a touch-enabled Mac UA as iPadOS, not macOS', async () => {
     stubNavigator({
       userAgent: IPAD_DESKTOP_UA,
       platform: 'MacIntel',
       maxTouchPoints: 5,
     })
-    expect(detectPlatform()).toBeNull()
+    await expect(detectPlatform()).resolves.toBeNull()
   })
 
-  it('refuses to guess on a desktop it does not recognise', () => {
+  it('refuses to guess on a desktop it does not recognise', async () => {
     stubNavigator({ userAgent: LINUX_UA, platform: 'Linux x86_64' })
-    expect(detectPlatform()).toBeNull()
+    await expect(detectPlatform()).resolves.toBeNull()
   })
 })
 

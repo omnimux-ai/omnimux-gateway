@@ -96,6 +96,8 @@ export const en: LandingCopy = {
     dlMacArm: 'macOS (Apple Silicon)',
     dlMacIntel: 'macOS (Intel)',
     dlWinX64: 'Windows (64-bit)',
+    dlUnavailable:
+      'Download unavailable while the stable release is being published',
     skillsLabel: 'Skills',
     skillsAria: 'Skills',
     skills: [
@@ -182,7 +184,8 @@ export const en: LandingCopy = {
     msgPre: 'Recreate this viral video for',
     msgProducts: ['@PetFood', '@Overalls', '@Earbuds'],
     msgPost: '— one 15s video each, ready to publish.',
-    linkCard: 'tiktok.com/@pet.diary/video/73421 · cat antics + kibble unboxing',
+    linkCard:
+      'tiktok.com/@pet.diary/video/73421 · cat antics + kibble unboxing',
     doneBreakdown: 'Broke down why the reference video sells',
     kv: [
       { k: 'Hook', v: 'Before/after in the first 2s' },
@@ -719,12 +722,16 @@ export const en: LandingCopy = {
   download: {
     title: 'Continue on OmniMux Desktop',
     desc: 'Download, install and log in to start creating.',
+    version: 'Stable version {version}',
     close: 'Close',
-    macTitle: 'Download for macOS (Universal)',
-    macSub: 'macOS 12+ · Apple silicon & Intel',
+    macArmTitle: 'Download for macOS (Apple Silicon)',
+    macArmSub: 'macOS 12+ · M-series chip',
+    macIntelTitle: 'Download for macOS (Intel)',
+    macIntelSub: 'macOS 12+ · Intel chip',
     winTitle: 'Download for Windows (x64 installer)',
     winSub: 'Windows 10 / 11 x64',
     recommended: 'Recommended',
+    unavailable: 'Download unavailable — no stable release published yet',
     notePre: 'If Windows says "Windows protected your PC": click',
     noteMore: 'More info',
     noteRun: 'Run anyway',
