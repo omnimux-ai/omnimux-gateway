@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,7 +26,7 @@ const (
 	userInfoPath    = "/v2/user/info/"
 	creatorInfoPath = "/v2/post/publish/creator_info/query/"
 	videoUploadPath = "/v2/post/publish/video/init/"
-	videoInboxPath  = "/v2/post/publish/inbox/video/upload/"
+	videoInboxPath  = "/v2/post/publish/inbox/video/init/"
 	photoPostPath   = "/v2/post/publish/content/init/"
 	statusPath      = "/v2/post/publish/status/fetch/"
 )
@@ -445,33 +444,23 @@ func (c *Client) GetPublishStatus(ctx context.Context, accessToken, publishID st
 	return &env.Data, nil
 }
 
-// UploadVideoFile uploads raw video bytes via FILE_UPLOAD (used when pull_by_url unavailable).
-func (c *Client) UploadVideoFile(ctx context.Context, accessToken, title string, video []byte, filename string, privacyLevel string) (*PublishInitResponse, error) {
-	if privacyLevel == "" {
-		privacyLevel = "SELF_ONLY"
-	}
+// PublishVideoToInboxByURL sends a video to the creator's TikTok inbox as a draft.
+// Scope: video.upload. The creator finishes editing and posting inside TikTok.
+// https://developers.tiktok.com/docs/en/content-posting-api-reference-upload-video
+func (c *Client) PublishVideoToInboxByURL(ctx context.Context, accessToken, videoURL string) (*PublishInitResponse, error) {
 	body := map[string]any{
-		"post_info": map[string]any{
-			"title":         title,
-			"privacy_level": privacyLevel,
-		},
 		"source_info": map[string]any{
-			"source":            "FILE_UPLOAD",
-			"video_size":        len(video),
-			"chunk_size":        len(video),
-			"total_chunk_count": 1,
+			"source":    "PULL_FROM_URL",
+			"video_url": videoURL,
 		},
 	}
-	// TikTok FILE_UPLOAD flow first initializes then uploads to a signed URL.
-	// v1: rely on PULL_FROM_URL path primarily; this helper exists for completeness.
-	raw, _, err := c.doJSON(ctx, "video_upload_init", http.MethodPost, videoInboxPath, body, accessToken)
+	raw, _, err := c.doJSON(ctx, "video_inbox_init", http.MethodPost, videoInboxPath, body, accessToken)
 	if err != nil {
 		return nil, err
 	}
 	var env struct {
 		Data struct {
 			PublishID string `json:"publish_id"`
-			UploadURL string `json:"upload_url"`
 		} `json:"data"`
 		Error *apiErrorBody `json:"error"`
 	}
@@ -479,37 +468,10 @@ func (c *Client) UploadVideoFile(ctx context.Context, accessToken, title string,
 		return nil, err
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "video_upload_init"}
+		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "video_inbox_init"}
 	}
 	if env.Data.PublishID == "" {
-		return nil, errors.New("tiktok: video upload: empty publish_id")
-	}
-	// Upload bytes to signed URL (multipart form per spec; single chunk v1)
-	if env.Data.UploadURL != "" {
-		var buf bytes.Buffer
-		w := multipart.NewWriter(&buf)
-		fw, err := w.CreateFormFile("video", filename)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := fw.Write(video); err != nil {
-			return nil, err
-		}
-		_ = w.Close()
-		upReq, err := http.NewRequestWithContext(ctx, http.MethodPost, env.Data.UploadURL, &buf)
-		if err != nil {
-			return nil, err
-		}
-		upReq.Header.Set("Content-Type", w.FormDataContentType())
-		upReq.Header.Set("Authorization", "Bearer "+accessToken)
-		resp, err := c.HTTPClient.Do(upReq)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return nil, &APIError{Status: resp.StatusCode, Endpoint: "video_upload"}
-		}
+		return nil, errors.New("tiktok: video inbox init: empty publish_id")
 	}
 	return &PublishInitResponse{PublishID: env.Data.PublishID}, nil
 }

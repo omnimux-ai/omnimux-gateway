@@ -111,6 +111,9 @@ func socialError(c *gin.Context, err error) {
 	// fork: zernio-retire — the removed source is gone, not merely absent.
 	case errors.Is(err, social.ErrProviderRetired):
 		c.JSON(http.StatusGone, gin.H{"success": false, "message": err.Error(), "code": "provider-retired"})
+	// fork: tiktok-draft-upload — the account token does not grant a publish scope.
+	case errors.Is(err, social.ErrTikTokPublishScopeMissing):
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "code": "SOCIAL_TIKTOK_SCOPE_MISSING"})
 	case errors.Is(err, social.ErrAccountProviderMismatch):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "code": "account-provider-mismatch"})
 	case errors.Is(err, social.ErrPostProviderMismatch):
@@ -180,6 +183,7 @@ func SocialListAccounts(c *gin.Context) {
 	}
 	out := make([]gin.H, 0, len(rows))
 	for _, a := range rows {
+		uploadDraft, publishDirect := socialSvc.TikTokCapabilities(a)
 		out = append(out, gin.H{
 			"id":           a.ID,
 			"platform":     a.Platform,
@@ -188,6 +192,11 @@ func SocialListAccounts(c *gin.Context) {
 			"status":       a.Status,
 			// fork: social-provider-isolation — public source identity.
 			"provider": a.Provider,
+			// fork: tiktok-draft-upload — granted-scope capabilities.
+			"capabilities": gin.H{
+				"upload_draft":   uploadDraft,
+				"publish_direct": publishDirect,
+			},
 		})
 	}
 	common.ApiSuccess(c, gin.H{"accounts": out})

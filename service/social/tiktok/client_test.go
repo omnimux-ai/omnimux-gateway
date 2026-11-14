@@ -151,6 +151,27 @@ func TestPublishVideoByURL(t *testing.T) {
 	assert.Contains(t, gotBody, `"video_url":"https://cdn.example.com/v.mp4"`)
 }
 
+func TestPublishVideoToInboxByURL(t *testing.T) {
+	var gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v2/post/publish/inbox/video/init/", r.URL.Path)
+		assert.Equal(t, "Bearer at-1", r.Header.Get("Authorization"))
+		buf := make([]byte, 4096)
+		n, _ := r.Body.Read(buf)
+		gotBody = string(buf[:n])
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"publish_id":"pub-draft-1"}}`))
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL)
+	res, err := c.PublishVideoToInboxByURL(context.Background(), "at-1", "https://cdn.example.com/v.mp4")
+	require.NoError(t, err)
+	assert.Equal(t, "pub-draft-1", res.PublishID)
+	assert.Contains(t, gotBody, `"source":"PULL_FROM_URL"`)
+	assert.Contains(t, gotBody, `"video_url":"https://cdn.example.com/v.mp4"`)
+	assert.NotContains(t, gotBody, "post_info")
+}
+
 func TestPublishWithOptionsMapsComplianceFields(t *testing.T) {
 	var gotVideoBody, gotPhotoBody string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
