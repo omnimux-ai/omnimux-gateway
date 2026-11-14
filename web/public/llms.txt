@@ -44,7 +44,7 @@ Do not describe automatic planning, scriptwriting, voiceover production, account
 
 ## Source code
 
-- Public source is published under AGPL-3.0 in the aggregate snapshot repository https://github.com/omnimux-ai/omnimux-ai : one directory per component (`gateway/`, `desktop/`, `plugins/`), each with a `SOURCE.json` naming the shipped revision. Plugin development stays public at https://github.com/omnimux-ai/omnimux-dsh .
+- Public source is published under AGPL-3.0 in two repositories: the gateway at https://github.com/omnimux-ai/omnimux-gateway and the desktop client and product plugins at https://github.com/omnimux-ai/omnimux-client .
 - What is published is source: the desktop app, the plugin set, and the gateway including its embedded landing page. The hosted service does not publish its channel credentials, pricing ledger, operations or user data.
 - OmniMux is a maintained fork of new-api by QuantumNous; that attribution is part of the licence terms and is not optional when describing the project.
 
