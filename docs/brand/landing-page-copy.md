@@ -71,7 +71,7 @@
 
 ### 首页能力口径（2026-10-27 已收敛并上线）
 
-核对必须覆盖两个落点：网关（`router/` + `controller/` + `service/`）与桌面端插件（`omnimux-desktop-fork` 的 `dsh-plugin-desktop/preset/skeleton/package.json` 中 `dsh.profile.bundles`，以及 `dsh-plugin/product/omnimux-dsh/plugins/<name>/`）。
+核对必须覆盖两个落点：网关（`router/` + `controller/` + `service/`）与桌面端插件（`omnimux-ai/omnimux-client` 的 `app/dsh-plugin-desktop/preset/skeleton/package.json` 中 `dsh.profile.bundles`，以及 `plugins/plugins/<name>/`）。
 
 | 页面表述 | 事实 | 处理 |
 | --- | --- | --- |

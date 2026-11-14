@@ -56,7 +56,7 @@
 
 ### 已交付与未交付
 
-能力有两个可能的落点，只查一处等于没查：网关行为看 `router/` + `controller/` + `service/`；桌面端行为看 `omnimux-desktop-fork` 的 `dsh-plugin-desktop/preset/skeleton/package.json` 里 `dsh.profile.bundles` 的清单，再看 `dsh-plugin/product/omnimux-dsh/plugins/<name>/` 的源码。2026-10-27 曾因只搜 Go 仓，把商品库、画布、发布中心误判为「未实现」——三者实际都已发布。
+能力有两个可能的落点，只查一处等于没查：网关行为看 `router/` + `controller/` + `service/`；桌面端行为看 `omnimux-ai/omnimux-client` 的 `app/dsh-plugin-desktop/preset/skeleton/package.json` 里 `dsh.profile.bundles` 的清单，再看 `plugins/plugins/<name>/` 的源码。2026-10-27 曾因只搜 Go 仓，把商品库、画布、发布中心误判为「未实现」——三者实际都已发布。
 
 | 页面表述 | 实际状态 | 对外口径 |
 | --- | --- | --- |
@@ -94,7 +94,7 @@
 | --- | --- |
 | 从策划到发布复盘一切自动化 | 未交付的能力不得写成已自动完成；链路可讲，自动化的每一环须按上表核实 |
 | 额度永不过期、只为成功成品付费、虚构已停用订阅套餐权益 | 不可替代实际充值阶梯、积分与扣费规则 |
-| 把尚未放入公开仓的组件写成「已开源」；「整个服务开源」「可完整自建 omnimux.ai」 | 公开源码现按三端独立公开仓（AGPL-3.0）发布：网关 `omnimux-ai/omnimux-gateway`、桌面端 `omnimux-ai/omnimux-desktop`、插件 `omnimux-ai/omnimux-dsh`（历史汇总快照仓 `omnimux-ai/omnimux-ai` 已由三端独立公开仓接替）。只有源码已放入公开仓的组件可以称开源，放入前只能写「将以 AGPL-3.0 开源」；桌面端、插件与网关（连同内嵌落地页）源码已发布，可称开源；尚未放入的组件仍不得写成已开源。托管服务的渠道凭据、定价账本、运维与用户数据不开源。须保留 new-api 与 QuantumNous 的真实归属 |
+| 把尚未放入公开仓的组件写成「已开源」；「整个服务开源」「可完整自建 omnimux.ai」 | 公开源码现按两个公开仓（AGPL-3.0）发布：网关 `omnimux-ai/omnimux-gateway`、桌面客户端与插件 `omnimux-ai/omnimux-client`（历史汇总快照仓已归档，由这两个仓接替）。只有源码已放入公开仓的组件可以称开源，放入前只能写「将以 AGPL-3.0 开源」；桌面端、插件与网关（连同内嵌落地页）源码已发布，可称开源；尚未放入的组件仍不得写成已开源。托管服务的渠道凭据、定价账本、运维与用户数据不开源。须保留 new-api 与 QuantumNous 的真实归属 |
 | 真实顾客或真实用户评价（指 AI 出镜人） | 不得伪造证言或冒充真人 |
 | 看不出是 AI、免标注 | 不得规避生成内容标注要求 |
 | 保证爆款、保证流量、保证销售额 | 无法兑现 |
