@@ -714,7 +714,7 @@ export const id: LandingCopy = {
     items: [
       {
         q: 'Apakah OmniMux open source?',
-        a: 'Ya. Klien desktop, plugin, dan kode gateway diterbitkan per rilis di github.com/omnimux-ai/omnimux-ai dengan lisensi AGPL-3.0. Layanan terkelola tidak termasuk kredensial kanal, buku harga, operasional, dan data pengguna.',
+        a: 'Ya. Klien desktop dan plugin diterbitkan di github.com/omnimux-ai/omnimux-client, dan kode gateway di github.com/omnimux-ai/omnimux-gateway, dengan lisensi AGPL-3.0. Layanan terkelola tidak termasuk kredensial kanal, buku harga, operasional, dan data pengguna.',
       },
       {
         q: 'Apa yang bisa dilakukan OmniMux Agent?',

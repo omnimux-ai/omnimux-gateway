@@ -704,7 +704,7 @@ export const ja: LandingCopy = {
     items: [
       {
         q: 'OmniMux はオープンソースですか？',
-        a: 'はい。デスクトップクライアント、プラグイン、ゲートウェイのソースはリリースごとに github.com/omnimux-ai/omnimux-ai で AGPL-3.0 のもと公開しています。ホスト版サービスのチャネル認証情報、価格台帳、運用情報、ユーザーデータは対象外です。',
+        a: 'はい。デスクトップクライアントとプラグインは github.com/omnimux-ai/omnimux-client、ゲートウェイのソースは github.com/omnimux-ai/omnimux-gateway で AGPL-3.0 のもと公開しています。ホスト版サービスのチャネル認証情報、価格台帳、運用情報、ユーザーデータは対象外です。',
       },
       {
         q: 'OmniMux Agent には何ができますか？',

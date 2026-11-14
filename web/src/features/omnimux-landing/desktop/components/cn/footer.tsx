@@ -64,7 +64,7 @@ export function CnFooter(props: { anchorBase?: string }) {
         <div className='foot-bottom'>
           <span>© {new Date().getFullYear()} OmniMux</span>
           <a
-            href='https://github.com/omnimux-ai/omnimux-ai'
+            href='https://github.com/omnimux-ai/omnimux-client'
             rel='noopener noreferrer'
             target='_blank'
           >
