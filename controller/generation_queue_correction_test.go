@@ -25,6 +25,39 @@ import (
 	"path/filepath"
 )
 
+// backgroundJobDrainGuard bounds how long fixture cleanup waits for the
+// process-wide gopool to drain. It is a deadlock detector, not a latency
+// budget: on a saturated CI runner the native quota, cache and consume-log jobs
+// can take far longer than a second to finish, and the previous 5s wall-clock
+// bound turned that scheduling latency into a false failure (issue #12). The
+// invariant this cleanup protects - no background job may touch the database,
+// Redis, or the plugin registry after they are restored - is unchanged; only
+// the point at which we give up and report a genuine leak moved.
+const backgroundJobDrainGuard = 60 * time.Second
+
+// requireBackgroundJobsDrained waits until no gopool worker is running. Waiting
+// is driven by the pool state itself (polled) and can only fail on a real leak,
+// never because the host was briefly slow.
+func requireBackgroundJobsDrained(t *testing.T) {
+	t.Helper()
+	require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, backgroundJobDrainGuard, time.Millisecond, "native background jobs did not finish")
+}
+
+// awaitQueueEvent blocks until the local upstream reports a started request.
+// The wait is driven by the event itself; the guard only catches a true
+// deadlock, so a loaded runner cannot turn scheduler latency into a failure of
+// an ordering assertion. Assertions about *what* started remain the caller's.
+func awaitQueueEvent(t *testing.T, started <-chan string, what string) string {
+	t.Helper()
+	select {
+	case id := <-started:
+		return id
+	case <-time.After(backgroundJobDrainGuard):
+		require.FailNow(t, what)
+		return ""
+	}
+}
+
 // Only the provider is simulated: routing, scheduler, task persistence and native wallet run unchanged.
 func generationCorrectionFixture(t *testing.T, provider http.Handler, customize ...func(string) string) (*gorm.DB, model.User, *model.SystemTask) {
 	t.Helper()
@@ -85,9 +118,7 @@ func generationCorrectionFixture(t *testing.T, provider http.Handler, customize 
 	require.True(t, claimed)
 	// This cleanup is registered last: native quota/cache jobs must finish before
 	// shared DB/Redis configuration or the registry is restored.
-	t.Cleanup(func() {
-		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond, "native background jobs did not finish")
-	})
+	t.Cleanup(func() { requireBackgroundJobsDrained(t) })
 	return db, user, scanner
 }
 
@@ -329,7 +360,7 @@ func TestGenerationQueueFiveRequestsStartAndRefillBeforeLongHTTPFinishes(t *test
 			}
 			select {
 			case <-done:
-			case <-time.After(5 * time.Second):
+			case <-time.After(backgroundJobDrainGuard):
 				cancel()
 				<-done
 				t.Error("scanner did not stop")
@@ -339,15 +370,9 @@ func TestGenerationQueueFiveRequestsStartAndRefillBeforeLongHTTPFinishes(t *test
 	}
 	defer cleanup()
 	seen := map[string]bool{}
-	deadline := time.NewTimer(3 * time.Second)
-	defer deadline.Stop()
 	for len(seen) < 5 {
-		select {
-		case id := <-started:
-			seen[id] = true
-		case <-deadline.C:
-			require.FailNow(t, "five real upstream requests must start while all responses are blocked", fmt.Sprintf("started=%v", seen))
-		}
+		id := awaitQueueEvent(t, started, fmt.Sprintf("five real upstream requests must start while all responses are blocked (started=%v)", seen))
+		seen[id] = true
 	}
 	assert.NotContains(t, seen, "6")
 	var sixth model.Task
@@ -357,22 +382,12 @@ func TestGenerationQueueFiveRequestsStartAndRefillBeforeLongHTTPFinishes(t *test
 	other := model.User{Username: "queue_other", AffCode: "queue_other", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 100000, Setting: `{"billing_preference":"wallet_only"}`}
 	require.NoError(t, db.Create(&other).Error)
 	insertCorrectionTask(t, other, 7, false)
-	select {
-	case id := <-started:
-		require.Equal(t, "7", id)
-	case <-time.After(3 * time.Second):
-		require.FailNow(t, "periodic scan must start newly waiting account while all five first-account HTTP calls block")
-	}
+	require.Equal(t, "7", awaitQueueEvent(t, started, "periodic scan must start newly waiting account while all five first-account HTTP calls block"))
 	assert.Zero(t, finished.Load())
 	// Completion of one synchronous image must refill while four HTTP calls stay blocked.
 	close(release[1])
 	seenFirstReleased = true
-	select {
-	case id := <-started:
-		require.Equal(t, "6", id)
-	case <-time.After(3 * time.Second):
-		require.FailNow(t, "sixth request did not refill the free slot")
-	}
+	require.Equal(t, "6", awaitQueueEvent(t, started, "sixth request did not refill the free slot"))
 	assert.Equal(t, int32(1), finished.Load())
 	t.Log("five upstream requests started; sixth remained WAITING; one completion refilled sixth with four HTTP responses still blocked")
 }

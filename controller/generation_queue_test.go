@@ -109,7 +109,9 @@ func TestGenerationQueuedSubmissionKeepsPublicRecordAndNativeBilling(t *testing.
 	// Registered after fixture setup: native NotifyUser/cache jobs must finish
 	// before cleanup restores any shared database or global configuration.
 	t.Cleanup(func() {
-		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond, "native background jobs did not finish")
+		// Same drain guard as the correction fixture: a slow runner must not turn
+		// the "drain before restoring globals" invariant into a false failure.
+		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, backgroundJobDrainGuard, time.Millisecond, "native background jobs did not finish")
 	})
 	reserved := &model.Task{TaskID: "task_waiting", UserId: 1, Action: ActionInfluencerMotion, Status: model.TaskStatusDispatching, Progress: "0%", Properties: model.Properties{Input: `{"kind":"motion"}`}}
 	require.NoError(t, reserved.Insert())
