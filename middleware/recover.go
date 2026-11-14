@@ -17,7 +17,7 @@ func RelayPanicRecover() gin.HandlerFunc {
 				common.SysLog(common.LogText("stacktrace from panic: %s", string(debug.Stack())))
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error": gin.H{
-						"message": fmt.Sprintf("Panic detected, error: %v. Please submit a issue here: https://github.com/omnimux-ai/omnimux-ai/issues", err),
+						"message": fmt.Sprintf("Panic detected, error: %v. Please submit a issue here: https://github.com/omnimux-ai/omnimux-gateway/issues", err),
 						"type":    "new_api_panic",
 					},
 				})
