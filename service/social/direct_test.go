@@ -304,6 +304,7 @@ func TestCreatePostDirectVideo(t *testing.T) {
 		Platform:             "tiktok",
 		Status:               model.SocialAccountStatusActive,
 		AccessTokenEncrypted: enc,
+		ScopesGranted:        "user.info.basic,video.publish,video.upload",
 	}).Error)
 	var acc model.SocialAccount
 	require.NoError(t, model.DB.Where("user_id = ?", 4).First(&acc).Error)
@@ -325,6 +326,101 @@ func TestCreatePostDirectVideo(t *testing.T) {
 	unwrapped, err := s.OpenPublicMediaPullToken(tok)
 	require.NoError(t, err)
 	assert.Equal(t, "https://cdn.example.com/v.mp4", unwrapped)
+}
+
+func TestCreatePostTikTokDraftUpload(t *testing.T) {
+	setupDirectDB(t)
+	var gotPath, gotBody string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v2/post/publish/inbox/video/init/", func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		buf := make([]byte, 4096)
+		n, _ := r.Body.Read(buf)
+		gotBody = string(buf[:n])
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"publish_id":"draft-42"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cfg := testDirectConfig(t, srv.URL)
+	s := NewService(cfg)
+	require.NoError(t, model.DB.Create(&model.User{Id: 12, Username: "u12"}).Error)
+	enc, err := SealToken("at-12", cfg.SocialTokenEncKey)
+	require.NoError(t, err)
+	require.NoError(t, model.DB.Create(&model.SocialAccount{
+		UserId:               12,
+		Provider:             ProviderTikTokDirect,
+		ProviderAccountID:    "oid-12",
+		Platform:             "tiktok",
+		Status:               model.SocialAccountStatusActive,
+		AccessTokenEncrypted: enc,
+		ScopesGranted:        "user.info.basic,video.upload",
+	}).Error)
+	var acc model.SocialAccount
+	require.NoError(t, model.DB.Where("user_id = ?", 12).First(&acc).Error)
+
+	post, err := s.CreatePost(context.Background(), 12, CreatePostInput{
+		Provider:   ProviderTikTokDirect,
+		Content:    "draft me",
+		AccountIDs: []int64{acc.ID},
+		PublishNow: true,
+		MediaItems: []map[string]any{{"url": "https://cdn.example.com/v.mp4"}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "draft-42", post.ProviderPostID)
+	assert.Equal(t, "submitted", post.Status)
+	assert.Equal(t, "/v2/post/publish/inbox/video/init/", gotPath)
+	assert.Contains(t, gotBody, `"source":"PULL_FROM_URL"`)
+	assert.Contains(t, gotBody, "https://omnimux.ai/api/social/v1/public/media/")
+	assert.NotContains(t, gotBody, "post_info")
+}
+
+func TestCreatePostTikTokDraftRejectsPhoto(t *testing.T) {
+	setupDirectDB(t)
+	cfg := testDirectConfig(t, "http://stub")
+	s := NewService(cfg)
+	require.NoError(t, model.DB.Create(&model.User{Id: 13, Username: "u13"}).Error)
+	enc, err := SealToken("at-13", cfg.SocialTokenEncKey)
+	require.NoError(t, err)
+	require.NoError(t, model.DB.Create(&model.SocialAccount{
+		UserId:               13,
+		Provider:             ProviderTikTokDirect,
+		ProviderAccountID:    "oid-13",
+		Platform:             "tiktok",
+		Status:               model.SocialAccountStatusActive,
+		AccessTokenEncrypted: enc,
+		ScopesGranted:        "user.info.basic,video.upload",
+	}).Error)
+	var acc model.SocialAccount
+	require.NoError(t, model.DB.Where("user_id = ?", 13).First(&acc).Error)
+
+	_, err = s.CreatePost(context.Background(), 13, CreatePostInput{
+		Provider:   ProviderTikTokDirect,
+		Content:    "photo",
+		AccountIDs: []int64{acc.ID},
+		PublishNow: true,
+		MediaItems: []map[string]any{{"url": "https://cdn.example.com/a.png", "type": "image"}},
+	})
+	require.ErrorIs(t, err, ErrMediaInvalid)
+}
+
+func TestTikTokPublishCapabilities(t *testing.T) {
+	cases := []struct {
+		scopes          string
+		upload, publish bool
+	}{
+		{"user.info.basic,video.upload", true, false},
+		{"user.info.basic,video.publish,video.upload", true, true},
+		{"user.info.basic", false, false},
+		{"", false, false},
+		{" video.upload , video.publish ", true, true},
+	}
+	for _, tc := range cases {
+		upload, publish := tiktokPublishCapabilities(tc.scopes)
+		assert.Equal(t, tc.upload, upload, tc.scopes)
+		assert.Equal(t, tc.publish, publish, tc.scopes)
+	}
 }
 
 func TestTikTokMediaTokenAndComplianceValidation(t *testing.T) {

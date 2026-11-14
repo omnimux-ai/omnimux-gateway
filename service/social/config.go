@@ -17,7 +17,9 @@ const (
 	defaultTikTokBaseURL      = "https://open.tiktokapis.com"
 	defaultTikTokAuthorizeURL = "https://www.tiktok.com/v2/auth/authorize/"
 	defaultTikTokRedirectURI  = "https://omnimux.ai/api/social/v1/oauth/tiktok/callback"
-	defaultTikTokScopes       = "user.info.basic,video.publish,video.upload"
+	// Approved production scopes are Login Kit + Upload only. Direct Post
+	// (video.publish) needs a separate TikTok audit; never request it by default.
+	defaultTikTokScopes = "user.info.basic,video.upload"
 )
 
 // Config is Social Ops runtime configuration (env only; default off).

@@ -83,10 +83,15 @@ func (s *Service) Status() map[string]any {
 		"webhook_configured": s.cfg.WebhookSecret != "",
 	}
 	// fork: tiktok-direct — feature probe without any secret material.
+	uploadDraft, publishDirect := tiktokPublishCapabilities(s.cfg.TikTokScopes)
 	out["tiktok_direct"] = map[string]any{
-		"enabled":    s.cfg.TikTokDirectEnabled,
-		"active":     s.cfg.TikTokDirectActive(),
-		"configured": s.cfg.TikTokDirectConfigured(),
+		"enabled":        s.cfg.TikTokDirectEnabled,
+		"active":         s.cfg.TikTokDirectActive(),
+		"configured":     s.cfg.TikTokDirectConfigured(),
+		"scopes":         s.cfg.TikTokScopes,
+		"upload_draft":   uploadDraft,
+		"publish_direct": publishDirect,
+		"draft_only":     !publishDirect,
 	}
 	// fork: social-seats — 未开 Social 不暴露席位价目
 	if s.cfg.Enabled {

@@ -175,6 +175,7 @@ func TestSocialProviderRetirement(t *testing.T) {
 	require.NoError(t, db.AutoMigrate(&model.SocialAccount{}, &model.SocialPost{}, &model.SocialSeat{}))
 	require.NoError(t, db.Create(&model.SocialAccount{
 		ID: 2, UserId: 7, Provider: "tiktok_direct", ProviderAccountID: "d2", Platform: "tiktok", Status: "active",
+		ScopesGranted: "user.info.basic,video.upload",
 	}).Error)
 	var calls atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -187,6 +188,7 @@ func TestSocialProviderRetirement(t *testing.T) {
 		Enabled: true, APIKey: "test-zernio", BaseURL: upstream.URL,
 		ZernioEnabled: false,
 		Platforms:     []string{"tiktok"}, TikTokDirectEnabled: true,
+		TikTokScopes:    "user.info.basic,video.upload",
 		TikTokClientKey: "test-key", TikTokClientSecret: "test-secret",
 		TikTokRedirectURI: "https://omnimux.ai/api/social/v1/oauth/tiktok/callback",
 		SocialTokenEncKey: base64.StdEncoding.EncodeToString(make([]byte, 32)),
@@ -226,6 +228,8 @@ func TestSocialProviderRetirement(t *testing.T) {
 	w := request("GET", "/accounts?provider=tiktok_direct", "")
 	require.Equal(t, 200, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"tiktok_direct"`)
+	assert.Contains(t, w.Body.String(), `"upload_draft":true`)
+	assert.Contains(t, w.Body.String(), `"publish_direct":false`)
 
 	w = request("GET", "/seats", "")
 	require.Equal(t, 200, w.Code, w.Body.String())

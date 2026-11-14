@@ -34,8 +34,8 @@ func TestV2SuccessEnvelope(t *testing.T) {
 			return e
 		}},
 		{"status", `{"status":"PUBLISH_COMPLETE"}`, func(c *Client) error { _, e := c.GetPublishStatus(ctx, "test", "pub"); return e }},
-		{"upload_init", `{"publish_id":"pub"}`, func(c *Client) error {
-			_, e := c.UploadVideoFile(ctx, "test", "title", []byte("test"), "video.mp4", "SELF_ONLY")
+		{"inbox_init", `{"publish_id":"pub"}`, func(c *Client) error {
+			_, e := c.PublishVideoToInboxByURL(ctx, "test", "https://example.com/video.mp4")
 			return e
 		}},
 	}

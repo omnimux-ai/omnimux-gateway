@@ -311,6 +311,60 @@ func resolveTikTokPostOptions(in *TikTokPostOptions) (*tiktok.PostOptions, error
 	return out, nil
 }
 
+var ErrTikTokPublishScopeMissing = errors.New("tiktok account has no publishing scope; reconnect after video.upload or video.publish is granted")
+
+// tiktokPublishCapabilities derives publishing abilities from the granted scopes.
+// TikTok grants video.upload (draft to inbox) and video.publish (direct post)
+// independently; an approved app may hold only one of them.
+func tiktokPublishCapabilities(scopes string) (uploadDraft, directPost bool) {
+	for scope := range strings.SplitSeq(scopes, ",") {
+		switch strings.TrimSpace(scope) {
+		case "video.upload":
+			uploadDraft = true
+		case "video.publish":
+			directPost = true
+		}
+	}
+	return uploadDraft, directPost
+}
+
+// tiktokCapabilitiesFor prefers the account's granted scopes and falls back to the
+// configured request set for accounts connected before scopes were persisted.
+func (s *Service) tiktokCapabilitiesFor(acc *model.SocialAccount) (uploadDraft, directPost bool) {
+	scopes := strings.TrimSpace(acc.ScopesGranted)
+	if scopes == "" {
+		scopes = s.cfg.TikTokScopes
+	}
+	return tiktokPublishCapabilities(scopes)
+}
+
+// TikTokCapabilities reports what the account's granted TikTok scopes allow.
+func (s *Service) TikTokCapabilities(acc *model.SocialAccount) (uploadDraft, directPost bool) {
+	if acc == nil || acc.Provider != ProviderTikTokDirect {
+		return false, false
+	}
+	return s.tiktokCapabilitiesFor(acc)
+}
+
+// uploadTikTokDraft sends one video to the creator's TikTok inbox. The creator
+// finishes editing and posting inside TikTok; title and privacy options do not apply.
+func (s *Service) uploadTikTokDraft(ctx context.Context, client *tiktok.Client, accessToken string, mediaItems []map[string]any) (*tiktok.PublishInitResponse, error) {
+	if len(mediaItems) != 1 {
+		return nil, fmt.Errorf("%w: tiktok draft upload accepts exactly one video", ErrMediaInvalid)
+	}
+	item := mediaItems[0]
+	typ := strings.ToLower(fmt.Sprint(item["type"]))
+	u := strings.TrimSpace(fmt.Sprint(item["url"]))
+	if typ == "image" || isImageURL(u) {
+		return nil, fmt.Errorf("%w: tiktok draft upload supports video only; photo posts require video.publish", ErrMediaInvalid)
+	}
+	wrapped, err := s.WrapTikTokVerifiedMediaURL(u)
+	if err != nil {
+		return nil, err
+	}
+	return client.PublishVideoToInboxByURL(ctx, accessToken, wrapped)
+}
+
 // createPostTikTokDirect publishes to a single direct account (v1: one account per call path branch).
 func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *model.SocialAccount, in CreatePostInput, mediaItems []map[string]any) (*model.SocialPost, error) {
 	if err := s.tiktokDirectUsable(); err != nil {
@@ -324,54 +378,66 @@ func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *m
 	if strings.TrimSpace(firstURL) == "" {
 		return nil, fmt.Errorf("%w: empty media url", ErrMediaInvalid)
 	}
-	postOpts, err := resolveTikTokPostOptions(in.TikTokOptions)
-	if err != nil {
-		return nil, err
+	uploadDraft, directPost := s.tiktokCapabilitiesFor(acc)
+	if !uploadDraft && !directPost {
+		return nil, ErrTikTokPublishScopeMissing
 	}
 	accessToken, err := s.accessTokenForAccount(ctx, acc)
 	if err != nil {
 		return nil, err
 	}
 	client := s.tiktokClient()
-	// Capability check per TikTok guidelines (best-effort; failure does not block v1).
-	_, _ = client.QueryCreatorInfo(ctx, accessToken)
 
 	var pub *tiktok.PublishInitResponse
 	title := in.Content
-	{
-		typ := strings.ToLower(fmt.Sprint(mediaItems[0]["type"]))
-		u := firstURL
-		if typ == "image" || isImageURL(u) {
-			urls := make([]string, 0, len(mediaItems))
-			for _, m := range mediaItems {
-				uu := strings.TrimSpace(fmt.Sprint(m["url"]))
-				if uu != "" {
-					wrapped, werr := s.WrapTikTokVerifiedMediaURL(uu)
-					if werr != nil {
-						return nil, werr
+	if !directPost {
+		pub, err = s.uploadTikTokDraft(ctx, client, accessToken, mediaItems)
+	} else {
+		postOpts, optsErr := resolveTikTokPostOptions(in.TikTokOptions)
+		if optsErr != nil {
+			return nil, optsErr
+		}
+		// Capability check per TikTok guidelines (best-effort; failure does not block v1).
+		_, _ = client.QueryCreatorInfo(ctx, accessToken)
+		{
+			typ := strings.ToLower(fmt.Sprint(mediaItems[0]["type"]))
+			u := firstURL
+			if typ == "image" || isImageURL(u) {
+				urls := make([]string, 0, len(mediaItems))
+				for _, m := range mediaItems {
+					uu := strings.TrimSpace(fmt.Sprint(m["url"]))
+					if uu != "" {
+						wrapped, werr := s.WrapTikTokVerifiedMediaURL(uu)
+						if werr != nil {
+							return nil, werr
+						}
+						urls = append(urls, wrapped)
 					}
-					urls = append(urls, wrapped)
 				}
+				if len(urls) == 0 {
+					return nil, fmt.Errorf("%w: empty photo urls", ErrMediaInvalid)
+				}
+				pub, err = client.PublishPhotoByURLWithOptions(ctx, accessToken, title, urls, postOpts)
+			} else {
+				if u == "" {
+					return nil, fmt.Errorf("%w: empty video url", ErrMediaInvalid)
+				}
+				wrapped, werr := s.WrapTikTokVerifiedMediaURL(u)
+				if werr != nil {
+					return nil, werr
+				}
+				pub, err = client.PublishVideoByURLWithOptions(ctx, accessToken, title, wrapped, postOpts)
 			}
-			if len(urls) == 0 {
-				return nil, fmt.Errorf("%w: empty photo urls", ErrMediaInvalid)
-			}
-			pub, err = client.PublishPhotoByURLWithOptions(ctx, accessToken, title, urls, postOpts)
-		} else {
-			if u == "" {
-				return nil, fmt.Errorf("%w: empty video url", ErrMediaInvalid)
-			}
-			wrapped, werr := s.WrapTikTokVerifiedMediaURL(u)
-			if werr != nil {
-				return nil, werr
-			}
-			pub, err = client.PublishVideoByURLWithOptions(ctx, accessToken, title, wrapped, postOpts)
 		}
 	}
 	if err != nil {
 		return nil, err
 	}
 
+	publishMode := "draft"
+	if directPost {
+		publishMode = "direct"
+	}
 	reqSnap, _ := common.Marshal(map[string]any{
 		"content_preview": truncate(in.Content, 200),
 		"account_ids":     in.AccountIDs,
@@ -379,6 +445,7 @@ func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *m
 		"scheduled_for":   in.ScheduledFor,
 		"media_count":     len(mediaItems),
 		"provider":        ProviderTikTokDirect,
+		"publish_mode":    publishMode,
 	})
 	ledger := &model.SocialPost{
 		UserId:          userId,
