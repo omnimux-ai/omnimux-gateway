@@ -37,7 +37,7 @@ describe('LandingHeader Social & GitHub Navigation Contracts', () => {
   test('constants have valid endpoints matching specifications', () => {
     assert.equal(
       DESKTOP_GITHUB_URL,
-      'https://github.com/omnimux-ai/omnimux-ai'
+      'https://github.com/omnimux-ai/omnimux-client'
     )
     assert.equal(DISCORD_URL, 'https://discord.gg/uNPBDz3WNC')
     assert.equal(X_URL, 'https://x.com/OmniMuxai')
