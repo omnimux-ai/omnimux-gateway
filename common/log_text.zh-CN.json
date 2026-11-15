@@ -1,5 +1,6 @@
 {
   "%d quota points": "%d 点额度",
+  "%d served model(s) are routable but not published: no live executable contract: %v": "%d 个可路由模型未上架：缺少可执行的能力契约: %v",
   "%s after refresh: %s": "%s（刷新凭证后重试）: %s",
   "%s failed: %s": "%s 构建失败，%s",
   "%s must be positive, using default value: %d": "%s 必须大于 0，已使用默认值: %d",

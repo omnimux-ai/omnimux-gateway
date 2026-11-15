@@ -401,6 +401,19 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 没有 `gateway` / `parameters` 的历史档案不受 v2 结构本身影响，但只有 `stub`/`unavailable` 状态可以保留；
 `status=1` 的在售模型必须完成上述 Definition of Done。
 
+### 6.8 运行时发布门禁（Runtime publication gate）
+
+`/api/pricing` 只发布同时满足以下条件的模型：
+
+1. 模型仍有启用渠道可路由（Served）；
+2. 契约 `execution_status` 为 `live`；
+3. 契约至少有一个 `executable: true` 的 operation。
+
+不满足 2/3 的模型属于 **routable but unlisted**：仍可按模型 id 显式调用，但不出现在
+公开定价/目录响应中，也不得视为在售。`SelfUseModeEnabled` 为自建/BYO 部署保留旧行为；
+`OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED=1` 是应急开关。若契约载荷本身不可读，
+网关保持发布现有 Served 目录，不得把 `/api/pricing` 清空。
+
 ## Field: `basis`
 
 Distinguishes a spec that records the **vendor model's published capabilities**

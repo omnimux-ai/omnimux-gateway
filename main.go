@@ -125,6 +125,9 @@ func main() {
 	// Warm pricing after channel cache initialization so Advanced Custom
 	// endpoint inference can read cached route settings on first request.
 	model.GetPricing()
+	if gaps := model.GetCatalogGaps(); len(gaps) > 0 {
+		common.SysLog(common.LogText("%d served model(s) are routable but not published: no live executable contract: %v", len(gaps), gaps))
+	}
 
 	// 热更新配置
 	go model.SyncOptions(common.SyncFrequency)

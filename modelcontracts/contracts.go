@@ -8,8 +8,9 @@
 // and its tests rebuild that projection from the specs so the shipped data and
 // the authored source cannot drift apart unnoticed.
 //
-// The projection is descriptive only. Nothing here may participate in pricing,
-// quota, precharge or settlement.
+// The projection is descriptive. Its values never feed price, quota, precharge
+// or settlement; the presence of a live executable contract may only gate
+// whether the model is published in the public catalog.
 package modelcontracts
 
 import (
@@ -19,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -127,6 +129,16 @@ type Contract struct {
 	// Descriptive data only: it must never feed pricing, quota, precharge or
 	// settlement. See FORK_CUSTOMIZATIONS.md.
 	Billing *Billing `json:"billing,omitempty"`
+}
+
+// IsLiveExecutable reports whether the contract declares a live execution
+// status and at least one verified executable gateway operation.
+//
+// This is a catalog publication predicate only. Contract values must never
+// feed price, quota, precharge or settlement.
+func (c Contract) IsLiveExecutable() bool {
+	return c.ExecutionStatus == ExecutionStatusLive &&
+		slices.ContainsFunc(c.Operations, func(operation Operation) bool { return operation.Executable })
 }
 
 // Billing is the published billing declaration for one model. Unit is the
