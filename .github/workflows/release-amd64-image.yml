@@ -1,10 +1,9 @@
 name: Build deploy-compatible amd64 image
 
 # Builds a single-arch linux/amd64 image of this public gateway source with the
-# exact labels the production blue-green deploy gates require
-# (omnimux.commit / org.opencontainers.image.revision / org.opencontainers.image.version),
-# and publishes it to GHCR. The origin server pulls it and runs bg-deploy.
-# This replaces the old private-repo package build so no private Actions are needed.
+# exact labels the production blue-green deploy gates require, and publishes it
+# to Docker Hub (public, anonymously pullable) and GHCR. The origin server pulls
+# it and runs bg-deploy. Replaces the old private-repo package build.
 
 on:
   workflow_dispatch:
@@ -48,6 +47,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Log in to GHCR
         uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
         with:
@@ -61,7 +66,9 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/omnimux-ai/gateway:${{ steps.v.outputs.short }}
+          tags: |
+            docker.io/calciumion/new-api:${{ steps.v.outputs.short }}
+            ghcr.io/omnimux-ai/gateway:${{ steps.v.outputs.short }}
           labels: |
             omnimux.commit=${{ steps.v.outputs.sha }}
             org.opencontainers.image.revision=${{ steps.v.outputs.sha }}
@@ -71,7 +78,8 @@ jobs:
         run: |
           {
             echo "### Deploy-compatible image"
-            echo "- image: \`ghcr.io/omnimux-ai/gateway:${{ steps.v.outputs.short }}\`"
+            echo "- dockerhub: \`docker.io/calciumion/new-api:${{ steps.v.outputs.short }}\`"
+            echo "- ghcr: \`ghcr.io/omnimux-ai/gateway:${{ steps.v.outputs.short }}\`"
             echo "- version: \`${{ steps.v.outputs.ver }}\`"
             echo "- commit: \`${{ steps.v.outputs.sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
