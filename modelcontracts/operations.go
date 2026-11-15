@@ -13,6 +13,10 @@ import (
 // valid v1 authoring input and projects to the same v2 document.
 const SchemaVersion = "2.0"
 
+// ExecutionStatusLive is the only execution status a model may be published
+// with. A live contract carries at least one executable gateway operation.
+const ExecutionStatusLive = "live"
+
 // Operation is one mode a model can actually execute through this gateway.
 //
 // Executable is the honesty bit: an operation listed from vendor documentation

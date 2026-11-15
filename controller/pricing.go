@@ -62,7 +62,7 @@ func filterPricingDefaults(pricing []model.Pricing, defaults map[string]string) 
 }
 
 func GetPricing(c *gin.Context) {
-	pricing := model.GetPricing()
+	pricing := model.GetCatalogPricing()
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}

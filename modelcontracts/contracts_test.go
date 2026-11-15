@@ -1035,6 +1035,24 @@ func TestEveryContractPublishesExecutionStatus(t *testing.T) {
 	}
 }
 
+func TestContractIsLiveExecutable(t *testing.T) {
+	tests := []struct {
+		name     string
+		contract Contract
+		want     bool
+	}{
+		{"live with executable operation", Contract{ExecutionStatus: ExecutionStatusLive, Operations: []Operation{{Executable: true}}}, true},
+		{"live without executable operation", Contract{ExecutionStatus: ExecutionStatusLive, Operations: []Operation{{Executable: false}}}, false},
+		{"stub with executable operation", Contract{ExecutionStatus: "stub", Operations: []Operation{{Executable: true}}}, false},
+		{"no execution status", Contract{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.contract.IsLiveExecutable())
+		})
+	}
+}
+
 func TestExecutionStatusContradictionsAreRefused(t *testing.T) {
 	t.Run("live without executable operation", func(t *testing.T) {
 		_, err := buildSpecDirResult(t, map[string]string{

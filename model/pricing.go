@@ -2,6 +2,7 @@ package model
 
 import (
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/expr-lang/expr/ast"
@@ -64,9 +66,10 @@ type Pricing struct {
 	// fork: OmniMux — the catalog used to publish a price and a free-text `tags`
 	// string and nothing else, so the public model page had to infer every
 	// capability (duration, resolution, aspect ratio, audio support, reference
-	// limits) and inferred wrong for 86 of 89 live models. Descriptive data
-	// only: it must never feed pricing, quota, precharge or settlement.
-	// See FORK_CUSTOMIZATIONS.md.
+	// limits) and inferred wrong for 86 of 89 live models. The presence of a
+	// live executable contract is the catalog publication gate; its values are
+	// descriptive only and must never feed pricing, quota, precharge or
+	// settlement. See FORK_CUSTOMIZATIONS.md.
 	Contract *modelcontracts.Contract `json:"contract,omitempty"`
 }
 
@@ -88,6 +91,8 @@ var (
 	modelEnableGroups     = make(map[string][]string)
 	modelQuotaTypeMap     = make(map[string]int)
 	modelEnableGroupsLock = sync.RWMutex{}
+
+	contractGateUnavailableOnce sync.Once
 )
 
 var (
@@ -107,6 +112,72 @@ func GetPricing() []Pricing {
 		}
 	}
 	return pricingMap
+}
+
+// fork: OmniMux — public catalog publication gate.
+//
+// GetCatalogPricing returns the public catalog subset of the served pricing
+// rows. A served model is published only when its governance contract is live
+// with at least one executable operation; a contractless model stays routable
+// but unlisted.
+//
+// Self-use deployments and OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED keep the
+// legacy behavior. If the shipped contract payload is unreadable, the served
+// catalog is left intact rather than blanked.
+func GetCatalogPricing() []Pricing {
+	pricing := GetPricing()
+	if !catalogContractGateEnabled() {
+		return pricing
+	}
+	if modelcontracts.Count() == 0 {
+		contractGateUnavailableOnce.Do(func() {
+			common.SysError("model catalog: contract payload is empty; publishing the served catalog without the contract gate")
+		})
+		return pricing
+	}
+	published := make([]Pricing, 0, len(pricing))
+	for _, row := range pricing {
+		if isCatalogPublished(row) {
+			published = append(published, row)
+		}
+	}
+	return published
+}
+
+// GetCatalogGaps returns the served model names that are deliberately kept out
+// of the public catalog because they have no live executable contract. The
+// list is sorted for deterministic logs and diagnostics.
+func GetCatalogGaps() []string {
+	if !catalogContractGateEnabled() || modelcontracts.Count() == 0 {
+		return nil
+	}
+	gaps := make([]string, 0)
+	for _, row := range GetPricing() {
+		if !isCatalogPublished(row) {
+			gaps = append(gaps, row.ModelName)
+		}
+	}
+	sort.Strings(gaps)
+	return gaps
+}
+
+func isCatalogPublished(row Pricing) bool {
+	return row.Contract != nil && row.Contract.IsLiveExecutable()
+}
+
+// catalogContractGateEnabled reports whether the public catalog publication
+// gate is active. Self-use mode serves bring-your-own catalogs, and the env
+// var is an explicit emergency/BYO escape hatch.
+func catalogContractGateEnabled() bool {
+	if operation_setting.SelfUseModeEnabled {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED"))) {
+	case "1", "true", "yes":
+		return false
+	default:
+		return true
+	}
 }
 
 func InvalidatePricingCache() {
