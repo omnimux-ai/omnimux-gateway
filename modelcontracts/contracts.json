@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "c2f30fa70259e916",
+  "version": "4746b7f53cd2f813",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -6940,6 +6940,265 @@
           "jpg",
           "jpeg"
         ]
+      }
+    },
+    "muse-image": {
+      "model_id": "muse-image",
+      "schemaVersion": "2.0",
+      "contractVersion": "afba2016ce7608bc",
+      "execution_status": "live",
+      "family": "image",
+      "status": "partial",
+      "basis": "line_restricted",
+      "operation_ids": [
+        "text_to_image"
+      ],
+      "operations": [
+        {
+          "id": "text_to_image",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            }
+          ],
+          "parameters": [
+            {
+              "name": "seed",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647,
+              "step": 1,
+              "default": 0,
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "平台既有参数表；上游未公布取值范围"
+              }
+            },
+            {
+              "name": "n",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4,
+              "default": 1,
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "本服务 muse2api 的 ImageGenerationRequest 限制 n 为 1–4"
+              }
+            },
+            {
+              "name": "quality",
+              "type": "enum",
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "default": "medium",
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "前端既有参数表；上游未公布枚举"
+              }
+            },
+            {
+              "name": "background",
+              "type": "enum",
+              "enum": [
+                "opaque",
+                "transparent"
+              ],
+              "default": "opaque",
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "前端既有参数表；上游未公布枚举"
+              }
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "auto",
+                "1:1",
+                "16:9",
+                "9:16",
+                "4:3",
+                "3:4"
+              ],
+              "default": "1:1",
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "本服务以 size 字段接收画幅比例；上游未公布完整枚举，采用前端既有画幅集合"
+              }
+            }
+          ],
+          "output": {
+            "type": "image"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars",
+        "reference_images",
+        "reference_images.max",
+        "reference_images.max_bytes_each",
+        "output_sizes",
+        "output_formats"
+      ],
+      "billing": {
+        "unit": "per_image",
+        "unit_label": {
+          "en": "per image",
+          "zh": "每张"
+        },
+        "unit_price_usd": 0.005147,
+        "pricing_basis": "image_count",
+        "notes": {
+          "en": "Charged per generated image; the final quote includes group and membership multipliers; use the platform quote before submission.",
+          "zh": "按生成图片张数计费；实际费用受分组和会员倍率影响，以平台提交前报价为准。"
+        }
+      }
+    },
+    "muse-video": {
+      "model_id": "muse-video",
+      "schemaVersion": "2.0",
+      "contractVersion": "7ff97159dc3b0992",
+      "execution_status": "live",
+      "family": "video",
+      "status": "partial",
+      "basis": "line_restricted",
+      "operation_ids": [
+        "text_to_video",
+        "first_frame"
+      ],
+      "operations": [
+        {
+          "id": "text_to_video",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "step": 1,
+              "default": 5
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "9:16",
+                "1:1"
+              ]
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4"
+              ]
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4"
+            ]
+          }
+        },
+        {
+          "id": "first_frame",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "first_frame",
+              "type": "image",
+              "role": "first_frame",
+              "required": true,
+              "min": 1,
+              "max": 1
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "step": 1,
+              "default": 5
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "adaptive"
+              ],
+              "default": "adaptive",
+              "fixed": "adaptive"
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4"
+              ]
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4"
+            ]
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars",
+        "resolutions",
+        "operations.text_to_video.parameters.resolution",
+        "operations.first_frame.parameters.resolution"
+      ],
+      "durations_seconds": {
+        "min": 1,
+        "max": 60,
+        "default": 5
+      },
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "output_formats": [
+        "mp4"
+      ],
+      "billing": {
+        "unit": "per_video",
+        "unit_label": {
+          "en": "per video",
+          "zh": "每条"
+        },
+        "unit_price_usd": 0.030882,
+        "pricing_basis": "request",
+        "notes": {
+          "en": "Charged per requested video; the final quote includes group and membership multipliers; use the platform quote before submission.",
+          "zh": "按请求的视频条数计费；实际费用受分组和会员倍率影响，以平台提交前报价为准。"
+        }
       }
     },
     "nano-banana-2": {

@@ -591,6 +591,42 @@ func TestFalH3VideoProfileExpandsExecutableOperations(t *testing.T) {
 	assert.Len(t, multiRef.Inputs, 4, "prompt plus image, video and audio reference slots")
 }
 
+func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
+	doc := buildSpecDir(t, map[string]string{
+		"muse-video.json": `{
+			"model_id": "muse-video",
+			"family": "video",
+			"status": "partial",
+			"operations": ["text_to_video", "first_frame"],
+			"gateway": {"profile": "openai_video", "operations": ["text_to_video", "first_frame"]},
+			"durations_seconds": {"min": 1, "max": 60, "default": 5},
+			"aspect_ratios": ["16:9", "9:16", "1:1"],
+			"output_formats": ["mp4"]
+		}`,
+	})
+	contract := doc.Models["muse-video"]
+	assert.Equal(t, []string{"text_to_video", "first_frame"}, contract.OperationIDs)
+	assert.Equal(t, ExecutionStatusLive, contract.ExecutionStatus)
+	for _, operation := range contract.Operations {
+		assert.True(t, operation.Executable, operation.ID)
+		assert.Equal(t, "video", operation.Output.Type)
+	}
+
+	firstFrame := operationByID(t, contract, "first_frame")
+	require.Len(t, firstFrame.Inputs, 2)
+	assert.Equal(t, "first_frame", firstFrame.Inputs[1].Slot)
+	assert.True(t, firstFrame.Inputs[1].Required)
+
+	shipped, err := Build(specDir)
+	require.NoError(t, err)
+	for _, modelID := range []string{"muse-image", "muse-video"} {
+		shippedContract, ok := shipped.Models[modelID]
+		require.True(t, ok, "%s has no shipped contract", modelID)
+		assert.Equal(t, ExecutionStatusLive, shippedContract.ExecutionStatus)
+	}
+	assert.Equal(t, []string{"text_to_video", "first_frame"}, shipped.Models["muse-video"].OperationIDs)
+}
+
 func TestAutoDLH3VideoProfileExpandsItsOwnWorkflows(t *testing.T) {
 	doc := buildSpecDir(t, map[string]string{
 		"minimax-h3-video.json": `{

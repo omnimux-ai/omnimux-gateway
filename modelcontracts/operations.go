@@ -164,6 +164,7 @@ const (
 	profileFalH3Video    = "fal_h3_video"
 	profileFalH3LipSync  = "fal_h3_lip_sync"
 	profileAutoDLH3Video = "autodl_h3_video"
+	profileOpenAIVideo   = "openai_video"
 )
 
 // apimartVideoOperations mirrors operationAllowed in
@@ -214,6 +215,13 @@ var autodlH3VideoOperations = []string{
 	operationTextToVideo, operationFirstLastFrame, operationVideoMultiRef, operationDigitalHuman,
 }
 
+// openAIVideoOperations mirrors the host protocol openai_video in
+// pkg/jsplugin/routing.go: POST /v1/videos creates a task and GET
+// /v1/videos/:task_id retrieves it. A task plugin declaring this protocol
+// receives the decoded request body, so text-to-video and a first-frame image
+// are the two shapes this profile may publish.
+var openAIVideoOperations = []string{operationTextToVideo, operationFirstFrame}
+
 // gatewayProfile is one registered projection template.
 type gatewayProfile struct {
 	allows func(modelID, operationID string) bool
@@ -244,6 +252,12 @@ var gatewayProfiles = map[string]gatewayProfile{
 			return slices.Contains(autodlH3VideoOperations, operationID)
 		},
 		build: buildAutoDLH3VideoOperation,
+	},
+	profileOpenAIVideo: {
+		allows: func(_, operationID string) bool {
+			return slices.Contains(openAIVideoOperations, operationID)
+		},
+		build: buildVideoOperation,
 	},
 }
 
