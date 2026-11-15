@@ -268,7 +268,7 @@ the keys in `reasoning_efforts`.
 ```jsonc
 {
   "gateway": {
-    "profile": "apimart_video",          // 当前：apimart_video | fal_h3_video | fal_h3_lip_sync | autodl_h3_video
+    "profile": "apimart_video",          // 当前：apimart_video | fal_h3_video | fal_h3_lip_sync | autodl_h3_video | openai_video
     "operations": [                       // 网关实际可执行的操作 ID，非空、无重复
       "text_to_video", "first_frame", "first_last_frame", "video_multi_ref"
     ],
@@ -281,12 +281,14 @@ the keys in `reasoning_efforts`.
   列出但本网关没有实现通路的能力，只能留在 spec 的 `operations`（厂商能力）里，不能写进
   `gateway.operations`。
 - `profile` 是投影模板名，不是自由文本。当前只允许 `apimart_video`、`fal_h3_video`、
-  `fal_h3_lip_sync` 与 `autodl_h3_video`（AutoDL task plugin，channel type 65）；新增模板必须在
-  `modelcontracts` 内注册并同步扩展门禁白名单。
+  `fal_h3_lip_sync`、`autodl_h3_video`（AutoDL task plugin，channel type 65）与
+  `openai_video`（task plugin host protocol，`POST /v1/videos` + `GET /v1/videos/:task_id`，
+  见 `pkg/jsplugin/routing.go`）；新增模板必须在 `modelcontracts` 内注册并同步扩展门禁白名单。
 - `gateway.operations` 必须与本仓实际执行代码一致（`relay/channel/task/apimart/video_contract.go`
-  的 `operationAllowed`、`relay/channel/task/fal/media_inputs.go` 的实际分支，或
-  `plugins/tasks/autodl` 的 shapes 映射），并在 `sources[]` 中用 `repo:` 引文留证；
-  `source_claim` 只是摘要，不能替代 `sources[]`。
+  的 `operationAllowed`、`relay/channel/task/fal/media_inputs.go` 的实际分支、
+  `plugins/tasks/autodl` 的 shapes 映射，或 `pkg/jsplugin/routing.go` 的 `openai_video`
+  host protocol），并在 `sources[]` 中用 `repo:` 引文留证；`source_claim` 只是摘要，
+  不能替代 `sources[]`。
 - 操作 ID 使用网关统一词表（视频类 `text_to_video`、`first_frame`、`end_frame`、
   `first_last_frame`、`video_multi_ref`、`video_edit`、`video_extend`、`document_to_video`、
   `webpage_to_video`；图像类 `text_to_image`、`image_to_image`、`multi_reference`；文本类 `chat`；

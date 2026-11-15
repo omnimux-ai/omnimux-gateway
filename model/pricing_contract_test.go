@@ -39,7 +39,7 @@ func prepareCatalogPricingFixtures(t *testing.T) {
 
 	resetPricingEndpointTestTables(t)
 	insertPricingEndpointChannel(t, 801, constant.ChannelTypeOpenAI, dto.ChannelOtherSettings{})
-	for _, modelName := range []string{"seedance-2-5", "kling-v3", "muse-image"} {
+	for _, modelName := range []string{"seedance-2-5", "kling-v3", "muse-chat"} {
 		insertPricingEndpointAbility(t, 801, modelName)
 	}
 
@@ -56,14 +56,14 @@ func TestCatalogPricingRequiresLiveExecutableContract(t *testing.T) {
 	served := pricingByModel(GetPricing())
 	require.Contains(t, served, "seedance-2-5")
 	require.Contains(t, served, "kling-v3")
-	require.Contains(t, served, "muse-image")
+	require.Contains(t, served, "muse-chat")
 
 	published := pricingByModel(GetCatalogPricing())
 	require.Contains(t, published, "seedance-2-5")
 	require.NotContains(t, published, "kling-v3")
-	require.NotContains(t, published, "muse-image")
+	require.NotContains(t, published, "muse-chat")
 
-	assert.Equal(t, []string{"kling-v3", "muse-image"}, GetCatalogGaps())
+	assert.Equal(t, []string{"kling-v3", "muse-chat"}, GetCatalogGaps())
 }
 
 func TestCatalogPricingKeepsLegacyBehaviorWhenGateDisabled(t *testing.T) {
@@ -74,7 +74,7 @@ func TestCatalogPricingKeepsLegacyBehaviorWhenGateDisabled(t *testing.T) {
 		published := pricingByModel(GetCatalogPricing())
 		require.Contains(t, published, "seedance-2-5")
 		require.Contains(t, published, "kling-v3")
-		require.Contains(t, published, "muse-image")
+		require.Contains(t, published, "muse-chat")
 		assert.Empty(t, GetCatalogGaps())
 	})
 
@@ -85,7 +85,7 @@ func TestCatalogPricingKeepsLegacyBehaviorWhenGateDisabled(t *testing.T) {
 		published := pricingByModel(GetCatalogPricing())
 		require.Contains(t, published, "seedance-2-5")
 		require.Contains(t, published, "kling-v3")
-		require.Contains(t, published, "muse-image")
+		require.Contains(t, published, "muse-chat")
 		assert.Empty(t, GetCatalogGaps())
 	})
 }

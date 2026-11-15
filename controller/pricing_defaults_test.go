@@ -67,7 +67,7 @@ func TestPricingEndpointPublishesOnlyLiveExecutableContracts(t *testing.T) {
 		Name:   "catalog-contract-gate-channel",
 		Group:  "default",
 	}).Error)
-	for _, modelName := range []string{"seedance-2-5", "kling-v3", "muse-image"} {
+	for _, modelName := range []string{"seedance-2-5", "kling-v3", "muse-chat"} {
 		require.NoError(t, db.Create(&model.Ability{
 			Group:     "default",
 			Model:     modelName,
@@ -99,5 +99,5 @@ func TestPricingEndpointPublishesOnlyLiveExecutableContracts(t *testing.T) {
 	}
 	assert.Contains(t, names, "seedance-2-5")
 	assert.NotContains(t, names, "kling-v3")
-	assert.NotContains(t, names, "muse-image")
+	assert.NotContains(t, names, "muse-chat")
 }
