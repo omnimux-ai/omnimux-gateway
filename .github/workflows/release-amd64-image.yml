@@ -1,0 +1,77 @@
+name: Build deploy-compatible amd64 image
+
+# Builds a single-arch linux/amd64 image of this public gateway source with the
+# exact labels the production blue-green deploy gates require
+# (omnimux.commit / org.opencontainers.image.revision / org.opencontainers.image.version),
+# and publishes it to GHCR. The origin server pulls it and runs bg-deploy.
+# This replaces the old private-repo package build so no private Actions are needed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Full commit SHA on main to build (default: current)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.source || github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve source and version
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          SHORT=$(printf '%s' "$SHA" | cut -c1-12)
+          DATE=$(date -u +%Y%m%d)
+          BASE=$(git tag --sort=-creatordate --list 'v*' | head -1 || true)
+          [ -n "${BASE:-}" ] || BASE="v1.0.0-rc.44"
+          VER="${BASE}+omnimux.${DATE}.g${SHORT}"
+          printf '%s\n' "$VER" > VERSION
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "Resolved VERSION=$VER base=$BASE sha=$SHA"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push linux/amd64
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/omnimux-ai/gateway:${{ steps.v.outputs.short }}
+          labels: |
+            omnimux.commit=${{ steps.v.outputs.sha }}
+            org.opencontainers.image.revision=${{ steps.v.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.v.outputs.ver }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deploy-compatible image"
+            echo "- image: \`ghcr.io/omnimux-ai/gateway:${{ steps.v.outputs.short }}\`"
+            echo "- version: \`${{ steps.v.outputs.ver }}\`"
+            echo "- commit: \`${{ steps.v.outputs.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
