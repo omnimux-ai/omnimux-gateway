@@ -4,8 +4,8 @@
   Install the omnimux CLI binary on Windows.
 
 .DESCRIPTION
-  Downloads the prebuilt Windows binary from the public GitHub Releases repo
-  laozhong86/omnimux-cli and installs it under the user profile (no admin).
+  Downloads the prebuilt Windows binary from this repository's GitHub Releases
+  (omnimux-ai/omnimux-gateway) and installs it under the user profile (no admin).
 
 .EXAMPLE
   # User-facing one-liner (after omnimux.ai/install.ps1 is live):
@@ -22,7 +22,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ReleaseRepo = "laozhong86/omnimux-cli"
+$ReleaseRepo = "omnimux-ai/omnimux-gateway"
+$ReleasesApi = "https://api.github.com/repos/$ReleaseRepo/releases?per_page=100"
 $AssetName = "omnimux-windows-x64.exe"
 $ExeName = "omnimux.exe"
 
@@ -37,6 +38,27 @@ function Normalize-Tag([string]$V) {
   return "cli-v$v"
 }
 
+function Get-LatestCliTag {
+  $headers = @{
+    "Accept" = "application/vnd.github+json"
+    "User-Agent" = "omnimux-install"
+  }
+  try {
+    $releases = Invoke-RestMethod -Uri $ReleasesApi -Headers $headers -UseBasicParsing
+  } catch {
+    Write-Err "could not resolve the latest CLI release on $ReleaseRepo"
+    Write-Err "hint: pass -Version X.Y.Z, or install via npm: npm i -g @omnimux/cli"
+    exit 1
+  }
+  $latest = $releases | Where-Object { $_.tag_name -like "cli-v*" } | Select-Object -First 1
+  if (-not $latest) {
+    Write-Err "no cli-v* release found on $ReleaseRepo"
+    Write-Err "hint: pass -Version X.Y.Z, or install via npm: npm i -g @omnimux/cli"
+    exit 1
+  }
+  return $latest.tag_name
+}
+
 # Windows arm64 has no prebuilt asset yet
 $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
 if ($arch -eq "arm64") {
@@ -46,10 +68,10 @@ if ($arch -eq "arm64") {
 
 $tag = Normalize-Tag $Version
 if ($tag -eq "latest") {
-  $base = "https://github.com/$ReleaseRepo/releases/latest/download"
-} else {
-  $base = "https://github.com/$ReleaseRepo/releases/download/$tag"
+  $tag = Get-LatestCliTag
+  Write-Info "latest CLI release: $tag"
 }
+$base = "https://github.com/$ReleaseRepo/releases/download/$tag"
 
 $url = "$base/$AssetName"
 $sumsUrl = "$base/SHA256SUMS"

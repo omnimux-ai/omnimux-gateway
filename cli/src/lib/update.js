@@ -27,7 +27,10 @@ const {
 } = require("./config");
 
 const NPM_PACKAGE = "@omnimux/cli";
-const RELEASE_REPO = "laozhong86/omnimux-cli";
+/** CLI binaries live in this repository's GitHub Releases, alongside gateway releases. */
+const RELEASE_REPO = "omnimux-ai/omnimux-gateway";
+/** CLI releases are tagged cli-v*; gateway releases use other tags. */
+const CLI_RELEASE_TAG_PREFIX = "cli-v";
 const LEGACY_BASE_HOSTS = new Set(["geminix.cc", "www.geminix.cc", "api.geminix.cc"]);
 /** How often background auto-update may hit the network (default 24h). */
 const DEFAULT_AUTO_UPDATE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -239,7 +242,9 @@ async function fetchLatestNpmVersion(fetchImpl = fetch, timeoutMs = 20000) {
  * @param {number} [timeoutMs]
  */
 async function fetchLatestGithubVersion(fetchImpl = fetch, timeoutMs = 20000) {
-  const url = `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`;
+  // This repository also publishes gateway releases, so /releases/latest can
+  // point at a non-CLI tag. List releases and take the newest cli-v* one.
+  const url = `https://api.github.com/repos/${RELEASE_REPO}/releases?per_page=100`;
   const res = await fetchImpl(url, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -251,10 +256,17 @@ async function fetchLatestGithubVersion(fetchImpl = fetch, timeoutMs = 20000) {
     throw new Error(`GitHub releases returned HTTP ${res.status} for ${RELEASE_REPO}`);
   }
   const json = await res.json();
-  const tag = String((json && json.tag_name) || "");
+  const releases = Array.isArray(json) ? json : [];
+  const release = releases.find((item) =>
+    String((item && item.tag_name) || "").startsWith(CLI_RELEASE_TAG_PREFIX)
+  );
+  if (!release) {
+    throw new Error(`no ${CLI_RELEASE_TAG_PREFIX}* release found for ${RELEASE_REPO}`);
+  }
+  const tag = String(release.tag_name);
   const version = stripVersionPrefix(tag);
   if (!version) throw new Error("GitHub release missing tag_name");
-  return { version, source: "github", tag: tag || `cli-v${version}` };
+  return { version, source: "github", tag };
 }
 
 /**
@@ -396,11 +408,11 @@ async function updateViaBinary(targetVersion, installPath, opts = {}) {
   }
 
   const version = stripVersionPrefix(targetVersion);
-  const tag = `cli-v${version}`;
-  const base =
+  const tag =
     version && version !== "latest"
-      ? `https://github.com/${RELEASE_REPO}/releases/download/${tag}`
-      : `https://github.com/${RELEASE_REPO}/releases/latest/download`;
+      ? `${CLI_RELEASE_TAG_PREFIX}${version}`
+      : (await fetchLatestGithubVersion(fetchImpl)).tag;
+  const base = `https://github.com/${RELEASE_REPO}/releases/download/${tag}`;
   const url = `${base}/${assetInfo.asset}`;
   const sumsUrl = `${base}/SHA256SUMS`;
 
@@ -853,6 +865,7 @@ async function maybeAutoUpdate(options) {
 module.exports = {
   NPM_PACKAGE,
   RELEASE_REPO,
+  CLI_RELEASE_TAG_PREFIX,
   LEGACY_BASE_HOSTS,
   DEFAULT_AUTO_UPDATE_INTERVAL_MS,
   AUTO_UPDATE_FETCH_TIMEOUT_MS,

@@ -5,7 +5,7 @@
 # Usage: bash scripts/build-binaries.sh
 #
 # Release note: CI (.github/workflows/cli-release.yml) uploads dist/ artifacts
-# to the public repo laozhong86/omnimux-cli Releases; install.sh downloads them
+# to this repository's `cli-v*` GitHub Releases; install.sh downloads them
 # by the same file names. Do not run npm publish / create releases from this
 # script — use tag cli-vX.Y.Z (see cli/AGENTS.md).
 

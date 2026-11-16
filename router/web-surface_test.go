@@ -73,3 +73,21 @@ func TestWebSearchPagesPrivateShellIsNoindex(t *testing.T) {
 	assert.Contains(t, response.Body.String(), `data-surface="desktop"`)
 	assert.Equal(t, "noindex, follow", response.Header().Get("X-Robots-Tag"))
 }
+
+func TestInstallScriptsRedirectToGatewayRawWhenEmbeddedMissing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	outer := gin.New()
+	SetWebRouter(outer, WebAssets{IndexPage: []byte(searchPageTestShell)}, func(c *gin.Context) { c.Next() })
+
+	cases := map[string]string{
+		"/install.sh":  "https://raw.githubusercontent.com/omnimux-ai/omnimux-gateway/main/web/public/install.sh",
+		"/install.ps1": "https://raw.githubusercontent.com/omnimux-ai/omnimux-gateway/main/web/public/install.ps1",
+	}
+	for path, want := range cases {
+		t.Run(path, func(t *testing.T) {
+			response := performHostRequest(outer, http.MethodGet, path, "omnimux.ai")
+			require.Equal(t, http.StatusFound, response.Code)
+			assert.Equal(t, want, response.Header().Get("Location"))
+		})
+	}
+}

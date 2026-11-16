@@ -56,13 +56,13 @@ bun run build:binaries     # dist/ binaries: darwin-arm64, darwin-x64, linux-x64
 | Role | Repository | Visibility | Contents |
 |------|------------|------------|----------|
 | **Source of truth** | this repository, path `cli/` | Public | Source, tests, `package.json` version, install script source |
-| **Release surface** | `laozhong86/omnimux-cli` | **Public** | GitHub Release assets only (binaries, `SHA256SUMS`, `install.sh`), thin README |
+| **Release surface** | `omnimux-ai/omnimux-gateway`, tags `cli-v*` | **Public** | This repository's GitHub Releases: CLI assets (binaries, `SHA256SUMS`, `install.sh`, `install.ps1`) alongside gateway releases |
 | **npm** | `@omnimux/cli` | Public | Same version as `cli/package.json` |
 
 - Agents MUST develop features only under monorepo `cli/`.
-- Agents MUST NOT treat `omnimux-cli` as a second development mainline and MUST NOT mirror `cli/src` there for day-to-day work.
+- Agents MUST NOT create a second CLI development repository or mirror `cli/src` elsewhere for day-to-day work.
 - User-facing install one-liner (when CDN is live): `curl -fsSL https://omnimux.ai/install.sh | bash`.
-- Binary download target inside the script: `https://github.com/laozhong86/omnimux-cli/releases/...` (`OMNIMUX_RELEASE_REPO` in `scripts/install.sh`).
+- Binary download target inside the script: `https://github.com/omnimux-ai/omnimux-gateway/releases/download/<cli-v tag>/...` (`OMNIMUX_RELEASE_REPO` in `scripts/install.sh`).
 
 ### Version and tags
 
@@ -84,8 +84,8 @@ bun run build:binaries     # dist/ binaries: darwin-arm64, darwin-x64, linux-x64
 
 1. `git fetch origin`; use a clean worktree; do not tag from a dirty primary checkout.
 2. Ensure `cli/package.json` version equals the target semver; otherwise open a version-bump PR first.
-3. Confirm `scripts/install.sh` has `OMNIMUX_RELEASE_REPO=laozhong86/omnimux-cli`.
-4. Confirm monorepo secrets exist for CI: `OMNIMUX_CLI_RELEASE_TOKEN` (required), `NPM_TOKEN` (optional).
+3. Confirm `scripts/install.sh` has `OMNIMUX_RELEASE_REPO=omnimux-ai/omnimux-gateway`.
+4. No release secret is required: the binary job uses the built-in `GITHUB_TOKEN` with `contents: write`. `NPM_TOKEN` is optional.
 5. Optional local check: `cd cli && bun test && bun run build:binaries`.
 6. Verify explicit release authorization covers the target version and publication channels. Reuse matching approval across turns; ask only for missing scope, changed risk, or an explicitly requested final review gate. Then:
    - `git tag cli-vX.Y.Z`
@@ -101,7 +101,7 @@ Release checklist skill: `.agents/skills/cli-release/SKILL.md`.
 
 - MUST NOT push to `upstream`.
 - MUST NOT force-push published `main` or rewrite published `cli-v*` tags without human order.
-- MUST NOT print `sk-` keys, `OMNIMUX_CLI_RELEASE_TOKEN`, or `NPM_TOKEN`.
+- MUST NOT print `sk-` keys or `NPM_TOKEN`.
 - MUST NOT claim an installation path works while its installer or release assets are unavailable. The current character landing has no quick-start/download section; do not restore retired install UI from this CLI runbook.
 - MUST NOT implement admin routes in this package.
 

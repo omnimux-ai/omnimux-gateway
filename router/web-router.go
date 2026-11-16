@@ -41,14 +41,14 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 	servePage := appRoutes.serve(searchPages)
 
 	// CLI install one-liner: always serve /install.sh from the embedded
-	// frontend public asset when present; otherwise redirect to the public
-	// release-repo copy so curl -fsSL https://omnimux.ai/install.sh works
+	// frontend public asset when present; otherwise redirect to this
+	// repository's raw copy so curl -fsSL https://omnimux.ai/install.sh works
 	// even if SPA NoRoute would otherwise swallow the path.
 	router.GET("/install.sh", func(c *gin.Context) {
 		c.Set(middleware.RouteTagKey, "web")
 		data, err := assets.BuildFS.ReadFile("web/dist/install.sh")
 		if err != nil {
-			c.Redirect(http.StatusFound, "https://raw.githubusercontent.com/laozhong86/omnimux-cli/main/install.sh")
+			c.Redirect(http.StatusFound, "https://raw.githubusercontent.com/omnimux-ai/omnimux-gateway/main/web/public/install.sh")
 			return
 		}
 		c.Header("Cache-Control", "no-cache")
@@ -60,7 +60,7 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 		c.Set(middleware.RouteTagKey, "web")
 		data, err := assets.BuildFS.ReadFile("web/dist/install.ps1")
 		if err != nil {
-			c.Redirect(http.StatusFound, "https://raw.githubusercontent.com/laozhong86/omnimux-cli/main/install.ps1")
+			c.Redirect(http.StatusFound, "https://raw.githubusercontent.com/omnimux-ai/omnimux-gateway/main/web/public/install.ps1")
 			return
 		}
 		c.Header("Cache-Control", "no-cache")

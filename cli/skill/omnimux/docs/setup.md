@@ -16,8 +16,8 @@ npm install -g @omnimux/cli   # or: pnpm add -g @omnimux/cli  /  bun add -g @omn
 omnimux login
 ```
 
-Binary assets: https://github.com/laozhong86/omnimux-cli/releases  
-Source of truth remains the OmniMux monorepo `cli/` directory.
+Binary assets: https://github.com/omnimux-ai/omnimux-gateway/releases (tags `cli-v*`)  
+Source of truth remains the `cli/` directory in `omnimux-ai/omnimux-gateway`.
 
 Verify:
 
@@ -84,7 +84,7 @@ omnimux --no-auto-update pricing        # disable for one invocation
 Priority for `auto_update`: `--no-auto-update` > `OMNIMUX_AUTO_UPDATE` > `config.json` > default `true`.
 
 - **npm install**: runs `npm install -g @omnimux/cli@<latest>` (falls back to `bun add -g` if npm is missing).
-- **binary install** (`install.sh` / GitHub Release): downloads the matching asset from `laozhong86/omnimux-cli` and replaces the current binary (SHA256 verified when `SHA256SUMS` is present).
+- **binary install** (`install.sh` / GitHub Release): resolves the newest `cli-v*` release on `omnimux-ai/omnimux-gateway`, downloads the matching asset, and replaces the current binary (SHA256 verified when `SHA256SUMS` is present).
 - **source checkout**: does not self-update; JSON response includes manual install hints.
 - Side effect: if `~/.config/omnimux/config.json` has `base_url` on a legacy `geminix.cc` host, it is rewritten to the built-in official default (`https://omnimux.ai`). Env `OMNIMUX_BASE_URL` is never rewritten.
 

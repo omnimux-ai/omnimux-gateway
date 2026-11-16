@@ -126,6 +126,78 @@ function jsonResponse(body, status = 200) {
   };
 }
 
+test("fetchLatestGithubVersion ignores gateway releases and picks newest cli-v*", async () => {
+  const fetchImpl = async (url) => {
+    assert.match(
+      String(url),
+      /^https:\/\/api\.github\.com\/repos\/omnimux-ai\/omnimux-gateway\/releases\?per_page=100$/
+    );
+    return jsonResponse([
+      { tag_name: "v9.9.9" },
+      { tag_name: "cli-v0.7.0" },
+      { tag_name: "cli-v0.6.0" },
+    ]);
+  };
+
+  const latest = await update.fetchLatestGithubVersion(fetchImpl);
+  assert.equal(latest.tag, "cli-v0.7.0");
+  assert.equal(latest.version, "0.7.0");
+  assert.equal(latest.source, "github");
+});
+
+test("fetchLatestGithubVersion fails when no cli-v* release exists", async () => {
+  await assert.rejects(
+    () => update.fetchLatestGithubVersion(async () => jsonResponse([{ tag_name: "v9.9.9" }])),
+    /no cli-v\* release/
+  );
+});
+
+test("updateViaBinary latest resolves cli-v tag instead of /releases/latest", async () => {
+  const platform = update.resolvePlatformAsset();
+  if (platform.error) return;
+
+  const assetBody = Buffer.from("fake-latest-binary");
+  const hash = crypto.createHash("sha256").update(assetBody).digest("hex");
+  const dest = path.join(dir, "omnimux-latest-bin");
+  fs.writeFileSync(dest, "old");
+  let assetUrl = "";
+
+  const fetchImpl = async (url) => {
+    const u = String(url);
+    if (u.endsWith("/releases?per_page=100")) {
+      return jsonResponse([{ tag_name: "v9.9.9" }, { tag_name: "cli-v0.8.0" }]);
+    }
+    if (u.endsWith("/SHA256SUMS")) {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => `${hash}  ${platform.asset}\n`,
+        json: async () => ({}),
+        arrayBuffer: async () => Buffer.alloc(0),
+      };
+    }
+    if (u.includes(platform.asset)) {
+      assetUrl = u;
+      return {
+        ok: true,
+        status: 200,
+        text: async () => "",
+        json: async () => ({}),
+        arrayBuffer: async () => assetBody,
+      };
+    }
+    throw new Error(`unexpected fetch: ${u}`);
+  };
+
+  const result = await update.updateViaBinary("latest", dest, { fetchImpl });
+  assert.equal(result.ok, true);
+  assert.equal(
+    assetUrl,
+    `https://github.com/omnimux-ai/omnimux-gateway/releases/download/cli-v0.8.0/${platform.asset}`
+  );
+  assert.equal(fs.readFileSync(dest).toString(), "fake-latest-binary");
+});
+
 test("performUpdate --check reports update available without installing", async () => {
   const fetchImpl = async (url) => {
     if (String(url).includes("registry.npmjs.org")) {
