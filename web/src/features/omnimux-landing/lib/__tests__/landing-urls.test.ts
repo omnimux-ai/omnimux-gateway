@@ -31,7 +31,10 @@ import {
 
 describe('landing hero and navigation urls', () => {
   test('points at the OmniMux CLI repository', () => {
-    assert.equal(CLI_GITHUB_URL, 'https://github.com/laozhong86/omnimux-cli')
+    assert.equal(
+      CLI_GITHUB_URL,
+      'https://github.com/omnimux-ai/omnimux-gateway'
+    )
   })
 
   test('points at the public source repository', () => {

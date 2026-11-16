@@ -25,7 +25,7 @@ export function docsQuickstartUrl(language?: string | null): string {
   const locale = normalized.startsWith('zh') ? 'zh' : 'en'
   return `${DOCS_URL}/${locale}/quickstart`
 }
-export const CLI_GITHUB_URL = 'https://github.com/laozhong86/omnimux-cli'
+export const CLI_GITHUB_URL = 'https://github.com/omnimux-ai/omnimux-gateway'
 export const DESKTOP_GITHUB_URL = 'https://github.com/omnimux-ai/omnimux-client'
 export const DISCORD_URL = 'https://discord.gg/uNPBDz3WNC'
 export const X_URL = 'https://x.com/OmniMuxai'
