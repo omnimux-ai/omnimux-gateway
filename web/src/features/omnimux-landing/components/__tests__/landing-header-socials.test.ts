@@ -41,7 +41,10 @@ describe('LandingHeader Social & GitHub Navigation Contracts', () => {
     )
     assert.equal(DISCORD_URL, 'https://discord.gg/uNPBDz3WNC')
     assert.equal(X_URL, 'https://x.com/OmniMuxai')
-    assert.equal(CLI_GITHUB_URL, 'https://github.com/laozhong86/omnimux-cli')
+    assert.equal(
+      CLI_GITHUB_URL,
+      'https://github.com/omnimux-ai/omnimux-gateway'
+    )
   })
 
   test('desktop header keeps the social row in order and carries no language control', () => {

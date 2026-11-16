@@ -98,17 +98,17 @@ function DefaultAboutContent() {
         <p>
           {t('{{name}} Project Repository:', { name: systemName })}{' '}
           <a
-            href='https://github.com/laozhong86/omnimux-cli'
+            href='https://github.com/omnimux-ai/omnimux-gateway'
             target='_blank'
             rel='noopener noreferrer'
             className='text-foreground underline underline-offset-4 hover:text-foreground/80'
           >
-            {t('https://github.com/laozhong86/omnimux-cli')}
+            {t('https://github.com/omnimux-ai/omnimux-gateway')}
           </a>
         </p>
         <p className='text-muted-foreground'>
           <a
-            href='https://github.com/laozhong86/omnimux-cli'
+            href='https://github.com/omnimux-ai/omnimux-gateway'
             target='_blank'
             rel='noopener noreferrer'
             className='text-foreground underline underline-offset-4 hover:text-foreground/80'
