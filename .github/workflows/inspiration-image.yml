@@ -39,6 +39,7 @@ jobs:
           SHORT_SHA="$(printf '%s' "$SOURCE_SHA" | cut -c1-12)"
           IMAGE_TAG="sha-${SHORT_SHA}"
           echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           echo "Resolved ghcr.io/omnimux-ai/inspiration:${IMAGE_TAG} from ${SOURCE_SHA}"
 
@@ -69,6 +70,24 @@ jobs:
           tags: ghcr.io/omnimux-ai/inspiration:${{ steps.meta.outputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build local image for artifact export
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --provenance=false \
+            -t omnimux-inspiration:ci-${{ github.sha }} \
+            --load services/inspiration
+
+      - name: Export image tar
+        run: docker save omnimux-inspiration:ci-${{ github.sha }} -o inspiration-image.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: inspiration-image-sha-${{ steps.meta.outputs.short_sha }}
+          path: inspiration-image.tar
+          retention-days: 3
 
       - name: Job summary
         run: |
