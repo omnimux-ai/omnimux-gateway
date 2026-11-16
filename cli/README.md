@@ -9,8 +9,8 @@ Query models, pricing, groups, and balance, and manage your own API tokens — w
 Breaking wire notes: [CHANGELOG.md](./CHANGELOG.md) · [docs/ERROR_CONTRACT.md](./docs/ERROR_CONTRACT.md).
 
 > **Package name:** published as `@omnimux/cli` on npm.  
-> **Binary releases:** https://github.com/laozhong86/omnimux-cli/releases  
-> **Source of truth:** this directory in the OmniMux monorepo (`cli/`). The public `omnimux-cli` repo is a release surface only.
+> **Binary releases:** https://github.com/omnimux-ai/omnimux-gateway/releases (tags `cli-v*`)  
+> **Source of truth:** this directory in the OmniMux gateway repository (`cli/`). Release binaries are attached to this repository's `cli-v*` GitHub Releases.
 
 ## Install
 
@@ -21,7 +21,7 @@ curl -fsSL https://omnimux.ai/install.sh | bash
 omnimux help
 ```
 
-The installer downloads a prebuilt binary from [laozhong86/omnimux-cli](https://github.com/laozhong86/omnimux-cli/releases) into `/usr/local/bin` or `~/.local/bin`.
+The installer downloads a prebuilt binary from [omnimux-ai/omnimux-gateway](https://github.com/omnimux-ai/omnimux-gateway/releases) into `/usr/local/bin` or `~/.local/bin`.
 
 > **Agent skills are not bundled with this standalone binary.** To use the optional
 > Agent skill packs, install the npm package instead (see below), then run
@@ -184,7 +184,7 @@ bun run build:binaries      # dist/ single-file binaries for 4 platforms (requir
 
 See `cli/AGENTS.md` and `.agents/skills/cli-release/SKILL.md`.
 
-- Bump `package.json` version → tag **`cli-vX.Y.Z`** on monorepo → CI builds binaries and publishes to `laozhong86/omnimux-cli` (+ optional npm).
+- Bump `package.json` version → tag **`cli-vX.Y.Z`** on monorepo → CI builds binaries and publishes them to this repository's `cli-v*` GitHub Releases (+ optional npm).
 - Do not tag CLI releases as bare `vX.Y.Z` (gateway workflows).
 
 Live-instance contract tests:

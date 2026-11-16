@@ -2,22 +2,23 @@
 # omnimux CLI installer.
 #
 # Detects the current platform, downloads the matching prebuilt binary from
-# the public GitHub Releases repo, and installs it into /usr/local/bin
+# this repository's GitHub Releases, and installs it into /usr/local/bin
 # (or ~/.local/bin as a user-level fallback).
 #
 # Usage (user-facing one-liner once CDN is live):
 #   curl -fsSL https://omnimux.ai/install.sh | bash
 #
 # Direct / versioned:
-#   curl -fsSL https://raw.githubusercontent.com/laozhong86/omnimux-cli/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/omnimux-ai/omnimux-gateway/main/cli/scripts/install.sh | bash
 #   bash install.sh [--version cli-vX.Y.Z|vX.Y.Z|X.Y.Z|latest] [--prefix /custom/bin]
 #
 # Source of truth for this script: monorepo cli/scripts/install.sh
-# Release surface: https://github.com/laozhong86/omnimux-cli/releases
+# Release surface: https://github.com/omnimux-ai/omnimux-gateway/releases
 
 set -euo pipefail
 
-OMNIMUX_RELEASE_REPO="laozhong86/omnimux-cli"
+OMNIMUX_RELEASE_REPO="omnimux-ai/omnimux-gateway"
+OMNIMUX_RELEASES_API="https://api.github.com/repos/${OMNIMUX_RELEASE_REPO}/releases?per_page=100"
 VERSION="latest"
 PREFIX=""
 
@@ -52,6 +53,29 @@ normalize_tag() {
 
 TAG="$(normalize_tag "$VERSION")"
 
+# The repository also publishes gateway releases, so /releases/latest cannot
+# identify the CLI release. Resolve the newest cli-v* tag from the API.
+resolve_latest_cli_tag() {
+  local json
+  json="$(curl -fsSL \
+    -H 'Accept: application/vnd.github+json' \
+    -H 'User-Agent: omnimux-install' \
+    "$OMNIMUX_RELEASES_API")" || return 1
+  printf '%s\n' "$json" |
+    grep -o '"tag_name"[[:space:]]*:[[:space:]]*"cli-v[^"]*"' |
+    head -1 |
+    sed -E 's/.*"(cli-v[^"]*)".*/\1/'
+}
+
+if [ "$TAG" = "latest" ]; then
+  if ! TAG="$(resolve_latest_cli_tag)" || [ -z "$TAG" ]; then
+    echo "error: could not resolve the latest cli-v* release on ${OMNIMUX_RELEASE_REPO}." >&2
+    echo "hint: pass --version X.Y.Z, or install via npm: npm i -g @omnimux/cli" >&2
+    exit 1
+  fi
+  echo "latest CLI release: ${TAG}"
+fi
+
 # --- Platform detection ---
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -81,13 +105,8 @@ ASSET="omnimux-${platform}-${arch}"
 
 # --- Download ---
 
-if [ "$TAG" = "latest" ]; then
-  URL="https://github.com/${OMNIMUX_RELEASE_REPO}/releases/latest/download/${ASSET}"
-  SUMS_URL="https://github.com/${OMNIMUX_RELEASE_REPO}/releases/latest/download/SHA256SUMS"
-else
-  URL="https://github.com/${OMNIMUX_RELEASE_REPO}/releases/download/${TAG}/${ASSET}"
-  SUMS_URL="https://github.com/${OMNIMUX_RELEASE_REPO}/releases/download/${TAG}/SHA256SUMS"
-fi
+URL="https://github.com/${OMNIMUX_RELEASE_REPO}/releases/download/${TAG}/${ASSET}"
+SUMS_URL="https://github.com/${OMNIMUX_RELEASE_REPO}/releases/download/${TAG}/SHA256SUMS"
 
 tmp="$(mktemp)"
 sums_tmp="$(mktemp)"
@@ -173,7 +192,7 @@ if "$dest" --version >/dev/null 2>&1; then
   echo "  # then restart your AI agent so it rescans skills"
   echo "  # make sure the npm global bin directory precedes ${dest_dir} on PATH"
   echo "With a source checkout, point the binary at its skill tree instead:"
-  echo "  OMNIMUX_SKILL_SOURCE=/path/to/OmniMux/cli/skill omnimux skill install --user"
+  echo "  OMNIMUX_SKILL_SOURCE=/path/to/omnimux-gateway/cli/skill omnimux skill install --user"
 else
   echo "installed binary could not run --version; check architecture and permissions."
 fi

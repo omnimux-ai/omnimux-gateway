@@ -1,12 +1,11 @@
 # CLI binary + optional npm release.
 # Source of truth: monorepo cli/
-# Release surface: public repo laozhong86/omnimux-cli (assets only).
+# Release surface: this repository's GitHub Releases (tag prefix cli-v*).
 #
 # Trigger: tag cli-vX.Y.Z (semver must match cli/package.json version).
-# Does not publish to private OmniMux Releases.
 #
-# Required secrets on this monorepo:
-#   OMNIMUX_CLI_RELEASE_TOKEN — PAT/App token with contents:write on laozhong86/omnimux-cli
+# The binary job uses the built-in GITHUB_TOKEN with job-level contents:write;
+# no PAT or release secret is required.
 # Optional:
 #   NPM_TOKEN — publish @omnimux/cli (npm job fails independently; does not roll back binaries)
 
@@ -29,6 +28,8 @@ jobs:
   binary:
     name: Build and publish binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -82,18 +83,14 @@ jobs:
           ls -lh
           cat SHA256SUMS
 
-      - name: Publish GitHub Release (public omnimux-cli)
+      - name: Publish GitHub Release (this repository)
         env:
-          GH_TOKEN: ${{ secrets.OMNIMUX_CLI_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::OMNIMUX_CLI_RELEASE_TOKEN is not set"
-            exit 1
-          fi
           TAG="${{ steps.ver.outputs.tag }}"
           SEMVER="${{ steps.ver.outputs.semver }}"
-          REPO="laozhong86/omnimux-cli"
+          REPO="${GITHUB_REPOSITORY}"
           BODY="omnimux CLI ${SEMVER}
 
           Install (macOS / Linux):
@@ -111,7 +108,7 @@ jobs:
           npm i -g @omnimux/cli@${SEMVER}
           \`\`\`
 
-          Source: OmniMux monorepo \`cli/\` (private). This repository is the public binary release surface only.
+          Source: https://github.com/${GITHUB_REPOSITORY}/tree/main/cli
           "
           # Create or overwrite assets on existing tag release
           if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
