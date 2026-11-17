@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -13,11 +14,67 @@ import (
 var influencerObjectSwapPlanner = service.PlanInfluencerObjectSwapPrompt
 
 type influencerVideoPlanMetadata struct {
-	Mode             string   `json:"mode"`
-	Prompt           string   `json:"prompt"`
-	DurationSec      int      `json:"duration_sec"`
-	ImageTags        []string `json:"subject_image_tags"`
-	VerifiedIdentity string   `json:"verified_subject_identity"`
+	Mode              string   `json:"mode"`
+	Prompt            string   `json:"prompt"`
+	DurationSec       int      `json:"duration_sec"`
+	ImageTags         []string `json:"subject_image_tags"`
+	VerifiedIdentity  string   `json:"verified_subject_identity"`
+	VideoURL          string   `json:"video_url"`
+	VideoReferenceURL string   `json:"video_reference_url"`
+	SubjectImageURLs  []string `json:"subject_image_urls"`
+	Resolution        string   `json:"resolution"`
+}
+
+// prepareInfluencerRecreatePrompt is the worker-side decomposition for a Web
+// recreation task. A plan failure is returned to the queue so the task fails
+// before any provider send and its unstarted reservation can be released.
+func prepareInfluencerRecreatePrompt(ctx context.Context, meta influencerVideoPlanMetadata, out map[string]any) error {
+	// Prefer the server-resolved reference URL: it is the stable copy stored at
+	// acceptance, while the original may be a history artifact URL whose access
+	// query expires before the queue worker runs. Historical tasks predate that
+	// field, so VideoURL remains the fallback.
+	videoURL := strings.TrimSpace(meta.VideoReferenceURL)
+	if videoURL == "" {
+		videoURL = strings.TrimSpace(meta.VideoURL)
+	}
+	if videoURL == "" {
+		// CLI's analyze-then-submit path already carries a compiled prompt and
+		// has no reference clip in the generation task; keep its behavior.
+		if strings.TrimSpace(meta.Prompt) != "" {
+			return nil
+		}
+		return errors.New("爆款复刻参考视频不可读取，视频生成未开始")
+	}
+	if len(meta.SubjectImageURLs) == 0 {
+		return errors.New("爆款复刻素材不完整，视频生成未开始")
+	}
+	plan, err := influencerRecreatePlanner(ctx, service.InfluencerRecreatePlanInput{
+		VideoURL:   videoURL,
+		Resolution: meta.Resolution,
+		ImageURLs:  meta.SubjectImageURLs,
+		ImageTags:  meta.ImageTags,
+		UserPrompt: meta.Prompt,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrInfluencerRecreateTimeout) || errors.Is(err, context.DeadlineExceeded) {
+			return errors.New("参考视频拆解超时，视频生成未开始")
+		}
+		return err
+	}
+	if strings.TrimSpace(plan.Prompt) == "" {
+		return errors.New("参考视频拆解未生成提示词，视频生成未开始")
+	}
+	if plan.DurationSec < service.InfluencerRecreateMinSeconds || plan.DurationSec > service.InfluencerRecreateMaxSeconds {
+		return errors.New("参考视频拆解时长不可用，视频生成未开始")
+	}
+	out["prompt"] = plan.Prompt
+	out["seconds"] = strconv.Itoa(plan.DurationSec)
+	out["images"] = meta.SubjectImageURLs
+	// The reference clip is decomposition material only; neither video nor
+	// audio may travel to the provider.
+	delete(out, "videos")
+	delete(out, "audios")
+	return nil
 }
 
 // fork: both product entrances plan from the same frozen task before video submission.
@@ -35,9 +92,10 @@ func prepareInfluencerVideoPrompt(ctx context.Context, task *model.Task, out map
 		planInfluencerMotionPrompt(ctx, task, out)
 		return nil
 	case "recreate":
-		// fork: viral recreation carries the already-compiled prompt from the
-		// analysis step and has no reference clip to plan from.
-		return nil
+		// fork: Web recreation carries the clip in task input; the planner runs
+		// here, after enqueue and before any provider send. CLI submits a
+		// compiled prompt without a clip and never reaches this branch.
+		return prepareInfluencerRecreatePrompt(ctx, meta, out)
 	case "replace":
 	default:
 		return errors.New("视频生成类型不可读取，任务未开始")

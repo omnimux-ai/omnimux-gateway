@@ -306,6 +306,70 @@ func influencerRecreateAnalysisResult(plan service.InfluencerRecreatePlan, resol
 	}
 }
 
+// influencerRecreateQueuedGenerationOut builds the initial body for a Web
+// recreation task. The reference clip stays in task input for the worker's
+// planner; the provider body never carries it and receives the compiled prompt
+// only after PlanInfluencerRecreatePrompt succeeds.
+func influencerRecreateQueuedGenerationOut(c *gin.Context, req influencerMotionRequest, resolution, intent string, subjectURLs, imageTags []string) (map[string]any, map[string]any, *service.PreparedInfluencerVideo, bool) {
+	video := strings.TrimSpace(req.VideoURL)
+	if !isInfluencerMediaURL(video) {
+		influencerAbort(c, "video_url must be a public https address")
+		return nil, nil, nil, false
+	}
+	userID := c.GetInt("id")
+	if userID <= 0 {
+		influencerError(c, http.StatusUnauthorized, "unauthorized", "未授权访问")
+		c.Abort()
+		return nil, nil, nil, false
+	}
+	referenceURL, allowed := resolveInfluencerVideoReferenceSource(c, video, userID)
+	if !allowed {
+		return nil, nil, nil, false
+	}
+	seconds, _, err := influencerBrowserVideoOutput(req, resolution)
+	if err != nil {
+		influencerAbort(c, err.Error())
+		return nil, nil, nil, false
+	}
+	// Keep the queued path's intent budget identical to the synchronous
+	// /recreate/analyze route; the generic motion prompt limit is wider.
+	if utf8.RuneCountInString(intent) > influencerRecreateMaxIntentRunes {
+		influencerAbort(c, "创作意图过长")
+		return nil, nil, nil, false
+	}
+	out := map[string]any{
+		"model":        influencerMotionModel,
+		"group":        influencerMotionGroups[resolution],
+		"prompt":       "",
+		"seconds":      strconv.Itoa(seconds),
+		"aspect_ratio": influencerMotionAspectRatio,
+		"resolution":   resolution,
+		"images":       subjectURLs,
+	}
+	meta := map[string]any{
+		"kind":               influencerMotionKind,
+		"mode":               influencerMotionModeRecreate,
+		"prompt":             intent,
+		"subject_image_url":  subjectURLs[0],
+		"subject_image_urls": subjectURLs,
+		"video_url":          video,
+		"duration_sec":       seconds,
+		"resolution":         resolution,
+		"size":               influencerMotionAspectRatio,
+	}
+	if referenceURL != video {
+		meta["video_reference_url"] = referenceURL
+	}
+	if req.VideoMetadata != nil {
+		meta["video_metadata"] = *req.VideoMetadata
+		meta["video_metadata_source"] = "browser"
+	}
+	if len(imageTags) > 0 {
+		meta["subject_image_tags"] = imageTags
+	}
+	return out, meta, &service.PreparedInfluencerVideo{}, true
+}
+
 // influencerRecreateGenerationOut builds the canonical submit body for a
 // recreation generation. The request has no video and no audio by construction:
 // the clip was decomposition material only and the prompt already carries its
@@ -434,4 +498,27 @@ func influencerRecreateDailyAllow(c *gin.Context) bool {
 		common.RDB.Expire(ctx, key, 48*time.Hour)
 	}
 	return count <= int64(limit)
+}
+
+// influencerRecreateQueuedDailyAllow applies the same per-account analysis
+// budget as /recreate/analyze to the Web queued path. It runs after the browser
+// metadata passes validation and before the generation task is enqueued, so an
+// exhausted budget never creates a task.
+func influencerRecreateQueuedDailyAllow(c *gin.Context, meta map[string]any) bool {
+	if meta["mode"] != influencerMotionModeRecreate {
+		return true
+	}
+	videoURL, ok := meta["video_url"].(string)
+	if !ok || strings.TrimSpace(videoURL) == "" {
+		// CLI submits a compiled prompt without a reference clip; its budget was
+		// already consumed by /recreate/analyze before this request.
+		return true
+	}
+	if influencerRecreateDailyAllow(c) {
+		return true
+	}
+	c.Header("Retry-After", "3600")
+	influencerError(c, http.StatusTooManyRequests, "recreate_analysis_limit", "今天的参考视频拆解次数已用完，请明天再试")
+	c.Abort()
+	return false
 }

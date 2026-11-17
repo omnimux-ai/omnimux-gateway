@@ -46,6 +46,10 @@ func GetInfluencerVideoInputRules(mode string) (InfluencerVideoInputConstraints,
 		// replace renders output_seconds == source_seconds; the source must be
 		// ≥5s because Pidoi-bound lines reject seconds<5.
 		minimum = 5
+	case "recreate":
+		// Viral recreation derives its whole-second output from the clip; the
+		// planner accepts 4–30s and the same bound applies before enqueue.
+		minimum = InfluencerRecreateMinSeconds
 	default:
 		return InfluencerVideoInputConstraints{}, errors.New("参考方式无效")
 	}

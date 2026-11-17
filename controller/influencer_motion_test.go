@@ -286,6 +286,7 @@ func TestInfluencerMotionOptions(t *testing.T) {
 	assert.Equal(t, []string{"16:9", "9:16"}, body.Data.Resolutions["720p"].AspectRatios)
 	assert.Equal(t, 2.0, body.Data.InputConstraints["motion"].MinDurationSeconds)
 	assert.Equal(t, 5.0, body.Data.InputConstraints["replace"].MinDurationSeconds)
+	assert.Equal(t, 4.0, body.Data.InputConstraints["recreate"].MinDurationSeconds)
 	assert.Equal(t, 0.4, body.Data.InputConstraints["replace"].MinAspectRatio)
 	assert.Equal(t, 2.5, body.Data.InputConstraints["replace"].MaxAspectRatio)
 }

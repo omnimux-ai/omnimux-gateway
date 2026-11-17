@@ -578,3 +578,37 @@ func TestStandardImageGroupRejectsUnreviewedInputsAndAdaptorsBeforePluginAndRese
 		})
 	}
 }
+
+func TestTaskModel2DtoRecreateStage(t *testing.T) {
+	base := model.Task{
+		TaskID: "recreate-stage",
+		Action: "influencer_motion",
+		Properties: model.Properties{
+			Input: `{"mode":"recreate","video_url":"https://cdn.example.com/reference.mp4"}`,
+		},
+	}
+	cases := []struct {
+		status model.TaskStatus
+		want   string
+	}{
+		{model.TaskStatusWaiting, "analyzing"},
+		{model.TaskStatusClaimed, "analyzing"},
+		{model.TaskStatusDispatching, "generating"},
+		{model.TaskStatusSubmitted, "generating"},
+		{model.TaskStatusInProgress, "generating"},
+		{model.TaskStatusSuccess, ""},
+		{model.TaskStatusFailure, ""},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.status), func(t *testing.T) {
+			task := base
+			task.Status = tc.status
+			assert.Equal(t, tc.want, TaskModel2Dto(&task).Stage)
+		})
+	}
+
+	legacy := base
+	legacy.Status = model.TaskStatusClaimed
+	legacy.Properties.Input = `{"mode":"recreate","prompt":"compiled CLI prompt","duration_sec":4}`
+	assert.Empty(t, TaskModel2Dto(&legacy).Stage, "the legacy CLI path has no worker analysis phase")
+}

@@ -262,13 +262,20 @@ func prepareInfluencerMotionRequest(c *gin.Context, req influencerMotionRequest,
 		imageTags = append(imageTags, tag)
 	}
 
-	// fork: viral recreation generation. The clip was already used for analysis
-	// and must not travel with this request, so this branch returns before any
-	// reference-video inspection and builds a body with images and prompt only.
+	// fork: viral recreation generation. Web submits the clip plus browser
+	// metadata; the planner runs inside the generation worker. CLI keeps its
+	// established two-step analyze-then-submit path by sending a compiled prompt.
 	if req.Mode == influencerMotionModeRecreate {
-		out, meta, prepared, reason := influencerRecreateGenerationOut(req, resolution, prompt, subjectURLs, imageTags)
-		if out == nil {
-			influencerAbort(c, reason)
+		if inferMetadata || (strings.TrimSpace(req.VideoURL) == "" && strings.TrimSpace(req.Prompt) != "") {
+			out, meta, prepared, reason := influencerRecreateGenerationOut(req, resolution, prompt, subjectURLs, imageTags)
+			if out == nil {
+				influencerAbort(c, reason)
+				return nil, nil, nil, false
+			}
+			return out, meta, prepared, true
+		}
+		out, meta, prepared, ok := influencerRecreateQueuedGenerationOut(c, req, resolution, prompt, subjectURLs, imageTags)
+		if !ok {
 			return nil, nil, nil, false
 		}
 		return out, meta, prepared, true
@@ -501,20 +508,34 @@ func influencerBrowserVideoOutput(req influencerMotionRequest, resolution string
 	}
 	seconds := int(math.Round(metadata.VideoDuration))
 	tolerance := 2 * (1/metadata.FrameRate + 0.001)
+	minSeconds := influencerMotionMinSeconds
+	if req.Mode == influencerMotionModeRecreate {
+		// The recreation planner derives the output from the clip and accepts 4s.
+		minSeconds = service.InfluencerRecreateMinSeconds
+	}
 	// The provider renders whole seconds, so the request follows the picture
 	// track's rounded duration. The declarations must still describe the same
 	// clip: container and picture may differ by at most two frames plus 2 ms
 	// (a normal audio tail or container rounding). An inconsistent pair is
 	// still rejected rather than silently cropped or extended.
-	if metadata.Duration < influencerMotionMinSeconds || metadata.VideoDuration < influencerMotionMinSeconds || seconds < influencerMotionMinSeconds || seconds > influencerMotionMaxSeconds || math.Abs(metadata.Duration-metadata.VideoDuration) > tolerance {
+	if metadata.Duration < float64(minSeconds) || metadata.VideoDuration < float64(minSeconds) || seconds < minSeconds || seconds > influencerMotionMaxSeconds || math.Abs(metadata.Duration-metadata.VideoDuration) > tolerance {
 		return 0, "", errors.New("Current generation service cannot preserve this reference video duration")
+	}
+	if req.DurationSec != 0 && req.DurationSec != seconds {
+		return 0, "", errors.New("Video duration must follow the reference video")
+	}
+	if req.Mode == influencerMotionModeRecreate {
+		if req.AspectRatio != nil {
+			ratio := strings.TrimSpace(*req.AspectRatio)
+			if ratio != "" && ratio != influencerMotionAspectRatio {
+				return 0, "", errors.New("爆款复刻只支持 9:16 画幅")
+			}
+		}
+		return seconds, influencerMotionAspectRatio, nil
 	}
 	ratio := influencerVideoOutputRatio(metadata, resolution)
 	if ratio == "" {
 		return 0, "", errors.New("Current generation service cannot preserve this reference video aspect ratio at the selected resolution")
-	}
-	if req.DurationSec != 0 && req.DurationSec != seconds {
-		return 0, "", errors.New("Video duration must follow the reference video")
 	}
 	if req.AspectRatio != nil && strings.TrimSpace(*req.AspectRatio) != ratio {
 		return 0, "", errors.New("Video aspect ratio must follow the reference video")
@@ -542,6 +563,12 @@ func PostInfluencerMotion(c *gin.Context) {
 	meta, okMeta := metaValue.(map[string]any)
 	if !okOut || !okMeta {
 		influencerError(c, http.StatusInternalServerError, "internal_error", "motion request was not prepared")
+		return
+	}
+
+	// fork: the Web recreation queue shares the synchronous analysis budget.
+	// Validation is complete here, and the task row is created by the next call.
+	if !influencerRecreateQueuedDailyAllow(c, meta) {
 		return
 	}
 
@@ -632,10 +659,11 @@ func InfluencerMotionOptions(c *gin.Context) {
 	}
 	motionRules, _ := service.GetInfluencerVideoInputRules("motion")
 	replaceRules, _ := service.GetInfluencerVideoInputRules("replace")
+	recreateRules, _ := service.GetInfluencerVideoInputRules("recreate")
 	common.ApiSuccess(c, gin.H{
 		"version":           "motion-contract-v3",
 		"resolutions":       resolutions,
-		"input_constraints": gin.H{"motion": motionRules, "replace": replaceRules},
+		"input_constraints": gin.H{"motion": motionRules, "replace": replaceRules, "recreate": recreateRules},
 	})
 }
 
