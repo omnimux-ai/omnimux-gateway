@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { getLobeIcon } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 import { cn } from '@/lib/utils'
 
 import type { RankingMover } from '../types'

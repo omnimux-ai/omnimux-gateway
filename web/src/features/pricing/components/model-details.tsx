@@ -57,7 +57,7 @@ import {
   getSuccessRateTextClass,
 } from '@/features/performance-metrics/lib/format'
 import { PluginIcon } from '@/features/task-plugins/components/plugin-icon'
-import { getLobeIcon } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'

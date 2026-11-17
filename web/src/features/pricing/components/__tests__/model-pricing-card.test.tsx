@@ -50,7 +50,7 @@ vi.mock('@/hooks/use-copy-to-clipboard', () => ({
   }),
 }))
 
-vi.mock('@/lib/lobe-icon', () => ({
+vi.mock('@/lib/lobe-icon-lazy', () => ({
   getLobeIcon: (name: string) => (
     <span data-testid='vendor-icon'>{name}</span>
   ),

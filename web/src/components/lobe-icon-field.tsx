@@ -16,12 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
-import { getLobeIcon, getLobeIconNames } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 
 export function LobeIconField(props: {
   id?: string
@@ -33,15 +33,29 @@ export function LobeIconField(props: {
 }) {
   const { t } = useTranslation()
   const [custom, setCustom] = useState(false)
+  const [iconNames, setIconNames] = useState<string[]>([])
   const usesCustom = !props.allowInheritance || Boolean(props.value) || custom
+  useEffect(() => {
+    let active = true
+    void import('@/lib/lobe-icon')
+      .then(({ getLobeIconNames }) => {
+        if (active) setIconNames(getLobeIconNames())
+      })
+      .catch(() => {
+        // The picker keeps its current entries if the registry cannot load.
+      })
+    return () => {
+      active = false
+    }
+  }, [])
   const options = useMemo(
     () =>
-      getLobeIconNames().map((name) => ({
+      iconNames.map((name) => ({
         value: name,
         label: name,
         icon: getLobeIcon(name, 18),
       })),
-    []
+    [iconNames]
   )
   const effectiveIcon = props.value || props.inheritedIcon
   return (

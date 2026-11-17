@@ -26,7 +26,7 @@ import { api } from '@/lib/api'
 import { PluginsTable } from '../components/plugins-table'
 import type { TaskPluginListItem } from '../types'
 
-vi.mock('@/lib/lobe-icon', () => ({ getLobeIcon: () => null }))
+vi.mock('@/lib/lobe-icon-lazy', () => ({ getLobeIcon: () => null }))
 
 const clients: QueryClient[] = []
 afterEach(() => {

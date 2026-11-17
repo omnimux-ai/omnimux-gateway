@@ -20,7 +20,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
 import { DataTableColumnHeader } from '@/components/data-table'
-import { getLobeIcon } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 
 import type { PriceListRow } from '../lib/price-list-rows'
 

@@ -44,7 +44,7 @@ vi.mock('../hooks/use-pricing-data', () => ({
   usePricingData: () => pricingHookState,
 }))
 
-vi.mock('@/lib/lobe-icon', () => ({
+vi.mock('@/lib/lobe-icon-lazy', () => ({
   getLobeIcon: (name: string) => (
     <span data-testid='vendor-icon'>{name}</span>
   ),

@@ -28,7 +28,7 @@ import { CHANNEL_TYPE_TASK_PLUGIN } from '../constants'
 import { ChannelTypeLogo, TaskPluginChannelBadge } from './channel-type-badge'
 
 vi.mock('../api', () => ({ getTaskPluginOptions: vi.fn() }))
-vi.mock('@/lib/lobe-icon', () => ({
+vi.mock('@/lib/lobe-icon-lazy', () => ({
   getLobeIcon: (name: string) => <svg data-testid={name} />,
 }))
 vi.mock('react-i18next', () => ({

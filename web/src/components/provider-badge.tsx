@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
 
-import { getLobeIcon } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 import { cn } from '@/lib/utils'
 
 import { StatusBadge, type StatusBadgeProps } from './status-badge'

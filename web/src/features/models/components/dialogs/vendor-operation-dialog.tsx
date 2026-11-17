@@ -28,7 +28,7 @@ import { LoadingState } from '@/components/loading-state'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { Label } from '@/components/ui/label'
-import { getLobeIcon } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 import { createServerError } from '@/lib/server-error-message'
 
 import { getVendors } from '../../api'

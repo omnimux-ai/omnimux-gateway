@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { formatTimestampToDate } from '@/lib/format'
-import { getLobeIcon } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 import { createServerError } from '@/lib/server-error-message'
 
 import { searchVendors } from '../api'

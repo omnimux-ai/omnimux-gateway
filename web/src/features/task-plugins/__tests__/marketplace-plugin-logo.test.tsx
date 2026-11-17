@@ -23,7 +23,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { MarketplacePluginCard } from '../components/marketplace-plugin-card'
 import type { MarketplacePlugin } from '../types'
 
-vi.mock('@/lib/lobe-icon', () => ({
+vi.mock('@/lib/lobe-icon-lazy', () => ({
   getLobeIcon: () => null,
 }))
 
