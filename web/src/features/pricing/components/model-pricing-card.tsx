@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from '@tanstack/react-router'
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { getLobeIcon } from '@/lib/lobe-icon'
+import { getLobeIcon } from '@/lib/lobe-icon-lazy'
 import { cn } from '@/lib/utils'
 
 import { resolveCardSavingBadge } from '../lib/saving-display'

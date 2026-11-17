@@ -18,12 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useState } from 'react'
 
-import { getLobeIcon } from '@/lib/lobe-icon'
-
 import { useCopy } from '../../i18n'
 import { MODEL_BRAND_ICONS, type IconName } from './data'
 import { usePrefersReducedMotion } from './hooks'
 import { Icon } from './icons'
+import { ModelBrandIcon } from './model-brand-icon'
 
 function ToolList(props: { items: readonly { icon: IconName; label: string }[] }) {
   return (
@@ -109,9 +108,14 @@ export function CnTools() {
                 {copy.models.map((model, index) => (
                   <li key={model.name} className={index === active ? 'on' : undefined}>
                     <i>
-                      {MODEL_BRAND_ICONS[model.name]
-                        ? getLobeIcon(MODEL_BRAND_ICONS[model.name], 18)
-                        : model.mark}
+                      {MODEL_BRAND_ICONS[model.name] ? (
+                        <ModelBrandIcon
+                          icon={MODEL_BRAND_ICONS[model.name]}
+                          size={18}
+                        />
+                      ) : (
+                        model.mark
+                      )}
                     </i>
                     {model.name}
                     <span>{model.kind}</span>

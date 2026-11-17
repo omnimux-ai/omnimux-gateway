@@ -32,7 +32,7 @@ import type { TaskPluginListItem } from '../types'
 // @lobehub/icons transitively imports @emoji-mart JSON assets that vitest's
 // externalized ESM loader rejects. Icon rendering is irrelevant to the card
 // layout contracts under test, so the icon loader boundary is stubbed.
-vi.mock('@/lib/lobe-icon', () => ({
+vi.mock('@/lib/lobe-icon-lazy', () => ({
   getLobeIcon: () => null,
 }))
 

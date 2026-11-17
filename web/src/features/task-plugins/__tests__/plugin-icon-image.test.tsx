@@ -29,7 +29,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { PluginIcon } from '../components/plugin-icon'
 
-vi.mock('@/lib/lobe-icon', () => ({
+vi.mock('@/lib/lobe-icon-lazy', () => ({
   getLobeIcon: () => <svg data-testid='lobe-icon' />,
 }))
 
