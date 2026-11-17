@@ -129,20 +129,11 @@ function stubMotion(overrides: Partial<MotionForm> = {}): MotionForm {
     applyStyle: vi.fn(),
     effectivePrompt: '',
     recreateImages: [],
-    recreateResult: null,
-    recreatePrompt: '',
-    setRecreatePrompt: vi.fn(),
-    recreatePromptRunes: 0,
     recreateIntentPrompt: '',
     setRecreateIntentPrompt: vi.fn(),
     recreateIntentPromptEnabled: false,
     setRecreateIntentPromptEnabled: vi.fn(),
-    recreateSubmitDuration: 0,
     videoRawDurationSec: 0,
-    recreateQuote: null,
-    recreateAnalyzing: false,
-    analyzeRecreate: vi.fn().mockResolvedValue(null),
-    resetRecreateAnalysis: vi.fn(),
     clearCharacter: vi.fn(),
     clearVideo: vi.fn(),
     reset: vi.fn(),
@@ -792,15 +783,11 @@ describe('MotionPanel viral recreate', () => {
         'Only used to decompose narrative and pacing; never sent to the generation model.'
       )
     ).toBeNull()
-    expect(
-      screen.getByText('Video duration: 4 to 30 seconds')
-    ).toBeVisible()
+    expect(screen.getByText('Video duration: 4 to 30 seconds')).toBeVisible()
     expect(screen.getByText('Up to 30 reference images')).toBeVisible()
     expect(screen.queryByText('Decomposition only')).toBeNull()
     // Output quality now lives in the form, not in a confirmation step.
-    expect(
-      screen.getByRole('radiogroup', { name: 'Resolution' })
-    ).toBeVisible()
+    expect(screen.getByRole('radiogroup', { name: 'Resolution' })).toBeVisible()
     expect(screen.getByRole('radio', { name: '480P' })).toBeVisible()
     expect(screen.getByRole('radio', { name: '720P' })).toBeVisible()
     // The prompt uses the same switch card as the two movement modes.
@@ -872,71 +859,22 @@ describe('MotionPanel viral recreate', () => {
     expect(labels.some((label) => label.includes('Video'))).toBe(false)
   })
 
-  it('keeps the form visible but inert while the decomposition runs', () => {
-    render(
-      <MotionPanel
-        motion={stubMotion({
-          mode: 'recreate',
-          recreateAnalyzing: true,
-          canSubmit: false,
-        })}
-      />
-    )
-
-    expect(screen.getByText('About 2–3 minutes')).toBeVisible()
-    expect(screen.getByText('Keep this page open')).toBeVisible()
-    // Inputs stay readable but are removed from interaction.
-    expect(
-      screen.getByRole('button', { name: 'Add a reference video' })
-    ).toBeInTheDocument()
-    expect(document.querySelector('[inert]')).not.toBeNull()
-    expect(screen.queryByRole('button', { name: 'Generate video' })).toBeNull()
-  })
-
-  it('reuses a kept decomposition without showing a confirmation step', () => {
+  it('keeps the form editable after a recreate task is submitted', () => {
     render(
       <MotionPanel
         motion={stubMotion({
           mode: 'recreate',
           canSubmit: true,
-          recreatePrompt: 'Reference image 1 is the hero product.',
-          recreatePromptRunes: 38,
-          recreateResult: {
-            prompt: 'Reference image 1 is the hero product.',
-            analysis: {
-              video_overview: {
-                one_line: 'One continuous close-up with a slow reveal.',
-              },
-              shots: [
-                {
-                  shot_id: 'S01',
-                  start_s: 0,
-                  end_s: 4.5,
-                  shot_size: 'close',
-                  narrative_job: 'hook',
-                },
-              ],
-            },
-            imageAnalysis: [],
-            meta: {
-              shot_count: 1,
-              duration_sec: 11,
-              pricing: { '480p': 6.47, '720p': 13.89 },
-            },
-            durationSec: 11,
-            referenceDurationSec: 10.6,
-          },
         })}
       />
     )
 
-    // The kept result only feeds the next submit; it never becomes a page.
-    expect(screen.queryByText('Decomposition result')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Re-analyze' })).toBeNull()
-    expect(screen.queryByRole('textbox', { name: 'Prompt text' })).toBeNull()
     expect(
       screen.getByRole('button', { name: 'Add a reference video' })
     ).toBeVisible()
+    expect(screen.queryByText('About 2–3 minutes')).toBeNull()
+    expect(screen.queryByText('Keep this page open')).toBeNull()
+    expect(document.querySelector('[inert]')).toBeNull()
   })
 })
 

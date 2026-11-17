@@ -105,6 +105,8 @@ export interface TaskRecord {
   task_id: string
   action?: string
   status: string
+  /** Optional workbench phase on a local generation: analyzing or generating. */
+  stage?: 'analyzing' | 'generating'
   /** Server-owned original-result reconciliation; never authorizes another submission. */
   result_unverified?: boolean
   fail_reason?: string
@@ -266,134 +268,6 @@ export type WorkbenchMode = 'image' | 'video'
  * server-compiled prompt — the clip never reaches the generation model.
  */
 export type MotionMode = 'motion' | 'replace' | 'recreate'
-
-/** One shot of the decomposition. Every field is optional on purpose: an
- * older or partial analysis must still render without throwing. */
-export interface RecreateShot {
-  shot_id?: string
-  start_s?: number
-  end_s?: number
-  shot_size?: string
-  narrative_job?: string
-  action?: {
-    start_state?: string
-    change?: string
-    end_state?: string
-  }
-  product_visibility?: boolean | string | null
-}
-
-export interface RecreateHook {
-  mechanism?: string[]
-  why_it_stops_scroll?: string
-  confidence?: string
-}
-
-export interface RecreatePace {
-  cut_density?: string
-  shots_per_10s?: number
-  acceleration_points_s?: number[]
-}
-
-export interface RecreateProofStep {
-  type?: string
-  strength?: string
-  note?: string
-}
-
-export interface RecreateViralLogic {
-  structure_formula?: {
-    opening?: string
-    middle?: string
-    late_stage?: string
-    ending?: string
-  }
-  proof_chain?: RecreateProofStep[]
-}
-
-export interface RecreateCta {
-  type?: string
-  carrier?: string
-  position_s?: number
-}
-
-export interface RecreateBeat {
-  beat_id?: string
-  source_shots?: string[]
-  function?: string
-  keep?: string[]
-}
-
-export interface RecreateTransferable {
-  beats?: RecreateBeat[]
-  shot_grammar?: string[]
-  rhythm?: string
-}
-
-export interface RecreateReplacement {
-  target?: string
-  found_in?: string[]
-  description?: string
-  replacement_hint?: string
-}
-
-/** The clip breakdown the server returns next to the compiled prompt. */
-export interface RecreateAnalysis {
-  video_overview?: {
-    one_line?: string
-    structure_summary?: string
-  }
-  shots?: RecreateShot[]
-  hook?: RecreateHook
-  pace?: RecreatePace
-  viral_logic?: RecreateViralLogic
-  cta?: RecreateCta
-  transferable?: RecreateTransferable
-  replace?: RecreateReplacement[]
-  uncertain?: { field_path?: string; why?: string }[]
-}
-
-/** What the image-reading turn locked from one uploaded reference image. */
-export interface RecreateImageAnalysis {
-  image_index?: number
-  kind?: string
-  summary?: string
-}
-
-export interface RecreateMeta {
-  shot_count?: number
-  hook?: string
-  risk_flags?: string[]
-  /** The whole-second generation duration the server derived from the clip. */
-  duration_sec?: number
-  /** The reference clip's raw duration in seconds (fractional). */
-  reference_duration_sec?: number
-  /** Server-computed generation credits per quality tier. */
-  pricing?: { '480p'?: number; '720p'?: number }
-  resolution?: string
-  aspect_ratio?: string
-  image_count?: number
-}
-
-/** `POST /pg/influencer/recreate/analyze` success payload. */
-export interface RecreateAnalyzeResponse {
-  prompt: string
-  analysis?: RecreateAnalysis | null
-  image_analysis?: RecreateImageAnalysis[] | null
-  meta?: RecreateMeta | null
-}
-
-/** The accepted decomposition held by the form. The output duration is not a
- * user choice: it comes from the reference clip, so the result keeps the
- * server-derived whole seconds (or the local rounded fallback) for submission. */
-export interface RecreateResult {
-  prompt: string
-  analysis: RecreateAnalysis | null
-  imageAnalysis: RecreateImageAnalysis[]
-  meta: RecreateMeta | null
-  durationSec: number
-  referenceDurationSec?: number
-}
 
 /**
  * A built-in video template. `thumbUrl` stays absent while the pack is

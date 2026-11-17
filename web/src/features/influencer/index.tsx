@@ -90,7 +90,6 @@ import { readExploreTab, writeExploreTab } from './lib/explore-tab'
 import { describeFailReason } from './lib/fail-reason'
 import { takeGuestDraft } from './lib/guest'
 import { hiddenTaskIds, hideTask } from './lib/hidden'
-import { rollableCount } from './lib/randomize'
 import {
   getTaskTimestamp,
   isTerminalStatus,
@@ -131,7 +130,7 @@ import {
   type PreviewEntry,
   type PreviewMediaKind,
 } from './lib/preview-reference'
-import { recreateQuoteFor } from './lib/recreate'
+import { rollableCount } from './lib/randomize'
 import { referenceVideoCandidate } from './lib/reference-candidates'
 import { readSource, writeSource } from './lib/source'
 import {
@@ -468,13 +467,9 @@ export function InfluencerWorkbench() {
       ),
     [pricingQ.data, groupsQ.data, motion.resolution, motion.durationSec]
   )
-  // All three modes share one model line, so the motion per-second quote is
-  // also the recreation's pre-analysis amount. The analysis price replaces it
-  // once the server has derived the final duration.
-  const videoQuote =
-    motion.mode === 'recreate'
-      ? (motion.recreateQuote ?? motionQuote)
-      : motionQuote
+  // All three modes share one model line, so the per-second quote computed
+  // from the reference clip is also the recreation's pre-submit amount.
+  const videoQuote = motionQuote
 
   // --- Subscription paywall: an empty wallet must never be a dead end -------
   const [paywall, setPaywall] = useState<{
@@ -707,27 +702,6 @@ export function InfluencerWorkbench() {
     }
     submitInFlight.current = true
     try {
-      // A recreation has one action: the decomposition is an internal step of
-      // generation, so it runs here and its compiled prompt is submitted
-      // immediately. A kept decomposition (retry after a failed submit) is
-      // reused instead of paying for another analysis.
-      let recreate: { prompt: string; durationSec: number } | undefined
-      let decomposition = motion.recreateResult
-      let motionQuote = videoQuote
-      if (motion.mode === 'recreate') {
-        if (!decomposition) {
-          // The pre-analysis quote is the real catalog price, so an empty
-          // wallet fails immediately instead of after the long decomposition.
-          if (!ensureFunded('video', videoQuote?.credits ?? null)) return
-          decomposition = await motion.analyzeRecreate()
-          if (!decomposition) return
-        }
-        recreate = {
-          prompt: decomposition.prompt,
-          durationSec: Math.round(decomposition.durationSec),
-        }
-        motionQuote = recreateQuoteFor(decomposition.meta, motion.resolution)
-      }
       let body: ReturnType<typeof buildMotionSubmitPayload>
       try {
         body = buildMotionSubmitPayload({
@@ -741,7 +715,6 @@ export function InfluencerWorkbench() {
           video: motion.video,
           resolution: motion.resolution,
           outputCapabilities: motion.outputCapabilities,
-          recreate,
         })
       } catch (error) {
         toast.error(
@@ -753,11 +726,9 @@ export function InfluencerWorkbench() {
         return
       }
       if (!body) return
-      if (!ensureFunded('video', motionQuote?.credits ?? null)) return
+      if (!ensureFunded('video', videoQuote?.credits ?? null)) return
       const res = await submitMotionTask(body)
       if (!res) return
-      if (motion.mode === 'recreate' && decomposition) {
-      }
       void queryClient.invalidateQueries({
         queryKey: ['influencer', 'history'],
       })
@@ -1622,14 +1593,9 @@ export function InfluencerWorkbench() {
         !referenceBusy &&
         !motion.videoPreparing
       }
-      submitting={motionSubmit.submitting || motion.recreateAnalyzing}
+      submitting={motionSubmit.submitting}
       isGuest={isGuest}
       ctaLabel='Generate video'
-      busyLabel={
-        motion.mode === 'recreate' && motion.recreateAnalyzing
-          ? 'Analyzing reference video'
-          : undefined
-      }
       onGenerate={() => {
         requireLogin('generate', currentDraft(), () => {
           void doSubmitMotion()

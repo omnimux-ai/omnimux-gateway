@@ -25,10 +25,10 @@ import type {
   MotionMode,
   MotionVideoSource,
 } from '../types'
-import { validateMotionOutput } from './motion'
+import { validateMotionOutput, validateRecreateReference } from './motion'
 
 const storedMotionSchema = z.object({
-  mode: z.enum(['motion', 'replace']),
+  mode: z.enum(['motion', 'replace', 'recreate']),
   prompt: z.string(),
   subject_image_url: z.string(),
   subject_image_urls: z.array(z.string()).optional(),
@@ -82,15 +82,6 @@ interface BuildInput {
   video: MotionVideoSource | null
   resolution: string
   outputCapabilities?: Record<string, MotionAspectRatio[]>
-  /**
-   * Recreate mode only. The prompt is the editable server-compiled text and
-   * `durationSec` is the output length it was compiled for. A recreate request
-   * has no video: the clip was decomposition material only.
-   */
-  recreate?: {
-    prompt: string
-    durationSec: number
-  }
 }
 
 /** The fixed framing a recreation always asks for. */
@@ -101,22 +92,15 @@ const RECREATE_MAX_IMAGES = 30
 
 function buildRecreatePayload(input: BuildInput): MotionSubmitBody | null {
   const chars = (input.characters ?? []).slice(0, RECREATE_MAX_IMAGES)
-  if (chars.length === 0 || !input.recreate) return null
+  if (chars.length === 0) return null
   if (!input.video || input.video.kind === 'preset') return null
-  if (!input.video.metadata) return null
-  const prompt = input.recreate.prompt.trim()
-  if (!prompt) return null
+  const checked = input.video.metadata
+    ? validateRecreateReference(input.video.metadata)
+    : null
+  if (!checked?.ok || !checked.browserMetadata) return null
+  const prompt = input.prompt.trim()
   if ([...prompt].length > 4000) {
     throw new Error('Prompt must be 4000 characters or fewer.')
-  }
-  const durationSec = input.recreate.durationSec
-  // The reference clip decides the length: 4–30 whole seconds on the shared line.
-  if (
-    !Number.isInteger(durationSec) ||
-    durationSec < 4 ||
-    durationSec > 30
-  ) {
-    return null
   }
   const urls = chars.map((c) => c.url)
   return {
@@ -125,7 +109,9 @@ function buildRecreatePayload(input: BuildInput): MotionSubmitBody | null {
     subject_image_url: urls[0],
     subject_image_urls: urls,
     subject_image_tags: [],
-    duration_sec: durationSec,
+    video_url: input.video.url,
+    video_metadata: checked.browserMetadata,
+    duration_sec: Math.round(checked.browserMetadata.video_duration),
     aspect_ratio: RECREATE_ASPECT_RATIO,
     resolution: input.resolution,
   }

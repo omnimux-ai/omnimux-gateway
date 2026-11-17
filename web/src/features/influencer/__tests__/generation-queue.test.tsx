@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
-import type { SheetSubmitBody } from '../api'
+import type { MotionSubmitBody, SheetSubmitBody } from '../api'
 import { FeedGrid } from '../components/feed-grid'
 import { useMotion } from '../hooks/use-motion'
 import { useMultiViewSubmit } from '../hooks/use-multiview'
@@ -24,6 +24,27 @@ const body: SheetSubmitBody = {
   selection: {},
   brief: 'A character',
   size: '16:9',
+}
+const recreateBody: MotionSubmitBody = {
+  mode: 'recreate',
+  prompt: 'keep the turn',
+  subject_image_url: 'https://files.example/front.png',
+  subject_image_urls: ['https://files.example/front.png'],
+  video_url: 'https://files.example/reference.mp4',
+  video_metadata: {
+    duration: 8,
+    video_duration: 8,
+    width: 720,
+    height: 1280,
+    frame_rate: 30,
+    video_codec: 'h264',
+    audio_codec: 'aac',
+    container: 'mp4',
+    size_bytes: 2048,
+  },
+  duration_sec: 8,
+  aspect_ratio: '9:16',
+  resolution: '480p',
 }
 const page = (items: TaskRecord[]) => ({
   data: { success: true, data: { items, total: items.length } },
@@ -76,6 +97,28 @@ describe('persistent generation queue client', () => {
         expect.objectContaining({ task_id: `image-${i + 1}`, status: 'QUEUED' })
       ),
     })
+  })
+
+  it('accepts three recreate submissions as independent records and releases the submit lock between them', async () => {
+    const post = vi.spyOn(api, 'post').mockImplementation(async () => ({
+      data: { task_id: `recreate-${post.mock.calls.length}` },
+    }))
+    vi.spyOn(api, 'get').mockResolvedValue(page([]))
+    const { result } = renderHook(() => useMotionSubmit())
+
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        await result.current.submit(recreateBody)
+      })
+      expect(result.current.submitting).toBe(false)
+    }
+
+    expect(post).toHaveBeenCalledTimes(3)
+    expect(result.current.tasks.map((task) => task.task_id)).toEqual([
+      'recreate-1',
+      'recreate-2',
+      'recreate-3',
+    ])
   })
 
   it('retains a confirmed terminal record when the artifact projection read fails', async () => {

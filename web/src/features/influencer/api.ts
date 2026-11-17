@@ -35,10 +35,6 @@ import type {
   MotionVideoMetadata,
   PricingResponse,
   PublishedPresetRow,
-  RecreateAnalysis,
-  RecreateAnalyzeResponse,
-  RecreateImageAnalysis,
-  RecreateMeta,
   Selection,
   TaskRecord,
 } from './types'
@@ -48,8 +44,6 @@ const SHEET_PATH = '/pg/influencer/sheet'
 const MULTIVIEW_PATH = '/pg/influencer/multiview'
 const PRICING_PATH = '/api/pricing'
 const TASK_LIST_PATH = '/api/task/self'
-const RECREATE_PATH = '/pg/influencer/recreate'
-const RECREATE_ANALYZE_PATH = `${RECREATE_PATH}/analyze`
 export const INFLUENCER_ACTION = 'influencer_sheet'
 export const SHEET_SIZE = '16:9'
 /** Fixed request target of the reviewed Sunburst image contract. */
@@ -242,157 +236,21 @@ export async function fetchMotionOptions(): Promise<MotionOptions | null> {
 }
 
 export interface MotionSubmitBody {
+  /** Browser-read clip facts; required by the server for `recreate`. */
   video_metadata?: import('./lib/browser-video-metadata').BrowserVideoMetadata
   mode: MotionMode
+  /** For `recreate` this is the caller's raw intent, not a compiled prompt. */
   prompt: string
   subject_image_url: string
   subject_image_urls?: string[]
   subject_image_tags?: string[]
   subject_character_type?: 'human' | 'cat' | 'dog'
   source_task_id?: string
-  /** Absent for `recreate`: its clip was decomposition material only. */
+  /** The reference clip; `recreate` keeps it as worker input, never provider input. */
   video_url?: string
   duration_sec: number
   aspect_ratio: MotionAspectRatio | 'adaptive'
   resolution: string
-}
-
-/** The reference clip plus the caller's own images, sent for decomposition. */
-export interface RecreateAnalyzeBody {
-  video_url: string
-  image_urls: string[]
-  /** Planner context only; the images' upload order still defines image N. */
-  image_tags?: string[]
-  prompt?: string
-  /** Kept for the price tier only; the output duration comes from the clip. */
-  resolution: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-/** The accepted decomposition, as returned by the poll's success state. */
-function readRecreateSuccess(
-  data: Record<string, unknown>,
-  source: unknown
-): RecreateAnalyzeResponse {
-  const prompt = typeof data.prompt === 'string' ? data.prompt.trim() : ''
-  if (!prompt) {
-    throw createServerError(
-      source,
-      'Could not analyze the reference video. Please try again.'
-    )
-  }
-  const analysis = isRecord(data.analysis)
-    ? (data.analysis as RecreateAnalysis)
-    : null
-  const imageAnalysis = Array.isArray(data.image_analysis)
-    ? (data.image_analysis.filter(isRecord) as RecreateImageAnalysis[])
-    : []
-  return {
-    prompt,
-    analysis,
-    image_analysis: imageAnalysis,
-    meta: isRecord(data.meta) ? (data.meta as RecreateMeta) : null,
-  }
-}
-
-/** The queued job accepted by `POST /recreate/analyze` (HTTP 202). */
-export interface RecreateAnalysisStart {
-  task_id: string
-  status?: string
-  progress?: string
-}
-
-/** One poll of the queued decomposition. */
-export interface RecreateAnalysisTask {
-  task_id: string
-  status: string
-  progress?: string
-  message?: string
-  prompt?: string
-  analysis?: RecreateAnalysis | null
-  image_analysis?: RecreateImageAnalysis[] | null
-  meta?: RecreateMeta | null
-}
-
-/**
- * Enqueues the decomposition and returns its task id. The request only
- * enqueues work, so it must not carry a long timeout.
- */
-export async function startRecreateAnalysis(
-  body: RecreateAnalyzeBody
-): Promise<RecreateAnalysisStart> {
-  const res = await api.post(RECREATE_ANALYZE_PATH, body, {
-    skipErrorHandler: true,
-  } as Record<string, unknown>)
-  const envelope = res.data as { success?: boolean } & Record<string, unknown>
-  if (envelope?.success !== true || !isRecord(envelope.data)) {
-    throw createServerError(
-      envelope,
-      'Could not analyze the reference video. Please try again.'
-    )
-  }
-  const taskId = envelope.data.task_id
-  if (typeof taskId !== 'string' || !taskId.trim()) {
-    throw createServerError(
-      envelope,
-      'Could not analyze the reference video. Please try again.'
-    )
-  }
-  return {
-    task_id: taskId,
-    status:
-      typeof envelope.data.status === 'string'
-        ? envelope.data.status
-        : undefined,
-    progress:
-      typeof envelope.data.progress === 'string'
-        ? envelope.data.progress
-        : undefined,
-  }
-}
-
-/**
- * Reads one poll of the analysis. `success` carries the same payload the old
- * synchronous endpoint returned; `failed` carries a user-readable message.
- */
-export async function fetchRecreateAnalysis(
-  taskId: string,
-  signal?: AbortSignal
-): Promise<RecreateAnalysisTask> {
-  const res = await api.get(`${RECREATE_PATH}/${encodeURIComponent(taskId)}`, {
-    signal,
-    skipErrorHandler: true,
-    disableDuplicate: true,
-  } as Record<string, unknown>)
-  const envelope = res.data as { success?: boolean } & Record<string, unknown>
-  if (envelope?.success !== true || !isRecord(envelope.data)) {
-    throw createServerError(
-      envelope,
-      'Could not analyze the reference video. Please try again.'
-    )
-  }
-  const data = envelope.data
-  const status = typeof data.status === 'string' ? data.status : ''
-  if (!status) {
-    throw createServerError(
-      envelope,
-      'Could not analyze the reference video. Please try again.'
-    )
-  }
-  const task: RecreateAnalysisTask = {
-    task_id:
-      typeof data.task_id === 'string' && data.task_id ? data.task_id : taskId,
-    status,
-    progress: typeof data.progress === 'string' ? data.progress : undefined,
-    message: typeof data.message === 'string' ? data.message : undefined,
-  }
-  if (status === 'success') {
-    return { ...task, ...readRecreateSuccess(data, envelope) }
-  }
-  return task
 }
 
 /** The gateway checks the original bytes, including codecs unavailable in the browser. */

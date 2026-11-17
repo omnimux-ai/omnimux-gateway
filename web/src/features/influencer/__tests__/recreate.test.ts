@@ -30,7 +30,6 @@ import {
   validateBrowserMotionMetadata,
   validateMotionReference,
 } from '../lib/motion'
-import { recreateQuoteFor } from '../lib/recreate'
 import { buildMotionSubmitPayload } from '../lib/submit-payload'
 import type { MotionVideoMetadata } from '../types'
 
@@ -124,7 +123,16 @@ describe('recreate mode', () => {
 })
 
 describe('recreate submit payload', () => {
-  const build = (prompt: string, durationSec = 8) =>
+  const clipAt = (seconds: number): MotionVideoMetadata => ({
+    ...recreateClip,
+    browserMetadata: browserMetadata({
+      duration: seconds,
+      video_duration: seconds,
+    }),
+    rawDurationSec: seconds,
+    durationSec: Math.round(seconds),
+  })
+  const build = (prompt = '', clip: MotionVideoMetadata = recreateClip) =>
     buildMotionSubmitPayload({
       mode: 'recreate',
       prompt,
@@ -134,30 +142,30 @@ describe('recreate submit payload', () => {
         kind: 'upload',
         url: 'https://files.example.com/reference.mp4',
         fileName: 'reference.mp4',
-        metadata: recreateClip,
+        metadata: clip,
       },
       resolution: '480p',
-      recreate: { prompt, durationSec },
     })
 
-  it('sends the compiled prompt and images without the reference video', () => {
-    const body = build('Reference image 1 is the hero product. ...')
+  it('sends the raw intent, clip and browser metadata as one queued request', () => {
+    const body = build('keep the turn')
     expect(body).toMatchObject({
       mode: 'recreate',
-      prompt: 'Reference image 1 is the hero product. ...',
+      prompt: 'keep the turn',
       subject_image_urls: [
         'https://files.example.com/front.png',
         'https://files.example.com/side.png',
       ],
-      duration_sec: 8,
+      video_url: 'https://files.example.com/reference.mp4',
+      video_metadata: recreateClip.browserMetadata,
+      duration_sec: 6,
       resolution: '480p',
       aspect_ratio: '9:16',
     })
-    expect(body).not.toHaveProperty('video_url')
   })
 
-  it('rejects an empty compiled prompt', () => {
-    expect(build('   ')).toBeNull()
+  it('allows an empty prompt because the intent is optional', () => {
+    expect(build('   ')).toMatchObject({ prompt: '' })
   })
 
   it('rejects a prompt over the public rune ceiling', () => {
@@ -167,33 +175,11 @@ describe('recreate submit payload', () => {
   })
 
   it('rejects a duration outside the reference-video range', () => {
-    expect(build('Reference image 1 is the hero product.', 3)).toBeNull()
-    expect(build('Reference image 1 is the hero product.', 31)).toBeNull()
+    expect(build('keep the turn', clipAt(3))).toBeNull()
+    expect(build('keep the turn', clipAt(31))).toBeNull()
   })
 
-  it('accepts a fractional clip rounded to whole seconds inside the range', () => {
-    expect(
-      build('Reference image 1 is the hero product.', 30)?.duration_sec
-    ).toBe(30)
-    expect(
-      build('Reference image 1 is the hero product.', 5)?.duration_sec
-    ).toBe(5)
-  })
-})
-
-describe('recreate quote', () => {
-  const meta = {
-    pricing: { '480p': 6.47, '720p': 13.89 },
-  }
-
-  it('reads the credit price of the selected quality from the server map', () => {
-    expect(recreateQuoteFor(meta, '480p')).toEqual({ usd: 0, credits: 6.47 })
-    expect(recreateQuoteFor(meta, '720p')).toEqual({ usd: 0, credits: 13.89 })
-  })
-
-  it('returns null when the server sends no price for that quality', () => {
-    expect(recreateQuoteFor(meta, '1080p')).toBeNull()
-    expect(recreateQuoteFor({ pricing: { '720p': 13.89 } }, '480p')).toBeNull()
-    expect(recreateQuoteFor(null, '480p')).toBeNull()
+  it('rounds a fractional clip to the whole output seconds the worker derives', () => {
+    expect(build('keep the turn', clipAt(7.6))?.duration_sec).toBe(8)
   })
 })
