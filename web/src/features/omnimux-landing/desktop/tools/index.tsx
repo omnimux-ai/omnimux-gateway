@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 import { trackToolCtaClick, type ToolCtaClick } from '@/lib/growth-tracking'
 
@@ -273,8 +274,14 @@ export function ToolRecreateBand(props: {
             className='btn btn-primary'
             to='/influencer'
             onClick={(event) => {
+              const outcome = startRecreate(event)
+              if (!outcome.ok) {
+                toast.error(
+                  tool.durationRange.replace('{duration}', outcome.duration)
+                )
+                return
+              }
               track('workbench_recreate')
-              startRecreate(event)
             }}
           >
             {tool.ctaStart}

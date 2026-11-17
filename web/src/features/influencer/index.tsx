@@ -209,7 +209,7 @@ export function InfluencerWorkbench() {
     [closeVideoPicker, closeCharacterPicker]
   )
 
-  useToolHandoff({
+  const toolHandoff = useToolHandoff({
     isGuest,
     workbenchMode,
     onWorkbenchModeChange,
@@ -1720,6 +1720,7 @@ export function InfluencerWorkbench() {
                 isGuest={isGuest}
                 motion={motion}
                 submitting={motionSubmit.submitting}
+                toolHandoff={toolHandoff}
                 onPreviewVideo={onPreviewVideo}
                 onPreviewImage={onPreviewImage}
                 onBeforeVideoPick={() => {

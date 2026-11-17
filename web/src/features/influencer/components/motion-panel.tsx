@@ -30,6 +30,7 @@ import { Switch } from '@/components/ui/switch'
 
 import { fetchMotionOptions } from '../api'
 import { MOTION_RESOLUTIONS, type MotionForm } from '../hooks/use-motion'
+import type { ToolHandoffState } from '../hooks/use-tool-handoff'
 import { toastInfluencerError } from '../lib/error-copy'
 import { getAvailableMentions } from '../lib/mention'
 import { MOTION_MODES, presetsForMode } from '../lib/motion'
@@ -203,6 +204,8 @@ interface Props {
   /** Opens a selected image in the same shared preview window. */
   onPreviewImage?: (url: string) => void
   submitting?: boolean
+  /** Loading/failure state of a video handed over from the TikTok tool page. */
+  toolHandoff?: ToolHandoffState
 }
 
 /** Video controls over the existing motion form and upload state. */
@@ -316,6 +319,7 @@ export function MotionPanel(props: Props) {
           motion={motion}
           assetsRef={props.assetsRef}
           submitting={props.submitting}
+          toolHandoff={props.toolHandoff}
           onPreviewVideo={props.onPreviewVideo}
           onPreviewImage={props.onPreviewImage}
           onBeforeVideoPick={props.onBeforeVideoPick}
