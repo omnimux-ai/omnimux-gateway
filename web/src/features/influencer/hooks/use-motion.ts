@@ -23,11 +23,7 @@ import { toast } from 'sonner'
 import { handleServerError } from '@/lib/handle-server-error'
 import { useMotionPreferencesStore } from '@/stores/motion-preferences-store'
 
-import {
-  fetchRecreateAnalysis,
-  startRecreateAnalysis,
-  type MotionSubmitBody,
-} from '../api'
+import type { MotionSubmitBody } from '../api'
 import { toastInfluencerError } from '../lib/error-copy'
 import {
   canSubmitMotion,
@@ -38,15 +34,12 @@ import {
 } from '../lib/motion'
 import { readMotionMode, writeMotionMode } from '../lib/motion-mode'
 import { combineStylePrompt } from '../lib/motion-style'
-import { recreateQuoteFor } from '../lib/recreate'
-import { pollRecreateAnalysis } from '../lib/recreate-poll'
 import type {
   MotionAspectRatio,
   MotionCharacterSource,
   MotionMode,
   MotionStyleChoice,
   MotionVideoSource,
-  RecreateResult,
   TaskRecord,
 } from '../types'
 import { useCharacterUploads } from './use-character-uploads'
@@ -58,9 +51,6 @@ export const MOTION_RESOLUTIONS = ['480p', '720p']
 
 /** The planner accepts at most this many reference images, in upload order. */
 export const RECREATE_MAX_IMAGES = 30
-
-/** Mirrors the public prompt ceiling enforced by the gateway. */
-export const RECREATE_PROMPT_MAX_RUNES = 4000
 
 /** The planner treats the caller's intent as context, not a provider parameter. */
 export const RECREATE_INTENT_MAX_RUNES = 1200
@@ -134,22 +124,11 @@ export function useMotion() {
   const modeWarning = useRef<MotionVideoSource | null>(null)
   const [videoPickerOpen, setVideoPickerOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
-  const [recreateResult, setRecreateResult] = useState<RecreateResult | null>(
-    null
-  )
-  const [recreatePrompt, setRecreatePromptState] = useState('')
   // The decomposition intent keeps its own draft and switch so switching modes
   // never leaks a generation prompt into the recreation form.
   const [recreateIntentPrompt, setRecreateIntentPromptState] = useState('')
   const [recreateIntentPromptEnabled, setRecreateIntentPromptEnabledState] =
     useState(false)
-  const [recreateAnalyzing, setRecreateAnalyzing] = useState(false)
-  const recreateAnalyzingRef = useRef(false)
-  const recreatePollRef = useRef<{
-    token: number
-    abort: AbortController
-  } | null>(null)
-  const recreateTokenRef = useRef(0)
   const [styles, setStyles] = useState<
     Record<MotionMode, MotionStyleChoice | null>
   >({
@@ -157,25 +136,10 @@ export function useMotion() {
     replace: null,
     recreate: null,
   })
-  /** Any changed input invalidates the accepted decomposition; the clip, the
-   * image set and the intent all feed the compiled prompt. */
-  const dropRecreateResult = useCallback(() => {
-    setRecreateResult(null)
-    setRecreatePromptState('')
-  }, [])
-  /** Stops the poll in flight and makes its late responses inert. */
-  const cancelRecreateAnalysis = useCallback(() => {
-    recreateTokenRef.current += 1
-    recreatePollRef.current?.abort.abort()
-    recreatePollRef.current = null
-    recreateAnalyzingRef.current = false
-    setRecreateAnalyzing(false)
-  }, [])
   const style = styles[mode]
   const [promptEnabled, setPromptEnabled] = useState(false)
-  const modeAssets = useRef<Record<MotionMode, ModeAssetSnapshot>>(
-    emptyModeAssets()
-  )
+  const modeAssets =
+    useRef<Record<MotionMode, ModeAssetSnapshot>>(emptyModeAssets())
   /** The mode an in-flight picker/upload will write to, not whichever is live. */
   const videoTargetMode = useRef<MotionMode>(mode)
   const characterTargetMode = useRef<MotionMode>(mode)
@@ -192,7 +156,6 @@ export function useMotion() {
       modeWarning.current = null
       const target = videoTargetMode.current
       if (target === currentMode.current) {
-        if (target === 'recreate') dropRecreateResult()
         setVideo(source)
       } else {
         modeAssets.current[target] = {
@@ -204,7 +167,7 @@ export function useMotion() {
         rememberVideoMetadata(source.url, source.metadata)
       }
     },
-    [dropRecreateResult, rememberVideoMetadata]
+    [rememberVideoMetadata]
   )
   const uploadVideo = useCallback(
     (
@@ -240,16 +203,6 @@ export function useMotion() {
     ? { ok: true as const, ...videoMetadata }
     : null
   const videoMetadataLoading = videoSelection.busy
-
-  useEffect(
-    () => () => {
-      // Never leave a poll or its fetch running after the form unmounts.
-      recreateTokenRef.current += 1
-      recreatePollRef.current?.abort.abort()
-      recreatePollRef.current = null
-    },
-    []
-  )
 
   const durationSec = videoMetadata?.durationSec ?? 0
   const outputAspect = videoMetadata?.aspectRatio ?? null
@@ -319,7 +272,6 @@ export function useMotion() {
   const setMode = useCallback(
     (next: MotionMode, _notifyIncompatibleReference = true) => {
       if (next === currentMode.current) return
-      cancelRecreateAnalysis()
       cancelVideoSelection()
       setVideoPickerOpen(false)
       setCharacterPickerOpen(false)
@@ -339,14 +291,7 @@ export function useMotion() {
       setPrompt(snapshot.prompt)
       setPromptEnabled(snapshot.promptEnabled)
     },
-    [
-      cancelVideoSelection,
-      cancelRecreateAnalysis,
-      video,
-      characters,
-      prompt,
-      promptEnabled,
-    ]
+    [cancelVideoSelection, video, characters, prompt, promptEnabled]
   )
 
   /** All three modes now share the 30-reference ceiling. */
@@ -354,9 +299,6 @@ export function useMotion() {
     () => (currentMode.current === 'recreate' ? RECREATE_MAX_IMAGES : 30),
     []
   )
-  const invalidateRecreateIfActive = useCallback(() => {
-    if (currentMode.current === 'recreate') dropRecreateResult()
-  }, [dropRecreateResult])
 
   const addCharacter = useCallback(
     (source: MotionCharacterSource) => {
@@ -366,9 +308,8 @@ export function useMotion() {
         if (prev.some((c) => c.url === source.url)) return prev
         return [...prev, source]
       })
-      invalidateRecreateIfActive()
     },
-    [imageLimit, invalidateRecreateIfActive]
+    [imageLimit]
   )
 
   /**
@@ -376,27 +317,23 @@ export function useMotion() {
    * capped by the batch limit and the current mode's reference ceiling. Each
    * finished file appends to the ordered reference list exactly like before.
    */
-  const addUploadedCharacter = useCallback(
-    (source: MotionCharacterSource) => {
-      const target = characterTargetMode.current
-      const limit = target === 'recreate' ? RECREATE_MAX_IMAGES : 30
-      const append = (prev: MotionCharacterSource[]) => {
-        if (prev.length >= limit) return prev
-        if (prev.some((c) => c.url === source.url)) return prev
-        return [...prev, source]
-      }
-      if (target === currentMode.current) {
-        setCharacters(append)
-        if (target === 'recreate') dropRecreateResult()
-        return
-      }
-      modeAssets.current[target] = {
-        ...modeAssets.current[target],
-        characters: append(modeAssets.current[target].characters),
-      }
-    },
-    [dropRecreateResult]
-  )
+  const addUploadedCharacter = useCallback((source: MotionCharacterSource) => {
+    const target = characterTargetMode.current
+    const limit = target === 'recreate' ? RECREATE_MAX_IMAGES : 30
+    const append = (prev: MotionCharacterSource[]) => {
+      if (prev.length >= limit) return prev
+      if (prev.some((c) => c.url === source.url)) return prev
+      return [...prev, source]
+    }
+    if (target === currentMode.current) {
+      setCharacters(append)
+      return
+    }
+    modeAssets.current[target] = {
+      ...modeAssets.current[target],
+      characters: append(modeAssets.current[target].characters),
+    }
+  }, [])
   const characterUploader = useCharacterUploads({
     uploadImage: (file, onProgress, signal) =>
       uploadFile(file, 'image', undefined, onProgress, signal),
@@ -479,20 +416,15 @@ export function useMotion() {
     [retryCharacterFile, t]
   )
 
-  const removeCharacter = useCallback(
-    (index: number) => {
-      setCharacters((prev) => prev.filter((_, i) => i !== index))
-      invalidateRecreateIfActive()
-    },
-    [invalidateRecreateIfActive]
-  )
+  const removeCharacter = useCallback((index: number) => {
+    setCharacters((prev) => prev.filter((_, i) => i !== index))
+  }, [])
 
   const setAllCharacters = useCallback(
     (list: MotionCharacterSource[]) => {
       setCharacters(list.slice(0, imageLimit()))
-      invalidateRecreateIfActive()
     },
-    [imageLimit, invalidateRecreateIfActive]
+    [imageLimit]
   )
 
   const toggleCharacter = useCallback(
@@ -506,9 +438,8 @@ export function useMotion() {
         if (prev.length >= limit) return prev
         return [...prev, source]
       })
-      invalidateRecreateIfActive()
     },
-    [imageLimit, invalidateRecreateIfActive]
+    [imageLimit]
   )
 
   const pickVideoSelection = videoSelection.pickVideo
@@ -567,23 +498,19 @@ export function useMotion() {
 
   const clearCharacter = useCallback(() => {
     setCharacters([])
-    dropRecreateResult()
-  }, [dropRecreateResult])
+  }, [])
 
   /** A visual style survives removal of its motion reference. */
   const clearVideo = useCallback(() => {
     cancelVideoSelection()
-    cancelRecreateAnalysis()
     if (mode === 'replace') {
       setStyles((current) => ({ ...current, replace: null }))
     }
-    dropRecreateResult()
     setVideo(null)
-  }, [mode, cancelVideoSelection, cancelRecreateAnalysis, dropRecreateResult])
+  }, [mode, cancelVideoSelection])
 
   const reset = useCallback(() => {
     cancelVideoSelection()
-    cancelRecreateAnalysis()
     modeAssets.current = emptyModeAssets()
     setVideoPickerOpen(false)
     setCharacterPickerOpen(false)
@@ -593,27 +520,20 @@ export function useMotion() {
     setStyles({ motion: null, replace: null, recreate: null })
     setPrompt('')
     setPromptEnabled(false)
-    setRecreateResult(null)
-    setRecreatePromptState('')
     setRecreateIntentPromptState('')
     setRecreateIntentPromptEnabledState(false)
-    recreateAnalyzingRef.current = false
-    setRecreateAnalyzing(false)
-  }, [cancelVideoSelection, cancelRecreateAnalysis, cancelCharacterUploads])
+  }, [cancelVideoSelection, cancelCharacterUploads])
 
   /** Restore a historical form atomically without uploading or submitting. */
   const restoreTask = useCallback(
     async (body: MotionSubmitBody): Promise<boolean> => {
       cancelVideoSelection()
-      cancelRecreateAnalysis()
       modeAssets.current[currentMode.current] = {
         video,
         characters,
         prompt,
         promptEnabled,
       }
-      // A recreation row has no clip in its input: it cannot rebuild the
-      // form, so it stays a history-only record.
       if (!body.video_url) return false
       const accepted = await pickRemoteVideo(
         {
@@ -655,8 +575,13 @@ export function useMotion() {
         sourceTaskId: index === 0 ? body.source_task_id : undefined,
       }))
       setCharacters(restoredCharacters)
-      setPrompt(body.prompt)
-      setPromptEnabled(Boolean(body.prompt))
+      if (body.mode === 'recreate') {
+        setRecreateIntentPromptState(body.prompt)
+        setRecreateIntentPromptEnabledState(Boolean(body.prompt))
+      } else {
+        setPrompt(body.prompt)
+        setPromptEnabled(Boolean(body.prompt))
+      }
       modeAssets.current[body.mode] = {
         ...modeAssets.current[body.mode],
         characters: restoredCharacters,
@@ -668,7 +593,6 @@ export function useMotion() {
     },
     [
       cancelVideoSelection,
-      cancelRecreateAnalysis,
       cancelCharacterUploads,
       pickRemoteVideo,
       setStoredResolution,
@@ -679,209 +603,41 @@ export function useMotion() {
     ]
   )
 
-  const setRecreatePrompt = useCallback((value: string) => {
-    setRecreatePromptState(value)
+  const setRecreateIntentPrompt = useCallback((value: string) => {
+    setRecreateIntentPromptState(value)
   }, [])
 
-  /** The decomposition intent is part of the compiled prompt, so editing it
-   * invalidates the accepted decomposition exactly like changing the clip. */
-  const setRecreateIntentPrompt = useCallback(
-    (value: string) => {
-      setRecreateIntentPromptState(value)
-      dropRecreateResult()
-    },
-    [dropRecreateResult]
-  )
-
-  /** Switching the intent on/off changes the request the planner sees. */
-  const setRecreateIntentPromptEnabled = useCallback(
-    (value: boolean) => {
-      setRecreateIntentPromptEnabledState(value)
-      dropRecreateResult()
-    },
-    [dropRecreateResult]
-  )
-
-  /**
-   * Decomposes the reference clip into a compiled prompt plus a readable
-   * breakdown. The clip never enters the generation request, so a failure
-   * here costs no video credits; the caller keeps every input for a retry.
-   */
-  const analyzeRecreate = useCallback(async (): Promise<RecreateResult | null> => {
-    if (currentMode.current !== 'recreate') return null
-    // A repeat click restarts the job; it must never leave two polls running.
-    cancelRecreateAnalysis()
-    const source = video
-    if (!source || source.kind === 'preset' || !source.metadata) {
-      toast.error(t('Add a reference video first.'))
-      return null
-    }
-    // Decomposition never depends on the output quality.
-    const checked = validateMotionReference(
-      source.metadata,
-      'recreate',
-      '480p',
-      outputCapabilities
-    )
-    if (!checked.ok) {
-      handleServerError(
-        new Error(t(motionVideoFailureMessage(checked.reason, 'recreate')))
-      )
-      return null
-    }
-    const images = characters.slice(0, RECREATE_MAX_IMAGES)
-    if (images.length === 0) {
-      toast.error(t('Add at least one reference image first.'))
-      return null
-    }
-    const intent = recreateIntentPromptEnabled
-      ? recreateIntentPrompt.trim()
-      : ''
-    if ([...intent].length > RECREATE_INTENT_MAX_RUNES) {
-      toast.error(
-        t('Intent must be {{count}} characters or fewer.', {
-          count: RECREATE_INTENT_MAX_RUNES,
-        })
-      )
-      return null
-    }
-    const token = recreateTokenRef.current + 1
-    recreateTokenRef.current = token
-    const abort = new AbortController()
-    recreatePollRef.current = { token, abort }
-    recreateAnalyzingRef.current = true
-    setRecreateAnalyzing(true)
-    const isCurrent = () =>
-      recreateTokenRef.current === token && !abort.signal.aborted
-    const settle = () => {
-      if (recreateTokenRef.current !== token) return
-      recreateAnalyzingRef.current = false
-      setRecreateAnalyzing(false)
-      recreatePollRef.current = null
-    }
-    try {
-      const outcome = await pollRecreateAnalysis({
-        // A single POST enqueues the job; the helper only GETs afterwards.
-        start: () =>
-          startRecreateAnalysis({
-            video_url: source.url,
-            image_urls: images.map((image) => image.url),
-            image_tags: [],
-            prompt: intent,
-            // Analysis never depends on the output quality; the tier only
-            // prices the later generation request.
-            resolution: '480p',
-          }),
-        fetchTask: fetchRecreateAnalysis,
-        signal: abort.signal,
-      })
-      if (!isCurrent()) return null
-      if (outcome.status === 'cancelled') return null
-      if (outcome.status === 'timeout') {
-        toast.error(t('Analysis took too long. Please try again.'))
-        return null
-      }
-      if (outcome.status === 'failed') {
-        toastInfluencerError(
-          t,
-          new Error(
-            outcome.message ??
-              t('Could not analyze the reference video. Please try again.')
-          ),
-          'Could not analyze the reference video. Please try again.'
-        )
-        return null
-      }
-      const prompt = outcome.task.prompt?.trim()
-      if (!prompt) {
-        handleServerError(
-          new Error(
-            t('Could not analyze the reference video. Please try again.')
-          )
-        )
-        return null
-      }
-      // The clip decides the output length; the server reports the derived
-      // whole seconds and the raw duration it read.
-      const serverDuration = outcome.task.meta?.duration_sec
-      const durationSec =
-        typeof serverDuration === 'number' && Number.isFinite(serverDuration)
-          ? Math.round(serverDuration)
-          : source.metadata.durationSec
-      const result: RecreateResult = {
-        prompt,
-        analysis: outcome.task.analysis ?? null,
-        imageAnalysis: outcome.task.image_analysis ?? [],
-        meta: outcome.task.meta ?? null,
-        durationSec,
-        referenceDurationSec: source.metadata.rawDurationSec,
-      }
-      setRecreateResult(result)
-      setRecreatePromptState(prompt)
-      return result
-    } catch (error) {
-      if (isCurrent()) {
-        toastInfluencerError(
-          t,
-          error,
-          'Could not analyze the reference video. Please try again.'
-        )
-      }
-      return null
-    } finally {
-      settle()
-    }
-  }, [
-    video,
-    characters,
-    recreateIntentPrompt,
-    recreateIntentPromptEnabled,
-    outputCapabilities,
-    cancelRecreateAnalysis,
-    t,
-  ])
+  const setRecreateIntentPromptEnabled = useCallback((value: boolean) => {
+    setRecreateIntentPromptEnabledState(value)
+  }, [])
 
   /**
    * What actually reaches the gateway: the style's instruction joined with the
    * caller's own words. The style is an explicit pick and always travels; the
    * prompt box is opt-in, so its draft only joins once it is switched on. The
    * gateway then prepends its mode framing, giving framing → style → caller.
+   * Recreation sends only the caller's raw intent; the worker compiles it.
    */
   const effectivePrompt = useMemo(() => {
-    // A recreation prompt is already the server's full compiled text: no
-    // local mode framing or visual-style instruction is joined onto it.
-    if (mode === 'recreate') return recreatePrompt.trim()
+    if (mode === 'recreate') {
+      return recreateIntentPromptEnabled ? recreateIntentPrompt.trim() : ''
+    }
     return combineStylePrompt(style?.prompt, promptEnabled ? prompt : '', mode)
-  }, [style, prompt, promptEnabled, mode, recreatePrompt])
+  }, [
+    style,
+    prompt,
+    promptEnabled,
+    mode,
+    recreateIntentPrompt,
+    recreateIntentPromptEnabled,
+  ])
 
-  /** Recreate uses the first nine references, in upload order. */
+  /** Recreate uses the first thirty references, in upload order. */
   const recreateImages = useMemo(
     () => characters.slice(0, RECREATE_MAX_IMAGES),
     [characters]
   )
-  const recreatePromptRunes = useMemo(
-    () => [...recreatePrompt.trim()].length,
-    [recreatePrompt]
-  )
   const videoRawDurationSec = videoMetadata?.rawDurationSec ?? 0
-  /** Exactly what the generation request will carry: the server's derived
-   * duration when available, otherwise the local rounded clip duration. */
-  const recreateSubmitDuration = useMemo(() => {
-    const fromMeta = recreateResult?.meta?.duration_sec
-    if (typeof fromMeta === 'number' && Number.isFinite(fromMeta)) {
-      return Math.round(fromMeta)
-    }
-    if (recreateResult) return Math.round(recreateResult.durationSec)
-    return videoMetadata?.durationSec ?? 0
-  }, [recreateResult, videoMetadata])
-  /** Generation credits for the active quality, straight from the server. */
-  const recreateQuote = useMemo(
-    () =>
-      mode === 'recreate' && !recreateAnalyzing
-        ? recreateQuoteFor(recreateResult?.meta, resolution)
-        : null,
-    [mode, recreateAnalyzing, recreateResult, resolution]
-  )
 
   const canSubmit = useMemo(() => {
     const videoUsable =
@@ -894,21 +650,14 @@ export function useMotion() {
         resolution,
         outputCapabilities
       ).ok
-    // One click starts analysis and submission together, so the CTA is ready
-    // as soon as the inputs are; the compiled prompt does not exist yet.
-    let recreateReady = true
-    if (mode === 'recreate') {
-      recreateReady =
-        !recreateAnalyzing &&
-        recreateImages.length > 0 &&
-        (!recreateIntentPromptEnabled ||
-          [...recreateIntentPrompt.trim()].length <=
-            RECREATE_INTENT_MAX_RUNES)
-    }
+    const recreateReady =
+      recreateImages.length > 0 &&
+      (!recreateIntentPromptEnabled ||
+        [...recreateIntentPrompt.trim()].length <= RECREATE_INTENT_MAX_RUNES)
     return (
       !characterUploading &&
       !videoSelection.busy &&
-      recreateReady &&
+      (mode !== 'recreate' || recreateReady) &&
       canSubmitMotion({
         mode,
         hasCharacter: recreateImages.length > 0,
@@ -918,7 +667,6 @@ export function useMotion() {
   }, [
     mode,
     recreateImages,
-    recreateAnalyzing,
     recreateIntentPrompt,
     recreateIntentPromptEnabled,
     video,
@@ -949,20 +697,11 @@ export function useMotion() {
     prompt,
     setPrompt,
     recreateImages,
-    recreateResult,
-    recreatePrompt,
-    setRecreatePrompt,
-    recreatePromptRunes,
     recreateIntentPrompt,
     setRecreateIntentPrompt,
     recreateIntentPromptEnabled,
     setRecreateIntentPromptEnabled,
-    recreateSubmitDuration,
     videoRawDurationSec,
-    recreateQuote,
-    recreateAnalyzing,
-    analyzeRecreate,
-    resetRecreateAnalysis: dropRecreateResult,
     style,
     applyStyle,
     effectivePrompt,

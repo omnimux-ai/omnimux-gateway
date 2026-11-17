@@ -245,6 +245,43 @@ function mockSubmissionNetwork() {
   })
 }
 
+async function prepareRecreate(
+  user: ReturnType<typeof userEvent.setup>
+): Promise<HTMLElement> {
+  const container = mountWorkbench()
+  await user.click(await screen.findByRole('radio', { name: 'Motion video' }))
+  await user.click(screen.getByRole('radio', { name: 'Viral recreate' }))
+  await user.click(screen.getByRole('button', { name: 'Add reference images' }))
+  const picker = await screen.findByRole('complementary', {
+    name: 'Select reference images',
+  })
+  await user.click(
+    within(picker).getByRole('button', { name: 'Upload local photo' })
+  )
+  await user.upload(
+    picker.querySelector('input[type=file]') as HTMLInputElement,
+    new File(['character'], 'character.png', { type: 'image/png' })
+  )
+  await within(picker).findByRole('button', { name: 'Preview: character.png' })
+  await user.click(screen.getByRole('button', { name: 'Close panel' }))
+  await user.click(
+    screen.getByRole('button', { name: 'Add a reference video' })
+  )
+  await user.upload(
+    container.querySelector(
+      'input[accept="video/mp4,video/quicktime,.mp4,.mov"]'
+    ) as HTMLInputElement,
+    new File(['valid clip'], 'reference.mp4', { type: 'video/mp4' })
+  )
+  await screen.findByRole('button', {
+    name: 'Replace Add a reference video',
+  })
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Generate video' })).toBeEnabled()
+  )
+  return container
+}
+
 describe('real motion workbench style submission', () => {
   it('posts the selected style plus two newlines and the conflicting user original without replacing uploaded assets or asking for conflict confirmation', async () => {
     const network = mockSubmissionNetwork()
@@ -355,5 +392,38 @@ describe('real motion workbench style submission', () => {
     ).toBeInTheDocument()
     expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Generate video' })).toBeEnabled()
+  })
+
+  it('posts a recreation as one queued motion task with the clip, raw intent and no analysis call', async () => {
+    const network = mockSubmissionNetwork()
+    const user = userEvent.setup()
+    await prepareRecreate(user)
+    await user.click(screen.getByRole('switch', { name: 'Prompt' }))
+    pastePrompt('keep the turn')
+    await user.click(screen.getByRole('button', { name: 'Generate video' }))
+    await waitFor(() =>
+      expect(
+        network.mock.calls.some(([url]) => url === '/pg/influencer/motion')
+      ).toBe(true)
+    )
+    expect(
+      network.mock.calls.find(([url]) => url === '/pg/influencer/motion')?.[1]
+    ).toEqual({
+      mode: 'recreate',
+      prompt: 'keep the turn',
+      subject_image_url: CHARACTER_URL,
+      subject_image_urls: [CHARACTER_URL],
+      subject_image_tags: [],
+      video_url: VIDEO_URL,
+      video_metadata: RAW_VIDEO_METADATA,
+      duration_sec: 8,
+      aspect_ratio: '9:16',
+      resolution: '480p',
+    })
+    expect(
+      network.mock.calls.some(([url]) =>
+        String(url).includes('/recreate/analyze')
+      )
+    ).toBe(false)
   })
 })

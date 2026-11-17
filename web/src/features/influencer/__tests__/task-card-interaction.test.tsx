@@ -173,3 +173,41 @@ describe('history video preview lifecycle', () => {
     expect(play).not.toHaveBeenCalled()
   })
 })
+
+describe('recreate task status names', () => {
+  const recreate: TaskRecord = {
+    ...motion,
+    status: 'WAITING',
+    stage: 'analyzing',
+    properties: {
+      input: JSON.stringify({
+        mode: 'recreate',
+        video_url: 'https://files.example/reference.mp4',
+      }),
+    },
+  }
+
+  it.each([
+    { stage: 'analyzing' as const, status: 'WAITING', label: 'Analyzing' },
+    {
+      stage: 'generating' as const,
+      status: 'DISPATCHING',
+      label: 'Generating',
+    },
+    { stage: undefined, status: 'SUCCESS', label: 'Done' },
+    { stage: undefined, status: 'FAILURE', label: 'Failed' },
+  ])(
+    'renders the $label phase label for $status',
+    ({ stage, status, label }) => {
+      const result = render(
+        <TaskCard
+          task={{ ...recreate, stage, status }}
+          child={null}
+          onView={vi.fn()}
+        />
+      )
+      expect(screen.getByText(label)).toBeInTheDocument()
+      result.unmount()
+    }
+  )
+})

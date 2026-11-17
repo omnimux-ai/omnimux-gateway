@@ -20,7 +20,6 @@ import type { RefObject } from 'react'
 
 import type { MotionForm } from '../hooks/use-motion'
 import type { ToolHandoffState } from '../hooks/use-tool-handoff'
-import { RecreateAnalysisProgress } from './recreate-analysis-progress'
 import { RecreateForm } from './recreate-form'
 
 interface Props {
@@ -37,31 +36,11 @@ interface Props {
 }
 
 /**
- * The third motion sub-mode. Generation is the only action: clicking it starts
- * the decomposition, submits the compiled prompt and moves the task to history.
- * While the decomposition runs the form stays visible but inert, so the user
- * can still read the inputs that are being worked on.
+ * The third motion sub-mode. Generation is one action: it submits a single
+ * queue task and releases the form immediately; the worker owns decomposition.
+ * The form stays editable while that task runs elsewhere.
  */
 export function RecreatePanel(props: Props) {
-  if (props.motion.recreateAnalyzing) {
-    return (
-      <>
-        <RecreateAnalysisProgress />
-        <div inert className='pointer-events-none opacity-50'>
-          <RecreateForm
-            motion={props.motion}
-            assetsRef={props.assetsRef}
-            submitting={props.submitting}
-            toolHandoff={props.toolHandoff}
-            onPreviewVideo={props.onPreviewVideo}
-            onPreviewImage={props.onPreviewImage}
-            onBeforeVideoPick={props.onBeforeVideoPick}
-            onBeforeImagePick={props.onBeforeImagePick}
-          />
-        </div>
-      </>
-    )
-  }
   return (
     <RecreateForm
       motion={props.motion}

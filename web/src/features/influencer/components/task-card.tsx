@@ -33,7 +33,7 @@ import {
   taskVideoUrl,
 } from '../lib/history'
 import { multiViewProgress, multiViewState } from '../lib/multiview'
-import { hasUnverifiedResult } from '../lib/task-status'
+import { hasUnverifiedResult, recreateTaskPhase } from '../lib/task-status'
 import type { TaskRecord } from '../types'
 import { FailReasonDetail } from './fail-reason-detail'
 import { MultiViewBadge } from './multi-view-badge'
@@ -77,14 +77,19 @@ export function TaskCard(props: Props) {
   const failReason = describeFailReason(t, task.fail_reason)
   const resultUnverified = hasUnverifiedResult(task)
   const inReview = resultUnverified || (st === 's' && Boolean(task.fail_reason))
+  const recreatePhase = recreateTaskPhase(task)
   let activityLabel = t('Generating…')
-  if (st === 'q') {
+  if (recreatePhase === 'analyzing') {
+    activityLabel = t('Analyzing')
+  } else if (recreatePhase === 'generating') {
+    activityLabel = t('Generating')
+  } else if (st === 'q') {
     activityLabel =
       (task.status ?? '').toUpperCase() === 'WAITING'
         ? t('Waiting for a free slot')
         : t('Queued')
   }
-  if (st === 's') {
+  if (st === 's' && !recreatePhase) {
     activityLabel = inReview ? t('Needs review') : t('Submitting…')
   }
   if (inReview) activityLabel = t('Needs review')
@@ -147,6 +152,9 @@ export function TaskCard(props: Props) {
           className='inf-history-media relative aspect-[9/16] w-full overflow-hidden'
           style={{ aspectRatio: frameRatio }}
         >
+          {recreatePhase === 'completed' ? (
+            <div className='inf-status c'>{t('Done')}</div>
+          ) : null}
           <TaskMediaPreview
             identity={task.task_id || String(task.id)}
             src={isVideo ? sourceUrl : taskCardImageUrl(task)}
@@ -215,7 +223,14 @@ export function TaskCard(props: Props) {
           style={{ aspectRatio: frameRatio }}
         >
           {inReview ? null : <div className='inf-shimmer' />}
-          <div className='inf-status q'>{activityLabel}</div>
+          <div
+            className={cn(
+              'inf-status',
+              recreatePhase === 'generating' ? 'p' : 'q'
+            )}
+          >
+            {activityLabel}
+          </div>
           {inReview ? (
             <p className='mt-2 max-w-full text-center text-xs break-words text-[var(--inf-txt-2)]'>
               {resultUnverified
@@ -238,6 +253,16 @@ export function TaskCard(props: Props) {
           className='inf-fail-card relative flex aspect-[9/16] min-h-0 w-full flex-col items-center justify-center overflow-hidden p-4 text-center'
           style={{ aspectRatio: frameRatio }}
         >
+          {recreatePhase === 'failed' || recreatePhase === 'timeout' ? (
+            <div
+              className={cn(
+                'inf-status',
+                recreatePhase === 'timeout' ? 'q' : 'f'
+              )}
+            >
+              {recreatePhase === 'timeout' ? t('Timed out') : t('Failed')}
+            </div>
+          ) : null}
           <div className='inf-fail-idle'>
             <div className='inf-fail-emblem' aria-hidden='true'>
               <svg viewBox='0 0 24 24' fill='none'>

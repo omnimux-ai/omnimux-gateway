@@ -20,7 +20,6 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { GenerateBar } from '../components/generate-bar'
-import { recreateQuoteFor } from '../lib/recreate'
 
 describe('randomize control', () => {
   it('disables the dice with a reason once every category is locked', () => {
@@ -138,10 +137,9 @@ describe('generation price display', () => {
   })
   it('updates the shown credits when the recreation quality changes', () => {
     const onGenerate = () => {}
-    const meta = { pricing: { '480p': 6.47, '720p': 13.89 } }
     const { rerender } = render(
       <GenerateBar
-        quote={recreateQuoteFor(meta, '480p')}
+        quote={{ usd: 0, credits: 6.47 }}
         canGenerate
         submitting={false}
         ctaLabel='Generate video'
@@ -153,7 +151,7 @@ describe('generation price display', () => {
 
     rerender(
       <GenerateBar
-        quote={recreateQuoteFor(meta, '720p')}
+        quote={{ usd: 0, credits: 13.89 }}
         canGenerate
         submitting={false}
         ctaLabel='Generate video'
