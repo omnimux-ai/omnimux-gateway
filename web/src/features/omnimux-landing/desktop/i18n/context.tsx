@@ -27,7 +27,11 @@ import {
   type ReactNode,
 } from 'react'
 
+import { LANDING_LANG_STORAGE_KEY } from '@/lib/landing-storage'
+
 import type { LandingCopy, LandingLang, LandingLangOption } from './types'
+
+export { LANDING_LANG_STORAGE_KEY } from '@/lib/landing-storage'
 
 export const LANDING_LANGS: readonly LandingLangOption[] = [
   { code: 'en', label: 'English', short: 'EN', htmlLang: 'en' },
@@ -37,8 +41,6 @@ export const LANDING_LANGS: readonly LandingLangOption[] = [
   { code: 'zh-TW', label: '繁體中文', short: '繁', htmlLang: 'zh-Hant' },
   { code: 'zh-CN', label: '简体中文', short: '中', htmlLang: 'zh-CN' },
 ]
-
-export const LANDING_LANG_STORAGE_KEY = 'omnimux.d.lang'
 
 const copyLoaders: Record<LandingLang, () => Promise<LandingCopy>> = {
   en: () => import('./locales/en').then((mod) => mod.en),
