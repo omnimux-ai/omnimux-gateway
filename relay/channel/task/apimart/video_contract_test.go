@@ -277,6 +277,30 @@ func TestPhaseOneVideoContracts_ReferenceRules(t *testing.T) {
 	require.ErrorContains(t, err, "mutually exclusive")
 }
 
+// The gateway's generic video body uses `images`; APIMart names the same
+// reference collection `image_urls`. The contract must translate that alias so
+// seedance video_multi_ref requests produced by the recreation worker pass.
+func TestPhaseOneVideoContracts_GenericImagesAlias(t *testing.T) {
+	normalized, err := validatePhaseOneVideoRequest("seedance-2-5", request(opVideoMultiRef, map[string]any{
+		"prompt":                   "recreate the reference",
+		"images":                   []any{"https://cdn.example.com/hero.png", "https://cdn.example.com/detail.png"},
+		"resolution":               "480p",
+		"seconds":                  "4",
+		"aspect_ratio":             "9:16",
+		"omni_reference_task_type": "reference",
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://cdn.example.com/hero.png", "https://cdn.example.com/detail.png"}, normalized["image_urls"])
+	assert.NotContains(t, normalized, "images")
+
+	_, err = validatePhaseOneVideoRequest("seedance-2-5", request(opVideoMultiRef, map[string]any{
+		"prompt":     "conflict",
+		"images":     []any{"https://cdn.example.com/a.png"},
+		"image_urls": []any{"https://cdn.example.com/b.png"},
+	}))
+	require.ErrorContains(t, err, "cannot both be set")
+}
+
 func TestPhaseOneVideoContracts_GrokHTTPSAndDuplicateOrder(t *testing.T) {
 	body := request(opVideoMultiRef, map[string]any{
 		"prompt": "keep order",

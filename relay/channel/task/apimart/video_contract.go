@@ -82,7 +82,18 @@ func validatePhaseOneVideoRequest(modelName string, raw map[string]any) (map[str
 	for key, value := range raw {
 		out[key] = value
 	}
-	for _, key := range []string{"image", "images", "image_tail", "reference_images", "input_reference"} {
+	// The gateway's generic video body carries reference images as `images`,
+	// while APIMart names the same field `image_urls`. Convert the alias before
+	// validation so a native task adaptor never rejects its own gateway body.
+	if value, exists := out["images"]; exists && value != nil {
+		if _, hasCanonical := out["image_urls"]; hasCanonical {
+			return nil, fmt.Errorf("images and image_urls cannot both be set for %s", modelID)
+		}
+		out["image_urls"] = value
+		delete(out, "images")
+	}
+	normalizePhaseOneGatewayFields(modelID, out)
+	for _, key := range []string{"image", "image_tail", "reference_images", "input_reference"} {
 		if value, exists := out[key]; exists && value != nil {
 			return nil, fmt.Errorf("%s is not an APIMart field for %s", key, modelID)
 		}
@@ -111,6 +122,32 @@ func validatePhaseOneVideoRequest(modelName string, raw map[string]any) (map[str
 		return nil, err
 	}
 	return out, nil
+}
+
+// normalizePhaseOneGatewayFields translates the shared gateway task request
+// names into the APIMart phase-one contract. `seconds`/`aspect_ratio` are the
+// generic video submit fields used across the gateway; APIMart expects
+// `duration`/`size` for the seedance and wan families.
+func normalizePhaseOneGatewayFields(modelID string, out map[string]any) {
+	if _, exists := out["duration"]; !exists {
+		if value, exists := out["seconds"]; exists && value != nil {
+			if seconds, err := anyToInt(value); err == nil {
+				out["duration"] = seconds
+			} else {
+				out["duration"] = value
+			}
+		}
+	}
+	delete(out, "seconds")
+	switch modelID {
+	case "seedance-2-0", "seedance-2-0-fast", "seedance-2-0-mini", "seedance-2-5", "wan-3.0":
+		if _, exists := out["size"]; !exists {
+			if value, exists := out["aspect_ratio"]; exists && value != nil {
+				out["size"] = value
+			}
+		}
+		delete(out, "aspect_ratio")
+	}
 }
 
 func operationAllowed(modelID, operation string) bool {
