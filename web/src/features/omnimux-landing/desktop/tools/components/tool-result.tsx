@@ -107,6 +107,13 @@ export function ToolVideoResult(props: { result: ToolResult }) {
               className='btn btn-primary'
               to='/influencer'
               onClick={(event) => {
+                const outcome = startRecreate(event)
+                if (!outcome.ok) {
+                  toast.error(
+                    copy.durationRange.replace('{duration}', outcome.duration)
+                  )
+                  return
+                }
                 trackToolCtaClick({
                   tool: 'video',
                   locale,
@@ -114,12 +121,6 @@ export function ToolVideoResult(props: { result: ToolResult }) {
                   cta_variant: 'conservative',
                   placement: 'result_primary',
                 })
-                const outcome = startRecreate(event)
-                if (!outcome.ok) {
-                  toast.error(
-                    copy.durationRange.replace('{duration}', outcome.duration)
-                  )
-                }
               }}
             >
               <Icon name='spark' />

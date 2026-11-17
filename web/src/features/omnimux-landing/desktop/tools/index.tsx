@@ -274,13 +274,14 @@ export function ToolRecreateBand(props: {
             className='btn btn-primary'
             to='/influencer'
             onClick={(event) => {
-              track('workbench_recreate')
               const outcome = startRecreate(event)
               if (!outcome.ok) {
                 toast.error(
                   tool.durationRange.replace('{duration}', outcome.duration)
                 )
+                return
               }
+              track('workbench_recreate')
             }}
           >
             {tool.ctaStart}

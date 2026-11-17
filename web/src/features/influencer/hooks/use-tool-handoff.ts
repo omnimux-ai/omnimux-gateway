@@ -51,6 +51,8 @@ export interface ToolHandoffState {
   loadingLabel: string
   /** Empty until the slot fails. */
   error: string
+  /** False for a legacy failure that carries no work id to reissue. */
+  retryable: boolean
   retry: () => void
 }
 
@@ -95,10 +97,14 @@ export function useToolHandoff(options: {
     undefined
   )
   const [status, setStatus] = useState<ToolHandoffStatus>(() =>
-    !options.isGuest && peekGuestHandoff() ? 'loading' : 'idle'
+    peekGuestHandoff() ? 'loading' : 'idle'
   )
   const [stalled, setStalled] = useState(false)
   const [error, setError] = useState('')
+  const [retryable, setRetryable] = useState(() => {
+    const handoff = peekGuestHandoff()
+    return Boolean(handoff && !handoff.failed)
+  })
 
   const clearStallTimer = useCallback(() => {
     if (stallTimerRef.current) {
@@ -113,6 +119,7 @@ export function useToolHandoff(options: {
       setStatus('loading')
       setStalled(false)
       setError('')
+      setRetryable(Boolean(handoff.workId || handoff.token))
       clearStallTimer()
       stallTimerRef.current = setTimeout(() => {
         if (attempt === attemptRef.current) setStalled(true)
@@ -137,6 +144,10 @@ export function useToolHandoff(options: {
         if (!accepted) setError('')
       } catch (failure) {
         if (attempt !== attemptRef.current) return
+        // Redeem consumes the token before it downloads the clip. A retry must
+        // issue a fresh one from the work id instead of replaying a dead token.
+        tokenRef.current = undefined
+        if (!handoff.workId) setRetryable(false)
         const message = handoffErrorMessage(failure)
         setStatus('failed')
         setError(t(message))
@@ -150,8 +161,8 @@ export function useToolHandoff(options: {
 
   const retry = useCallback(() => {
     const handoff = handoffRef.current
-    if (handoff) void run(handoff)
-  }, [run])
+    if (handoff && retryable) void run(handoff)
+  }, [retryable, run])
 
   useEffect(() => {
     if (options.isGuest || started.current) return
@@ -172,6 +183,7 @@ export function useToolHandoff(options: {
     if (handoff.failed) {
       setStatus('failed')
       setError(t(TOOL_HANDOFF_FAILED_MESSAGE))
+      setRetryable(false)
       toast.error(t(TOOL_HANDOFF_FAILED_MESSAGE))
       return
     }
@@ -192,6 +204,7 @@ export function useToolHandoff(options: {
       ? t(TOOL_HANDOFF_STILL_LOADING_MESSAGE)
       : t(TOOL_HANDOFF_LOADING_MESSAGE),
     error,
+    retryable,
     retry,
   }
 }

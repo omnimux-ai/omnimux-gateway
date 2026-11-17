@@ -86,11 +86,7 @@ export function RecreateForm(props: Props) {
 
   return (
     <>
-      <PanelCard
-        panelRef={props.assetsRef}
-        icon={Images}
-        label={t('Assets')}
-      >
+      <PanelCard panelRef={props.assetsRef} icon={Images} label={t('Assets')}>
         <div className='grid grid-cols-1 gap-3'>
           <MediaSlot
             kind='video'
@@ -107,7 +103,9 @@ export function RecreateForm(props: Props) {
                 ? props.toolHandoff.error
                 : undefined
             }
-            onRetry={props.toolHandoff?.retry}
+            onRetry={
+              props.toolHandoff?.retryable ? props.toolHandoff.retry : undefined
+            }
             onPreviewVideo={props.onPreviewVideo}
             onBeforePick={props.onBeforeVideoPick}
             onOpenPicker={motion.openVideoPicker}

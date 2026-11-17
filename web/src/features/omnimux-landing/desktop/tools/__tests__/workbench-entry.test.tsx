@@ -33,6 +33,9 @@ import { ToolPhotoResult, ToolVideoResult } from '../components/tool-result'
 import { ToolRecreateBand } from '../index'
 import type { ToolResult } from '../lib/api'
 
+const { trackCta } = vi.hoisted(() => ({ trackCta: vi.fn() }))
+vi.mock('@/lib/growth-tracking', () => ({ trackToolCtaClick: trackCta }))
+
 // The video entries also ask for a handoff; keep that off the network here
 // (workbench-handoff.test.tsx covers it).
 vi.mock('@/features/influencer/lib/tool-handoff', () => ({
@@ -106,6 +109,7 @@ describe('tool page entries into the workbench', () => {
     // with motion transfer selected.
     writeWorkbenchMode('image')
     writeMotionMode('motion')
+    trackCta.mockClear()
   })
   afterEach(() => {
     window.localStorage.clear()
@@ -148,6 +152,30 @@ describe('tool page entries into the workbench', () => {
 
     expect(readWorkbenchMode()).toBe('image')
     expect(readMotionMode()).toBe('replace')
+  })
+
+  it('does not report a recreate click before the result-card duration precheck passes', () => {
+    const longVideo = {
+      ...videoResult,
+      video: { ...videoResult.video, duration_ms: 45_000 },
+    } as unknown as ToolResult
+    inLanding(<ToolVideoResult result={longVideo} />)
+
+    fireEvent.click(screen.getByRole('link', { name: /^recreate$/i }))
+
+    expect(trackCta).not.toHaveBeenCalled()
+  })
+
+  it('does not report a recreate click before the band duration precheck passes', () => {
+    const longVideo = {
+      ...videoResult,
+      video: { ...videoResult.video, duration_ms: 45_000 },
+    } as unknown as ToolResult
+    inLanding(<ToolRecreateBand result={longVideo} kind='video' locale='en' />)
+
+    fireEvent.click(screen.getByRole('link', { name: /start recreating/i }))
+
+    expect(trackCta).not.toHaveBeenCalled()
   })
 
   it('hides the video breakdown button while breakdown is not launched', () => {

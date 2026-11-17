@@ -112,9 +112,9 @@ function renderHandoff(options: {
   return { props, hook }
 }
 
-function issued() {
+function issued(token = TOKEN) {
   return {
-    data: { success: true, data: { token: TOKEN, expires_in: 1800 } },
+    data: { success: true, data: { token, expires_in: 1800 } },
   }
 }
 
@@ -220,12 +220,12 @@ describe('workbench redeems a tool-page handoff', () => {
     expect(props.setRemoteVideo).toHaveBeenCalled()
   })
 
-  it('leaves the record for after sign-in when the visitor is a guest', () => {
+  it('shows the handoff loading state on the guest first frame and keeps the record for sign-in', () => {
     pendingHandoff()
     const { hook } = renderHandoff({ isGuest: true })
 
     expect(post).not.toHaveBeenCalled()
-    expect(hook.result.current.status).toBe('idle')
+    expect(hook.result.current.status).toBe('loading')
     expect(takeGuestHandoff()?.workId).toBe(WORK_ID)
   })
 
@@ -266,11 +266,13 @@ describe('workbench redeems a tool-page handoff', () => {
     expect(toastError).toHaveBeenCalledTimes(1)
   })
 
-  it('reuses the issued token when retrying a failed redeem', async () => {
+  it('reissues a fresh token when the first redeem consumed it and retry succeeds', async () => {
+    const secondToken = 'b'.repeat(43)
     pendingHandoff()
     post
       .mockResolvedValueOnce(issued())
-      .mockImplementationOnce(() => rejectWith(500))
+      .mockImplementationOnce(() => rejectWith(410, 'handoff_expired'))
+      .mockResolvedValueOnce(issued(secondToken))
       .mockResolvedValueOnce(redeemed())
     const { props, hook } = renderHandoff({ isGuest: false })
 
@@ -278,12 +280,15 @@ describe('workbench redeems a tool-page handoff', () => {
     act(() => hook.result.current.retry())
     await waitFor(() => expect(hook.result.current.status).toBe('idle'))
     expect(props.setRemoteVideo).toHaveBeenCalledTimes(1)
-    expect(
-      post.mock.calls.filter((call) => call[0] === TOOL_HANDOFF_ISSUE_PATH)
-    ).toHaveLength(1)
-    expect(
-      post.mock.calls.filter((call) => call[0] === TOOL_HANDOFF_REDEEM_PATH)
-    ).toHaveLength(2)
+    const issueCalls = post.mock.calls.filter(
+      (call) => call[0] === TOOL_HANDOFF_ISSUE_PATH
+    )
+    const redeemCalls = post.mock.calls.filter(
+      (call) => call[0] === TOOL_HANDOFF_REDEEM_PATH
+    )
+    expect(issueCalls).toHaveLength(2)
+    expect(redeemCalls).toHaveLength(2)
+    expect(redeemCalls[1][1]).toEqual({ token: secondToken })
   })
 
   it('times out the issue call after five seconds', async () => {
@@ -351,28 +356,23 @@ describe('workbench redeems a tool-page handoff', () => {
 
     expect(post).not.toHaveBeenCalled()
     expect(hook.result.current.status).toBe('failed')
+    expect(hook.result.current.retryable).toBe(false)
     expect(toastError).toHaveBeenCalledTimes(1)
   })
 
   it('adds no toast of its own when the slot rejects the redeemed video', async () => {
     pendingHandoff()
-    post
-      .mockResolvedValueOnce(issued())
-      .mockResolvedValueOnce(redeemed())
+    post.mockResolvedValueOnce(issued()).mockResolvedValueOnce(redeemed())
     const { props, hook } = renderHandoff({ isGuest: false, accepted: false })
 
-    await waitFor(() =>
-      expect(props.setRemoteVideo).toHaveBeenCalledTimes(1)
-    )
+    await waitFor(() => expect(props.setRemoteVideo).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(hook.result.current.status).toBe('idle'))
     expect(toastError).not.toHaveBeenCalled()
   })
 
   it('issues and redeems only once across re-renders', async () => {
     pendingHandoff()
-    post
-      .mockResolvedValueOnce(issued())
-      .mockResolvedValueOnce(redeemed())
+    post.mockResolvedValueOnce(issued()).mockResolvedValueOnce(redeemed())
     const { props, hook } = renderHandoff({ isGuest: false })
     hook.rerender({ ...props, motionMode: 'recreate' })
 
