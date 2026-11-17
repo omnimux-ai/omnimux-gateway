@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/apimart"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
@@ -663,4 +666,72 @@ func TestPostInfluencerMotionRecreateDailyAnalysisBudget(t *testing.T) {
 	var count int64
 	require.NoError(t, db.Model(&model.Task{}).Where("user_id = ? AND action = ?", user.Id, ActionInfluencerMotion).Count(&count).Error)
 	assert.EqualValues(t, 1, count, "an over-budget request must not create a task")
+}
+
+// The queued recreation worker must write planner output into the request body
+// storage used by native adaptors, and APIMart must translate the gateway's
+// generic `images` field into `image_urls`. This walks both pieces and decodes
+// the exact provider body that would be sent.
+func TestInfluencerRecreateWorkerBodyFeedsAPIMartPrompt(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	const finalPrompt = "Reference image 1 is the hero product. The frame stays free of captions, lettering, logos and watermarks."
+
+	out := map[string]any{
+		"model":        "seedance-2-5",
+		"prompt":       "",
+		"seconds":      "4",
+		"aspect_ratio": "9:16",
+		"resolution":   "480p",
+		"images":       []string{"https://cdn.example.com/hero.png"},
+	}
+	initialBody, err := common.Marshal(out)
+	require.NoError(t, err)
+	storage, err := common.CreateBodyStorage(initialBody)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = storage.Close() })
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(string(initialBody)))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(common.KeyBodyStorage, storage)
+
+	originalPlanner := influencerRecreatePlanner
+	t.Cleanup(func() { influencerRecreatePlanner = originalPlanner })
+	influencerRecreatePlanner = func(context.Context, service.InfluencerRecreatePlanInput) (service.InfluencerRecreatePlan, error) {
+		return service.InfluencerRecreatePlan{Prompt: finalPrompt, DurationSec: 4}, nil
+	}
+	meta, err := common.Marshal(map[string]any{
+		"mode":               "recreate",
+		"prompt":             "make it mine",
+		"video_url":          "https://cdn.example.com/reference.mp4",
+		"subject_image_urls": []string{"https://cdn.example.com/hero.png"},
+		"resolution":         "480p",
+	})
+	require.NoError(t, err)
+	task := &model.Task{Properties: model.Properties{Input: string(meta)}}
+
+	parsed := map[string]any{}
+	require.NoError(t, common.Unmarshal(initialBody, &parsed))
+	require.NoError(t, prepareInfluencerVideoPrompt(context.Background(), task, parsed, nil, ""))
+	require.NoError(t, writeInfluencerMotionTaskRequestBody(c, parsed))
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "seedance-2-5",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+		ChannelMeta:     &relaycommon.ChannelMeta{},
+	}
+	adaptor := &apimart.TaskAdaptor{}
+	require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info), "the worker body must pass APIMart validation")
+	reader, err := adaptor.BuildRequestBody(c, info)
+	require.NoError(t, err)
+	raw, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	var providerBody map[string]any
+	require.NoError(t, common.Unmarshal(raw, &providerBody))
+	assert.Equal(t, finalPrompt, providerBody["prompt"])
+	assert.Equal(t, []any{"https://cdn.example.com/hero.png"}, providerBody["image_urls"])
+	assert.Equal(t, float64(4), providerBody["duration"])
+	assert.Equal(t, "9:16", providerBody["size"])
+	assert.NotContains(t, providerBody, "images")
+	assert.NotContains(t, providerBody, "seconds")
+	assert.NotContains(t, providerBody, "aspect_ratio")
 }

@@ -625,24 +625,35 @@ func planInfluencerMotionPrompt(ctx context.Context, task *model.Task, out map[s
 	out["prompt"] = prompt
 }
 
+// influencerMotionTaskRequestBody strips the internal tier group from the
+// provider-facing copy. The group travels in the X-Omnimux-Group header, and
+// some upstreams reject an unknown top-level group field outright.
+func influencerMotionTaskRequestBody(out map[string]any) map[string]any {
+	taskRequest := make(map[string]any, len(out))
+	for key, value := range out {
+		if key == influencerMotionGroupField {
+			continue
+		}
+		taskRequest[key] = value
+	}
+	return taskRequest
+}
+
 // setInfluencerMotionTaskRequest hands the task plugin the full upstream body.
 // Without it the plugin rebuilds the body from the generic task request, which
 // keeps only prompt, images, seconds and resolution: the reference video, the
 // aspect ratio and the reference audio never reach the provider, and the
 // provider rejects a video-reference model request that carries no video.
 func setInfluencerMotionTaskRequest(c *gin.Context, out map[string]any) {
-	taskRequest := make(map[string]any, len(out))
-	for key, value := range out {
-		if key == influencerMotionGroupField {
-			// The tier group travels in the X-Omnimux-Group header, which is what
-			// distribution reads on this route. Some upstreams reject an unknown
-			// top-level group field outright ("Unsupported request field"), so it
-			// must not be copied into the provider body.
-			continue
-		}
-		taskRequest[key] = value
-	}
-	c.Set("task_request", taskRequest)
+	c.Set("task_request", influencerMotionTaskRequestBody(out))
+}
+
+// writeInfluencerMotionTaskRequestBody also replaces the request's body storage.
+// Native task adaptors validate and build from that storage rather than from the
+// task_request context key, so planner output written only to the map would be
+// lost before the provider request is built.
+func writeInfluencerMotionTaskRequestBody(c *gin.Context, out map[string]any) error {
+	return influencerRewriteBody(c, influencerMotionTaskRequestBody(out))
 }
 
 // InfluencerMotionOptions publishes the workbench's current output-framing

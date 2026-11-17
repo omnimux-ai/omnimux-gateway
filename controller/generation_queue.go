@@ -357,6 +357,14 @@ func dispatchInfluencerGeneration(ctx context.Context, task *model.Task, scanner
 				influencerError(c, 503, "generation_material_understanding_failed", err.Error())
 				return
 			}
+			// Native adaptors validate and build from body storage; without this
+			// rewrite the planner's prompt/duration only existed in task_request
+			// and the provider received the empty acceptance-time body.
+			if err := writeInfluencerMotionTaskRequestBody(c, out); err != nil {
+				c.Set("generation_queue_preflight_failure", "failed to build upstream request")
+				influencerError(c, http.StatusInternalServerError, "internal_error", "failed to build upstream request")
+				return
+			}
 			setInfluencerMotionTaskRequest(c, out)
 		}
 		if request.ReferencePreflight != "" {
