@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 )
@@ -206,7 +207,7 @@ func (routes webAppRoutes) serve(pages webSearchPages) gin.HandlerFunc {
 			pages.serve(c)
 			return
 		}
-		c.Header("Cache-Control", "no-cache")
+		middleware.SetHTMLCacheHeaders(c, false)
 		c.Header("X-Robots-Tag", "noindex, follow")
 		if c.Request.Method == http.MethodHead {
 			c.Header("Content-Type", "text/html; charset=utf-8")

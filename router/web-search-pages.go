@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/net/html"
@@ -238,7 +239,7 @@ func inspirationShareHead(siteUrl, shareId string, share *model.InspirationShare
 // indexable head; everything else falls back to the noindex application shell.
 func (pages webSearchPages) serveSharePage(c *gin.Context, index string) {
 	servePrivate := func() {
-		c.Header("Cache-Control", "no-cache")
+		middleware.SetHTMLCacheHeaders(c, false)
 		c.Header("X-Robots-Tag", "noindex, follow")
 		c.Data(http.StatusOK, "text/html; charset=utf-8", pages.private)
 	}
@@ -251,7 +252,7 @@ func (pages webSearchPages) serveSharePage(c *gin.Context, index string) {
 	// fork: seo-audit-batch2 — a missing or expired share is a real 404; other
 	// lookup failures keep the noindex shell so an outage is not a 404.
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		c.Header("Cache-Control", "no-cache")
+		middleware.SetHTMLCacheHeaders(c, false)
 		c.Header("X-Robots-Tag", "noindex, follow")
 		c.Data(http.StatusNotFound, "text/html; charset=utf-8", pages.private)
 		return
@@ -267,7 +268,7 @@ func (pages webSearchPages) serveSharePage(c *gin.Context, index string) {
 		servePrivate()
 		return
 	}
-	c.Header("Cache-Control", "no-cache")
+	middleware.SetHTMLCacheHeaders(c, true)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", page)
 }
 
@@ -292,14 +293,16 @@ func (pages webSearchPages) serve(c *gin.Context) {
 	}
 	page, public := pages.public[urlPath]
 	status := http.StatusOK
-	if !public {
+	if public {
+		middleware.SetHTMLCacheHeaders(c, true)
+	} else {
 		page = pages.private
 		if staticGuidePagePaths[urlPath] {
 			page = pages.unavailable
 			status = http.StatusServiceUnavailable
 		}
+		middleware.SetHTMLCacheHeaders(c, false)
 		c.Header("X-Robots-Tag", "noindex, follow")
 	}
-	c.Header("Cache-Control", "no-cache")
 	c.Data(status, "text/html; charset=utf-8", page)
 }
