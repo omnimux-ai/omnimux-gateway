@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -133,7 +134,8 @@ func TestWebSearchPagesServeDistinctPublicContent(t *testing.T) {
 			assert.Contains(t, body, `<script data-analytics="injected">window.analytics=true</script>`)
 			assert.Contains(t, body, `<script src="/assets/app.js"></script>`)
 			assert.Empty(t, response.Header().Get("X-Robots-Tag"))
-			assert.Equal(t, "no-cache", response.Header().Get("Cache-Control"))
+			assert.Equal(t, middleware.PublicHTMLCacheControl, response.Header().Get("Cache-Control"))
+			assert.Equal(t, "Accept-Encoding", response.Header().Get("Vary"))
 		})
 	}
 }
@@ -364,4 +366,30 @@ func TestWebSearchPagesSetChineseRootLanguageForZhPaths(t *testing.T) {
 	assert.Contains(t, zh.Body.String(), "TikTok 视频下载 page")
 	en := performPluginRequest(outer, http.MethodGet, "/tools/tiktok-video-downloader")
 	assert.Contains(t, en.Body.String(), `<html lang="en"`)
+}
+
+// Public SEO HTML is edge-cacheable while private application shells and
+// unknown paths stay out of shared caches.
+func TestWebSearchPagesCachePolicySplitsPublicPrivateAnd404(t *testing.T) {
+	pages, err := buildWebSearchPages([]byte(searchPageTestShell), searchPageTestManifest(t))
+	require.NoError(t, err)
+	routes, err := buildWebAppRoutes([]byte(appRouteTestManifest))
+	require.NoError(t, err)
+	engine := gin.New()
+	engine.Use(middleware.Cache())
+	engine.NoRoute(routes.serve(pages))
+
+	for _, path := range []string{"/", "/about", "/pricing"} {
+		response := performPluginRequest(engine, http.MethodGet, path)
+		require.Equal(t, http.StatusOK, response.Code, path)
+		assert.Equal(t, middleware.PublicHTMLCacheControl, response.Header().Get("Cache-Control"), path)
+		assert.Equal(t, "Accept-Encoding", response.Header().Get("Vary"), path)
+		assert.NotEmpty(t, response.Header().Get("Cache-Version"), path)
+	}
+	for _, path := range []string{"/console", "/dashboard", "/does-not-exist"} {
+		response := performPluginRequest(engine, http.MethodGet, path)
+		assert.Equal(t, middleware.PrivateHTMLCacheControl, response.Header().Get("Cache-Control"), path)
+		assert.Equal(t, "Accept-Encoding", response.Header().Get("Vary"), path)
+		assert.Equal(t, "noindex, follow", response.Header().Get("X-Robots-Tag"), path)
+	}
 }
