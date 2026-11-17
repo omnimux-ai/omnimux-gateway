@@ -482,6 +482,26 @@ func TestPrepareInfluencerMotionRecreateQueuedUsesBrowserClipAndMetadata(t *test
 	assert.NotNil(t, probe.meta["video_metadata"])
 }
 
+// The queued Web path keeps the synchronous /recreate/analyze intent budget
+// instead of accepting the wider generic motion prompt limit.
+func TestPrepareInfluencerMotionRecreateQueuedRejectsOverlongIntent(t *testing.T) {
+	req := map[string]any{
+		"mode":               "recreate",
+		"prompt":             strings.Repeat("字", influencerRecreateMaxIntentRunes+1),
+		"subject_image_urls": []string{motionTestImage},
+		"video_url":          motionTestVideo,
+		"duration_sec":       4,
+		"resolution":         "480p",
+		"video_metadata": service.InfluencerVideoMetadata{
+			Duration: 4, VideoDuration: 4, Width: 720, Height: 1280, FrameRate: 24,
+			VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234,
+		},
+	}
+	rec, probe := runMotionPrepare(t, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	assert.False(t, probe.reached)
+}
+
 func TestInfluencerRecreateDispatchFailureStopsBeforeVideoAndReleasesReservation(t *testing.T) {
 	var videoCalls atomic.Int32
 	db, user, scanner := generationCorrectionFixture(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

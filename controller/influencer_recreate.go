@@ -331,6 +331,12 @@ func influencerRecreateQueuedGenerationOut(c *gin.Context, req influencerMotionR
 		influencerAbort(c, err.Error())
 		return nil, nil, nil, false
 	}
+	// Keep the queued path's intent budget identical to the synchronous
+	// /recreate/analyze route; the generic motion prompt limit is wider.
+	if utf8.RuneCountInString(intent) > influencerRecreateMaxIntentRunes {
+		influencerAbort(c, "创作意图过长")
+		return nil, nil, nil, false
+	}
 	out := map[string]any{
 		"model":        influencerMotionModel,
 		"group":        influencerMotionGroups[resolution],
