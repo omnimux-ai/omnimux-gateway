@@ -24,7 +24,7 @@ import { logout } from '@/features/auth/api'
 import { clearAuthenticatedClientState } from '@/lib/auth-session'
 import { handleServerError } from '@/lib/handle-server-error'
 
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 import { Icon } from './icons'
 
 /**

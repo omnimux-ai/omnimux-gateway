@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 import { Icon } from './icons'
 
 export function CnProof() {

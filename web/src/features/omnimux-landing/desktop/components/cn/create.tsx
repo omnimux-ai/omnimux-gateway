@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useRef } from 'react'
 
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 import { ASSETS } from './data'
 import { useDownload } from './download-context'
 import { useDemoClock } from './hooks'

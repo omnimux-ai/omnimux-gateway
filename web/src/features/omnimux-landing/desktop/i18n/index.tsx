@@ -18,211 +18,29 @@ For commercial licensing, please contact support@quantumnous.com
 */
 /* eslint-disable react-refresh/only-export-components */
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
+  LandingLangProviderBase,
+  resolveLandingLang,
+  type LandingLangProviderProps,
+} from './context'
+import { LANDING_COPIES } from './static-copies'
+import type { LandingCopy } from './types'
 
-import { en } from './locales/en'
-import { es } from './locales/es'
-import { id } from './locales/id'
-import { ja } from './locales/ja'
-import { zhCN } from './locales/zh-CN'
-import { zhTW } from './locales/zh-TW'
-import type {
-  LandingCopy,
-  LandingLang,
-  LandingLangOption,
-} from './types'
-
-export const LANDING_LANGS: readonly LandingLangOption[] = [
-  { code: 'en', label: 'English', short: 'EN', htmlLang: 'en' },
-  { code: 'id', label: 'Bahasa Indonesia', short: 'ID', htmlLang: 'id' },
-  { code: 'es', label: 'Español', short: 'ES', htmlLang: 'es' },
-  { code: 'ja', label: '日本語', short: '日', htmlLang: 'ja' },
-  { code: 'zh-TW', label: '繁體中文', short: '繁', htmlLang: 'zh-Hant' },
-  { code: 'zh-CN', label: '简体中文', short: '中', htmlLang: 'zh-CN' },
-]
-
-export const LANDING_COPIES: Record<LandingLang, LandingCopy> = {
-  en,
-  id,
-  es,
-  ja,
-  'zh-TW': zhTW,
-  'zh-CN': zhCN,
-}
-
-export const LANDING_LANG_STORAGE_KEY = 'omnimux.d.lang'
-
-function normalizeLang(value: string | null | undefined): LandingLang | null {
-  if (!value) return null
-  const v = value.trim().toLowerCase()
-  if (!v) return null
-  if (v === 'en' || v.startsWith('en-')) return 'en'
-  if (v === 'id' || v === 'in' || v.startsWith('id-') || v.startsWith('in-'))
-    {return 'id'}
-  if (v === 'es' || v.startsWith('es-')) return 'es'
-  if (v === 'ja' || v === 'jp' || v.startsWith('ja-') || v.startsWith('jp-'))
-    {return 'ja'}
-  if (
-    v === 'zh' ||
-    v.startsWith('zh-') ||
-    v === 'cn' ||
-    v === 'tw' ||
-    v === 'hant' ||
-    v === 'hans'
-  ) {
-    if (
-      v.includes('hant') ||
-      v.includes('tw') ||
-      v.includes('hk') ||
-      v.includes('mo')
-    )
-      {return 'zh-TW'}
-    return 'zh-CN'
-  }
-  return null
-}
-
-export function landingLangOption(
-  lang: LandingLang
-): LandingLangOption {
-  return LANDING_LANGS.find((option) => option.code === lang) ?? LANDING_LANGS[5]
-}
+export * from './context'
+export { LANDING_COPIES } from './static-copies'
 
 /**
- * Resolution order: ?lang= → localStorage → navigator.languages → zh-CN.
+ * Synchronous provider for app surfaces (tool/agent pages and tests).
+ * The landing entry uses the base provider with an explicitly preloaded copy,
+ * so it never imports every locale dictionary into the first-screen bundle.
  */
-export function resolveLandingLang(): LandingLang {
-  if (typeof window === 'undefined') return 'zh-CN'
-  const param = normalizeLang(
-    new URLSearchParams(window.location.search).get('lang')
-  )
-  if (param) return param
-  try {
-    const stored = normalizeLang(
-      window.localStorage.getItem(LANDING_LANG_STORAGE_KEY)
-    )
-    if (stored) return stored
-  } catch {
-    /* storage unavailable */
-  }
-  const candidates = navigator.languages?.length
-    ? navigator.languages
-    : [navigator.language]
-  for (const tag of candidates) {
-    const resolved = normalizeLang(tag)
-    if (resolved) return resolved
-  }
-  return 'zh-CN'
-}
-
-/** Homepage URL of a language; the homepage reads `?lang=` on load. */
-export function landingHomeHref(lang: LandingLang): string {
-  return `/?lang=${lang}`
-}
-
-type LandingLangValue = {
-  lang: LandingLang
-  setLang: (lang: LandingLang) => void
-  copy: LandingCopy
-  /** Languages the switcher offers on this page. */
-  langOptions: readonly LandingLangOption[]
-  /** Real URL of each offered language, for new tabs and crawlers. */
-  langHref: (lang: LandingLang) => string
-}
-
-const LandingLangContext = createContext<LandingLangValue | null>(null)
-
-export function LandingLangProvider(props: {
-  children: ReactNode
-  /**
-   * Pins the page language. Each tool page URL is a distinct SEO page in one
-   * language, so `?lang=`, storage and the browser language are ignored.
-   */
-  lang?: LandingLang
-  /**
-   * Replaces the default switch (copy + storage + `?lang=`). Pinned pages use
-   * it to navigate to the URL of the chosen language instead.
-   */
-  onLangChange?: (lang: LandingLang) => void
-  /**
-   * Limits the switcher to languages this page really publishes. Defaults to
-   * every landing language.
-   */
-  langs?: readonly LandingLang[]
-  /** URL of the chosen language. Defaults to the homepage `?lang=` URL. */
-  langHref?: (lang: LandingLang) => string
-}) {
-  const [resolvedLang, setLangState] = useState<LandingLang>(
-    () => props.lang ?? resolveLandingLang()
-  )
-  const lang = props.lang ?? resolvedLang
-  const onLangChange = props.onLangChange
-  const langs = props.langs
-  const langHref = props.langHref ?? landingHomeHref
-  const langOptions = useMemo(
-    () =>
-      langs
-        ? LANDING_LANGS.filter((option) => langs.includes(option.code))
-        : LANDING_LANGS,
-    [langs]
-  )
-
-  const setLang = useCallback((next: LandingLang) => {
-    if (onLangChange) {
-      onLangChange(next)
-      return
-    }
-    setLangState(next)
-    try {
-      window.localStorage.setItem(LANDING_LANG_STORAGE_KEY, next)
-    } catch {
-      /* storage unavailable */
-    }
-    try {
-      const url = new URL(window.location.href)
-      url.searchParams.set('lang', next)
-      window.history.replaceState(null, '', url)
-    } catch {
-      /* non-critical */
-    }
-  }, [onLangChange])
-
-  const value = useMemo<LandingLangValue>(
-    () => ({
-      lang,
-      setLang,
-      copy: LANDING_COPIES[lang],
-      langOptions,
-      langHref,
-    }),
-    [lang, setLang, langOptions, langHref]
-  )
-
+export function LandingLangProvider(
+  props: LandingLangProviderProps & { initialCopy?: LandingCopy }
+) {
+  const lang = props.lang ?? resolveLandingLang()
   return (
-    <LandingLangContext.Provider value={value}>
-      {props.children}
-    </LandingLangContext.Provider>
+    <LandingLangProviderBase
+      {...props}
+      initialCopy={props.initialCopy ?? LANDING_COPIES[lang]}
+    />
   )
-}
-
-const FALLBACK: LandingLangValue = {
-  lang: 'zh-CN',
-  setLang: () => {},
-  copy: zhCN,
-  langOptions: LANDING_LANGS,
-  langHref: landingHomeHref,
-}
-
-export function useLanding(): LandingLangValue {
-  return useContext(LandingLangContext) ?? FALLBACK
-}
-
-export function useCopy(): LandingCopy {
-  return useLanding().copy
 }

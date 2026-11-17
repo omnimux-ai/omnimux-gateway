@@ -26,7 +26,7 @@ import {
   type RefObject,
 } from 'react'
 
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 import {
   fetchDesktopRelease,
   releaseUrls,

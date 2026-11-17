@@ -20,7 +20,7 @@ import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import { Check } from 'lucide-react'
 import { useEffect, useState, type MouseEvent } from 'react'
 
-import { landingLangOption, useLanding } from '../../i18n'
+import { landingLangOption, useLanding } from '../../i18n/context'
 import type { LandingLang } from '../../i18n/types'
 
 /** A plain click switches in place; modified clicks keep the browser's link behaviour. */

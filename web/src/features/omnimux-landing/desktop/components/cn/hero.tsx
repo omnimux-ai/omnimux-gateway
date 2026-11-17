@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useRef, useState } from 'react'
 
-import { useLanding } from '../../i18n'
+import { useLanding } from '../../i18n/context'
 import type { LandingLang } from '../../i18n/types'
 import { REEL_MEDIA, SOURCE_REPO, type Mode } from './data'
 import { releaseUrls } from './desktop-release'

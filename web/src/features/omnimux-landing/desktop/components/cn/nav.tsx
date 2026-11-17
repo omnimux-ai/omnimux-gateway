@@ -26,7 +26,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { docsQuickstartUrl } from '../../../lib/landing-urls'
 import { AGENT_PATHS, type AgentLocale } from '../../agent/content'
-import { LANDING_LANGS, useLanding } from '../../i18n'
+import { LANDING_LANGS, useLanding } from '../../i18n/context'
 import { TOOL_PATHS } from '../../tools/content'
 import { CnAccountMenu } from './account-menu'
 import type { IconName } from './data'
