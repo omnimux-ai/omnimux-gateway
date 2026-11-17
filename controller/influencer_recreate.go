@@ -493,3 +493,26 @@ func influencerRecreateDailyAllow(c *gin.Context) bool {
 	}
 	return count <= int64(limit)
 }
+
+// influencerRecreateQueuedDailyAllow applies the same per-account analysis
+// budget as /recreate/analyze to the Web queued path. It runs after the browser
+// metadata passes validation and before the generation task is enqueued, so an
+// exhausted budget never creates a task.
+func influencerRecreateQueuedDailyAllow(c *gin.Context, meta map[string]any) bool {
+	if meta["mode"] != influencerMotionModeRecreate {
+		return true
+	}
+	videoURL, ok := meta["video_url"].(string)
+	if !ok || strings.TrimSpace(videoURL) == "" {
+		// CLI submits a compiled prompt without a reference clip; its budget was
+		// already consumed by /recreate/analyze before this request.
+		return true
+	}
+	if influencerRecreateDailyAllow(c) {
+		return true
+	}
+	c.Header("Retry-After", "3600")
+	influencerError(c, http.StatusTooManyRequests, "recreate_analysis_limit", "今天的参考视频拆解次数已用完，请明天再试")
+	c.Abort()
+	return false
+}

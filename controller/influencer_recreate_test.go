@@ -95,6 +95,8 @@ func TestInfluencerRecreatePromptGate(t *testing.T) {
 	assert.NotEmpty(t, service.InfluencerRecreatePromptGate(strings.Replace(clean, "free of captions, lettering, logos and watermarks", "with captions and logos", 1), 1))
 }
 
+// Historical recreation tasks predate video_reference_url and must keep planning
+// from their original video_url.
 func TestPrepareInfluencerVideoPromptRecreatePlansAndDropsVideo(t *testing.T) {
 	const finalPrompt = "Reference image 1 is the hero product. The frame stays free of captions, lettering, logos and watermarks."
 	original := influencerRecreatePlanner
@@ -133,6 +135,34 @@ func TestPrepareInfluencerVideoPromptRecreatePlansAndDropsVideo(t *testing.T) {
 	assert.Equal(t, []string{"https://cdn.example.com/hero.jpg", "https://cdn.example.com/detail.jpg"}, seen.ImageURLs)
 	assert.Equal(t, []string{"hero", "detail"}, seen.ImageTags)
 	assert.Equal(t, "keep it punchy", seen.UserPrompt)
+}
+
+// A browser task may carry both the original (possibly expiring) URL and the
+// server-resolved stable reference; the worker must plan from the stable one.
+func TestPrepareInfluencerVideoPromptRecreatePrefersStableReference(t *testing.T) {
+	original := influencerRecreatePlanner
+	t.Cleanup(func() { influencerRecreatePlanner = original })
+	var seen service.InfluencerRecreatePlanInput
+	influencerRecreatePlanner = func(_ context.Context, in service.InfluencerRecreatePlanInput) (service.InfluencerRecreatePlan, error) {
+		seen = in
+		return service.InfluencerRecreatePlan{Prompt: validRecreatePrompt(), DurationSec: 8}, nil
+	}
+
+	const (
+		originalURL = "https://files.omnimux.ai/v1/tasks/history/artifacts/video/content?access=expiring"
+		stableURL   = "https://files.omnimux.ai/influencer-reference/frozen/history.mp4"
+	)
+	input, err := common.Marshal(map[string]any{
+		"mode":                "recreate",
+		"video_url":           originalURL,
+		"video_reference_url": stableURL,
+		"subject_image_urls":  []string{"https://cdn.example.com/hero.jpg"},
+		"resolution":          "480p",
+	})
+	require.NoError(t, err)
+	task := &model.Task{Properties: model.Properties{Input: string(input)}}
+	require.NoError(t, prepareInfluencerVideoPrompt(context.Background(), task, map[string]any{"prompt": ""}, nil, ""))
+	assert.Equal(t, stableURL, seen.VideoURL)
 }
 
 func TestPrepareInfluencerVideoPromptRecreateFailureStopsBeforeVideo(t *testing.T) {
@@ -556,4 +586,61 @@ func TestPostInfluencerMotionRecreateReturnsTaskIDImmediately(t *testing.T) {
 	assert.Equal(t, "recreate", meta.Mode)
 	assert.Equal(t, motionTestVideo, meta.VideoURL)
 	assert.Equal(t, "keep the hook but make it mine", meta.Prompt)
+}
+
+// The Web queued path consumes the same daily analysis budget as the
+// synchronous /recreate/analyze route: an exhausted budget must be rejected
+// before a second task row is created.
+func TestPostInfluencerMotionRecreateDailyAnalysisBudget(t *testing.T) {
+	settings := system_setting.GetFetchSetting()
+	previousSettings := *settings
+	settings.ApplyIPFilterForDomain = false
+	t.Cleanup(func() { *settings = previousSettings })
+
+	db, user, _ := generationCorrectionFixture(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("queue acceptance must not call the provider")
+	}))
+	previousRedisEnabled := common.RedisEnabled
+	common.RedisEnabled = true
+	t.Cleanup(func() { common.RedisEnabled = previousRedisEnabled })
+	t.Setenv("INFLUENCER_RECREATE_DAILY_ANALYSES", "1")
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.POST("/pg/influencer/motion", func(c *gin.Context) {
+		c.Set("id", user.Id)
+		c.Set("group", "default")
+	}, PrepareInfluencerMotion, PostInfluencerMotion)
+
+	body := map[string]any{
+		"mode":               "recreate",
+		"prompt":             "keep the hook but make it mine",
+		"subject_image_urls": []string{motionTestImage},
+		"video_url":          motionTestVideo,
+		"duration_sec":       4,
+		"resolution":         "480p",
+		"video_metadata": service.InfluencerVideoMetadata{
+			Duration: 4, VideoDuration: 4, Width: 720, Height: 1280, FrameRate: 24,
+			VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234,
+		},
+	}
+	raw, err := common.Marshal(body)
+	require.NoError(t, err)
+	request := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/pg/influencer/motion", strings.NewReader(string(raw)))
+		req.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, req)
+		return recorder
+	}
+
+	first := request()
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	second := request()
+	require.Equal(t, http.StatusTooManyRequests, second.Code, second.Body.String())
+	assert.Contains(t, second.Body.String(), "recreate_analysis_limit")
+
+	var count int64
+	require.NoError(t, db.Model(&model.Task{}).Where("user_id = ? AND action = ?", user.Id, ActionInfluencerMotion).Count(&count).Error)
+	assert.EqualValues(t, 1, count, "an over-budget request must not create a task")
 }

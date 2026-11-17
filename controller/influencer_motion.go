@@ -566,6 +566,12 @@ func PostInfluencerMotion(c *gin.Context) {
 		return
 	}
 
+	// fork: the Web recreation queue shares the synchronous analysis budget.
+	// Validation is complete here, and the task row is created by the next call.
+	if !influencerRecreateQueuedDailyAllow(c, meta) {
+		return
+	}
+
 	setInfluencerMotionTaskRequest(c, out)
 
 	// The playground path is not in the relay-mode table; the task chain reads

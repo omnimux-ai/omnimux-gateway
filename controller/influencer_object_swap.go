@@ -29,9 +29,13 @@ type influencerVideoPlanMetadata struct {
 // recreation task. A plan failure is returned to the queue so the task fails
 // before any provider send and its unstarted reservation can be released.
 func prepareInfluencerRecreatePrompt(ctx context.Context, meta influencerVideoPlanMetadata, out map[string]any) error {
-	videoURL := strings.TrimSpace(meta.VideoURL)
+	// Prefer the server-resolved reference URL: it is the stable copy stored at
+	// acceptance, while the original may be a history artifact URL whose access
+	// query expires before the queue worker runs. Historical tasks predate that
+	// field, so VideoURL remains the fallback.
+	videoURL := strings.TrimSpace(meta.VideoReferenceURL)
 	if videoURL == "" {
-		videoURL = strings.TrimSpace(meta.VideoReferenceURL)
+		videoURL = strings.TrimSpace(meta.VideoURL)
 	}
 	if videoURL == "" {
 		// CLI's analyze-then-submit path already carries a compiled prompt and
