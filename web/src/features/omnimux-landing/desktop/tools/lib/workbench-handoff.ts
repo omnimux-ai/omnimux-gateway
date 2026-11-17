@@ -24,7 +24,6 @@ import {
   writeGuestHandoff,
 } from '@/features/influencer/lib/guest'
 import { writeMotionMode } from '@/features/influencer/lib/motion-mode'
-import { issueToolHandoff } from '@/features/influencer/lib/tool-handoff'
 import { writeWorkbenchMode } from '@/features/influencer/lib/workbench-mode'
 
 import type { ToolResult } from './api'
@@ -33,51 +32,56 @@ import type { ToolResult } from './api'
 const RECREATE_MIN_MS = 4000
 const RECREATE_MAX_MS = 30000
 
+export type ViralRecreateClick = { ok: true } | { ok: false; duration: string }
+
+function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000))
+  const minutes = String(Math.floor(total / 60)).padStart(2, '0')
+  const seconds = String(total % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+}
+
 /**
- * Points the workbench at video · viral recreate and, when a video was parsed,
- * leaves a handoff for it. Overwrites the remembered surface and sub-mode.
- * Only the work id leaves the page; the token it gets back carries no link.
+ * Points the workbench at video · viral recreate and leaves the parsed work id
+ * for it. This runs synchronously from the click: the workbench issues the
+ * short-lived token after landing, so a slow `/handoff` can never delay the
+ * route change. Only the work id leaves the page; no link or media address.
  */
-export async function prepareViralRecreate(
+export function prepareViralRecreate(
   result: ToolResult | null | undefined
-): Promise<void> {
+): ViralRecreateClick {
   writeWorkbenchMode('video')
   writeMotionMode('recreate')
   // A leftover handoff from an earlier click must not fill this visit's slot.
   takeGuestHandoff()
-  if (!result || result.kind !== 'video' || !result.video) return
-  const target = { mode: 'video', motionMode: 'recreate' } as const
+  if (!result || result.kind !== 'video' || !result.video) return { ok: true }
   const durationMs = result.video.duration_ms
   if (
     durationMs > 0 &&
     (durationMs < RECREATE_MIN_MS || durationMs > RECREATE_MAX_MS)
   ) {
-    writeGuestHandoff({ ...target, failed: true })
-    return
+    return { ok: false, duration: formatDuration(durationMs) }
   }
-  try {
-    const issued = await issueToolHandoff({ id: result.id })
-    writeGuestHandoff({
-      ...target,
-      token: issued.token,
-      expiresAt: Date.now() + issued.expires_in * 1000,
-    })
-  } catch {
-    writeGuestHandoff({ ...target, failed: true })
-  }
+  writeGuestHandoff({
+    workId: result.id,
+    mode: 'video',
+    motionMode: 'recreate',
+  })
+  return { ok: true }
 }
 
 /**
  * Click handler for a recreate entry that links to `/influencer`. A plain
- * click waits for the handoff and then navigates; a modified click (new tab or
- * window) keeps the browser default and lands on the empty recreate slot,
- * because the new tab cannot read this tab's session storage.
+ * click writes the handoff intent and navigates before any network request;
+ * a modified click (new tab or window) keeps the browser default and lands on
+ * the empty recreate slot, because the new tab cannot read this tab's session
+ * storage.
  */
 export function useViralRecreateEntry(result: ToolResult | null | undefined) {
   const navigate = useNavigate()
   const pending = useRef(false)
   return useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
+    (event: MouseEvent<HTMLAnchorElement>): ViralRecreateClick => {
       const modified =
         event.metaKey ||
         event.ctrlKey ||
@@ -87,15 +91,17 @@ export function useViralRecreateEntry(result: ToolResult | null | undefined) {
       if (modified) {
         writeWorkbenchMode('video')
         writeMotionMode('recreate')
-        return
+        return { ok: true }
       }
       event.preventDefault()
-      if (pending.current) return
+      if (pending.current) return { ok: true }
+      const outcome = prepareViralRecreate(result)
+      if (!outcome.ok) return outcome
       pending.current = true
-      void prepareViralRecreate(result).finally(() => {
+      void Promise.resolve(navigate({ to: '/influencer' })).finally(() => {
         pending.current = false
-        void navigate({ to: '/influencer' })
       })
+      return outcome
     },
     [navigate, result]
   )

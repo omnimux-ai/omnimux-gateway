@@ -245,12 +245,17 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .omc .tool-acts {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  gap: 10px;
   margin-top: 24px;
 }
 .omc .tool-acts .btn {
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .omc .tool-divider {
   height: 1px;
@@ -437,6 +442,14 @@ For commercial licensing, please contact support@quantumnous.com
   }
 }
 @media (max-width: 560px) {
+  .omc .tool-acts {
+    gap: 8px;
+  }
+  .omc .tool-acts .btn {
+    height: 44px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
   .omc .tool-row {
     flex-wrap: wrap;
   }

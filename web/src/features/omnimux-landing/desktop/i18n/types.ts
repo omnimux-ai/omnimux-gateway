@@ -103,6 +103,8 @@ export type ToolPageCopy = {
   unavailable: string
   downloadMp4: string
   recreateMine: string
+  /** `{duration}` is replaced with the parsed clip's mm:ss. */
+  durationRange: string
   breakdown: string
   /** `{count}` is replaced. */
   photoCount: string

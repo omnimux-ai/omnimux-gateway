@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { RefObject } from 'react'
 
 import type { MotionForm } from '../hooks/use-motion'
+import type { ToolHandoffState } from '../hooks/use-tool-handoff'
 import { RecreateAnalysisProgress } from './recreate-analysis-progress'
 import { RecreateForm } from './recreate-form'
 
@@ -27,6 +28,7 @@ interface Props {
   /** Shared reference picker anchor; missing it closes the desktop panel. */
   assetsRef?: RefObject<HTMLElement | null>
   submitting?: boolean
+  toolHandoff?: ToolHandoffState
   onPreviewVideo?: (url: string) => void
   onPreviewImage?: (url: string) => void
   onBeforeVideoPick?: () => boolean
@@ -50,6 +52,7 @@ export function RecreatePanel(props: Props) {
             motion={props.motion}
             assetsRef={props.assetsRef}
             submitting={props.submitting}
+            toolHandoff={props.toolHandoff}
             onPreviewVideo={props.onPreviewVideo}
             onPreviewImage={props.onPreviewImage}
             onBeforeVideoPick={props.onBeforeVideoPick}
@@ -64,6 +67,7 @@ export function RecreatePanel(props: Props) {
       motion={props.motion}
       assetsRef={props.assetsRef}
       submitting={props.submitting}
+      toolHandoff={props.toolHandoff}
       onPreviewVideo={props.onPreviewVideo}
       onPreviewImage={props.onPreviewImage}
       onBeforeVideoPick={props.onBeforeVideoPick}

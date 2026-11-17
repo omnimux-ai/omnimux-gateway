@@ -61,6 +61,12 @@ interface Props {
   badge?: string
   busy?: boolean
   uploading?: boolean
+  /** A tool handoff is preparing this slot's video; shows the media skeleton. */
+  loading?: boolean
+  loadingLabel?: string
+  /** User-readable slot failure; renders the retry action. */
+  loadError?: string
+  onRetry?: () => void
   /** When present, a selected video opens in the shared playback window. */
   onPreviewVideo?: (url: string) => void
   /** When present, a selected image opens in the same shared preview window. */
@@ -199,9 +205,11 @@ export function MediaSlot(props: Props) {
         'inf-slot',
         props.variant === 'reference' && 'inf-reference-slot',
         filled && 'filled',
+        props.loading && 'loading',
+        props.loadError && 'failed',
         dragging && !props.busy && 'drag'
       )}
-      aria-busy={props.busy || undefined}
+      aria-busy={props.busy || props.loading || undefined}
       onDragOver={(event) => {
         event.preventDefault()
         if (!props.busy) setDragging(true)
@@ -389,6 +397,27 @@ export function MediaSlot(props: Props) {
         >
           {error || props.hint}
         </span>
+      ) : null}
+      {props.loading ? (
+        <div className='inf-slot-loading' role='status' aria-live='polite'>
+          <span className='inf-slot-loading-play'>
+            <Play className='size-6' aria-hidden='true' />
+          </span>
+          <span className='inf-slot-loading-track' aria-hidden='true'>
+            <i />
+          </span>
+          <span className='inf-slot-loading-label'>{props.loadingLabel}</span>
+        </div>
+      ) : null}
+      {props.loadError ? (
+        <div className='inf-slot-load-error' role='alert'>
+          <span>{props.loadError}</span>
+          {props.onRetry ? (
+            <Button type='button' variant='secondary' onClick={props.onRetry}>
+              {t('Retry')}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

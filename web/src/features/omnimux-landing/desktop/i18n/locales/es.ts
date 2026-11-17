@@ -903,7 +903,9 @@ export const es: LandingCopy = {
     turnstileAria: 'Verificación de Cloudflare',
     unavailable: 'No disponible temporalmente',
     downloadMp4: 'Descargar MP4',
-    recreateMine: 'Recrear con mi personaje',
+    recreateMine: 'Recrear',
+    durationRange:
+      'El video de referencia debe durar entre 4 y 30 segundos (actual: {duration})',
     breakdown: 'Desglosar la estructura viral',
     photoCount: '{count} fotos',
     imageAlt: 'Foto {n}',

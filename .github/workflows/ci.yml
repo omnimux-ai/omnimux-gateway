@@ -217,6 +217,10 @@ jobs:
       # (desktop-release.test.ts) inside the required frontend gate.
       - name: Desktop landing component tests
         run: bun run test --config src/features/omnimux-landing/desktop/components/__tests__/vitest.config.ts
+      # The tool page lives under the same landing exclusion; run its own config
+      # so the TikTok handoff contract is part of the required frontend gate.
+      - name: Desktop tool page tests
+        run: bun run test --config src/features/omnimux-landing/desktop/tools/__tests__/vitest.config.ts
 
   frontend-tests:
     name: Frontend full tests (${{ matrix.id }})

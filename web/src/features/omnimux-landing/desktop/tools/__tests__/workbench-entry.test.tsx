@@ -122,11 +122,11 @@ describe('tool page entries into the workbench', () => {
     expect(readMotionMode()).toBe('recreate')
   })
 
-  it('lands Recreate with my character on the video surface in viral-recreate mode when clicked', () => {
+  it('lands Recreate on the video surface in viral-recreate mode when clicked', () => {
     inLanding(<ToolVideoResult result={videoResult} />)
 
     const recreate = screen.getByRole('link', {
-      name: /recreate with my character/i,
+      name: /^recreate$/i,
     })
     expect(recreate).toHaveAttribute('href', '/influencer')
     fireEvent.click(recreate)

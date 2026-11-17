@@ -120,16 +120,22 @@ export function takeGuestDraft(): GuestDraft | null {
 }
 
 /**
- * Tool-page handoff: the opaque token the TikTok tool page exchanged for one
- * parsed video, plus the face and sub-mode it promised. It lives beside the
- * look draft (same tab, sessionStorage) and survives the sign-in round trip
- * because only a signed-in workbench consumes it. It never holds a link or a
- * media address. `failed` records a handoff that could not be issued, so the
- * workbench reports it once.
+ * Tool-page handoff: the work id of one parsed TikTok video, plus the face and
+ * sub-mode it promised. It lives beside the look draft (same tab,
+ * sessionStorage) and survives the sign-in round trip because only a signed-in
+ * workbench consumes it. It never holds a link or a media address.
+ *
+ * The tool page writes only `workId` and navigates immediately; the workbench
+ * issues the short-lived opaque token after landing. `token` stays readable so
+ * a tab that clicked just before a deploy still finishes its handoff.
+ * `failed` records a legacy handoff that could not be issued.
  */
 const HANDOFF_KEY = 'influencer:guest-handoff:v1'
 
 export interface GuestHandoff {
+  /** Parsed TikTok work id; the workbench issues its own token after landing. */
+  workId?: string
+  /** Legacy token issued on the tool page before the click-no-wait change. */
   token?: string
   failed?: boolean
   /** Epoch milliseconds after which the server has already dropped the token. */
@@ -146,29 +152,65 @@ export function writeGuestHandoff(handoff: GuestHandoff): void {
   }
 }
 
+function parseGuestHandoff(
+  parsed: Partial<GuestHandoff> | null,
+  now: number
+): GuestHandoff | null {
+  if (typeof parsed !== 'object' || parsed === null) return null
+  if (parsed.failed === true) {
+    return { failed: true, mode: 'video', motionMode: 'recreate' }
+  }
+  const workId =
+    typeof parsed.workId === 'string' && /^\d{5,32}$/.test(parsed.workId)
+      ? parsed.workId
+      : undefined
+  const token =
+    typeof parsed.token === 'string' && /^[\w-]{43}$/.test(parsed.token)
+      ? parsed.token
+      : undefined
+  if (!workId && !token) return null
+  if (token) {
+    if (typeof parsed.expiresAt !== 'number' || parsed.expiresAt <= now) {
+      return null
+    }
+    return {
+      token,
+      expiresAt: parsed.expiresAt,
+      mode: 'video',
+      motionMode: 'recreate',
+    }
+  }
+  return {
+    workId,
+    mode: 'video',
+    motionMode: 'recreate',
+  }
+}
+
+/** Reads a handoff without consuming it, so the first paint can show loading. */
+export function peekGuestHandoff(now = Date.now()): GuestHandoff | null {
+  try {
+    const raw = sessionStorage.getItem(HANDOFF_KEY)
+    if (!raw) return null
+    return parseGuestHandoff(
+      JSON.parse(raw) as Partial<GuestHandoff> | null,
+      now
+    )
+  } catch {
+    return null
+  }
+}
+
 /** Reads and removes the handoff; malformed or expired records read as null. */
 export function takeGuestHandoff(now = Date.now()): GuestHandoff | null {
   try {
     const raw = sessionStorage.getItem(HANDOFF_KEY)
     if (!raw) return null
     sessionStorage.removeItem(HANDOFF_KEY)
-    const parsed = JSON.parse(raw) as Partial<GuestHandoff> | null
-    if (typeof parsed !== 'object' || parsed === null) return null
-    if (parsed.failed === true) {
-      return { failed: true, mode: 'video', motionMode: 'recreate' }
-    }
-    if (typeof parsed.token !== 'string' || !/^[\w-]{43}$/.test(parsed.token)) {
-      return null
-    }
-    if (typeof parsed.expiresAt !== 'number' || parsed.expiresAt <= now) {
-      return null
-    }
-    return {
-      token: parsed.token,
-      expiresAt: parsed.expiresAt,
-      mode: 'video',
-      motionMode: 'recreate',
-    }
+    return parseGuestHandoff(
+      JSON.parse(raw) as Partial<GuestHandoff> | null,
+      now
+    )
   } catch {
     return null
   }

@@ -76,8 +76,8 @@ vi.mock('@tanstack/react-router', () => ({
 
 const VIDEO_URL =
   'https://www.tiktok.com/@mythicshadowws/video/7470610564927032609'
+const WORK_ID = '7470610564927032609'
 const MEDIA_PATH = '/api/tools/tiktok/file/video?u=v'
-const TOKEN = 'b'.repeat(43)
 
 function config() {
   return {
@@ -100,7 +100,7 @@ function videoResult(durationMs = 15000) {
       success: true,
       data: {
         kind: 'video',
-        id: '7470610564927032609',
+        id: WORK_ID,
         author: { unique_id: 'mythicshadowws', nickname: 'M' },
         description: '',
         created_at: 1739404800,
@@ -118,18 +118,9 @@ function videoResult(durationMs = 15000) {
   }
 }
 
-function issued() {
-  return { data: { success: true, data: { token: TOKEN, expires_in: 1800 } } }
-}
-
-function serve(options: { durationMs?: number; issue?: () => unknown }) {
+function serve(options: { durationMs?: number } = {}) {
   api.get.mockResolvedValue(config())
-  api.post.mockImplementation((path: string) => {
-    if (path === TOOL_HANDOFF_ISSUE_PATH) {
-      return options.issue ? options.issue() : Promise.resolve(issued())
-    }
-    return Promise.resolve(videoResult(options.durationMs))
-  })
+  api.post.mockResolvedValue(videoResult(options.durationMs))
 }
 
 function renderPage() {
@@ -147,7 +138,7 @@ async function renderParsed() {
     target: { value: VIDEO_URL },
   })
   fireEvent.click(screen.getByRole('button', { name: /parse/i }))
-  await screen.findByRole('link', { name: /recreate with my character/i })
+  await screen.findByRole('link', { name: /^recreate$/i })
 }
 
 function handoffCalls() {
@@ -164,7 +155,7 @@ afterEach(() => {
 
 describe('tool page hands the parsed video to the workbench', () => {
   it('lands Start recreating on the empty recreate slot without a handoff when nothing was parsed', async () => {
-    serve({})
+    serve()
     renderPage()
     await screen.findByText('5/5')
 
@@ -179,74 +170,73 @@ describe('tool page hands the parsed video to the workbench', () => {
     expect(takeGuestHandoff()).toBeNull()
   })
 
-  it('gives Start recreating the result the form parsed and stores its token', async () => {
-    serve({})
+  it('navigates Start recreating without calling the handoff endpoint first', async () => {
+    serve()
     await renderParsed()
 
     fireEvent.click(screen.getByRole('link', { name: /start recreating/i }))
 
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({ to: '/influencer' })
-    )
-    expect(handoffCalls()).toEqual([
-      [
-        TOOL_HANDOFF_ISSUE_PATH,
-        { id: '7470610564927032609' },
-        expect.anything(),
-      ],
-    ])
-    expect(takeGuestHandoff()?.token).toBe(TOKEN)
-  })
-
-  it('stores the token for Recreate with my character before navigating', async () => {
-    serve({})
-    await renderParsed()
-
-    fireEvent.click(
-      screen.getByRole('link', { name: /recreate with my character/i })
-    )
-
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({ to: '/influencer' })
-    )
-    expect(readMotionMode()).toBe('recreate')
-    expect(takeGuestHandoff()?.token).toBe(TOKEN)
-  })
-
-  it('records a failed handoff without asking the server for a video outside 4–30 s', async () => {
-    serve({ durationMs: 45000 })
-    await renderParsed()
-
-    fireEvent.click(
-      screen.getByRole('link', { name: /recreate with my character/i })
-    )
-
-    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1))
+    // The click handler must not wait for any network call.
+    expect(navigate).toHaveBeenCalledWith({ to: '/influencer' })
     expect(handoffCalls()).toHaveLength(0)
-    expect(takeGuestHandoff()).toEqual({
-      failed: true,
+    expect(takeGuestHandoff()).toMatchObject({ workId: WORK_ID })
+  })
+
+  it('stores the parsed work id for Recreate before navigating', async () => {
+    serve()
+    await renderParsed()
+
+    fireEvent.click(screen.getByRole('link', { name: /^recreate$/i }))
+
+    expect(navigate).toHaveBeenCalledWith({ to: '/influencer' })
+    expect(handoffCalls()).toHaveLength(0)
+    expect(readMotionMode()).toBe('recreate')
+    expect(takeGuestHandoff()).toMatchObject({
+      workId: WORK_ID,
       mode: 'video',
       motionMode: 'recreate',
     })
   })
 
-  it('records a failed handoff and still navigates when the endpoint is missing', async () => {
-    serve({
-      issue: () => Promise.reject({ response: { status: 404 } }),
-    })
+  it('renders download and recreate in one action row', async () => {
+    serve()
     await renderParsed()
 
-    fireEvent.click(screen.getByRole('link', { name: /start recreating/i }))
+    const rows = document.querySelectorAll('.tool-acts')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].querySelectorAll('a')).toHaveLength(2)
+    expect(rows[0].textContent).toContain('Download MP4')
+    expect(rows[0].textContent).toContain('Recreate')
+  })
 
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({ to: '/influencer' })
+  it('keeps the result card and reports the duration when the clip is outside 4–30 s', async () => {
+    serve({ durationMs: 45000 })
+    await renderParsed()
+
+    fireEvent.click(screen.getByRole('link', { name: /^recreate$/i }))
+
+    expect(navigate).not.toHaveBeenCalled()
+    expect(toastError).toHaveBeenCalledWith(
+      'Reference videos must be 4–30 seconds (current 00:45)'
     )
-    expect(takeGuestHandoff()?.failed).toBe(true)
-    expect(toastError).not.toHaveBeenCalled()
+    expect(handoffCalls()).toHaveLength(0)
+    expect(takeGuestHandoff()).toBeNull()
+  })
+
+  it('ignores a second click while the first navigation is pending', async () => {
+    serve()
+    await renderParsed()
+
+    const link = screen.getByRole('link', { name: /^recreate$/i })
+    fireEvent.click(link)
+    fireEvent.click(link)
+
+    expect(navigate).toHaveBeenCalledTimes(1)
+    expect(handoffCalls()).toHaveLength(0)
   })
 
   it('leaves a new-tab click to the browser and carries no handoff', async () => {
-    serve({})
+    serve()
     await renderParsed()
 
     fireEvent.click(screen.getByRole('link', { name: /start recreating/i }), {
@@ -259,7 +249,7 @@ describe('tool page hands the parsed video to the workbench', () => {
   })
 
   it('keeps the original link and media paths out of navigation, analytics and the handoff', async () => {
-    serve({})
+    serve()
     await renderParsed()
 
     fireEvent.click(screen.getByRole('link', { name: /start recreating/i }))

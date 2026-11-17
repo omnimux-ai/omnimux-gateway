@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Lock } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { writeWorkbenchMode } from '@/features/influencer/lib/workbench-mode'
 import { trackToolCtaClick, type ToolCtaClick } from '@/lib/growth-tracking'
@@ -102,9 +103,6 @@ export function ToolVideoResult(props: { result: ToolResult }) {
               <Icon name='dl' />
               {copy.downloadMp4}
             </a>
-          </div>
-          <div className='tool-divider' />
-          <div className='tool-acts'>
             <Link
               className='btn btn-primary'
               to='/influencer'
@@ -116,7 +114,12 @@ export function ToolVideoResult(props: { result: ToolResult }) {
                   cta_variant: 'conservative',
                   placement: 'result_primary',
                 })
-                startRecreate(event)
+                const outcome = startRecreate(event)
+                if (!outcome.ok) {
+                  toast.error(
+                    copy.durationRange.replace('{duration}', outcome.duration)
+                  )
+                }
               }}
             >
               <Icon name='spark' />

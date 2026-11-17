@@ -230,6 +230,33 @@ describe('MediaSlot filled state', () => {
   })
 })
 
+describe('MediaSlot tool handoff state', () => {
+  it('shows the media skeleton and keeps the slot geometry while a video loads', () => {
+    const { container } = renderSlot({
+      kind: 'video',
+      loading: true,
+      loadingLabel: 'Loading video…',
+    })
+    expect(screen.getByRole('status')).toHaveTextContent('Loading video…')
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'true')
+    expect(container.firstElementChild).toHaveClass('loading')
+  })
+
+  it('shows the readable failure and retries without re-rendering an empty picker', async () => {
+    const retry = vi.fn()
+    renderSlot({
+      kind: 'video',
+      loadError: 'Could not download this video. Please try again.',
+      onRetry: retry,
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Could not download this video. Please try again.'
+    )
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }))
+    expect(retry).toHaveBeenCalledTimes(1)
+  })
+})
+
 /** jsdom has no drag pipeline, so the drop event is dispatched directly. */
 function fireDrop(target: HTMLElement, files: File[]): void {
   const event = new Event('drop', { bubbles: true, cancelable: true })

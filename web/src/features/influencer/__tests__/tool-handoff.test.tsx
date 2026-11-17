@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
+  act,
   fireEvent,
   render,
   renderHook,
@@ -28,11 +29,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LoginGateDialog } from '../components/login-gate-dialog'
 import { useLoginGate } from '../hooks/use-login-gate'
 import {
+  TOOL_HANDOFF_DURATION_MESSAGE,
   TOOL_HANDOFF_FAILED_MESSAGE,
+  TOOL_HANDOFF_TIMEOUT_MESSAGE,
   useToolHandoff,
 } from '../hooks/use-tool-handoff'
-import { takeGuestHandoff, writeGuestHandoff } from '../lib/guest'
-import { TOOL_HANDOFF_REDEEM_PATH } from '../lib/tool-handoff'
+import {
+  peekGuestHandoff,
+  takeGuestHandoff,
+  writeGuestHandoff,
+} from '../lib/guest'
+import {
+  TOOL_HANDOFF_ISSUE_PATH,
+  TOOL_HANDOFF_REDEEM_PATH,
+} from '../lib/tool-handoff'
 import type { MotionMode, WorkbenchMode } from '../types'
 
 const { post, toastError, navigate, track, auth } = vi.hoisted(() => ({
@@ -61,10 +71,19 @@ vi.mock('@/stores/auth-store', () => ({
 }))
 
 const TOKEN = 'a'.repeat(43)
+const WORK_ID = '7470610564927032609'
 const STORED_URL =
   'https://files.omnimux.ai/influencer/reference/f_tiktok-1.mp4'
 
-function pendingHandoff(expiresAt = Date.now() + 60_000) {
+function pendingHandoff() {
+  writeGuestHandoff({
+    workId: WORK_ID,
+    mode: 'video',
+    motionMode: 'recreate',
+  })
+}
+
+function legacyTokenHandoff(expiresAt = Date.now() + 60_000) {
   writeGuestHandoff({
     token: TOKEN,
     expiresAt,
@@ -93,6 +112,25 @@ function renderHandoff(options: {
   return { props, hook }
 }
 
+function issued() {
+  return {
+    data: { success: true, data: { token: TOKEN, expires_in: 1800 } },
+  }
+}
+
+function redeemed() {
+  return {
+    data: {
+      success: true,
+      data: {
+        url: STORED_URL,
+        preview_url: STORED_URL,
+        name: 'tiktok-1.mp4',
+      },
+    },
+  }
+}
+
 function rejectWith(status: number, code?: string) {
   return Promise.reject({
     response: { status, data: code ? { success: false, code } : undefined },
@@ -106,18 +144,25 @@ beforeEach(() => {
 
 afterEach(() => {
   window.sessionStorage.clear()
+  vi.useRealTimers()
   vi.resetAllMocks()
 })
 
 describe('guest handoff record', () => {
-  it('returns the token once and then nothing when read twice', () => {
+  it('returns the work id once and then nothing when read twice', () => {
     pendingHandoff()
-    expect(takeGuestHandoff()?.token).toBe(TOKEN)
+    expect(takeGuestHandoff()?.workId).toBe(WORK_ID)
     expect(takeGuestHandoff()).toBeNull()
   })
 
-  it('drops a record whose token has already expired', () => {
-    pendingHandoff(Date.now() - 1)
+  it('peeks at the record without consuming it', () => {
+    pendingHandoff()
+    expect(peekGuestHandoff()?.workId).toBe(WORK_ID)
+    expect(takeGuestHandoff()?.workId).toBe(WORK_ID)
+  })
+
+  it('drops a legacy token whose expiry has passed', () => {
+    legacyTokenHandoff(Date.now() - 1)
     expect(takeGuestHandoff()).toBeNull()
   })
 
@@ -133,106 +178,212 @@ describe('guest handoff record', () => {
 })
 
 describe('workbench redeems a tool-page handoff', () => {
-  it('fills the recreate reference slot with the redeemed upload when signed in', async () => {
+  it('shows loading immediately, then fills the recreate slot after issue and redeem', async () => {
     pendingHandoff()
-    post.mockResolvedValue({
-      data: {
-        success: true,
-        data: {
-          url: STORED_URL,
-          preview_url: STORED_URL,
-          name: 'tiktok-1.mp4',
-        },
-      },
-    })
-    const { props } = renderHandoff({ isGuest: false })
-
-    await waitFor(() =>
-      expect(props.setRemoteVideo).toHaveBeenCalledWith(
-        STORED_URL,
-        'tiktok-1.mp4',
-        STORED_URL,
-        'recreate'
-      )
+    post.mockImplementation((path: string) =>
+      path === TOOL_HANDOFF_ISSUE_PATH
+        ? Promise.resolve(issued())
+        : Promise.resolve(redeemed())
     )
-    expect(post).toHaveBeenCalledWith(
+    const { props, hook } = renderHandoff({ isGuest: false })
+
+    expect(hook.result.current.status).toBe('loading')
+    expect(hook.result.current.loadingLabel).toBe('Loading video…')
+
+    await waitFor(() => expect(hook.result.current.status).toBe('idle'))
+    expect(post.mock.calls.map((call) => call[0])).toEqual([
+      TOOL_HANDOFF_ISSUE_PATH,
       TOOL_HANDOFF_REDEEM_PATH,
-      { token: TOKEN },
-      expect.anything()
+    ])
+    expect(props.setRemoteVideo).toHaveBeenCalledWith(
+      STORED_URL,
+      'tiktok-1.mp4',
+      STORED_URL,
+      'recreate'
     )
     expect(props.onWorkbenchModeChange).toHaveBeenCalledWith('video')
     expect(props.setMotionMode).toHaveBeenCalledWith('recreate')
     expect(toastError).not.toHaveBeenCalled()
   })
 
-  it('leaves the record for after sign-in when the visitor is a guest', () => {
-    pendingHandoff()
-    renderHandoff({ isGuest: true })
+  it('keeps the legacy token path working for a tab that clicked before the deploy', async () => {
+    legacyTokenHandoff()
+    post.mockResolvedValue(redeemed())
+    const { props, hook } = renderHandoff({ isGuest: false })
 
-    expect(post).not.toHaveBeenCalled()
-    expect(takeGuestHandoff()?.token).toBe(TOKEN)
+    await waitFor(() => expect(hook.result.current.status).toBe('idle'))
+    expect(post).toHaveBeenCalledWith(
+      TOOL_HANDOFF_REDEEM_PATH,
+      { token: TOKEN },
+      expect.anything()
+    )
+    expect(props.setRemoteVideo).toHaveBeenCalled()
   })
 
-  it.each([
-    ['an expired token', () => rejectWith(410, 'handoff_expired')],
-    ['an already redeemed token', () => rejectWith(410, 'handoff_expired')],
-    ['another owner', () => rejectWith(403, 'handoff_forbidden')],
-    ['a video outside 4–30 s', () => rejectWith(422, 'handoff_duration')],
-    ['a missing endpoint', () => rejectWith(404)],
-    ['a network failure', () => Promise.reject(new Error('Network Error'))],
-  ])(
-    'keeps the empty recreate slot and toasts once for %s',
-    async (_, failure) => {
-      pendingHandoff()
-      post.mockImplementation(failure)
-      const { props } = renderHandoff({ isGuest: false })
-
-      await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
-      expect(toastError).toHaveBeenCalledWith(TOOL_HANDOFF_FAILED_MESSAGE)
-      expect(props.setRemoteVideo).not.toHaveBeenCalled()
-      expect(props.setMotionMode).toHaveBeenCalledWith('recreate')
-    }
-  )
-
-  it('toasts once without calling the server when the tool page could not issue a handoff', () => {
-    writeGuestHandoff({ failed: true, mode: 'video', motionMode: 'recreate' })
-    renderHandoff({ isGuest: false })
+  it('leaves the record for after sign-in when the visitor is a guest', () => {
+    pendingHandoff()
+    const { hook } = renderHandoff({ isGuest: true })
 
     expect(post).not.toHaveBeenCalled()
+    expect(hook.result.current.status).toBe('idle')
+    expect(takeGuestHandoff()?.workId).toBe(WORK_ID)
+  })
+
+  it('shows a failed slot and toasts once when issuing the token fails', async () => {
+    pendingHandoff()
+    post.mockImplementation(() => rejectWith(503))
+    const { props, hook } = renderHandoff({ isGuest: false })
+
+    await waitFor(() => expect(hook.result.current.status).toBe('failed'))
+    expect(hook.result.current.error).toBe(TOOL_HANDOFF_FAILED_MESSAGE)
+    expect(toastError).toHaveBeenCalledTimes(1)
+    expect(toastError).toHaveBeenCalledWith(TOOL_HANDOFF_FAILED_MESSAGE)
+    expect(props.setRemoteVideo).not.toHaveBeenCalled()
+  })
+
+  it('maps handoff_duration to the readable duration message', async () => {
+    pendingHandoff()
+    post.mockImplementation(() => rejectWith(422, 'handoff_duration'))
+    const { hook } = renderHandoff({ isGuest: false })
+
+    await waitFor(() => expect(hook.result.current.status).toBe('failed'))
+    expect(hook.result.current.error).toBe(TOOL_HANDOFF_DURATION_MESSAGE)
+    expect(toastError).toHaveBeenCalledWith(TOOL_HANDOFF_DURATION_MESSAGE)
+  })
+
+  it('retries a failed issue without stacking a second request', async () => {
+    pendingHandoff()
+    post
+      .mockImplementationOnce(() => rejectWith(503))
+      .mockResolvedValueOnce(issued())
+      .mockResolvedValueOnce(redeemed())
+    const { props, hook } = renderHandoff({ isGuest: false })
+
+    await waitFor(() => expect(hook.result.current.status).toBe('failed'))
+    act(() => hook.result.current.retry())
+    await waitFor(() => expect(hook.result.current.status).toBe('idle'))
+    expect(props.setRemoteVideo).toHaveBeenCalledTimes(1)
+    expect(toastError).toHaveBeenCalledTimes(1)
+  })
+
+  it('reuses the issued token when retrying a failed redeem', async () => {
+    pendingHandoff()
+    post
+      .mockResolvedValueOnce(issued())
+      .mockImplementationOnce(() => rejectWith(500))
+      .mockResolvedValueOnce(redeemed())
+    const { props, hook } = renderHandoff({ isGuest: false })
+
+    await waitFor(() => expect(hook.result.current.status).toBe('failed'))
+    act(() => hook.result.current.retry())
+    await waitFor(() => expect(hook.result.current.status).toBe('idle'))
+    expect(props.setRemoteVideo).toHaveBeenCalledTimes(1)
+    expect(
+      post.mock.calls.filter((call) => call[0] === TOOL_HANDOFF_ISSUE_PATH)
+    ).toHaveLength(1)
+    expect(
+      post.mock.calls.filter((call) => call[0] === TOOL_HANDOFF_REDEEM_PATH)
+    ).toHaveLength(2)
+  })
+
+  it('times out the issue call after five seconds', async () => {
+    vi.useFakeTimers()
+    pendingHandoff()
+    post.mockImplementation(() => new Promise(() => {}))
+    const { hook } = renderHandoff({ isGuest: false })
+
+    await act(async () => {
+      vi.advanceTimersByTime(5_000)
+      await Promise.resolve()
+    })
+    expect(hook.result.current.status).toBe('failed')
+    expect(hook.result.current.error).toBe(TOOL_HANDOFF_TIMEOUT_MESSAGE)
+    expect(toastError).toHaveBeenCalledWith(TOOL_HANDOFF_TIMEOUT_MESSAGE)
+  })
+
+  it('times out the redeem call after sixty seconds', async () => {
+    vi.useFakeTimers()
+    pendingHandoff()
+    post
+      .mockResolvedValueOnce(issued())
+      .mockImplementation(() => new Promise(() => {}))
+    const { hook } = renderHandoff({ isGuest: false })
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(post).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      vi.advanceTimersByTime(60_000)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(hook.result.current.status).toBe('failed')
+    expect(hook.result.current.error).toBe(TOOL_HANDOFF_TIMEOUT_MESSAGE)
+  })
+
+  it('switches the loading label after ten seconds without a second request', async () => {
+    vi.useFakeTimers()
+    pendingHandoff()
+    post
+      .mockResolvedValueOnce(issued())
+      .mockImplementation(() => new Promise(() => {}))
+    const { hook } = renderHandoff({ isGuest: false })
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(post).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+      await Promise.resolve()
+    })
+    expect(hook.result.current.status).toBe('loading')
+    expect(hook.result.current.loadingLabel).toBe('Still loading video…')
+    expect(post).toHaveBeenCalledTimes(2)
+  })
+
+  it('toasts once without calling the server when a legacy record already failed', () => {
+    writeGuestHandoff({ failed: true, mode: 'video', motionMode: 'recreate' })
+    const { hook } = renderHandoff({ isGuest: false })
+
+    expect(post).not.toHaveBeenCalled()
+    expect(hook.result.current.status).toBe('failed')
     expect(toastError).toHaveBeenCalledTimes(1)
   })
 
   it('adds no toast of its own when the slot rejects the redeemed video', async () => {
     pendingHandoff()
-    post.mockResolvedValue({
-      data: {
-        success: true,
-        data: {
-          url: STORED_URL,
-          preview_url: STORED_URL,
-          name: 'tiktok-1.mp4',
-        },
-      },
-    })
-    const { props } = renderHandoff({ isGuest: false, accepted: false })
+    post
+      .mockResolvedValueOnce(issued())
+      .mockResolvedValueOnce(redeemed())
+    const { props, hook } = renderHandoff({ isGuest: false, accepted: false })
 
-    await waitFor(() => expect(props.setRemoteVideo).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(props.setRemoteVideo).toHaveBeenCalledTimes(1)
+    )
+    await waitFor(() => expect(hook.result.current.status).toBe('idle'))
     expect(toastError).not.toHaveBeenCalled()
   })
 
-  it('redeems only once across re-renders', async () => {
+  it('issues and redeems only once across re-renders', async () => {
     pendingHandoff()
-    post.mockImplementation(() => rejectWith(410, 'handoff_expired'))
+    post
+      .mockResolvedValueOnce(issued())
+      .mockResolvedValueOnce(redeemed())
     const { props, hook } = renderHandoff({ isGuest: false })
     hook.rerender({ ...props, motionMode: 'recreate' })
 
-    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
-    expect(post).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(hook.result.current.status).toBe('idle'))
+    expect(post).toHaveBeenCalledTimes(2)
   })
 
   it('does nothing without a handoff', () => {
-    const { props } = renderHandoff({ isGuest: false })
+    const { props, hook } = renderHandoff({ isGuest: false })
     expect(post).not.toHaveBeenCalled()
+    expect(hook.result.current.status).toBe('idle')
     expect(props.onWorkbenchModeChange).not.toHaveBeenCalled()
     expect(toastError).not.toHaveBeenCalled()
   })
@@ -257,7 +408,7 @@ describe('sign-in keeps the handoff', () => {
       vi.fn()
     )
 
-    expect(takeGuestHandoff()?.token).toBe(TOKEN)
+    expect(takeGuestHandoff()?.workId).toBe(WORK_ID)
   })
 
   it('keeps the record and adds no query parameter when the gate sends the guest to sign in', () => {
@@ -270,7 +421,7 @@ describe('sign-in keeps the handoff', () => {
       search: Record<string, string>
     }
     expect(target.search).toEqual({ redirect: '/influencer' })
-    expect(JSON.stringify(track.mock.calls)).not.toContain(TOKEN)
-    expect(takeGuestHandoff()?.token).toBe(TOKEN)
+    expect(JSON.stringify(track.mock.calls)).not.toContain(WORK_ID)
+    expect(takeGuestHandoff()?.workId).toBe(WORK_ID)
   })
 })

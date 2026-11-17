@@ -28,6 +28,7 @@ import {
   RECREATE_MAX_IMAGES,
   type MotionForm,
 } from '../hooks/use-motion'
+import type { ToolHandoffState } from '../hooks/use-tool-handoff'
 import { toastInfluencerError } from '../lib/error-copy'
 import { getAvailableMentions } from '../lib/mention'
 import { CharacterSlot } from './character-slot'
@@ -41,6 +42,7 @@ interface Props {
   /** Anchor for the shared reference picker on desktop. */
   assetsRef?: RefObject<HTMLElement | null>
   submitting?: boolean
+  toolHandoff?: ToolHandoffState
   onPreviewVideo?: (url: string) => void
   onPreviewImage?: (url: string) => void
   onBeforeVideoPick?: () => boolean
@@ -98,6 +100,14 @@ export function RecreateForm(props: Props) {
             previewUrl={previewUrl}
             badge={metadata ? `${metadata.durationSec}s` : undefined}
             busy={motion.videoPreparing || props.submitting}
+            loading={props.toolHandoff?.status === 'loading'}
+            loadingLabel={props.toolHandoff?.loadingLabel}
+            loadError={
+              props.toolHandoff?.status === 'failed'
+                ? props.toolHandoff.error
+                : undefined
+            }
+            onRetry={props.toolHandoff?.retry}
             onPreviewVideo={props.onPreviewVideo}
             onBeforePick={props.onBeforeVideoPick}
             onOpenPicker={motion.openVideoPicker}

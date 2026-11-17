@@ -94,11 +94,11 @@ function inLanding(node: React.ReactNode) {
 }
 
 describe('tool page breakdown buttons once breakdown is launched', () => {
-  it('shows the video breakdown button next to Recreate with my character', () => {
+  it('shows the video breakdown button next to Recreate', () => {
     inLanding(<ToolVideoResult result={videoResult} />)
 
     expect(
-      screen.getByRole('link', { name: /recreate with my character/i })
+      screen.getByRole('link', { name: /^recreate$/i })
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /break down/i })).toHaveAttribute(
       'href',
