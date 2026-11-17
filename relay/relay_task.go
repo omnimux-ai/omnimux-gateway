@@ -803,6 +803,7 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 		Quota:      task.Quota,
 		Action:     constant.NormalizeTaskAction(task.Action),
 		Status:     string(task.Status),
+		Stage:      taskStage(task),
 		FailReason: task.FailReason,
 		ResultURL:  task.GetResultURL(),
 		SubmitTime: task.SubmitTime,
@@ -814,5 +815,29 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 		Data:       task.Data,
 
 		ResultUnverified: task.PrivateData.ImageResultUnverified,
+	}
+}
+
+// taskStage exposes the workbench's two non-terminal phases for the new
+// recreation task model. It is derived from durable task state, so older rows
+// and non-recreation tasks stay without a stage.
+func taskStage(task *model.Task) string {
+	if task == nil || task.Action != "influencer_motion" {
+		return ""
+	}
+	var input struct {
+		Mode     string `json:"mode"`
+		VideoURL string `json:"video_url"`
+	}
+	if common.UnmarshalJsonStr(task.Properties.Input, &input) != nil || input.Mode != "recreate" || strings.TrimSpace(input.VideoURL) == "" {
+		return ""
+	}
+	switch task.Status {
+	case model.TaskStatusWaiting, model.TaskStatusClaimed, model.TaskStatusNotStart:
+		return "analyzing"
+	case model.TaskStatusDispatching, model.TaskStatusSubmitted, model.TaskStatusQueued, model.TaskStatusInProgress:
+		return "generating"
+	default:
+		return ""
 	}
 }

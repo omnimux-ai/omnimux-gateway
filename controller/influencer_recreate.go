@@ -306,6 +306,64 @@ func influencerRecreateAnalysisResult(plan service.InfluencerRecreatePlan, resol
 	}
 }
 
+// influencerRecreateQueuedGenerationOut builds the initial body for a Web
+// recreation task. The reference clip stays in task input for the worker's
+// planner; the provider body never carries it and receives the compiled prompt
+// only after PlanInfluencerRecreatePrompt succeeds.
+func influencerRecreateQueuedGenerationOut(c *gin.Context, req influencerMotionRequest, resolution, intent string, subjectURLs, imageTags []string) (map[string]any, map[string]any, *service.PreparedInfluencerVideo, bool) {
+	video := strings.TrimSpace(req.VideoURL)
+	if !isInfluencerMediaURL(video) {
+		influencerAbort(c, "video_url must be a public https address")
+		return nil, nil, nil, false
+	}
+	userID := c.GetInt("id")
+	if userID <= 0 {
+		influencerError(c, http.StatusUnauthorized, "unauthorized", "未授权访问")
+		c.Abort()
+		return nil, nil, nil, false
+	}
+	referenceURL, allowed := resolveInfluencerVideoReferenceSource(c, video, userID)
+	if !allowed {
+		return nil, nil, nil, false
+	}
+	seconds, _, err := influencerBrowserVideoOutput(req, resolution)
+	if err != nil {
+		influencerAbort(c, err.Error())
+		return nil, nil, nil, false
+	}
+	out := map[string]any{
+		"model":        influencerMotionModel,
+		"group":        influencerMotionGroups[resolution],
+		"prompt":       "",
+		"seconds":      strconv.Itoa(seconds),
+		"aspect_ratio": influencerMotionAspectRatio,
+		"resolution":   resolution,
+		"images":       subjectURLs,
+	}
+	meta := map[string]any{
+		"kind":               influencerMotionKind,
+		"mode":               influencerMotionModeRecreate,
+		"prompt":             intent,
+		"subject_image_url":  subjectURLs[0],
+		"subject_image_urls": subjectURLs,
+		"video_url":          video,
+		"duration_sec":       seconds,
+		"resolution":         resolution,
+		"size":               influencerMotionAspectRatio,
+	}
+	if referenceURL != video {
+		meta["video_reference_url"] = referenceURL
+	}
+	if req.VideoMetadata != nil {
+		meta["video_metadata"] = *req.VideoMetadata
+		meta["video_metadata_source"] = "browser"
+	}
+	if len(imageTags) > 0 {
+		meta["subject_image_tags"] = imageTags
+	}
+	return out, meta, &service.PreparedInfluencerVideo{}, true
+}
+
 // influencerRecreateGenerationOut builds the canonical submit body for a
 // recreation generation. The request has no video and no audio by construction:
 // the clip was decomposition material only and the prompt already carries its
