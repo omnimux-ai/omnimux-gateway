@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useState } from 'react'
 
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 import { MODEL_BRAND_ICONS, type IconName } from './data'
 import { usePrefersReducedMotion } from './hooks'
 import { Icon } from './icons'

@@ -36,16 +36,25 @@ import { CnSurfaces } from './components/cn/surfaces'
 import { CnTools } from './components/cn/tools'
 import { CnWorkspace } from './components/cn/workspace'
 import {
-  LandingLangProvider,
+  LandingLangProviderBase,
   landingLangOption,
   useLanding,
-} from './i18n'
+} from './i18n/context'
+import type { LandingCopy, LandingLang } from './i18n/types'
 
-export function DesktopLanding() {
+export function DesktopLanding(
+  props: {
+    initialCopy?: LandingCopy
+    initialLang?: LandingLang
+  } = {}
+) {
   return (
-    <LandingLangProvider>
+    <LandingLangProviderBase
+      initialCopy={props.initialCopy}
+      initialLang={props.initialLang}
+    >
       <LandingView />
-    </LandingLangProvider>
+    </LandingLangProviderBase>
   )
 }
 

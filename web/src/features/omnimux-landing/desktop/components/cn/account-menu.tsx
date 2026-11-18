@@ -35,7 +35,7 @@ import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 
 /**
  * 桌面端落地页的账户菜单。结构与 ProfileDropdown 保持一致（用户头、

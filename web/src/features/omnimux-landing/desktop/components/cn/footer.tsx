@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
 
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 
 /** `anchorBase` (the tool pages pass `/`) points `#…` links at the homepage. */
 export function CnFooter(props: { anchorBase?: string }) {

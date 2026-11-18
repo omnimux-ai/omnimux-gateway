@@ -20,28 +20,29 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { LandingLangProvider } from '../../i18n'
 import { zhCN } from '../../i18n/locales/zh-CN'
-import {
-  DOWNLOAD_MAC_ARM64,
-  DOWNLOAD_MAC_X64,
-  DOWNLOAD_WIN,
-} from '../cn/data'
+import { DOWNLOAD_MAC_ARM64, DOWNLOAD_MAC_X64, DOWNLOAD_WIN } from '../cn/data'
 import { CnFaq } from '../cn/faq'
 import { CnHero } from '../cn/hero'
 import { CnProof } from '../cn/proof'
 
 afterEach(cleanup)
 
+function renderWithLanding(node: React.ReactNode) {
+  return render(<LandingLangProvider lang='zh-CN'>{node}</LandingLangProvider>)
+}
+
 describe('desktop CN landing', () => {
   it('renders every FAQ entry', () => {
-    const { container } = render(<CnFaq />)
+    const { container } = renderWithLanding(<CnFaq />)
     const items = container.querySelectorAll('details')
     expect(items).toHaveLength(zhCN.faq.items.length)
     expect(screen.getByText('怎么复刻竞品的爆款视频？')).toBeTruthy()
   })
 
   it('states product facts without invented traction numbers', () => {
-    const { container } = render(<CnProof />)
+    const { container } = renderWithLanding(<CnProof />)
     // Read the copy instead of pinning literals: the platform count must stay
     // the length of the badge list beside it, not a second hand-kept number.
     for (const fact of zhCN.proof.facts) {
@@ -57,7 +58,7 @@ describe('desktop CN landing', () => {
 describe('desktop CN hero composer', () => {
   it('shows no model hint for Agent but keeps the parameter hint for video and image', async () => {
     const user = userEvent.setup()
-    const { container } = render(<CnHero />)
+    const { container } = renderWithLanding(<CnHero />)
     const hint = () => container.querySelector('.c-model')
 
     expect(hint()).toBeNull()
@@ -76,7 +77,7 @@ describe('desktop CN hero composer', () => {
 describe('desktop CN hero split download', () => {
   const openMenu = async () => {
     const user = userEvent.setup()
-    render(<CnHero />)
+    renderWithLanding(<CnHero />)
     const caret = screen.getByRole('button', { name: zhCN.hero.dlMenuAria })
     await user.click(caret)
     return { user, caret }
@@ -117,7 +118,7 @@ describe('desktop CN hero split download', () => {
     })
     try {
       const user = userEvent.setup()
-      render(<CnHero />)
+      renderWithLanding(<CnHero />)
       const wrap = document.querySelector<HTMLDivElement>('.split-dl')
       expect(wrap).toBeTruthy()
       if (!wrap) return
@@ -179,7 +180,7 @@ describe('desktop CN hero split download', () => {
   })
 
   it('main button defaults to the arm64 build when detection has not run', () => {
-    render(<CnHero />)
+    renderWithLanding(<CnHero />)
     const main = document.querySelector<HTMLAnchorElement>('.split-main')
     expect(main?.getAttribute('href')).toBe(DOWNLOAD_MAC_ARM64)
     expect(main?.textContent).toBe(zhCN.hero.dlMac)

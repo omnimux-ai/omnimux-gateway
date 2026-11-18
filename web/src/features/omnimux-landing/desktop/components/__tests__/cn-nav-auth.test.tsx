@@ -17,8 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import {
   createMemoryHistory,
   createRootRoute,
@@ -26,11 +24,14 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ROLE } from '@/lib/roles'
 import { useAuthStore, type AuthBundle } from '@/stores/auth-store'
 
+import { LandingLangProvider } from '../../i18n'
 import { CnNav } from '../cn/nav'
 
 function makeBundle(): AuthBundle {
@@ -65,7 +66,9 @@ async function renderNav() {
     path: '/',
     component: () => (
       <div className='omc'>
-        <CnNav />
+        <LandingLangProvider lang='zh-CN'>
+          <CnNav />
+        </LandingLangProvider>
       </div>
     ),
   })

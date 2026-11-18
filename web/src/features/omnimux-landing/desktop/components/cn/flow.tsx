@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 import type { FlowStepCopy } from '../../i18n/types'
 import {
   ASSETS,

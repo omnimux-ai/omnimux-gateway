@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { STORAGE_KEYS as PLAYGROUND_STORAGE_KEYS } from '@/features/playground/constants'
+import { FIRST_TOUCH_STORAGE_KEY } from '@/lib/growth-tracking'
+import { LANDING_LANG_STORAGE_KEY } from '@/lib/landing-storage'
 import { THEME_STORAGE_KEYS } from '@/lib/theme-storage'
 
 const FRONTEND_CACHE_VERSION = 'default-v1'
@@ -24,6 +26,8 @@ const FRONTEND_CACHE_VERSION_KEY = 'newapi:default:cache-version'
 const PRESERVED_LOCAL_STORAGE_KEYS = new Set([
   FRONTEND_CACHE_VERSION_KEY,
   ...Object.values(THEME_STORAGE_KEYS),
+  LANDING_LANG_STORAGE_KEY,
+  FIRST_TOUCH_STORAGE_KEY,
   'user',
   'uid',
   'aff',

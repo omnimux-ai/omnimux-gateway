@@ -196,6 +196,34 @@ export default defineConfig(({ envMode }) => {
   // Empty keeps the feature's same-origin `/inspiration-catalog/` default; the
   // value is defined below so a shell variable works alongside a .env entry,
   // the same way the brand vars above are resolved.
+  const entryManifestPlugin: RsbuildPlugin = {
+    name: 'omnimux-entry-manifest',
+    setup(api) {
+      api.processAssets({ stage: 'report' }, ({ compilation, sources }) => {
+        const entryFiles = (name: string) =>
+          (compilation.entrypoints.get(name)?.getFiles() ?? []).filter(
+            (file) => file.endsWith('.js') || file.endsWith('.css')
+          )
+        const landing = entryFiles('landing')
+        const app = entryFiles('app')
+        if (landing.length === 0 || app.length === 0) {
+          throw new Error('Landing/app entry files were not emitted')
+        }
+        const html = compilation.getAsset('index.html')
+        if (!html) throw new Error('index.html was not emitted')
+        const manifest = JSON.stringify({
+          landing: landing.map((file) => `/${file}`),
+          app: app.map((file) => `/${file}`),
+        })
+        const source = html.source.source().toString()
+        const next = source.replace(
+          '</head>',
+          `<script>window.__OMNIMUX_ENTRIES__=${manifest}</script></head>`
+        )
+        compilation.updateAsset('index.html', new sources.RawSource(next))
+      })
+    },
+  }
   const inspirationCatalogBase =
     process.env.VITE_INSPIRATION_CATALOG_BASE ||
     env.rawPublicVars.VITE_INSPIRATION_CATALOG_BASE ||
@@ -211,6 +239,7 @@ export default defineConfig(({ envMode }) => {
     plugins: [
       pluginReact(),
       pluginTailwindcss({ optimize: false }),
+      entryManifestPlugin,
       searchPageContract,
     ],
     // Rsbuild 2: replaces deprecated `performance.chunkSplit` (RSPack 2 aligned)
@@ -227,15 +256,43 @@ export default defineConfig(({ envMode }) => {
         'vendor-ui-primitives': {
           test: /node_modules[\\/](@base-ui|@radix-ui)[\\/]/,
           name: 'vendor-ui-primitives',
-          chunks: 'all',
+          chunks: (chunk) => !String(chunk.name ?? '').startsWith('landing'),
           priority: 0,
+          enforce: true,
+        },
+        'landing-ui-primitives': {
+          test: /node_modules[\\/](@base-ui|@radix-ui)[\\/]/,
+          name: 'landing-ui-primitives',
+          chunks: (chunk) => String(chunk.name ?? '').startsWith('landing'),
+          priority: 20,
+          enforce: true,
+        },
+        'vendor-i18n': {
+          test: /node_modules[\\/](i18next|react-i18next|i18next-browser-languagedetector)[\\/]/,
+          name: 'vendor-i18n',
+          chunks: (chunk) => !String(chunk.name ?? '').startsWith('landing'),
+          priority: 20,
+          enforce: true,
+        },
+        'vendor-sonner': {
+          test: /node_modules[\\/]sonner[\\/]/,
+          name: 'vendor-sonner',
+          chunks: (chunk) => !String(chunk.name ?? '').startsWith('landing'),
+          priority: 20,
           enforce: true,
         },
         'vendor-tanstack': {
           test: /node_modules[\\/]@tanstack[\\/]/,
           name: 'vendor-tanstack',
-          chunks: 'all',
+          chunks: (chunk) => !String(chunk.name ?? '').startsWith('landing'),
           priority: 0,
+          enforce: true,
+        },
+        'landing-tanstack': {
+          test: /node_modules[\\/]@tanstack[\\/]/,
+          name: 'landing-tanstack',
+          chunks: (chunk) => String(chunk.name ?? '').startsWith('landing'),
+          priority: 20,
           enforce: true,
         },
         // Heavy libraries that only ever load on demand (KaTeX/marked via the
@@ -262,6 +319,8 @@ export default defineConfig(({ envMode }) => {
     source: {
       entry: {
         index: './src/main.tsx',
+        landing: { import: './src/landing-entry.tsx', html: false },
+        app: { import: './src/app-entry.tsx', html: false },
         guides: { import: './src/features/guides/browser.ts', html: false },
       },
       define: {

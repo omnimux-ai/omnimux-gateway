@@ -24,7 +24,7 @@ import { writeWorkbenchMode } from '@/features/influencer/lib/workbench-mode'
 import { trackToolCtaClick, type ToolCtaClick } from '@/lib/growth-tracking'
 
 import { Icon } from '../../components/cn/icons'
-import { useCopy, useLanding } from '../../i18n'
+import { useCopy, useLanding } from '../../i18n/context'
 import type { ToolResult } from '../lib/api'
 import { TOOL_BREAKDOWN_ENABLED } from '../lib/workbench-entry'
 import { useViralRecreateEntry } from '../lib/workbench-handoff'

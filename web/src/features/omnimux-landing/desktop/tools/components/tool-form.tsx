@@ -24,7 +24,7 @@ import { Turnstile } from '@/components/turnstile'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { Icon } from '../../components/cn/icons'
-import { useCopy } from '../../i18n'
+import { useCopy } from '../../i18n/context'
 import { TOOL_PATHS, type ToolKind, type ToolLocale } from '../content'
 import type { ToolResult } from '../lib/api'
 import { useToolResolver, type ToolFailure } from '../lib/use-tool-resolver'
