@@ -209,6 +209,54 @@ describe('Umami adapter', () => {
       'influencer_page_view',
     ])
   })
+
+  it('keeps a fresh event when the previous event expires during adapter loading', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { installAnalytics } = await import('../analytics-bootstrap')
+    const trackEvent = vi.fn()
+    let finish!: (adapter: { trackEvent: typeof trackEvent }) => void
+    installAnalytics(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const tracker = (globalThis as { __OMNIMUX_TRACK__?: AnalyticsTracker })
+      .__OMNIMUX_TRACK__
+    tracker?.('pricing_page_view')
+    await vi.advanceTimersByTimeAsync(9900)
+    tracker?.('influencer_page_view', { guest: true })
+    await vi.advanceTimersByTimeAsync(200)
+
+    finish({ trackEvent })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(trackEvent.mock.calls.map(([event]) => event.name)).toEqual([
+      'influencer_page_view',
+    ])
+  })
+
+  it('retries an interrupted adapter load and replays the click once', async () => {
+    const { installAnalytics } = await import('../analytics-bootstrap')
+    const trackEvent = vi.fn()
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('download canceled script load'))
+      .mockResolvedValue({ trackEvent })
+    installAnalytics(load)
+    const tracker = (globalThis as { __OMNIMUX_TRACK__?: AnalyticsTracker })
+      .__OMNIMUX_TRACK__
+    tracker?.('download_cta_click', downloadClick)
+
+    await vi.advanceTimersByTimeAsync(500)
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(trackEvent).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        name: 'download_cta_click',
+        props: downloadClick,
+      })
+    )
+  })
 })
 
 describe('desktop download click', () => {

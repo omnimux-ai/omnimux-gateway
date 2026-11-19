@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 export const ANALYTICS_QUEUE_MAX = 50
 export const ANALYTICS_QUEUE_TIMEOUT_MS = 10_000
 export const TRACKER_NAME = '__OMNIMUX_TRACK__'
+const ADAPTER_RETRY_DELAY_MS = 200
 
 export type AnalyticsEvent = {
   name: string
@@ -53,6 +54,49 @@ export function installAnalytics(
   let loading = false
   let timeout: number | undefined
 
+  const expirePending = () => {
+    timeout = undefined
+    const now = Date.now()
+    const cutoff = now - ANALYTICS_QUEUE_TIMEOUT_MS
+    if (pending.length > 0 && pending[0].timestamp <= cutoff) {
+      do {
+        pending.shift()
+      } while (pending.length > 0 && pending[0].timestamp <= cutoff)
+      warnAnalytics('Umami tracker unavailable')
+    }
+    if (pending.length > 0) {
+      timeout = window.setTimeout(expirePending, pending[0].timestamp - cutoff)
+    }
+  }
+
+  const loadTracker = (retried = false) => {
+    loading = true
+    void loadAdapter().then(
+      (adapter) => {
+        trackEvent = adapter.trackEvent
+        window.clearTimeout(timeout)
+        timeout = undefined
+        for (const queued of pending.splice(0)) trackEvent(queued)
+      },
+      () => {
+        // A navigation that becomes a download can cancel a script load
+        // without leaving this page. Retry once while the clicks are fresh.
+        if (!retried && pending.length > 0) {
+          window.setTimeout(() => {
+            if (pending.length > 0) loadTracker(true)
+            else loading = false
+          }, ADAPTER_RETRY_DELAY_MS)
+          return
+        }
+        loading = false
+        pending.length = 0
+        window.clearTimeout(timeout)
+        timeout = undefined
+        warnAnalytics('Umami tracker unavailable')
+      }
+    )
+  }
+
   ;(globalThis as AnalyticsGlobal)[TRACKER_NAME] = (name, props) => {
     const event = {
       name,
@@ -67,28 +111,7 @@ export function installAnalytics(
     }
     if (pending.length === ANALYTICS_QUEUE_MAX) pending.shift()
     pending.push(event)
-    timeout ??= window.setTimeout(() => {
-      pending.length = 0
-      timeout = undefined
-      warnAnalytics('Umami tracker unavailable')
-    }, ANALYTICS_QUEUE_TIMEOUT_MS)
-    if (loading) return
-
-    loading = true
-    void loadAdapter().then(
-      (adapter) => {
-        trackEvent = adapter.trackEvent
-        window.clearTimeout(timeout)
-        timeout = undefined
-        for (const queued of pending.splice(0)) trackEvent(queued)
-      },
-      () => {
-        loading = false
-        pending.length = 0
-        window.clearTimeout(timeout)
-        timeout = undefined
-        warnAnalytics('Umami tracker unavailable')
-      }
-    )
+    timeout ??= window.setTimeout(expirePending, ANALYTICS_QUEUE_TIMEOUT_MS)
+    if (!loading) loadTracker()
   }
 }
