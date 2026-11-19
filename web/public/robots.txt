@@ -10,7 +10,9 @@ Disallow: /
 
 User-agent: *
 Allow: /
-# Tool APIs and signed media links are not pages.
+# Crawler rules for APIs and signed task media.
 Disallow: /api/tools/
+Disallow: /api/
+Disallow: /v1/
 
 Sitemap: https://omnimux.ai/sitemap.xml
