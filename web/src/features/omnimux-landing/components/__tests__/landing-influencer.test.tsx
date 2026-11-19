@@ -31,6 +31,7 @@ const zhMap = zh.translation as unknown as TranslationMap
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const featureDir = path.resolve(__dirname, '..', '..')
+const localeDir = path.resolve(featureDir, '..', '..', 'i18n', 'locales')
 
 const readSrc = (rel: string) =>
   readFileSync(path.resolve(featureDir, rel), 'utf-8')
@@ -85,7 +86,6 @@ describe('Influencer landing copy contracts', () => {
   })
 
   test('all seven locales provide effective nonempty translated landing text', () => {
-    const localeDir = path.resolve(featureDir, '..', '..', 'i18n', 'locales')
     for (const locale of ['en', 'zh', 'zh-TW', 'fr', 'ja', 'ru', 'vi']) {
       const map = JSON.parse(readFileSync(path.join(localeDir, `${locale}.json`), 'utf-8')).translation as TranslationMap
       const pricingKeys = [
@@ -121,6 +121,37 @@ describe('Influencer landing copy contracts', () => {
       }
     }
   })
+
+  test.each([
+    ['en', /before every generation/i, /real look/i, /^real output from the studio$/i],
+    ['zh', /每次生成前/, /真实形象/, /^工作台真实出图$/],
+    ['zh-TW', /每次生成前/, /真實形象/, /^工作台真實出圖$/],
+    ['fr', /avant chaque génération/i, /vrai personnage/i, /^résultats réels du studio$/i],
+    ['ja', /生成のたびに/, /実在の/, /^スタジオで実際に生成した画像$/],
+    ['ru', /перед каждой/i, /настоящий образ/i, /^реальные результаты студии$/i],
+    ['vi', /trước mỗi lần/i, /nhân vật thật/i, /^ảnh thật tạo từ studio$/i],
+  ] as const)(
+    '%s has localized pricing and example copy without outdated claims',
+    (locale, oldPricing, oldCaption, oldExample) => {
+      const map = JSON.parse(
+        readFileSync(path.join(localeDir, `${locale}.json`), 'utf-8')
+      ).translation as TranslationMap
+
+      for (const [key, outdated] of [
+        ['influencer_landing.pricing.feature.preview', oldPricing],
+        ['influencer_landing.hero.stageCaption', oldCaption],
+        ['influencer_landing.hero.realOutput', oldExample],
+      ] as const) {
+        const value = map[key]
+        assert.ok(typeof value === 'string' && value.trim(), `${locale} missing ${key}`)
+        assert.notEqual(value, key, `${locale} unresolved ${key}`)
+        assert.doesNotMatch(value, outdated, `${locale} outdated ${key}`)
+        if (locale !== 'en') {
+          assert.notEqual(value, enMap[key], `${locale} untranslated ${key}`)
+        }
+      }
+    }
+  )
 
   test('title fragments form a complete sentence in both locales', () => {
     const enText =
