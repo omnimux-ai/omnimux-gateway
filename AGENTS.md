@@ -2,7 +2,7 @@
 
 DO NOT send optional commentary
 
-Read this file in full and the applicable scoped `AGENTS.md` files. For product changes, confirm the requirements, then complete [research before design](#research-before-design-fork) before proposing a solution.
+Read this file in full and the applicable scoped `AGENTS.md` files. On both new and resumed tasks, follow [agent decisions and handoff](.agents/rules/development-workflow.md). For product changes, confirm the requirements, then complete [research before design](#research-before-design-fork) before proposing a solution.
 
 ## Overview
 
@@ -283,10 +283,10 @@ Protected prefixes (truth: [scripts/ops/core-change-paths.txt](scripts/ops/core-
 
 - Read live state first. If PR checks or the merge already settled, act on that result now; do not start a waiter for a finished condition.
 - Any CI, merge-queue, or PR-merge wait longer than about 15 seconds MUST run as exactly one bounded background job. Never poll with a foreground `sleep` loop, `gh pr checks`, or repeated `gh pr view` calls.
-  - Run `node scripts/ops/pr-wait.mjs --pr <n> --until checks --json` (or `--until merged`) as a background job; keep the job id and resume on the completion notification or its output. One waiter per PR and head SHA; a new head invalidates the old result, so start one new waiter rather than running two.
+  - For PR readiness, run `node scripts/ops/pr-wait.mjs --pr <n> --until checks --required --head <reviewed-full-sha> --json` as a background job. For a merge receipt, use `--until merged --head <reviewed-full-sha>`. Keep the job id and resume on its result. One waiter per PR and head. If the revision changes, review the new diff before starting a waiter for that revision.
   - If the harness has no background-job facility, use its native scheduling tool. If neither exists, report the wait as blocked; do not burn foreground turns.
 - While waiting, continue other authorized work. If nothing else is authorized, end the turn and resume on the completion notification.
-- A green waiter result is readiness evidence, not merge authorization. Before merging or cleaning up, read back `state=MERGED`, `mergedAt`, and `mergeCommit`, and verify the checks that matter for the touched paths.
+- The waiter reports PR check results or a merge receipt. With merge authorization, use the configured merge queue and verify its checks against the queue candidate. After merge, read back `state=MERGED`, `mergedAt` and `mergeCommit`; verify applicable acceptance before cleanup.
 
 ### Commands / Verify
 

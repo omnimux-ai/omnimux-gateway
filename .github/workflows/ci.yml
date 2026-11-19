@@ -193,6 +193,9 @@ jobs:
       - name: Verify thumbnail backfill resume and rate-limit handling
         run: node --test scripts/ops/image-thumbnails/backfill.test.mjs
 
+      - name: Test PR readiness and merge receipts
+        run: node --test scripts/ops/pr-wait.test.mjs scripts/ops/required-pr-checks.test.mjs
+
   frontend-static:
     name: Frontend typecheck and translation coverage
     runs-on: ubuntu-latest
