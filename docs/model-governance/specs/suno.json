@@ -46,5 +46,5 @@
   "unknowns": [
     "输入参考音频文件大小（字节上限）官方未给出具体数值限制"
   ],
-  "notes": "出处为 Suno 官方帮助中心与知识库（help.suno.com，2026年9月最新官方维护）。Suno 核心生成大模型为 v6 系列（含 v6、v6-wild、v6-mini），单曲生成上限长达 8 分钟（480 秒），输出原生支持 MP3/WAV。OmniMux 对外公开 ID suno 系音乐生成通用入口，上游挂载 APIMart 专线（/v1/music/generations）。"
+  "notes": "出处为 Suno 官方帮助中心与知识库（help.suno.com，2026年9月最新官方维护）。Suno 核心生成大模型为 v6 系列（含 v6、v6-wild、v6-mini），单曲生成上限长达 8 分钟（480 秒），输出原生支持 MP3/WAV。OmniMux 对外公开 ID suno 系音乐生成通用入口，上游挂载 APIMart 专线（/v1/music/generations）。公开的 text_to_music 操作仅声明 prompt 输入。灵感模式会忽略历史请求附带的 duration。"
 }

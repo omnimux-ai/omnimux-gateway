@@ -205,6 +205,10 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		if _, ok := out["custom"]; !ok {
 			out["custom"] = false
 		}
+		// fork: ignore legacy duration in inspiration mode, where the upstream rejects it.
+		if custom, ok := out["custom"].(bool); ok && !custom {
+			delete(out, "duration")
+		}
 	}
 	if kind == kindMidjourney {
 		// Unified MJ route injects model server-side; still send model for billing clarity.

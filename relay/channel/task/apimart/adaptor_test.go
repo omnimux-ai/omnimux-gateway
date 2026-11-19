@@ -2,8 +2,10 @@ package apimart
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/model"
@@ -50,6 +52,22 @@ func TestParseTaskResult_CompletedImageURLArray(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, string(model.TaskStatusSuccess), info.Status)
 	assert.Equal(t, "https://cdn.example/i.png", info.Url)
+}
+
+func TestParseTaskResult_CompletedMusic(t *testing.T) {
+	body := []byte(`{
+	  "code":200,
+	  "data":{
+	    "id":"task_music",
+	    "status":"completed",
+	    "progress":100,
+	    "result":{"music":[{"audio_url":"https://cdn.example/song.mp3"}]}
+	  }
+	}`)
+	info, err := (&TaskAdaptor{}).ParseTaskResult(nil, nil, body)
+	require.NoError(t, err)
+	assert.Equal(t, string(model.TaskStatusSuccess), info.Status)
+	assert.Equal(t, "https://cdn.example/song.mp3", info.Url)
 }
 
 func TestParseTaskResult_FailedFixture(t *testing.T) {
@@ -149,24 +167,58 @@ func TestIsEvoLinkWanUpstream(t *testing.T) {
 	assert.False(t, isEvoLinkWanUpstream("wan-3.0"))
 }
 
-func TestBuildRequestBody_MusicInjectsLiveSunoVersion(t *testing.T) {
+func TestBuildRequestBody_SunoDurationByMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
-	c.Set("task_request_raw", map[string]any{"prompt": "a cheerful summer pop song"})
-
-	info := &relaycommon.RelayInfo{
-		OriginModelName: "suno",
-		ChannelMeta:     &relaycommon.ChannelMeta{},
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "prompt only",
+			body: `{"model":"suno","prompt":"a cheerful summer pop song"}`,
+			want: `{"model":"suno","prompt":"a cheerful summer pop song","version":"v6","custom":false}`,
+		},
+		{
+			name: "implicit inspiration",
+			body: `{"model":"suno","prompt":"instrumental workout music","duration":22}`,
+			want: `{"model":"suno","prompt":"instrumental workout music","version":"v6","custom":false}`,
+		},
+		{
+			name: "explicit inspiration",
+			body: `{"model":"suno","prompt":"instrumental workout music","custom":false,"duration":22}`,
+			want: `{"model":"suno","prompt":"instrumental workout music","version":"v6","custom":false}`,
+		},
+		{
+			name: "custom lyrics",
+			body: `{"model":"suno","prompt":"[Verse]\nA steady beat","custom":true,"duration":22,"version":"v6-mini"}`,
+			want: `{"model":"suno","prompt":"[Verse]\nA steady beat","custom":true,"duration":22,"version":"v6-mini"}`,
+		},
+		{
+			name: "sound effect",
+			body: `{"model":"suno-sounds","prompt":"a distant bell","duration":12}`,
+			want: `{"model":"suno","prompt":"a distant bell","duration":12}`,
+		},
 	}
-	body, err := (&TaskAdaptor{}).BuildRequestBody(c, info)
-	require.NoError(t, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", strings.NewReader(tc.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			info := &relaycommon.RelayInfo{
+				ChannelMeta:   &relaycommon.ChannelMeta{},
+				TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+			}
+			adaptor := &TaskAdaptor{}
+			require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
 
-	var sent map[string]any
-	require.NoError(t, json.NewDecoder(body).Decode(&sent))
-	// Upstream retired v4; the injected default must be a version it still serves.
-	assert.Equal(t, "v6", sent["version"])
-	assert.Equal(t, false, sent["custom"])
+			body, err := adaptor.BuildRequestBody(c, info)
+			require.NoError(t, err)
+			sent, err := io.ReadAll(body)
+			require.NoError(t, err)
+			assert.JSONEq(t, tc.want, string(sent))
+		})
+	}
 }
 
 func TestBuildRequestBody_SoundEffectKeepsPromptOnly(t *testing.T) {
