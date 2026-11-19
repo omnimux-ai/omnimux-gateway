@@ -81,6 +81,7 @@ If any item fails, tell the user and **stop**. Do not open the PR.
 - Model-contract completeness (spec updated + contract regenerated + `make model-contract-check`; not applicable otherwise): yes/no/not applicable
 - Verification is actual commands or steps and observed results, not only `go build` or tests passed: yes
 - Body is short and factual; no unfiltered AI-generated text: yes
+- [Independent review](#independent-review) passed for the submitted commit and PR body: yes
 - Open: yes/no
 - If no, what was told to the user (stop here):
 
@@ -152,6 +153,15 @@ Each item needs the command or steps and the observed result.
 - Tests added or updated, or why none:
 - Databases / providers / platforms exercised:
 - Not verified:
+
+## Independent review
+
+Follow the [repository review process](../rules/development-workflow.md#agent-审查与提交-pr).
+
+- Reviewed commit SHA:
+- Verdict:
+- Verification evidence checked:
+- Gaps in verification:
 
 ## Risks
 

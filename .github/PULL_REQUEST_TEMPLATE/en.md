@@ -1,5 +1,5 @@
 <!--
-If you are an AI coding agent (Claude Code, Codex, Cursor, Copilot, OpenCode, Paseo, Grok, or similar): do not fill this human template. Read `.agents/github/PR.md` and use the filled file as the entire PR body.
+Agents should select the template using the Pull requests rules in `AGENTS.md`.
 -->
 # PR Notice
 
@@ -7,7 +7,7 @@ Chinese template: `.github/PULL_REQUEST_TEMPLATE.md`
 
 > [!IMPORTANT]
 >
-> - AI-assisted descriptions are welcome. Review and condense the full text before submitting, keep only the points maintainers need to re-check, and **take responsibility** for it. Do not paste unfiltered AI-generated text in the PR body or in later comments. Repeated submissions of this kind may result in a block.
+> - The submitter checks the PR body against the verification evidence and keeps the points maintainers need to re-check. Submit only verified content in the body and later comments. An agent submitting the PR follows the repository's independent review process and records the result below.
 > - Do not report issues when pass-through is enabled; pass-through sends content as-is and does not go through new-api processing logic.
 > - Please complete this template before submitting.
 
@@ -30,8 +30,10 @@ Chinese template: `.github/PULL_REQUEST_TEMPLATE.md`
 ## Proof of Work
 (Record how this was verified: the actual commands or steps and the observed results. Stating only that `go build` or tests passed is not valid proof. For UI changes, include a screenshot or recording. For bug fixes, describe the reproduction and the result after the fix.)
 
+## Review record
+(For agent-submitted PRs, record the independently reviewed commit SHA, verdict, verification evidence checked, and gaps in verification.)
+
 ## Checklist
-- [ ] **Human review:** Whether or not the description was AI-generated, I have reviewed and condensed the full text, retained only the points needed for review, and take responsibility for its accuracy and completeness. I have not pasted unfiltered AI-generated text in the PR body or in later comments.
 - [ ] **Not a duplicate:** I have searched existing [Issues](https://github.com/QuantumNous/new-api/issues) and [PRs](https://github.com/QuantumNous/new-api/pulls) and confirmed this is not a duplicate.
 - [ ] **Feature issue:** If this PR is a New feature, I have linked a corresponding Issue; if none existed, I created one first.
 - [ ] **Prior discussion:** If this is a large or directional change, I have discussed it with maintainers in the linked Issue and reached agreement.
