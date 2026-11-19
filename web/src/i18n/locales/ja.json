@@ -9438,6 +9438,22 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Multiple image references": "複数画像参照",
+    "Swap order": "順序を入れ替え",
+    "Image {{index}}": "画像 {{index}}",
+    "Remove image {{index}}": "画像 {{index}} を削除",
+    "Image 1 is the default start. Use [图1] and [图2] in the prompt.": "画像 1 が既定の開始画面です。プロンプトで [图1] と [图2] を使えます。",
+    "Add two reference images": "参照画像を2枚追加してください",
+    "Muse video requires a JSON request": "Muse 動画には JSON リクエストが必要です",
+    "Muse video duration must be an integer from 1 to 60 seconds": "Muse 動画の長さは1〜60秒の整数にしてください",
+    "Supply only one set of Muse video image inputs": "Muse 動画には画像のセットを1つだけ指定してください",
+    "Muse video first-frame mode requires one image": "Muse 動画の開始フレームには画像が1枚必要です",
+    "Muse video references must be an array of images": "Muse 動画の参照画像は配列で指定してください",
+    "Muse video reference images must be non-empty": "Muse 動画の参照画像は空にできません",
+    "Muse video generation mode is unsupported": "Muse 動画はこの生成モードに対応していません",
+    "Muse video multi-reference mode requires exactly two images": "Muse 動画の複数画像参照には画像が2枚必要です",
+    "Muse text-to-video does not accept reference images": "Muse のテキスト動画生成では参照画像を使用できません",
+    "Only two reference images are allowed": "参照画像は2枚まで追加できます"
   }
 }

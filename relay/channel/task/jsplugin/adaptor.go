@@ -28,6 +28,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/modelcontracts"
 	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -158,6 +159,18 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		}
 	}
 	request, hasRequest := c.Get("task_request")
+	if info.Action == "video_multi_ref" {
+		contract, _ := modelcontracts.For(info.OriginModelName)
+		if contract.GatewayProtocol != "openai_video" {
+			contract, _ = modelcontracts.For(info.GetUpstreamModelName())
+		}
+		if contract.GatewayProtocol == "openai_video" {
+			body, _ := request.(map[string]any)
+			if err := prepareOrderedVideoImages(c, body); err != nil {
+				return service.TaskErrorWrapperLocal(err, "plugin_request_invalid", http.StatusBadRequest)
+			}
+		}
+	}
 	hasUsageProfiles := len(a.plugin.Meta.UsageProfiles) > 0
 	if hasRequest && !hasUsageProfiles {
 		if err := a.validateResolvedUsageRequest(request); err != nil {
@@ -175,6 +188,37 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 			return service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
 		}
 	}
+	return nil
+}
+
+// prepareOrderedVideoImages keeps verified bytes in request scope across
+// provider retries; each retry can re-run the decoder against the original URL.
+func prepareOrderedVideoImages(c *gin.Context, body map[string]any) error {
+	const snapshotKey = "task_plugin_ordered_video_images"
+	if cached, ok := c.Get(snapshotKey); ok {
+		body["images"] = cached
+		return nil
+	}
+	images, ok := body["images"].([]any)
+	if !ok || len(images) != 2 {
+		return fmt.Errorf("multi-reference video requires exactly two images")
+	}
+	remaining := maxInlineFileBytes()
+	verified := make([]any, len(images))
+	for index, raw := range images {
+		source, ok := raw.(string)
+		if !ok {
+			return fmt.Errorf("reference image %d is invalid", index+1)
+		}
+		dataURL, size, err := service.LoadVideoReferenceImage(c, source, remaining)
+		if err != nil {
+			return fmt.Errorf("reference image %d: %w", index+1, err)
+		}
+		remaining -= size
+		verified[index] = dataURL
+	}
+	c.Set(snapshotKey, verified)
+	body["images"] = verified
 	return nil
 }
 

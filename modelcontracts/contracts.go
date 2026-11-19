@@ -74,6 +74,7 @@ type Contract struct {
 	Status          string `json:"status,omitempty"`
 	Basis           string `json:"basis,omitempty"`
 	ServiceNotes    string `json:"service_notes,omitempty"`
+	GatewayProtocol string `json:"gateway_protocol,omitempty"`
 	// OperationIDs is the v1 compatibility view: the same operation ids, as
 	// strings, for clients that cannot read the object array below.
 	OperationIDs    []string    `json:"operation_ids,omitempty"`
@@ -404,6 +405,9 @@ func projectContract(spec specFile) (Contract, error) {
 		ReasoningEfforts:       spec.ReasoningEfforts,
 		DefaultReasoningEffort: spec.DefaultReasoningEffort,
 		Billing:                spec.Billing,
+	}
+	if spec.Gateway != nil && spec.Gateway.Profile == profileOpenAIVideo {
+		contract.GatewayProtocol = profileOpenAIVideo
 	}
 	version, err := contractVersion(contract)
 	if err != nil {

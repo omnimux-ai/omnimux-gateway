@@ -9438,6 +9438,22 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Multiple image references": "Multiple image references",
+    "Swap order": "Swap order",
+    "Image {{index}}": "Image {{index}}",
+    "Remove image {{index}}": "Remove image {{index}}",
+    "Image 1 is the default start. Use [图1] and [图2] in the prompt.": "Image 1 is the default start. Use [图1] and [图2] in the prompt.",
+    "Add two reference images": "Add two reference images",
+    "Muse video requires a JSON request": "Muse video requires a JSON request",
+    "Muse video duration must be an integer from 1 to 60 seconds": "Muse video duration must be an integer from 1 to 60 seconds",
+    "Supply only one set of Muse video image inputs": "Supply only one set of Muse video image inputs",
+    "Muse video first-frame mode requires one image": "Muse video first-frame mode requires one image",
+    "Muse video references must be an array of images": "Muse video references must be an array of images",
+    "Muse video reference images must be non-empty": "Muse video reference images must be non-empty",
+    "Muse video generation mode is unsupported": "Muse video generation mode is unsupported",
+    "Muse video multi-reference mode requires exactly two images": "Muse video multi-reference mode requires exactly two images",
+    "Muse text-to-video does not accept reference images": "Muse text-to-video does not accept reference images",
+    "Only two reference images are allowed": "Only two reference images are allowed"
   }
 }

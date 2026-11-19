@@ -9438,6 +9438,22 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Multiple image references": "多图参考",
+    "Swap order": "交换顺序",
+    "Image {{index}}": "图 {{index}}",
+    "Remove image {{index}}": "移除图 {{index}}",
+    "Image 1 is the default start. Use [图1] and [图2] in the prompt.": "图 1 默认作为起始画面。提示词可用 [图1]、[图2] 引用。",
+    "Add two reference images": "请添加两张参考图片",
+    "Muse video requires a JSON request": "Muse 视频需要 JSON 请求",
+    "Muse video duration must be an integer from 1 to 60 seconds": "Muse 视频时长必须为 1 至 60 秒的整数",
+    "Supply only one set of Muse video image inputs": "请只提供一组 Muse 视频图片",
+    "Muse video first-frame mode requires one image": "Muse 视频首帧模式需要一张图片",
+    "Muse video references must be an array of images": "Muse 视频参考图必须以数组提供",
+    "Muse video reference images must be non-empty": "Muse 视频参考图不能为空",
+    "Muse video generation mode is unsupported": "Muse 视频不支持该生成模式",
+    "Muse video multi-reference mode requires exactly two images": "Muse 视频多图参考模式需要恰好两张图片",
+    "Muse text-to-video does not accept reference images": "Muse 文生视频不接受参考图片",
+    "Only two reference images are allowed": "最多上传两张参考图片"
   }
 }

@@ -15,8 +15,9 @@ import (
 
 func TestSoraResponsesProtocol(t *testing.T) {
 	testVideoResponsesProtocol(t, videoResponsesTestCase{
-		pluginKey: "sora",
-		model:     "sora-2-pro",
+		pluginKey:           "sora",
+		wantResponsesModels: []string{"sora-2", "sora-2-pro"},
+		model:               "sora-2-pro",
 		requestBody: map[string]any{
 			"model":   "sora-2-pro",
 			"input":   "waves at sunset",

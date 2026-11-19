@@ -630,7 +630,23 @@ func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
 		require.True(t, ok, "%s has no shipped contract", modelID)
 		assert.Equal(t, ExecutionStatusLive, shippedContract.ExecutionStatus)
 	}
-	assert.Equal(t, []string{"text_to_video", "first_frame"}, shipped.Models["muse-video"].OperationIDs)
+	muse := shipped.Models["muse-video"]
+	assert.Equal(t, []string{"text_to_video", "first_frame", "video_multi_ref"}, muse.OperationIDs)
+	assert.Equal(t, "openai_video", muse.GatewayProtocol)
+	frame := operationByID(t, muse, "first_frame")
+	require.Len(t, frame.Inputs, 2)
+	assert.Equal(t, 1, *frame.Inputs[1].Min)
+	assert.Equal(t, 1, *frame.Inputs[1].Max)
+	multi := operationByID(t, muse, "video_multi_ref")
+	require.Len(t, multi.Inputs, 2)
+	input := multi.Inputs[1]
+	assert.Equal(t, "reference_images", input.Slot)
+	assert.True(t, input.Required)
+	require.NotNil(t, input.Min)
+	require.NotNil(t, input.Max)
+	assert.Equal(t, 2, *input.Min)
+	assert.Equal(t, 2, *input.Max)
+	assert.Equal(t, "first_frame", input.FirstItemRole)
 }
 
 func TestAutoDLH3VideoProfileExpandsItsOwnWorkflows(t *testing.T) {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
@@ -11,11 +12,15 @@ import (
 	_ "image/png"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/storage"
 	"github.com/QuantumNous/new-api/relaykit/types"
 
 	"github.com/gin-gonic/gin"
@@ -381,6 +386,79 @@ func loadFromBase64(base64String string, providedMimeType string) (*types.Cached
 	}
 
 	return cachedData, nil
+}
+
+// LoadVideoReferenceImage snapshots one image before submission. Verify the
+// bytes and forward that same snapshot so a remote URL cannot change media type
+// between validation and the upstream download.
+func LoadVideoReferenceImage(c *gin.Context, source string, maxBytes int64) (string, int64, error) {
+	if maxBytes <= 0 {
+		return "", 0, fmt.Errorf("reference images exceed the file size limit")
+	}
+	var data []byte
+	var err error
+	if header, payload, ok := strings.Cut(source, ","); ok && strings.HasPrefix(header, "data:") {
+		if !strings.HasSuffix(header, ";base64") || base64.StdEncoding.DecodedLen(len(payload)) > int(maxBytes)+2 {
+			return "", 0, fmt.Errorf("invalid or oversized reference image data URL")
+		}
+		data, err = base64.StdEncoding.DecodeString(payload)
+		if err != nil {
+			return "", 0, fmt.Errorf("invalid reference image data URL")
+		}
+	} else {
+		target, parseErr := url.Parse(source)
+		if parseErr != nil || target.Hostname() == "" || target.User != nil || (target.Scheme != "https" && target.Scheme != "http") {
+			return "", 0, fmt.Errorf("reference image must be an HTTP URL or a Base64 data URL")
+		}
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
+		defer cancel()
+		var reader io.ReadCloser
+		var size int64
+		fileID, managed := strings.CutPrefix(target.Path, "/api/v1/files/download/")
+		if managed && strings.EqualFold(target.Host, c.Request.Host) {
+			file, lookupErr := model.GetFileByFileId(fileID)
+			if lookupErr != nil || file.DownloadUrl != source || file.UserId != c.GetInt("id") || file.Status != model.FileStatusActive || !file.ExpiresAt.After(time.Now()) {
+				return "", 0, fmt.Errorf("uploaded reference image is unavailable to this account")
+			}
+			reader, _, size, err = storage.GetStorageDriver().Get(ctx, file.StorageKey)
+			if err != nil {
+				return "", 0, fmt.Errorf("uploaded reference image could not be read")
+			}
+		} else {
+			if err := ValidateSSRFProtectedFetchURL(source); err != nil {
+				return "", 0, fmt.Errorf("reference image URL is blocked by the fetch policy")
+			}
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
+			if err != nil {
+				return "", 0, fmt.Errorf("invalid reference image URL")
+			}
+			resp, err := GetSSRFProtectedHTTPClient().Do(req)
+			if err != nil {
+				return "", 0, fmt.Errorf("reference image could not be downloaded")
+			}
+			if resp.StatusCode != http.StatusOK {
+				resp.Body.Close()
+				return "", 0, fmt.Errorf("reference image returned HTTP %d", resp.StatusCode)
+			}
+			reader, size = resp.Body, resp.ContentLength
+		}
+		defer reader.Close()
+		if size > maxBytes {
+			return "", 0, fmt.Errorf("reference images exceed the file size limit")
+		}
+		data, err = io.ReadAll(io.LimitReader(reader, maxBytes+1))
+		if err != nil {
+			return "", 0, fmt.Errorf("reference image could not be read")
+		}
+	}
+	if int64(len(data)) > maxBytes {
+		return "", 0, fmt.Errorf("reference images exceed the file size limit")
+	}
+	config, format, err := decodeImageConfig(data)
+	if err != nil || config.Width <= 0 || config.Height <= 0 || (format != "jpeg" && format != "png" && format != "webp") {
+		return "", 0, fmt.Errorf("reference must be a JPEG, PNG or WebP image")
+	}
+	return "data:image/" + format + ";base64," + base64.StdEncoding.EncodeToString(data), int64(len(data)), nil
 }
 
 // GetImageConfig 获取图片配置

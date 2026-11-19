@@ -25,7 +25,11 @@ import type {
 } from '@/features/pricing/types'
 
 import type { ParamControl } from '../../types'
-import { buildOperationSchema, defaultParams } from '../param-schema'
+import {
+  buildOperationSchema,
+  defaultParams,
+  resolveModality,
+} from '../param-schema'
 
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp']
 const VIDEO_MIMES = ['video/mp4', 'video/quicktime']
@@ -371,4 +375,19 @@ describe('defaultParams with a mode schema', () => {
     expect(params.duration).toBe('-1')
     expect(params.aspect_ratio).toBe('adaptive')
   })
+})
+
+test('a video contract selects the video transport even with stale image metadata', () => {
+  const model: PricingModel = {
+    id: 1,
+    model_name: 'muse-video',
+    quota_type: 1,
+    model_ratio: 0,
+    completion_ratio: 0,
+    enable_groups: ['default'],
+    output_modalities: ['image'],
+    tags: 'Image Generation',
+    contract: { model_id: 'muse-video', family: 'video' },
+  }
+  expect(resolveModality(model)).toBe('video')
 })

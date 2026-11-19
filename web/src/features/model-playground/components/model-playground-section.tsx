@@ -184,6 +184,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
   const [mode, setMode] = useState<'form' | 'json'>('form')
   const [previewView, setPreviewView] = useState<'preview' | 'json'>('preview')
   const [uploading, setUploading] = useState(false)
+  const uploadInFlight = useRef(false)
   const [selectedTask, setSelectedTask] = useState<GenerationTask | null>(null)
   // The last selection the slot refused, so the reason survives the render that
   // follows a rejected pick.
@@ -266,7 +267,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
 
   const onMediaFiles = useCallback(
     (key: string, files: FileList | null) => {
-      if (!files?.length) return
+      if (!files?.length || uploadInFlight.current) return
       const control = schema.controls.find((entry) => entry.key === key)
       const existing = Array.isArray(params[key])
         ? (params[key] as string[]).length
@@ -283,9 +284,15 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
         existing,
         [...files]
       )
+      if (control?.firstItemRole && issue?.code === 'too_many') {
+        setSelectionIssue(null)
+        toast.error(t('Only two reference images are allowed'))
+        return
+      }
       setSelectionIssue(issue)
       if (accepted.length === 0) return
 
+      uploadInFlight.current = true
       setUploading(true)
       void Promise.all(
         accepted.map((file) =>
@@ -300,17 +307,41 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
             return { ...previous, [key]: [...current, ...urls] }
           })
         })
-        .finally(() => setUploading(false))
+        .catch((error: unknown) => {
+          toast.error(getServerErrorMessage(error, t('Upload failed')))
+        })
+        .finally(() => {
+          uploadInFlight.current = false
+          setUploading(false)
+        })
     },
-    [params, schema, transport]
+    [params, schema, t, transport]
   )
 
-  const onMediaRemove = useCallback((key: string, url: string) => {
+  const onMediaRemove = useCallback((key: string, index: number) => {
+    setSelectionIssue(null)
     setParams((previous) => {
-      const current = Array.isArray(previous[key])
-        ? (previous[key] as string[])
-        : []
-      return { ...previous, [key]: current.filter((item) => item !== url) }
+      const current = previous[key]
+      if (!Array.isArray(current)) return previous
+      const urls = current.filter(
+        (item): item is string => typeof item === 'string'
+      )
+      return {
+        ...previous,
+        [key]: urls.filter((_, position) => position !== index),
+      }
+    })
+  }, [])
+
+  const onMediaSwap = useCallback((key: string) => {
+    setParams((previous) => {
+      const current = previous[key]
+      if (!Array.isArray(current) || current.length !== 2) return previous
+      const [first, second] = current
+      if (typeof first !== 'string' || typeof second !== 'string') {
+        return previous
+      }
+      return { ...previous, [key]: [second, first] }
     })
   }, [])
 
@@ -323,6 +354,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
    */
   const onOperationChange = useCallback(
     (next: PlaygroundOperation) => {
+      setSelectionIssue(null)
       setOperation(next)
       const nextSchema = buildOperationSchema(props.model, next)
       setParams((previous) => {
@@ -338,6 +370,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
   )
 
   const reset = useCallback(() => {
+    setSelectionIssue(null)
     setParams(defaultParams(schema))
     setSelectedTask(null)
     generation.reset()
@@ -463,6 +496,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
     const control = schema.controls.find(
       (item) => item.key === mediaIssue.slotKey
     )
+    if (control?.firstItemRole) return t('Add two reference images')
     return t('Add the required input: {{slot}}', {
       slot: t(control?.labelKey ?? 'Input'),
     })
@@ -508,7 +542,11 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
               <PlaygroundModeSelector
                 operations={operations}
                 value={operation ?? operations[0]}
-                disabled={generation.submitting}
+                disabled={generation.submitting || uploading}
+                orderedImageReferences={operationInputs(
+                  props.model.contract,
+                  'video_multi_ref'
+                ).some((input) => input.firstItemRole === 'first_frame')}
                 priceFor={modePrice}
                 onChange={onOperationChange}
               />
@@ -539,6 +577,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
                 onParamChange={onParamChange}
                 onMediaFiles={onMediaFiles}
                 onMediaRemove={onMediaRemove}
+                onMediaSwap={onMediaSwap}
               />
             ) : (
               <Textarea
@@ -622,6 +661,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
                   data-parity='playground.footer.reset'
                   variant='outline'
                   className='h-9 rounded-full px-4 text-[13px] font-medium'
+                  disabled={uploading}
                   onClick={reset}
                 >
                   {t('Reset')}
@@ -629,7 +669,9 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
                 <Button
                   data-parity='playground.footer.submit'
                   className='bg-foreground text-background hover:bg-foreground/90 h-10 rounded-full px-[22px] text-sm font-semibold'
-                  disabled={generation.submitting || mediaIssue !== null}
+                  disabled={
+                    generation.submitting || uploading || mediaIssue !== null
+                  }
                   onClick={submit}
                 >
                   {submitLabel}
