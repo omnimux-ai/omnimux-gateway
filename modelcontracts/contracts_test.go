@@ -645,7 +645,7 @@ func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
 	require.NotNil(t, input.Min)
 	require.NotNil(t, input.Max)
 	assert.Equal(t, 2, *input.Min)
-	assert.Equal(t, 2, *input.Max)
+	assert.Equal(t, 10, *input.Max)
 	assert.Equal(t, "first_frame", input.FirstItemRole)
 }
 

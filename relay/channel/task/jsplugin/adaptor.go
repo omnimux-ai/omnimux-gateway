@@ -166,7 +166,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		}
 		if contract.GatewayProtocol == "openai_video" {
 			body, _ := request.(map[string]any)
-			if err := prepareOrderedVideoImages(c, body); err != nil {
+			if err := prepareOrderedVideoImages(c, body, contract.ReferenceImages); err != nil {
 				return service.TaskErrorWrapperLocal(err, "plugin_request_invalid", http.StatusBadRequest)
 			}
 		}
@@ -193,15 +193,19 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 
 // prepareOrderedVideoImages keeps verified bytes in request scope across
 // provider retries; each retry can re-run the decoder against the original URL.
-func prepareOrderedVideoImages(c *gin.Context, body map[string]any) error {
+func prepareOrderedVideoImages(c *gin.Context, body map[string]any, limits *modelcontracts.MediaLimits) error {
+	if limits == nil || limits.Min == nil || limits.Max == nil {
+		return errors.New("multi-reference video image limits are unavailable")
+	}
+	images, ok := body["images"].([]any)
+	if !ok || len(images) < *limits.Min || len(images) > *limits.Max {
+		return fmt.Errorf("multi-reference video requires between %d and %d images", *limits.Min, *limits.Max)
+	}
+
 	const snapshotKey = "task_plugin_ordered_video_images"
 	if cached, ok := c.Get(snapshotKey); ok {
 		body["images"] = cached
 		return nil
-	}
-	images, ok := body["images"].([]any)
-	if !ok || len(images) != 2 {
-		return fmt.Errorf("multi-reference video requires exactly two images")
 	}
 	remaining := maxInlineFileBytes()
 	verified := make([]any, len(images))

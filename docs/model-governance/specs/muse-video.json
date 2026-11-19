@@ -3,7 +3,7 @@
  "family": "video",
  "vendor": "Muse",
  "vendor_model_id": "muse-video",
- "capability": "视频生成（文生视频 / 首帧图生视频 / 双图参考）",
+ "capability": "视频生成（文生视频 / 首帧图生视频 / 多图参考）",
  "operations": [
   "text_to_video",
   "first_frame",
@@ -16,7 +16,7 @@
    "first_frame",
    "video_multi_ref"
   ],
-  "source_claim": "内置 Sora 任务插件接入 Muse 视频，支持文生视频、单图首帧及两张有序参考图"
+  "source_claim": "内置 Sora 任务插件接入 Muse 视频，支持文生视频、单图首帧及 2–10 张有序参考图"
  },
  "durations_seconds": {
   "min": 1,
@@ -42,9 +42,9 @@
    "retrieved_at": "2026-11-19"
   },
   {
-   "claim": "网关首发多图参考固定 2 张，维持提交顺序",
-   "url": "repo:plugins/tasks/sora/plugin.js",
-   "quote": "references.length !== (operation === \"video_multi_ref\" ? 2 : 0)",
+   "claim": "Muse2API 接入层的每次请求参考素材上限为 10 个",
+   "url": "https://github.com/laozhong86/muse2api/blob/1e8bf23119e4de271bf655f2afaac56b73826cb2/engine.py#L44",
+   "quote": "MAX_REFERENCE_IMAGES = 10",
    "retrieved_at": "2026-11-19"
   },
   {
@@ -60,7 +60,7 @@
   "提示词长度上限未公布",
   "参考图（首帧）的文件大小上限未公布"
  ],
- "notes": "Muse 视频支持文生视频、单图首帧和双图参考。双图参考按请求顺序送达，未通过提示词指定时以第一张作为起始图。",
+ "notes": "Muse 视频支持文生视频、单图首帧和多图参考。多图参考接受 2–10 张图并按请求顺序送达，未通过提示词指定时以第一张作为起始图。",
  "billing": {
   "unit": "per_video",
   "unit_label": {
@@ -76,12 +76,12 @@
  },
  "reference_images": {
   "min": 2,
-  "max": 2,
+  "max": 10,
   "formats": [
    "image/jpeg",
    "image/png",
    "image/webp"
   ],
-  "source_claim": "首发多图参考固定两张。第一个附件默认用作起始画面。"
+  "source_claim": "两张起进入多图模式，上限取 Muse2API 的 10 个参考素材。第一张默认用作起始画面。"
  }
 }

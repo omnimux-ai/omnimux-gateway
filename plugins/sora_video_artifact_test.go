@@ -17,6 +17,7 @@ import (
 	relaychannel "github.com/QuantumNous/new-api/relay/channel"
 	taskplugin "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -109,8 +110,6 @@ func TestMuseVideoReferencesReachSubmitInOrder(t *testing.T) {
 		{name: "page first frame", request: map[string]any{"operation": "first_frame", "image_with_roles": []map[string]any{{"role": "first_frame", "url": first}}}, want: map[string]any{"image": first}},
 		{name: "API single input", request: map[string]any{"input_reference": first}, want: map[string]any{"image": first}},
 		{name: "text mode", request: map[string]any{"operation": "text_to_video"}, want: map[string]any{}},
-		{name: "missing image", request: map[string]any{"operation": "video_multi_ref", "image_urls": []string{first}}, wantErr: "exactly two images"},
-		{name: "too many images", request: map[string]any{"images": []string{first, second, first}}, wantErr: "exactly two images"},
 		{name: "empty image", request: map[string]any{"operation": "video_multi_ref", "image_urls": []string{first, " "}}, wantErr: "must be non-empty"},
 		{name: "mixed image fields", request: map[string]any{"image": first, "image_urls": []string{first, second}}, wantErr: "only one set"},
 	} {
@@ -147,31 +146,52 @@ func TestMuseVideoReferencesReachSubmitInOrder(t *testing.T) {
 }
 
 func TestMuseVideoSubmitSnapshotsOnlyImageBytes(t *testing.T) {
+	service.InitHttpClient()
 	plugin := loadSoraPlugin(t)
-	images := make([]string, 2)
-	for index, pixel := range []color.RGBA{{R: 255, A: 255}, {B: 255, A: 255}} {
+	images := make([]string, 11)
+	for index := range images {
 		picture := image.NewRGBA(image.Rect(0, 0, 2, 2))
-		picture.Set(0, 0, pixel)
+		picture.Set(0, 0, color.RGBA{R: uint8(index + 1), A: 255})
 		var buffer bytes.Buffer
 		require.NoError(t, png.Encode(&buffer, picture))
 		images[index] = "data:image/png;base64," + base64.StdEncoding.EncodeToString(buffer.Bytes())
 	}
 	mp4Header := base64.StdEncoding.EncodeToString([]byte("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"))
 	for _, test := range []struct {
-		name      string
-		model     string
-		inputs    []string
-		wantError bool
+		name    string
+		model   string
+		mode    string
+		inputs  []string
+		wantErr string
 	}{
+		{name: "first frame", mode: "first_frame", inputs: images[:1]},
+		{name: "one reference", inputs: images[:1], wantErr: "requires between 2 and 10 images"},
 		{name: "reversed images", inputs: []string{images[1], images[0]}},
-		{name: "video data URL", inputs: []string{images[0], "data:video/mp4;base64," + mp4Header}, wantError: true},
-		{name: "video mislabeled as image", inputs: []string{images[0], "data:image/png;base64," + mp4Header}, wantError: true},
-		{name: "video through mapped alias", model: "muse-public-alias", inputs: []string{images[0], "data:video/mp4;base64," + mp4Header}, wantError: true},
+		{name: "three references", inputs: []string{images[2], images[0], images[1]}},
+		{name: "ten references through mapped alias", model: "muse-public-alias", inputs: images[:10]},
+		{name: "eleven references", inputs: images, wantErr: "requires between 2 and 10 images"},
+		{name: "video data URL", inputs: []string{images[0], "data:video/mp4;base64," + mp4Header}, wantErr: "reference image 2"},
+		{name: "video mislabeled as image", inputs: []string{images[0], "data:image/png;base64," + mp4Header}, wantErr: "reference image 2"},
+		{name: "video through mapped alias", model: "muse-public-alias", inputs: []string{images[0], "data:video/mp4;base64," + mp4Header}, wantErr: "reference image 2"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			bodies := make(chan []byte, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodPost, r.Method)
+				assert.Equal(t, "/v1/videos", r.URL.Path)
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err)
+				bodies <- body
+				_, _ = io.WriteString(w, `{"id":"mock-task","status":"queued"}`)
+			}))
+			defer server.Close()
 			publicModel := test.model
 			if publicModel == "" {
 				publicModel = "muse-video"
+			}
+			operation := test.mode
+			if operation == "" {
+				operation = "video_multi_ref"
 			}
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", nil)
@@ -179,32 +199,46 @@ func TestMuseVideoSubmitSnapshotsOnlyImageBytes(t *testing.T) {
 			ctx.Set(pluginruntime.ContextKeyProtocolRequest, pluginruntime.ProtocolRequestContext{
 				Protocol: "openai_video", Model: publicModel, UpstreamModel: "muse-video",
 				RouteRequestContext: pluginruntime.RouteRequestContext{Body: map[string]any{"kind": "json", "value": map[string]any{
-					"model": publicModel, "operation": "video_multi_ref", "image_urls": test.inputs, "prompt": "Create a video",
+					"model": publicModel, "operation": operation, "image_urls": test.inputs, "prompt": "Create a video",
 				}}},
 			})
 			info := &relaycommon.RelayInfo{
 				OriginModelName: publicModel, TaskRelayInfo: &relaycommon.TaskRelayInfo{},
-				ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://provider.example", UpstreamModelName: "muse-video"},
+				ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: server.URL, UpstreamModelName: "muse-video"},
 			}
 			adaptor := taskplugin.New(plugin)
 			adaptor.Init(info)
 			taskErr := adaptor.ValidateRequestAndSetAction(ctx, info)
-			if test.wantError {
+			if test.wantErr != "" {
 				require.NotNil(t, taskErr)
 				assert.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
-				assert.Contains(t, taskErr.Message, "reference image 2")
+				assert.Contains(t, taskErr.Message, test.wantErr)
+				assert.Empty(t, bodies)
 				return
 			}
 			require.Nil(t, taskErr)
 			reader, err := adaptor.BuildRequestBody(ctx, info)
 			require.NoError(t, err)
-			data, err := io.ReadAll(reader)
+			response, err := adaptor.DoRequest(ctx, info, reader)
 			require.NoError(t, err)
-			var upstream struct {
-				Images []string `json:"images"`
+			defer response.Body.Close()
+			assert.Equal(t, http.StatusOK, response.StatusCode)
+			require.Len(t, bodies, 1)
+			var upstream map[string]any
+			require.NoError(t, common.Unmarshal(<-bodies, &upstream))
+			assert.NotContains(t, upstream, "operation")
+			assert.NotContains(t, upstream, "image_urls")
+			if operation == "first_frame" {
+				assert.Equal(t, test.inputs[0], upstream["image"])
+				assert.NotContains(t, upstream, "images")
+			} else {
+				assert.NotContains(t, upstream, "image")
+				ordered := make([]any, len(test.inputs))
+				for index, reference := range test.inputs {
+					ordered[index] = reference
+				}
+				assert.Equal(t, ordered, upstream["images"])
 			}
-			require.NoError(t, common.Unmarshal(data, &upstream))
-			assert.Equal(t, test.inputs, upstream.Images)
 		})
 	}
 }
