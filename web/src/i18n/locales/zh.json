@@ -9454,6 +9454,9 @@
     "Muse video generation mode is unsupported": "Muse 视频不支持该生成模式",
     "Muse video multi-reference mode requires exactly two images": "Muse 视频多图参考模式需要恰好两张图片",
     "Muse text-to-video does not accept reference images": "Muse 文生视频不接受参考图片",
+    "Starting image": "起始图",
+    "Use as starting image": "设为起始图",
+    "Choose at most {{count}} reference images": "最多选择 {{count}} 张参考图",
     "Only two reference images are allowed": "最多上传两张参考图片"
   }
 }

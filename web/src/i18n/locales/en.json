@@ -9454,6 +9454,9 @@
     "Muse video generation mode is unsupported": "Muse video generation mode is unsupported",
     "Muse video multi-reference mode requires exactly two images": "Muse video multi-reference mode requires exactly two images",
     "Muse text-to-video does not accept reference images": "Muse text-to-video does not accept reference images",
+    "Starting image": "Starting image",
+    "Use as starting image": "Use as starting image",
+    "Choose at most {{count}} reference images": "Choose at most {{count}} reference images",
     "Only two reference images are allowed": "Only two reference images are allowed"
   }
 }

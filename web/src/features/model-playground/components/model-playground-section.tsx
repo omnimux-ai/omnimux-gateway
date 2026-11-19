@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -93,6 +93,11 @@ function selectionIssueMessage(
   })
 }
 
+function mediaUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
 export type ModelPlaygroundSectionProps = {
   model: PricingModel
   /** Drives the submit label; unauthenticated users see "登录后生成". */
@@ -142,6 +147,9 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
     }
     return initial
   })
+  const [orderedReferenceDraft, setOrderedReferenceDraft] = useState<string[]>(
+    []
+  )
 
   // The mode list belongs to the model, so a model change can invalidate the
   // chosen mode. Fall back to the new model's first mode and rebuild the form.
@@ -153,6 +161,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
     const dropped = operation !== undefined && !operations.includes(operation)
     setLastModelId(modelId)
     setOperation(operations[0])
+    setOrderedReferenceDraft([])
     setParams(
       defaultParams(
         operations[0]
@@ -266,12 +275,13 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
   )
 
   const onMediaFiles = useCallback(
-    (key: string, files: FileList | null) => {
+    (key: string, files: FileList | null, replaceIndex?: number) => {
       if (!files?.length || uploadInFlight.current) return
       const control = schema.controls.find((entry) => entry.key === key)
-      const existing = Array.isArray(params[key])
-        ? (params[key] as string[]).length
-        : 0
+      const existing = mediaUrls(params[key])
+      const replaced =
+        replaceIndex === undefined ? undefined : existing[replaceIndex]
+      if (replaceIndex !== undefined && !replaced) return
       // The slot refuses what the model cannot take before anything is
       // uploaded: the gateway precharges, so a rejected file must never leave
       // the browser.
@@ -281,14 +291,9 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
           maxCount: control?.maxCount,
           maxBytes: control?.maxBytes,
         },
-        existing,
-        [...files]
+        existing.length - (replaced ? 1 : 0),
+        replaced ? [files[0]] : [...files]
       )
-      if (control?.firstItemRole && issue?.code === 'too_many') {
-        setSelectionIssue(null)
-        toast.error(t('Only two reference images are allowed'))
-        return
-      }
       setSelectionIssue(issue)
       if (accepted.length === 0) return
 
@@ -301,10 +306,22 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
       )
         .then((urls) => {
           setParams((previous) => {
-            const current = Array.isArray(previous[key])
-              ? (previous[key] as string[])
-              : []
-            return { ...previous, [key]: [...current, ...urls] }
+            const current = mediaUrls(previous[key])
+            if (replaceIndex !== undefined) {
+              if (current[replaceIndex] !== replaced) return previous
+              return {
+                ...previous,
+                [key]: current.map((url, index) =>
+                  index === replaceIndex ? urls[0] : url
+                ),
+              }
+            }
+            const cap = control?.maxCount
+            const incoming =
+              cap === undefined
+                ? urls
+                : urls.slice(0, Math.max(0, cap - current.length))
+            return { ...previous, [key]: [...current, ...incoming] }
           })
         })
         .catch((error: unknown) => {
@@ -323,9 +340,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
     setParams((previous) => {
       const current = previous[key]
       if (!Array.isArray(current)) return previous
-      const urls = current.filter(
-        (item): item is string => typeof item === 'string'
-      )
+      const urls = mediaUrls(current)
       return {
         ...previous,
         [key]: urls.filter((_, position) => position !== index),
@@ -333,44 +348,87 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
     })
   }, [])
 
-  const onMediaSwap = useCallback((key: string) => {
+  const onMediaSwap = useCallback((key: string, index = 1) => {
     setParams((previous) => {
-      const current = previous[key]
-      if (!Array.isArray(current) || current.length !== 2) return previous
-      const [first, second] = current
-      if (typeof first !== 'string' || typeof second !== 'string') {
-        return previous
-      }
-      return { ...previous, [key]: [second, first] }
+      const urls = mediaUrls(previous[key])
+      if (index < 1 || index >= urls.length) return previous
+      const first = urls[0]
+      urls[0] = urls[index]
+      urls[index] = first
+      return { ...previous, [key]: urls }
     })
   }, [])
 
-  /**
-   * Mode switch keeps the prompt and drops every media slot.
-   *
-   * The two media families are mutually exclusive upstream, so carrying an
-   * upload across a switch guarantees a rejected request; the prompt is the one
-   * thing that means the same in every mode.
-   */
+  const orderedReferenceControl = schema.controls.find(
+    (control) => control.firstItemRole === 'first_frame'
+  )
+  const orderedImageReferences = operationInputs(
+    props.model.contract,
+    'video_multi_ref'
+  ).some((input) => input.firstItemRole === 'first_frame')
+
+  /** Only ordered images and a single first frame share a starting image. */
   const onOperationChange = useCallback(
     (next: PlaygroundOperation) => {
+      if (next === operation || uploadInFlight.current) return
+      const nextSchema = buildOperationSchema(props.model, next)
+      const rebuilt = defaultParams(nextSchema)
+      const prompt = promptOf(params)
+      if (prompt) rebuilt.prompt = prompt
+
+      const nextOrderedReference = nextSchema.controls.find(
+        (control) => control.firstItemRole === 'first_frame'
+      )
+      if (
+        operation === 'video_multi_ref' &&
+        orderedReferenceControl &&
+        next === 'first_frame' &&
+        nextSchema.controls.some(
+          (control) => control.mediaRole === 'first_frame'
+        )
+      ) {
+        const urls = mediaUrls(params[orderedReferenceControl.key])
+        setOrderedReferenceDraft(urls)
+        rebuilt.first_frame = urls.slice(0, 1)
+      } else if (
+        operation === 'first_frame' &&
+        next === 'video_multi_ref' &&
+        nextOrderedReference
+      ) {
+        const start = mediaUrls(params.first_frame)[0]
+        const previousPosition = orderedReferenceDraft.indexOf(start)
+        const ordered = orderedReferenceDraft.slice(1)
+        if (previousPosition > 0) {
+          ordered[previousPosition - 1] = orderedReferenceDraft[0]
+        }
+        rebuilt[nextOrderedReference.key] = start
+          ? [start, ...ordered]
+          : ordered
+        setOrderedReferenceDraft([])
+      } else {
+        setOrderedReferenceDraft([])
+      }
+
       setSelectionIssue(null)
       setOperation(next)
-      const nextSchema = buildOperationSchema(props.model, next)
-      setParams((previous) => {
-        const rebuilt = defaultParams(nextSchema)
-        const prompt = promptOf(previous)
-        if (prompt) rebuilt.prompt = prompt
-        return rebuilt
-      })
+      setParams(rebuilt)
       setSelectedTask(null)
       generation.reset()
     },
-    [generation, props.model]
+    [
+      generation,
+      operation,
+      orderedReferenceControl,
+      orderedReferenceDraft,
+      params,
+      props.model,
+    ]
   )
 
   const reset = useCallback(() => {
+    if (uploadInFlight.current) return
     setSelectionIssue(null)
+    setOrderedReferenceDraft([])
     setParams(defaultParams(schema))
     setSelectedTask(null)
     generation.reset()
@@ -451,7 +509,6 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
 
   const activeTask =
     generation.task ?? selectedTask ?? latestCompletedHistoryTask
-  const previewParams = activeTask ? activeTask.params : params
 
   const jsonText = useMemo(() => {
     const body = buildBody()
@@ -460,46 +517,71 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
     return JSON.stringify({ model: displayModel, ...body }, null, 2)
   }, [buildBody, modelId])
 
-  const applyJson = useCallback((text: string) => {
-    try {
-      const parsed = JSON.parse(text) as Record<string, unknown>
-      setParams((previous) => {
-        const next = { ...previous }
-        for (const [key, value] of Object.entries(parsed)) {
-          if (key === 'model' || key === 'operation') continue
-          if (
-            typeof value === 'string' ||
-            typeof value === 'number' ||
-            typeof value === 'boolean' ||
-            Array.isArray(value)
-          ) {
-            next[key] = value as string | number | boolean | string[]
+  const applyJson = useCallback(
+    (text: string) => {
+      try {
+        const parsed = JSON.parse(text) as Record<string, unknown>
+        setParams((previous) => {
+          const next = { ...previous }
+          for (const [key, value] of Object.entries(parsed)) {
+            if (key === 'model' || key === 'operation') continue
+            if (orderedReferenceControl && key === 'image_urls') {
+              next[orderedReferenceControl.key] = mediaUrls(value)
+              delete next.image_urls
+              continue
+            }
+            if (
+              typeof value === 'string' ||
+              typeof value === 'number' ||
+              typeof value === 'boolean' ||
+              Array.isArray(value)
+            ) {
+              next[key] = value as string | number | boolean | string[]
+            }
           }
-        }
-        return next
-      })
-    } catch {
-      // A partially typed document must not clobber the form parameters.
-    }
-  }, [])
+          return next
+        })
+      } catch {
+        // A partially typed document must not clobber the form parameters.
+      }
+    },
+    [orderedReferenceControl]
+  )
 
   let submitLabel = t('Sign in to generate')
   if (props.authenticated) {
     submitLabel = generation.submitting ? t('Generating…') : t('Generate')
   }
 
-  const blockedReason = useMemo(() => {
+  const blockedId = useId()
+  const blockedFeedback = useMemo(() => {
     if (!mediaIssue) return null
     if (mediaIssue.code === 'audio_alone') {
-      return t('Reference audio needs at least one reference image or video.')
+      return {
+        message: t(
+          'Reference audio needs at least one reference image or video.'
+        ),
+        inline: true,
+      }
     }
     const control = schema.controls.find(
       (item) => item.key === mediaIssue.slotKey
     )
-    if (control?.firstItemRole) return t('Add two reference images')
-    return t('Add the required input: {{slot}}', {
-      slot: t(control?.labelKey ?? 'Input'),
-    })
+    if (control?.firstItemRole) {
+      const message =
+        mediaIssue.code === 'too_many'
+          ? t('Choose at most {{count}} reference images', {
+              count: mediaIssue.max,
+            })
+          : t('Add two reference images')
+      return { message, inline: (control.maxCount ?? 0) <= 2 }
+    }
+    return {
+      message: t('Add the required input: {{slot}}', {
+        slot: t(control?.labelKey ?? 'Input'),
+      }),
+      inline: true,
+    }
   }, [mediaIssue, schema, t])
 
   return (
@@ -543,10 +625,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
                 operations={operations}
                 value={operation ?? operations[0]}
                 disabled={generation.submitting || uploading}
-                orderedImageReferences={operationInputs(
-                  props.model.contract,
-                  'video_multi_ref'
-                ).some((input) => input.firstItemRole === 'first_frame')}
+                orderedImageReferences={orderedImageReferences}
                 priceFor={modePrice}
                 onChange={onOperationChange}
               />
@@ -574,6 +653,9 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
                 params={params}
                 uploading={uploading}
                 disabled={generation.submitting}
+                replaceSingleFirstFrame={
+                  operation === 'first_frame' && orderedImageReferences
+                }
                 onParamChange={onParamChange}
                 onMediaFiles={onMediaFiles}
                 onMediaRemove={onMediaRemove}
@@ -586,17 +668,23 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
                 spellCheck={false}
                 className='font-mono text-[12px]'
                 aria-label={t('Request JSON')}
+                disabled={uploading}
                 onChange={(event) => applyJson(event.target.value)}
               />
             )}
 
-            {blockedReason && (
+            {blockedFeedback && (
               <p
+                id={blockedId}
                 data-parity='playground.form.blocked'
                 role='status'
-                className='text-muted-foreground text-[12px] leading-5'
+                className={
+                  blockedFeedback.inline
+                    ? 'text-muted-foreground text-[12px] leading-5'
+                    : 'sr-only'
+                }
               >
-                {blockedReason}
+                {blockedFeedback.message}
               </p>
             )}
 
@@ -672,6 +760,14 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
                   disabled={
                     generation.submitting || uploading || mediaIssue !== null
                   }
+                  title={
+                    blockedFeedback?.inline === false
+                      ? blockedFeedback.message
+                      : undefined
+                  }
+                  aria-describedby={
+                    blockedFeedback?.inline === false ? blockedId : undefined
+                  }
                   onClick={submit}
                 >
                   {submitLabel}
@@ -684,7 +780,7 @@ export function ModelPlaygroundSection(props: ModelPlaygroundSectionProps) {
         <div className='space-y-6'>
           <PlaygroundPreview
             task={activeTask}
-            params={previewParams}
+            draftJson={jsonText}
             view={previewView}
             onViewChange={setPreviewView}
           />

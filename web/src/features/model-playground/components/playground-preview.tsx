@@ -28,7 +28,7 @@ import type { GenerationTask, PlaygroundParams } from '../types'
 
 export type PlaygroundPreviewProps = {
   task: GenerationTask | null
-  params: PlaygroundParams
+  draftJson: string
   view: 'preview' | 'json'
   onViewChange: (view: 'preview' | 'json') => void
 }
@@ -160,17 +160,19 @@ export function PlaygroundPreview(props: PlaygroundPreviewProps) {
       <div className='flex-1 p-4'>
         {props.view === 'json' && (
           <pre className='overflow-auto text-[12px] leading-[1.6] whitespace-pre-wrap'>
-            {requestJson(props.params, task?.modelId ?? '')}
+            {task ? requestJson(task.params, task.modelId) : props.draftJson}
           </pre>
         )}
 
         {props.view !== 'json' && task && (
           <div className={cn('space-y-3')}>
             {(() => {
-              if (task.media.length > 0)
-                {return <MediaStage media={task.media} />}
-              if (!isSettled(task))
-                {return <ProcessingStage progress={task.progress} />}
+              if (task.media.length > 0) {
+                return <MediaStage media={task.media} />
+              }
+              if (!isSettled(task)) {
+                return <ProcessingStage progress={task.progress} />
+              }
               if (!task.failReason) {
                 return (
                   <div

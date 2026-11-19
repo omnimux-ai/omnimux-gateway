@@ -43,7 +43,7 @@ function renderPreview(taskOrNull: GenerationTask | null, view: 'preview' | 'jso
   render(
     <PlaygroundPreview
       task={taskOrNull}
-      params={{}}
+      draftJson='{}'
       view={view}
       onViewChange={vi.fn()}
     />
