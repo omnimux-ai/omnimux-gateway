@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useRef } from 'react'
 
+import type { DownloadCtaIntent } from '@/lib/download-cta'
+
 import { useCopy } from '../../i18n/context'
 import { ASSETS } from './data'
 import { useDownload } from './download-context'
@@ -25,6 +27,18 @@ import { useDemoClock } from './hooks'
 import { Icon } from './icons'
 import { LazyVideo } from './lazy-video'
 import { Tabbed } from './tabs'
+
+const CREATE_AGENT_INTENT: DownloadCtaIntent = {
+  cta_id: 'create_agent_download',
+  cta_position: 'footer',
+  cta_variant: 'section',
+}
+
+const CREATE_CANVAS_INTENT: DownloadCtaIntent = {
+  cta_id: 'create_canvas_download',
+  cta_position: 'footer',
+  cta_variant: 'section',
+}
 
 const SET_TILE_MEDIA = [
   ASSETS.d1,
@@ -247,7 +261,11 @@ export function CnCreate() {
         <div className='cap'>
           <h3>{copy.capAgentTitle}</h3>
           <p>{copy.capAgentDesc}</p>
-          <button className='btn btn-light' type='button' onClick={() => open()}>
+          <button
+            className='btn btn-light'
+            type='button'
+            onClick={() => open(undefined, CREATE_AGENT_INTENT)}
+          >
             {copy.capAgentCta}
             <Icon name='right' />
           </button>
@@ -258,7 +276,11 @@ export function CnCreate() {
         <div className='cap'>
           <h3>{copy.capCanvasTitle}</h3>
           <p>{copy.capCanvasDesc}</p>
-          <button className='btn btn-light' type='button' onClick={() => open()}>
+          <button
+            className='btn btn-light'
+            type='button'
+            onClick={() => open(undefined, CREATE_CANVAS_INTENT)}
+          >
             {copy.capCanvasCta}
             <Icon name='right' />
           </button>

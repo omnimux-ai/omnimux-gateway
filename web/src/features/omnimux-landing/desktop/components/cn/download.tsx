@@ -26,7 +26,13 @@ import {
   type RefObject,
 } from 'react'
 
-import { useCopy } from '../../i18n/context'
+import {
+  trackDownloadCtaClick,
+  type DownloadCtaIntent,
+  type DownloadCtaPage,
+} from '@/lib/download-cta'
+
+import { useCopy, useLanding } from '../../i18n/context'
 import {
   fetchDesktopRelease,
   releaseUrls,
@@ -42,6 +48,18 @@ import {
 } from './download-context'
 import { Icon } from './icons'
 
+const DEFAULT_DIALOG_INTENT: DownloadCtaIntent = {
+  cta_id: 'download_dialog',
+  cta_position: 'footer',
+  cta_variant: 'dialog',
+}
+
+const DEFAULT_DIRECT_INTENT: DownloadCtaIntent = {
+  cta_id: 'download_direct',
+  cta_position: 'footer',
+  cta_variant: 'direct',
+}
+
 function urlFor(urls: ReleaseUrls, target: DownloadTarget): string {
   if (target === 'win') return urls.win
   return target === 'mac-x64' ? urls.x64 : urls.arm64
@@ -53,8 +71,13 @@ function archOf(platform: DetectedPlatform): MacArch | null {
   return null
 }
 
-export function DownloadProvider(props: { children: ReactNode }) {
+export function DownloadProvider(props: {
+  children: ReactNode
+  page: DownloadCtaPage
+}) {
+  const { lang } = useLanding()
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const lastIntentRef = useRef<DownloadCtaIntent | null>(null)
   const [recommended, setRecommended] = useState<DownloadTarget>('mac-arm64')
   const [platform, setPlatform] = useState<DetectedPlatform>(null)
   const [release, setRelease] = useState<DesktopRelease>({ status: 'loading' })
@@ -87,7 +110,8 @@ export function DownloadProvider(props: { children: ReactNode }) {
   }, [])
 
   const open = useCallback(
-    (target?: DownloadTarget) => {
+    (target?: DownloadTarget, intent?: DownloadCtaIntent) => {
+      lastIntentRef.current = intent ?? DEFAULT_DIALOG_INTENT
       setRecommended(target ?? platform ?? 'mac-arm64')
       const dialog = dialogRef.current
       if (dialog && !dialog.open) dialog.showModal()
@@ -95,19 +119,31 @@ export function DownloadProvider(props: { children: ReactNode }) {
     [platform]
   )
 
-  const downloadDirect = useCallback(() => {
-    if (!platform) return false
-    const urls = releaseUrls(release)
-    if (!urls) return false
-    const anchor = document.createElement('a')
-    anchor.href = urlFor(urls, platform)
-    anchor.download = ''
-    anchor.rel = 'noopener'
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    return true
-  }, [platform, release])
+  const downloadDirect = useCallback(
+    (intent?: DownloadCtaIntent) => {
+      if (!platform) return false
+      const urls = releaseUrls(release)
+      if (!urls) return false
+      const href = urlFor(urls, platform)
+      trackDownloadCtaClick(
+        {
+          page: props.page,
+          locale: lang,
+          ...(intent ?? DEFAULT_DIRECT_INTENT),
+        },
+        href
+      )
+      const anchor = document.createElement('a')
+      anchor.href = href
+      anchor.download = ''
+      anchor.rel = 'noopener'
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      return true
+    },
+    [platform, release, props.page, lang]
+  )
 
   const macArch = archOf(platform)
 
@@ -123,6 +159,9 @@ export function DownloadProvider(props: { children: ReactNode }) {
         dialogRef={dialogRef}
         recommended={recommended}
         release={release}
+        page={props.page}
+        locale={lang}
+        intentRef={lastIntentRef}
       />
     </DownloadContext.Provider>
   )
@@ -132,6 +171,9 @@ function DownloadDialog(props: {
   dialogRef: RefObject<HTMLDialogElement | null>
   recommended: DownloadTarget
   release: DesktopRelease
+  page: DownloadCtaPage
+  locale: string
+  intentRef: RefObject<DownloadCtaIntent | null>
 }) {
   const { dialogRef, recommended, release } = props
   const copy = useCopy().download
@@ -215,6 +257,13 @@ function DownloadDialog(props: {
               key={option.target}
               className={`dl-opt${recommended === option.target ? ' rec' : ''}`}
               href={href}
+              onClick={() => {
+                const intent = props.intentRef.current ?? DEFAULT_DIALOG_INTENT
+                trackDownloadCtaClick(
+                  { page: props.page, locale: props.locale, ...intent },
+                  href
+                )
+              }}
             >
               <Icon name={option.icon} filled />
               <div>

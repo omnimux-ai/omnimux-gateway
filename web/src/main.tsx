@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { loadEntry } from './entry-loader'
+import { installAnalytics } from './lib/analytics-bootstrap'
 
+installAnalytics()
 const pathname = window.location.pathname.replace(/\/+$/, '') || '/'
 loadEntry(pathname === '/' ? 'landing' : 'app')

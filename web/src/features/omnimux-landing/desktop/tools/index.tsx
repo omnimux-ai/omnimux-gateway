@@ -20,6 +20,7 @@ import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
+import type { DownloadCtaIntent } from '@/lib/download-cta'
 import { trackToolCtaClick, type ToolCtaClick } from '@/lib/growth-tracking'
 
 import '../assets/cn/fonts/smiley/result.css'
@@ -48,6 +49,12 @@ const STUDIO_FALLBACK_PATH = '/ai-influencer-studio'
 
 /** Tool pages exist only in English and Simplified Chinese. */
 const TOOL_LANGS: readonly LandingLang[] = ['en', 'zh-CN']
+
+const TOOL_DOWNLOAD_INTENT: DownloadCtaIntent = {
+  cta_id: 'tool_result_download',
+  cta_position: 'tool_result',
+  cta_variant: 'inline',
+}
 
 function toolLocale(lang: LandingLang): ToolLocale {
   return lang === 'zh-CN' || lang === 'zh-TW' ? 'zh-CN' : 'en'
@@ -128,7 +135,7 @@ function ToolPageView(props: TikTokToolPageProps) {
 
   return (
     <div className='omc js'>
-      <DownloadProvider>
+      <DownloadProvider page='tool'>
         <IconSprite />
         <a className='skip' href='#cn-main'>
           {copy.skip}
@@ -291,7 +298,9 @@ export function ToolRecreateBand(props: {
             className='btn btn-ghost'
             onClick={() => {
               track('desktop_download')
-              if (!download.downloadDirect()) download.open()
+              if (!download.downloadDirect(TOOL_DOWNLOAD_INTENT)) {
+                download.open(undefined, TOOL_DOWNLOAD_INTENT)
+              }
             }}
           >
             <Icon name='dl' />

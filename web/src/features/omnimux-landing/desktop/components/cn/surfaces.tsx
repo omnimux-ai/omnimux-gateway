@@ -16,10 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { DownloadCtaIntent } from '@/lib/download-cta'
+
 import { useCopy } from '../../i18n/context'
 import { ASSETS } from './data'
 import { useDownload } from './download-context'
 import { Icon } from './icons'
+
+const DESKTOP_DOWNLOAD_INTENT: DownloadCtaIntent = {
+  cta_id: 'surfaces_desktop_download',
+  cta_position: 'footer',
+  cta_variant: 'card',
+}
+
+const EXTENSION_DOWNLOAD_INTENT: DownloadCtaIntent = {
+  cta_id: 'surfaces_extension_download',
+  cta_position: 'footer',
+  cta_variant: 'card',
+}
 
 export function CnSurfaces() {
   const { open, downloadDirect, release } = useDownload()
@@ -104,7 +118,9 @@ export function CnSurfaces() {
               disabled={downloadUnavailable}
               title={downloadTitle}
               onClick={() => {
-                if (!downloadDirect()) open()
+                if (!downloadDirect(DESKTOP_DOWNLOAD_INTENT)) {
+                  open(undefined, DESKTOP_DOWNLOAD_INTENT)
+                }
               }}
             >
               {copy.desktop.cta}
@@ -181,7 +197,9 @@ export function CnSurfaces() {
               disabled={downloadUnavailable}
               title={downloadTitle}
               onClick={() => {
-                if (!downloadDirect()) open()
+                if (!downloadDirect(EXTENSION_DOWNLOAD_INTENT)) {
+                  open(undefined, EXTENSION_DOWNLOAD_INTENT)
+                }
               }}
             >
               {copy.ext.cta}

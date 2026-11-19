@@ -16,10 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { DownloadCtaIntent } from '@/lib/download-cta'
+
 import { useCopy } from '../../i18n/context'
 import { ASSETS } from './data'
 import { useDownload } from './download-context'
 import { Icon } from './icons'
+
+const WORKSPACE_DOWNLOAD_INTENT: DownloadCtaIntent = {
+  cta_id: 'workspace_product_download',
+  cta_position: 'footer',
+  cta_variant: 'section',
+}
 
 const ROW_MEDIA = [
   { image: ASSETS.d1, used: 14, total: 20, percent: '70%' },
@@ -56,7 +64,11 @@ export function CnWorkspace() {
         <div className='card tbl'>
           <div className='tbl-h'>
             <b>{copy.tableTitle}</b>
-            <button className='btn btn-sm btn-light' type='button' onClick={() => open()}>
+            <button
+              className='btn btn-sm btn-light'
+              type='button'
+              onClick={() => open(undefined, WORKSPACE_DOWNLOAD_INTENT)}
+            >
               <Icon name='plus' />
               {copy.addProduct}
             </button>

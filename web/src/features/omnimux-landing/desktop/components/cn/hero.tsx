@@ -18,6 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useRef, useState } from 'react'
 
+import {
+  trackDownloadCtaClick,
+  type DownloadCtaIntent,
+} from '@/lib/download-cta'
+
 import { useLanding } from '../../i18n/context'
 import type { LandingLang } from '../../i18n/types'
 import { REEL_MEDIA, SOURCE_REPO, type Mode } from './data'
@@ -38,6 +43,18 @@ const REEL_LAYOUT = [
 ] as const
 
 const TAB_ICONS = { agent: 'spark', video: 'video', image: 'img' } as const
+
+const HERO_PRIMARY_INTENT: DownloadCtaIntent = {
+  cta_id: 'hero_download_primary',
+  cta_position: 'hero',
+  cta_variant: 'primary',
+}
+
+const HERO_COMPOSER_INTENT: DownloadCtaIntent = {
+  cta_id: 'hero_composer_download',
+  cta_position: 'hero',
+  cta_variant: 'composer',
+}
 
 /**
  * Languages that separate words with spaces. Their two H1 halves need a real
@@ -121,7 +138,7 @@ export function CnHero() {
     return () => window.clearTimeout(timer)
   }, [full, focused, reduced, value])
 
-  const submit = () => open()
+  const submit = () => open(undefined, HERO_COMPOSER_INTENT)
 
   // Unknown chip defaults to the Apple-silicon build: every Mac sold since
   // late 2020 is arm64, and an Intel user gets a clear "cannot open" rather
@@ -253,6 +270,17 @@ export function CnHero() {
               href={dlMainHref ?? undefined}
               aria-disabled={urls ? undefined : true}
               title={urls ? undefined : copy.dlUnavailable}
+              onClick={() => {
+                if (!dlMainHref) return
+                trackDownloadCtaClick(
+                  {
+                    page: 'home',
+                    locale: landing.lang,
+                    ...HERO_PRIMARY_INTENT,
+                  },
+                  dlMainHref
+                )
+              }}
             >
               <svg
                 aria-hidden='true'
@@ -292,9 +320,21 @@ export function CnHero() {
             <div className='split-menu' ref={menuRef} role='menu'>
               {(
                 [
-                  { href: urls?.arm64, label: copy.dlMacArm },
-                  { href: urls?.x64, label: copy.dlMacIntel },
-                  { href: urls?.win, label: copy.dlWinX64 },
+                  {
+                    href: urls?.arm64,
+                    label: copy.dlMacArm,
+                    cta_id: 'hero_download_mac_arm64',
+                  },
+                  {
+                    href: urls?.x64,
+                    label: copy.dlMacIntel,
+                    cta_id: 'hero_download_mac_x64',
+                  },
+                  {
+                    href: urls?.win,
+                    label: copy.dlWinX64,
+                    cta_id: 'hero_download_win',
+                  },
                 ] as const
               ).map((item) =>
                 item.href ? (
@@ -303,7 +343,19 @@ export function CnHero() {
                     className='split-item'
                     href={item.href}
                     role='menuitem'
-                    onClick={() => setDlOpen(false)}
+                    onClick={(event) => {
+                      setDlOpen(false)
+                      trackDownloadCtaClick(
+                        {
+                          page: 'home',
+                          locale: landing.lang,
+                          cta_id: item.cta_id,
+                          cta_position: 'hero',
+                          cta_variant: 'menu',
+                        },
+                        event.currentTarget.href
+                      )
+                    }}
                   >
                     <span className='t'>{item.label}</span>
                   </a>
