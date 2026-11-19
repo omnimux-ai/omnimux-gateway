@@ -160,8 +160,11 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	}
 	request, hasRequest := c.Get("task_request")
 	if info.Action == "video_multi_ref" {
-		contract, ok := modelcontracts.For(info.OriginModelName)
-		if ok && contract.GatewayProtocol == "openai_video" {
+		contract, _ := modelcontracts.For(info.OriginModelName)
+		if contract.GatewayProtocol != "openai_video" {
+			contract, _ = modelcontracts.For(info.GetUpstreamModelName())
+		}
+		if contract.GatewayProtocol == "openai_video" {
 			body, _ := request.(map[string]any)
 			if err := prepareOrderedVideoImages(c, body); err != nil {
 				return service.TaskErrorWrapperLocal(err, "plugin_request_invalid", http.StatusBadRequest)

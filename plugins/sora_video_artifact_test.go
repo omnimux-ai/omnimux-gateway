@@ -159,25 +159,31 @@ func TestMuseVideoSubmitSnapshotsOnlyImageBytes(t *testing.T) {
 	mp4Header := base64.StdEncoding.EncodeToString([]byte("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"))
 	for _, test := range []struct {
 		name      string
+		model     string
 		inputs    []string
 		wantError bool
 	}{
 		{name: "reversed images", inputs: []string{images[1], images[0]}},
 		{name: "video data URL", inputs: []string{images[0], "data:video/mp4;base64," + mp4Header}, wantError: true},
 		{name: "video mislabeled as image", inputs: []string{images[0], "data:image/png;base64," + mp4Header}, wantError: true},
+		{name: "video through mapped alias", model: "muse-public-alias", inputs: []string{images[0], "data:video/mp4;base64," + mp4Header}, wantError: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			publicModel := test.model
+			if publicModel == "" {
+				publicModel = "muse-video"
+			}
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", nil)
-			ctx.Set(pluginruntime.ContextKeyPinnedEndpoint, pluginruntime.PinnedEndpoint{Plugin: plugin, Protocol: "openai_video", Model: "muse-video"})
+			ctx.Set(pluginruntime.ContextKeyPinnedEndpoint, pluginruntime.PinnedEndpoint{Plugin: plugin, Protocol: "openai_video", Model: publicModel, MappedModel: "muse-video"})
 			ctx.Set(pluginruntime.ContextKeyProtocolRequest, pluginruntime.ProtocolRequestContext{
-				Protocol: "openai_video", Model: "muse-video",
+				Protocol: "openai_video", Model: publicModel, UpstreamModel: "muse-video",
 				RouteRequestContext: pluginruntime.RouteRequestContext{Body: map[string]any{"kind": "json", "value": map[string]any{
-					"model": "muse-video", "operation": "video_multi_ref", "image_urls": test.inputs, "prompt": "Create a video",
+					"model": publicModel, "operation": "video_multi_ref", "image_urls": test.inputs, "prompt": "Create a video",
 				}}},
 			})
 			info := &relaycommon.RelayInfo{
-				OriginModelName: "muse-video", TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+				OriginModelName: publicModel, TaskRelayInfo: &relaycommon.TaskRelayInfo{},
 				ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://provider.example", UpstreamModelName: "muse-video"},
 			}
 			adaptor := taskplugin.New(plugin)
