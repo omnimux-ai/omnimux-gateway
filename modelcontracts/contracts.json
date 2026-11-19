@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "4746b7f53cd2f813",
+  "version": "0c22fe001744c307",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -3357,7 +3357,7 @@
     "gpt-image-2.5": {
       "model_id": "gpt-image-2.5",
       "schemaVersion": "2.0",
-      "contractVersion": "b5ec68bd36d83c5e",
+      "contractVersion": "dc8457c7bc99e828",
       "execution_status": "live",
       "family": "image",
       "status": "documented",
@@ -3606,11 +3606,10 @@
           "en": "per image",
           "zh": "每张"
         },
-        "unit_price_usd": 0.3,
         "pricing_basis": "image_count",
         "notes": {
-          "en": "Charged per image. This amount is the per-image service base (3 OmniMux points); the final quote includes the dedicated group and membership multipliers; use the platform quote before submission.",
-          "zh": "按图片张数计费。此金额为每张的服务基准价（对应 3 积分）；实际每张费用受专属分组和会员倍率影响，以平台提交前报价为准。"
+          "en": "Charged per image. The actual per-image price is determined by the live quote from /api/pricing, the applicable group and membership multipliers, and the platform quote shown before submission; no static unit price is declared here, avoiding drift after future price changes.",
+          "zh": "按图片张数计费。实际每张费用由 /api/pricing 实时报价、适用分组与会员倍率确定，以平台提交前报价为准；此处不声明静态单价，避免后续调价产生漂移。"
         }
       }
     },
