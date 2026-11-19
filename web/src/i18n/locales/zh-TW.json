@@ -9454,6 +9454,9 @@
     "Muse video generation mode is unsupported": "Muse 影片不支援此生成模式",
     "Muse video multi-reference mode requires exactly two images": "Muse 影片多圖參考模式需要剛好兩張圖片",
     "Muse text-to-video does not accept reference images": "Muse 文生影片不接受參考圖片",
+    "Starting image": "起始圖",
+    "Use as starting image": "設為起始圖",
+    "Choose at most {{count}} reference images": "最多選擇 {{count}} 張參考圖",
     "Only two reference images are allowed": "最多上傳兩張參考圖片"
   }
 }

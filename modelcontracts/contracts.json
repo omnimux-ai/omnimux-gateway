@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "beda034527e2300b",
+  "version": "64924de296c6ef92",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -7062,7 +7062,7 @@
     "muse-video": {
       "model_id": "muse-video",
       "schemaVersion": "2.0",
-      "contractVersion": "209975d764ec0be5",
+      "contractVersion": "23bb4f8bd7146e73",
       "execution_status": "live",
       "family": "video",
       "status": "partial",
@@ -7189,7 +7189,7 @@
               "firstItemRole": "first_frame",
               "required": true,
               "min": 2,
-              "max": 2,
+              "max": 10,
               "allowedMimes": [
                 "image/jpeg",
                 "image/png",
@@ -7254,7 +7254,7 @@
       ],
       "reference_images": {
         "min": 2,
-        "max": 2,
+        "max": 10,
         "formats": [
           "image/jpeg",
           "image/png",

@@ -9454,6 +9454,9 @@
     "Muse video generation mode is unsupported": "Этот режим генерации Muse Video не поддерживается",
     "Muse video multi-reference mode requires exactly two images": "Для режима нескольких референсов Muse Video нужны ровно два изображения",
     "Muse text-to-video does not accept reference images": "Генерация видео из текста в Muse не принимает референсы",
+    "Starting image": "Начальное изображение",
+    "Use as starting image": "Использовать как начальное изображение",
+    "Choose at most {{count}} reference images": "Выберите не более {{count}} референсных изображений",
     "Only two reference images are allowed": "Можно добавить не более двух изображений-референсов"
   }
 }

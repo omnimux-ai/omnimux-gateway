@@ -9454,6 +9454,9 @@
     "Muse video generation mode is unsupported": "Muse Video không hỗ trợ chế độ tạo này",
     "Muse video multi-reference mode requires exactly two images": "Chế độ nhiều ảnh tham chiếu của Muse Video cần đúng hai ảnh",
     "Muse text-to-video does not accept reference images": "Chế độ văn bản thành video của Muse không nhận ảnh tham chiếu",
+    "Starting image": "Ảnh bắt đầu",
+    "Use as starting image": "Dùng làm ảnh bắt đầu",
+    "Choose at most {{count}} reference images": "Chọn tối đa {{count}} ảnh tham chiếu",
     "Only two reference images are allowed": "Chỉ được thêm hai ảnh tham chiếu"
   }
 }

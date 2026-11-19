@@ -9454,6 +9454,9 @@
     "Muse video generation mode is unsupported": "Ce mode de génération de Muse Video est indisponible",
     "Muse video multi-reference mode requires exactly two images": "Le mode multiréférence de Muse Video exige exactement deux images",
     "Muse text-to-video does not accept reference images": "Le mode texte vers vidéo de Muse n’accepte pas d’images de référence",
+    "Starting image": "Image de départ",
+    "Use as starting image": "Utiliser comme image de départ",
+    "Choose at most {{count}} reference images": "Sélectionner au maximum {{count}} images de référence",
     "Only two reference images are allowed": "Deux images de référence au maximum"
   }
 }

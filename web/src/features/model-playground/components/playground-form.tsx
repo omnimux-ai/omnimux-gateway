@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { Cancel01Icon, MoreHorizontalIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
@@ -44,10 +52,15 @@ export type PlaygroundFormProps = {
   params: PlaygroundParams
   uploading: boolean
   disabled: boolean
+  replaceSingleFirstFrame: boolean
   onParamChange: (key: string, value: string | number | boolean) => void
-  onMediaFiles: (key: string, files: FileList | null) => void
+  onMediaFiles: (
+    key: string,
+    files: FileList | null,
+    replaceIndex?: number
+  ) => void
   onMediaRemove: (key: string, index: number) => void
-  onMediaSwap: (key: string) => void
+  onMediaSwap: (key: string, index?: number) => void
 }
 
 /** localStorage-free description of a filled slot, for the accessible name. */
@@ -157,6 +170,7 @@ function MediaControl(props: {
   urls: string[]
   disabled: boolean
   uploading: boolean
+  replaceSingleFirstFrame: boolean
   parityId?: string
   onMediaFiles: PlaygroundFormProps['onMediaFiles']
   onMediaRemove: PlaygroundFormProps['onMediaRemove']
@@ -166,21 +180,39 @@ function MediaControl(props: {
   const { control } = props
   const maxCount = control.maxCount
   const isFull = maxCount !== undefined && props.urls.length >= maxCount
-  const orderedPair = control.firstItemRole === 'first_frame'
+  const orderedImages = control.firstItemRole === 'first_frame'
+  const expandedOrder = orderedImages && (maxCount ?? 0) > 2
+  const imageActionsAvailable = orderedImages || props.replaceSingleFirstFrame
   const disabled = props.disabled || props.uploading
+  const replaceInput = useRef<HTMLInputElement>(null)
+  const replaceIndex = useRef<number | undefined>(undefined)
+  const replacement = useRef<{ index: number; previousUrl: string } | null>(
+    null
+  )
+  const imageActions = useRef(new Map<number, HTMLButtonElement>())
   const urlOccurrences = new Map<string, number>()
   const counter =
     maxCount === undefined
       ? `${props.urls.length}`
       : `${props.urls.length} / ${maxCount}`
 
+  useLayoutEffect(() => {
+    if (disabled || !replacement.current) return
+    const { index, previousUrl } = replacement.current
+    replacement.current = null
+    const trigger = imageActions.current.get(index)
+    if (!trigger || props.urls[index] === previousUrl) return
+    const document = trigger.ownerDocument
+    if (document.activeElement === document.body) trigger.focus()
+  }, [disabled, props.urls])
+
   return (
     <div
       data-parity={props.parityId}
       className='space-y-2'
-      onDragOver={orderedPair ? (event) => event.preventDefault() : undefined}
+      onDragOver={orderedImages ? (event) => event.preventDefault() : undefined}
       onDrop={
-        orderedPair
+        orderedImages
           ? (event) => {
               event.preventDefault()
               if (!disabled) {
@@ -191,15 +223,21 @@ function MediaControl(props: {
       }
     >
       <div className='flex items-center gap-2'>
-        <Label htmlFor={orderedPair ? `media-${control.key}` : undefined}>
-          {orderedPair ? t('Reference images') : t(control.labelKey)}
+        <Label
+          htmlFor={
+            imageActionsAvailable && !isFull
+              ? `media-${control.key}`
+              : undefined
+          }
+        >
+          {orderedImages ? t('Reference images') : t(control.labelKey)}
         </Label>
-        {orderedPair && (
+        {imageActionsAvailable && (
           <div className='ml-auto flex items-center gap-2'>
             <span className='text-muted-foreground text-xs tabular-nums'>
               {counter}
             </span>
-            {isFull && (
+            {orderedImages && props.urls.length === 2 && (
               <Button
                 type='button'
                 variant='outline'
@@ -230,14 +268,14 @@ function MediaControl(props: {
               {t('JPG / PNG / WebP')}
             </span>
           )}
-          {(props.uploading || !orderedPair) && (
+          {(props.uploading || !imageActionsAvailable) && (
             <span className='text-muted-foreground text-[12px] tabular-nums'>
               {props.uploading ? t('Uploading…') : counter}
             </span>
           )}
           <input
             type='file'
-            id={orderedPair ? `media-${control.key}` : undefined}
+            id={imageActionsAvailable ? `media-${control.key}` : undefined}
             multiple={maxCount !== 1}
             accept={control.accept}
             className='sr-only'
@@ -250,11 +288,37 @@ function MediaControl(props: {
         </label>
       )}
 
+      {imageActionsAvailable && (
+        <input
+          type='file'
+          hidden
+          ref={replaceInput}
+          accept={control.accept}
+          aria-label={t('Replace reference')}
+          disabled={disabled}
+          onChange={(event) => {
+            const index = replaceIndex.current
+            const previousUrl =
+              index === undefined ? undefined : props.urls[index]
+            if (
+              index !== undefined &&
+              previousUrl &&
+              event.currentTarget.files?.length
+            ) {
+              replacement.current = { index, previousUrl }
+              props.onMediaFiles(control.key, event.currentTarget.files, index)
+            }
+            event.currentTarget.value = ''
+            replaceIndex.current = undefined
+          }}
+        />
+      )}
+
       {props.urls.length > 0 && (
         <ol
           className={cn(
             'gap-2',
-            orderedPair ? 'grid grid-cols-2' : 'flex flex-wrap'
+            imageActionsAvailable ? 'grid grid-cols-2' : 'flex flex-wrap'
           )}
         >
           {props.urls.map((url, index) => {
@@ -265,7 +329,7 @@ function MediaControl(props: {
                 key={`${url}:${occurrence}`}
                 className={cn(
                   'group relative',
-                  orderedPair
+                  imageActionsAvailable
                     ? 'min-w-0 overflow-hidden rounded-lg border'
                     : 'size-12'
                 )}
@@ -276,7 +340,9 @@ function MediaControl(props: {
                     alt={slotName(url)}
                     className={cn(
                       'bg-muted object-cover',
-                      orderedPair ? 'h-16 w-full' : 'size-12 rounded-lg'
+                      imageActionsAvailable
+                        ? 'h-16 w-full'
+                        : 'size-12 rounded-lg'
                     )}
                   />
                 ) : (
@@ -284,10 +350,13 @@ function MediaControl(props: {
                     {slotName(url)}
                   </span>
                 )}
-                {orderedPair && (
+                {imageActionsAvailable && (
                   <div className='bg-muted/40 flex items-center gap-1.5 px-2 py-1 text-xs'>
                     <strong className='shrink-0'>
-                      {t('Image {{index}}', { index: index + 1 })}
+                      {(expandedOrder || props.replaceSingleFirstFrame) &&
+                      index === 0
+                        ? t('Starting image')
+                        : t('Image {{index}}', { index: index + 1 })}
                     </strong>
                     <span
                       className='text-muted-foreground min-w-0 truncate'
@@ -297,19 +366,65 @@ function MediaControl(props: {
                     </span>
                   </div>
                 )}
+                {imageActionsAvailable && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='icon'
+                          className='bg-background absolute top-1 right-8 size-6 rounded-full'
+                          aria-label={`${t('Image {{index}}', { index: index + 1 })} · ${t('Actions')}`}
+                          disabled={disabled}
+                          ref={(button) => {
+                            if (button) imageActions.current.set(index, button)
+                            else imageActions.current.delete(index)
+                          }}
+                        />
+                      }
+                    >
+                      <HugeiconsIcon
+                        icon={MoreHorizontalIcon}
+                        aria-hidden='true'
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align='end'>
+                      <DropdownMenuGroup>
+                        {expandedOrder && index > 0 && (
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              props.onMediaSwap(control.key, index)
+                            }
+                          >
+                            {t('Use as starting image')}
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            replaceIndex.current = index
+                            replaceInput.current?.click()
+                          }}
+                        >
+                          {t('Replace reference')}
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
                 <Button
                   type='button'
                   variant='outline'
                   size='icon'
                   aria-label={
-                    orderedPair
+                    orderedImages
                       ? t('Remove image {{index}}', { index: index + 1 })
                       : t('Remove {{name}}', { name: slotName(url) })
                   }
                   disabled={disabled}
                   className={cn(
                     'bg-background absolute size-6 rounded-full',
-                    orderedPair
+                    imageActionsAvailable
                       ? 'top-1 right-1'
                       : '-top-2 -right-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
                   )}
@@ -326,7 +441,7 @@ function MediaControl(props: {
           })}
         </ol>
       )}
-      {orderedPair && (
+      {orderedImages && !expandedOrder && (
         <p className='text-muted-foreground text-xs'>
           {t(
             'Image 1 is the default start. Use [图1] and [图2] in the prompt.'
@@ -342,6 +457,7 @@ function Control(props: {
   params: PlaygroundParams
   disabled: boolean
   uploading: boolean
+  replaceSingleFirstFrame: boolean
   onParamChange: PlaygroundFormProps['onParamChange']
   onMediaFiles: PlaygroundFormProps['onMediaFiles']
   onMediaRemove: PlaygroundFormProps['onMediaRemove']
@@ -400,6 +516,7 @@ function Control(props: {
         urls={values(raw)}
         disabled={props.disabled}
         uploading={props.uploading}
+        replaceSingleFirstFrame={props.replaceSingleFirstFrame}
         parityId={parityId}
         onMediaFiles={props.onMediaFiles}
         onMediaRemove={props.onMediaRemove}
@@ -485,6 +602,9 @@ export function PlaygroundForm(props: PlaygroundFormProps) {
       params={props.params}
       disabled={props.disabled}
       uploading={props.uploading}
+      replaceSingleFirstFrame={
+        props.replaceSingleFirstFrame && control.mediaRole === 'first_frame'
+      }
       onParamChange={props.onParamChange}
       onMediaFiles={props.onMediaFiles}
       onMediaRemove={props.onMediaRemove}

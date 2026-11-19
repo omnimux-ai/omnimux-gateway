@@ -371,7 +371,7 @@ const legacyRenderers = {
 };
 
 // Muse accepts JSON attachments in order. Translate the gateway's media slots
-// before submission so neither a first frame nor the second reference is lost.
+// before submission. The host enforces the published multi-reference count.
 function decodeMuseVideo(ctx) {
   if (ctx.body?.kind !== "json" || !ctx.body.value || Array.isArray(ctx.body.value)) {
     throw new Error("Muse video requires a JSON request");
@@ -421,8 +421,7 @@ function decodeMuseVideo(ctx) {
   }
   if (operation === "first_frame") {
     if (references.length !== 1) throw new Error("Muse video first-frame mode requires one image");
-  } else if (references.length !== (operation === "video_multi_ref" ? 2 : 0)) {
-    if (operation === "video_multi_ref") throw new Error("Muse video multi-reference mode requires exactly two images");
+  } else if (operation === "text_to_video" && references.length !== 0) {
     throw new Error("Muse text-to-video does not accept reference images");
   }
   for (const key of provided) delete request[key];
