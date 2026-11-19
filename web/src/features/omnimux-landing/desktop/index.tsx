@@ -91,7 +91,7 @@ function LandingView() {
 
   return (
     <div className='omc js'>
-      <DownloadProvider>
+      <DownloadProvider page='home'>
         <IconSprite />
         <a className='skip' href='#cn-main'>
           {copy.skip}

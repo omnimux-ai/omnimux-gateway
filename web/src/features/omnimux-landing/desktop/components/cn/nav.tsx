@@ -21,6 +21,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
+import type { DownloadCtaIntent } from '@/lib/download-cta'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -42,6 +43,12 @@ export type CnNavLinkKey =
   | 'ext'
   | 'pricing'
   | 'resources'
+
+const NAV_DOWNLOAD_INTENT: DownloadCtaIntent = {
+  cta_id: 'nav_download',
+  cta_position: 'header',
+  cta_variant: 'nav',
+}
 
 type NavLinkMeta = {
   href: string
@@ -315,7 +322,9 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
                   : undefined
               }
               onClick={() => {
-                if (!downloadDirect()) open()
+                if (!downloadDirect(NAV_DOWNLOAD_INTENT)) {
+                  open(undefined, NAV_DOWNLOAD_INTENT)
+                }
               }}
             >
               <Icon name='dl' />

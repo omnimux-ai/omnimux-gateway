@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createContext, useContext } from 'react'
 
+import type { DownloadCtaIntent } from '@/lib/download-cta'
+
 import type { DesktopRelease } from './desktop-release'
 
 /**
@@ -37,7 +39,7 @@ export type DetectedPlatform = DownloadTarget | null
 
 export const DownloadContext = createContext<{
   /** Opens the dialog with the given platform pre-selected. */
-  open: (target?: DownloadTarget) => void
+  open: (target?: DownloadTarget, intent?: DownloadCtaIntent) => void
   /**
    * The platform this visit most likely needs, resolved once on mount.
    * Single download buttons use it to fetch the right installer directly.
@@ -56,7 +58,7 @@ export const DownloadContext = createContext<{
    */
   release: DesktopRelease
   /** Starts the installer download for `platform`; false when unknown. */
-  downloadDirect: () => boolean
+  downloadDirect: (intent?: DownloadCtaIntent) => boolean
 }>({
   open: () => {},
   platform: null,

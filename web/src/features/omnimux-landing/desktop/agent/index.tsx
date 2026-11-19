@@ -109,7 +109,7 @@ function AgentPageView(props: AgentPageProps) {
 
   return (
     <div className='omc js'>
-      <DownloadProvider>
+      <DownloadProvider page='tool'>
         <IconSprite />
         <a className='skip' href='#cn-main'>
           {copy.skip}

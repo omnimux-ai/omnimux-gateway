@@ -18,14 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
+import type { DownloadCtaIntent } from '@/lib/download-cta'
+
 import { useCopy } from '../../i18n/context'
 import type { FlowStepCopy } from '../../i18n/types'
-import {
-  ASSETS,
-  POSTS_MEDIA,
-  TRENDING_MEDIA,
-  type IconName,
-} from './data'
+import { ASSETS, POSTS_MEDIA, TRENDING_MEDIA, type IconName } from './data'
 import { useDownload } from './download-context'
 import { usePrefersReducedMotion } from './hooks'
 import { Icon } from './icons'
@@ -39,6 +36,32 @@ const STEP_ICONS: readonly IconName[] = [
   'send',
   'chart',
 ]
+
+const FLOW_BREAKDOWN_VIDEO_INTENT: DownloadCtaIntent = {
+  cta_id: 'flow_breakdown_video_download',
+  cta_position: 'footer',
+  cta_variant: 'section',
+}
+
+const FLOW_BREAKDOWN_CATEGORY_INTENT: DownloadCtaIntent = {
+  cta_id: 'flow_breakdown_category_download',
+  cta_position: 'footer',
+  cta_variant: 'section',
+}
+
+const FLOW_REVIEW_INTENT: DownloadCtaIntent = {
+  cta_id: 'flow_review_download',
+  cta_position: 'footer',
+  cta_variant: 'section',
+}
+
+function flowStepDownloadIntent(index: number): DownloadCtaIntent {
+  return {
+    cta_id: `flow_step_${index + 1}_download`,
+    cta_position: 'footer',
+    cta_variant: 'section',
+  }
+}
 
 function Secondary(props: {
   index: number
@@ -165,12 +188,20 @@ export function CnFlow() {
                       <button
                         className='btn btn-sm btn-light'
                         type='button'
-                        onClick={() => open()}
+                        onClick={() =>
+                          open(undefined, flowStepDownloadIntent(index))
+                        }
                       >
                         {step.primary}
                         <Icon name='right' />
                       </button>
-                      <Secondary index={index} label={step.secondary} onOpen={open} />
+                      <Secondary
+                        index={index}
+                        label={step.secondary}
+                        onOpen={() =>
+                          open(undefined, flowStepDownloadIntent(index))
+                        }
+                      />
                     </div>
                   </div>
                 </div>
@@ -320,7 +351,9 @@ export function CnFlow() {
                           <button
                             className='btn btn-sm btn-light go'
                             type='button'
-                            onClick={() => open()}
+                            onClick={() =>
+                              open(undefined, FLOW_BREAKDOWN_VIDEO_INTENT)
+                            }
                           >
                             {copy.breakdown.accountCta}
                           </button>
@@ -356,7 +389,9 @@ export function CnFlow() {
                           <button
                             className='btn btn-sm btn-light go'
                             type='button'
-                            onClick={() => open()}
+                            onClick={() =>
+                              open(undefined, FLOW_BREAKDOWN_CATEGORY_INTENT)
+                            }
                           >
                             {copy.breakdown.catCta}
                           </button>
@@ -427,7 +462,10 @@ export function CnFlow() {
                                 <img src={ASSETS.pizza} alt={copy.make.altRef} loading='lazy' />
                                 <span
                                   className='badge'
-                                  style={{ color: 'var(--fg)', borderColor: 'var(--hair-3)' }}
+                                  style={{
+                                    color: 'var(--fg)',
+                                    borderColor: 'var(--hair-3)',
+                                  }}
                                 >
                                   {copy.make.badgeRef}
                                 </span>
@@ -570,7 +608,7 @@ export function CnFlow() {
                 <button
                   className='btn btn-sm btn-light go'
                   type='button'
-                  onClick={() => open()}
+                  onClick={() => open(undefined, FLOW_REVIEW_INTENT)}
                 >
                   {copy.review.cta}
                 </button>

@@ -16,9 +16,23 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { DownloadCtaIntent } from '@/lib/download-cta'
+
 import { useCopy } from '../../i18n/context'
 import { useDownload } from './download-context'
 import { Icon } from './icons'
+
+const FOOTER_MAC_INTENT: DownloadCtaIntent = {
+  cta_id: 'footer_download_mac',
+  cta_position: 'footer',
+  cta_variant: 'primary',
+}
+
+const FOOTER_WIN_INTENT: DownloadCtaIntent = {
+  cta_id: 'footer_download_win',
+  cta_position: 'footer',
+  cta_variant: 'secondary',
+}
 
 export function CnFinalCta() {
   const { open, release } = useDownload()
@@ -38,7 +52,7 @@ export function CnFinalCta() {
               type='button'
               disabled={unavailable}
               title={disabledTitle}
-              onClick={() => open('mac-arm64')}
+              onClick={() => open('mac-arm64', FOOTER_MAC_INTENT)}
             >
               <Icon name='apple' filled />
               {finalCta.dlMac}
@@ -48,7 +62,7 @@ export function CnFinalCta() {
               type='button'
               disabled={unavailable}
               title={disabledTitle}
-              onClick={() => open('win')}
+              onClick={() => open('win', FOOTER_WIN_INTENT)}
             >
               <Icon name='win' filled />
               {finalCta.dlWin}
