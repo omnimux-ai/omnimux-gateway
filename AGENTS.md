@@ -2,6 +2,8 @@
 
 DO NOT send optional commentary
 
+Read this file in full and the applicable scoped `AGENTS.md` files. On both new and resumed tasks, follow [agent decisions and handoff](.agents/rules/development-workflow.md). For product changes, confirm the requirements, then complete [research before design](#research-before-design-fork) before proposing a solution.
+
 ## Overview
 
 This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
@@ -224,6 +226,16 @@ This repository is the maintained fork of QuantumNous/new-api shipped as OmniMux
 - `unaudited` models MUST NOT reach production.
 - **Model catalog descriptions**: every model meta write MUST set non-empty `description`, non-zero `vendor_id` (vendor = user-facing brand), and exactly one modality type tag (`Text`|`Image`|`Video`|`Audio Generation`); `task-*` helpers MAY omit the type tag but MUST carry `async,query,task`.
 
+### Research before design (fork)
+
+产品研发按「需求确认 → 案例、数据与真实性研究 → 方案 → 适用的人工确认 → 实现与验收」执行。先确认目标、范围和验收条件，再完成与改动规模相称的研究。
+
+- **案例**。找与本次场景可比的公开案例，记录页面或代码出处，以及哪些做法适用。涉及用户可见的前端方案时，查看 [CreatOK](https://www.creatok.ai/) 和 [Higgsfield](https://higgsfield.ai/) 最接近的公开页面。对照入口、关键操作和结果呈现，再用本仓设计与组件形成方案。找不到同类页面时，记录看过的页面和适用边界。
+- **数据**。在授权范围内使用真实反馈、现状指标或复现样本说明问题。记录来源、时间、范围和口径。缺失数据写明未知。
+- **真实性**。分别标注公开展示、源码或文档证据、测试结果和实际环境验证。涉及本产品能力时，查对应实现与可验证的实际入口。只能从展示或文档判断时，写清验证范围。影响方案选择的未知项须先补证或明确交由用户决定。
+- **工程参考**。涉及代码时，查 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 的现行规范、同类实现、测试和 CI 检查，记录适用的写法与验证做法及其出处。具体实现与验收按本仓规则、现有代码和检查入口执行。
+- **交付与复核**。方案附简短研究摘要，列出证据来源、观察结果、未知项和它们如何影响选择。PR 转入可公开的摘要，Agent 模板填 [Research](.agents/github/PR.md#research)，负责人模板写入变更描述。研究深度随影响范围调整，涉及前端或保护路径时继续执行下文的确认门禁。
+
 ### Change policy (fork)
 
 - Before product edits: read the existing paths first; the code and its tests are the truth for this repository. Prefer config over code.
@@ -271,10 +283,10 @@ Protected prefixes (truth: [scripts/ops/core-change-paths.txt](scripts/ops/core-
 
 - Read live state first. If PR checks or the merge already settled, act on that result now; do not start a waiter for a finished condition.
 - Any CI, merge-queue, or PR-merge wait longer than about 15 seconds MUST run as exactly one bounded background job. Never poll with a foreground `sleep` loop, `gh pr checks`, or repeated `gh pr view` calls.
-  - Run `node scripts/ops/pr-wait.mjs --pr <n> --until checks --json` (or `--until merged`) as a background job; keep the job id and resume on the completion notification or its output. One waiter per PR and head SHA; a new head invalidates the old result, so start one new waiter rather than running two.
+  - For PR readiness, run `node scripts/ops/pr-wait.mjs --pr <n> --until checks --required --head <reviewed-full-sha> --json` as a background job. For a merge receipt, use `--until merged --head <reviewed-full-sha>`. Keep the job id and resume on its result. One waiter per PR and head. If the revision changes, review the new diff before starting a waiter for that revision.
   - If the harness has no background-job facility, use its native scheduling tool. If neither exists, report the wait as blocked; do not burn foreground turns.
 - While waiting, continue other authorized work. If nothing else is authorized, end the turn and resume on the completion notification.
-- A green waiter result is readiness evidence, not merge authorization. Before merging or cleaning up, read back `state=MERGED`, `mergedAt`, and `mergeCommit`, and verify the checks that matter for the touched paths.
+- The waiter reports PR check results or a merge receipt. With merge authorization, use the configured merge queue and verify its checks against the queue candidate. After merge, read back `state=MERGED`, `mergedAt` and `mergeCommit`; verify applicable acceptance before cleanup.
 
 ### Commands / Verify
 
