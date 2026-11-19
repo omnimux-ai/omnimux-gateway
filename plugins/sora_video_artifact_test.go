@@ -1,14 +1,23 @@
 package plugins_test
 
 import (
+	"bytes"
+	"encoding/base64"
+	"image"
+	"image/color"
+	"image/png"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	relaychannel "github.com/QuantumNous/new-api/relay/channel"
 	taskplugin "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -133,6 +142,63 @@ func TestMuseVideoReferencesReachSubmitInOrder(t *testing.T) {
 			for _, field := range []string{"image", "images"} {
 				assert.Equal(t, test.want[field], body[field])
 			}
+		})
+	}
+}
+
+func TestMuseVideoSubmitSnapshotsOnlyImageBytes(t *testing.T) {
+	plugin := loadSoraPlugin(t)
+	images := make([]string, 2)
+	for index, pixel := range []color.RGBA{{R: 255, A: 255}, {B: 255, A: 255}} {
+		picture := image.NewRGBA(image.Rect(0, 0, 2, 2))
+		picture.Set(0, 0, pixel)
+		var buffer bytes.Buffer
+		require.NoError(t, png.Encode(&buffer, picture))
+		images[index] = "data:image/png;base64," + base64.StdEncoding.EncodeToString(buffer.Bytes())
+	}
+	mp4Header := base64.StdEncoding.EncodeToString([]byte("\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"))
+	for _, test := range []struct {
+		name      string
+		inputs    []string
+		wantError bool
+	}{
+		{name: "reversed images", inputs: []string{images[1], images[0]}},
+		{name: "video data URL", inputs: []string{images[0], "data:video/mp4;base64," + mp4Header}, wantError: true},
+		{name: "video mislabeled as image", inputs: []string{images[0], "data:image/png;base64," + mp4Header}, wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", nil)
+			ctx.Set(pluginruntime.ContextKeyPinnedEndpoint, pluginruntime.PinnedEndpoint{Plugin: plugin, Protocol: "openai_video", Model: "muse-video"})
+			ctx.Set(pluginruntime.ContextKeyProtocolRequest, pluginruntime.ProtocolRequestContext{
+				Protocol: "openai_video", Model: "muse-video",
+				RouteRequestContext: pluginruntime.RouteRequestContext{Body: map[string]any{"kind": "json", "value": map[string]any{
+					"model": "muse-video", "operation": "video_multi_ref", "image_urls": test.inputs, "prompt": "Create a video",
+				}}},
+			})
+			info := &relaycommon.RelayInfo{
+				OriginModelName: "muse-video", TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+				ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://provider.example", UpstreamModelName: "muse-video"},
+			}
+			adaptor := taskplugin.New(plugin)
+			adaptor.Init(info)
+			taskErr := adaptor.ValidateRequestAndSetAction(ctx, info)
+			if test.wantError {
+				require.NotNil(t, taskErr)
+				assert.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
+				assert.Contains(t, taskErr.Message, "reference image 2")
+				return
+			}
+			require.Nil(t, taskErr)
+			reader, err := adaptor.BuildRequestBody(ctx, info)
+			require.NoError(t, err)
+			data, err := io.ReadAll(reader)
+			require.NoError(t, err)
+			var upstream struct {
+				Images []string `json:"images"`
+			}
+			require.NoError(t, common.Unmarshal(data, &upstream))
+			assert.Equal(t, test.inputs, upstream.Images)
 		})
 	}
 }
