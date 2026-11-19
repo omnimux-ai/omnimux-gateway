@@ -6,7 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // fork: OmniMux — guards the public capability-contract endpoint.
@@ -48,8 +52,15 @@ func TestModelContractEndpointPublishesADeclaredContract(t *testing.T) {
 	if !strings.Contains(body, `"operations":[`) {
 		t.Errorf("response carries no operation schema: %s", body)
 	}
-	if !strings.Contains(body, `"output":{"type":"video"}`) {
-		t.Errorf("operation schema carries no output type: %s", body)
+	var response struct {
+		Data struct {
+			Contract modelcontracts.Contract `json:"contract"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.NotEmpty(t, response.Data.Contract.Operations)
+	for _, operation := range response.Data.Contract.Operations {
+		assert.Equal(t, "video", operation.Output.Type, operation.ID)
 	}
 }
 

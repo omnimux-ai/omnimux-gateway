@@ -70,10 +70,10 @@ func TestTaskChannelSelectionErrorKeepsLastAttempt(t *testing.T) {
 		types.ErrOptionWithSkipRetry(),
 	)
 
-	assert.Same(t, last, taskChannelSelectionError(last, channelErr, 1),
+	assert.Same(t, last, taskChannelSelectionError(last, channelErr),
 		"retry exhaustion must keep the last real attempt error")
 
-	first := taskChannelSelectionError(nil, channelErr, 0)
+	first := taskChannelSelectionError(nil, channelErr)
 	require.NotNil(t, first)
 	assert.Equal(t, "get_channel_failed", first.Code)
 	assert.Equal(t, http.StatusServiceUnavailable, first.StatusCode)

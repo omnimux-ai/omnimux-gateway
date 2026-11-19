@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 
@@ -777,6 +778,9 @@ func UpdateChannelStatus(channelId int, usingKey string, status int, reason stri
 			err := UpdateAbilityStatus(channelId, status == common.ChannelStatusEnabled)
 			if err != nil {
 				common.SysLog(common.LogText("failed to update ability status: channel_id=%d, error=%v", channelId, err))
+			}
+			if modelcontracts.ActiveVideoCapabilities().UsesChannel(channelId) {
+				InvalidatePricingCache()
 			}
 		}
 	}()

@@ -79,6 +79,20 @@ func main() {
 			common.SysLog("modelcontracts: serving contracts from " + specDir)
 		}
 	}
+	if path := os.Getenv(modelcontracts.VideoCapabilitiesFileEnv); path != "" {
+		file, openErr := os.Open(path)
+		if openErr != nil {
+			common.FatalLog("Unable to open " + modelcontracts.VideoCapabilitiesFileEnv + ": " + openErr.Error())
+			return
+		}
+		rules, readErr := modelcontracts.ReadVideoCapabilities(file)
+		_ = file.Close()
+		if readErr != nil {
+			common.FatalLog("Invalid " + modelcontracts.VideoCapabilitiesFileEnv + ": " + readErr.Error())
+			return
+		}
+		modelcontracts.SetVideoCapabilities(rules)
+	}
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}

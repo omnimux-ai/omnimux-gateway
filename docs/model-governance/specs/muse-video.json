@@ -16,6 +16,11 @@
    "first_frame",
    "video_multi_ref"
   ],
+  "mode_kinds": {
+   "text_to_video": "text_to_video",
+   "first_frame": "first_frame",
+   "video_multi_ref": "image_reference"
+  },
   "source_claim": "内置 Sora 任务插件接入 Muse 视频，支持文生视频、单图首帧及 2–10 张有序参考图"
  },
  "durations_seconds": {

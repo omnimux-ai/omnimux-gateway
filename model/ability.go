@@ -115,7 +115,10 @@ func GetChannel(
 	if err != nil {
 		return nil, err
 	}
-	abilities = filterAbilitiesByConstraints(abilities, model, filters)
+	abilities, err = filterAbilitiesByConstraints(abilities, model, filters)
+	if err != nil {
+		return nil, err
+	}
 	if len(abilities) > 0 {
 		priorities := make([]int64, 0)
 		seen := make(map[int64]bool)
@@ -164,10 +167,10 @@ func GetChannel(
 
 // filterAbilitiesByConstraints applies the same ChannelSatisfiesFilters
 // predicate used by the memory-cache path. A failed channel lookup fails
-// closed when a task-plugin identity is required and fails open otherwise.
-func filterAbilitiesByConstraints(abilities []Ability, modelName string, filters []dto.ChannelFilter) []Ability {
+// closed for mandatory identity and capability filters.
+func filterAbilitiesByConstraints(abilities []Ability, modelName string, filters []dto.ChannelFilter) ([]Ability, error) {
 	if len(abilities) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	channelIds := make([]int, 0, len(abilities))
@@ -182,10 +185,13 @@ func filterAbilitiesByConstraints(abilities []Ability, modelName string, filters
 
 	var channels []*Channel
 	if err := DB.Where("id IN ?", channelIds).Find(&channels).Error; err != nil {
-		if identityFilterRequiresKey(filters) || len(filtersByKind(filters, dto.FilterExcludeChannels)) > 0 {
-			return nil
+		if len(filtersByKind(filters, dto.FilterVideoCapability)) > 0 {
+			return nil, err
 		}
-		return abilities
+		if identityFilterRequiresKey(filters) || len(filtersByKind(filters, dto.FilterExcludeChannels)) > 0 {
+			return nil, nil
+		}
+		return abilities, nil
 	}
 
 	channelsByID := make(map[int]*Channel, len(channels))
@@ -194,13 +200,19 @@ func filterAbilitiesByConstraints(abilities []Ability, modelName string, filters
 	}
 
 	filtered := make([]Ability, 0, len(abilities))
+	videoMismatch := false
 	for _, ability := range abilities {
 		channel := channelsByID[ability.ChannelId]
-		if ok, _ := ChannelSatisfiesFilters(channel, modelName, filters); ok {
+		if ok, rejected := ChannelSatisfiesFilters(channel, modelName, filters); ok {
 			filtered = append(filtered, ability)
+		} else if rejected == dto.FilterVideoCapability {
+			videoMismatch = true
 		}
 	}
-	return filtered
+	if len(filtered) == 0 && videoMismatch {
+		return nil, ErrVideoCapabilityMismatch
+	}
+	return filtered, nil
 }
 
 func identityFilterRequiresKey(filters []dto.ChannelFilter) bool {

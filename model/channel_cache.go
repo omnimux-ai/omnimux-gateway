@@ -129,15 +129,22 @@ func GetRandomSatisfiedChannel(
 	defer channelSyncLock.RUnlock()
 
 	// First, try to find channels with the exact model name.
-	channels, _ := filterCandidateIDs(group2model2channels[group][model], model, filters)
+	channels, rejected := filterCandidateIDs(group2model2channels[group][model], model, filters)
+	videoMismatch := rejected == dto.FilterVideoCapability
 
 	// If no channels found, try to find channels with the normalized model name.
 	if len(channels) == 0 {
 		normalizedModel := ratio_setting.RoutingMatchModelName(model)
-		channels, _ = filterCandidateIDs(group2model2channels[group][normalizedModel], model, filters)
+		if normalizedModel != model {
+			channels, rejected = filterCandidateIDs(group2model2channels[group][normalizedModel], model, filters)
+			videoMismatch = videoMismatch || rejected == dto.FilterVideoCapability
+		}
 	}
 
 	if len(channels) == 0 {
+		if videoMismatch {
+			return nil, ErrVideoCapabilityMismatch
+		}
 		return nil, nil
 	}
 

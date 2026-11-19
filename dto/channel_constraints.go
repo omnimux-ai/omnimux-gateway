@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/QuantumNous/new-api/modelcontracts"
+
 type ChannelPinSource string
 
 const (
@@ -40,6 +42,10 @@ const (
 	FilterTaskPluginIdentity ChannelFilterKind = "task_plugin_identity"
 	FilterResponsesWebSocket ChannelFilterKind = "responses_websocket"
 	FilterExcludeChannels    ChannelFilterKind = "exclude_channels"
+	FilterVideoCapability    ChannelFilterKind = "video_capability_mismatch"
+	// FilterVideoCapabilityUnavailable identifies a candidate without a verified
+	// profile. It is a rejection reason, not a filter to add to a request.
+	FilterVideoCapabilityUnavailable ChannelFilterKind = "video_capability_unavailable"
 )
 
 type ChannelFilter struct {
@@ -50,6 +56,7 @@ type ChannelFilter struct {
 	TaskPluginChannelTypes []int
 	TaskPluginExclude      bool // Keep native retries outside the pinned protocol owners.
 	ExcludeChannelIDs      []int
+	VideoRequest           *modelcontracts.VideoRequest
 }
 
 type ChannelConstraints struct {
@@ -69,6 +76,17 @@ func (cc *ChannelConstraints) AddFilter(f ChannelFilter) {
 		return
 	}
 	cc.Filters = append(cc.Filters, f)
+}
+
+func (cc *ChannelConstraints) VideoFilter() (ChannelFilter, bool) {
+	if cc != nil {
+		for _, filter := range cc.Filters {
+			if filter.Kind == FilterVideoCapability {
+				return filter, true
+			}
+		}
+	}
+	return ChannelFilter{}, false
 }
 
 // ResolvedPin returns the winning pin after priority resolution.

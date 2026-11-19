@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "64924de296c6ef92",
+  "version": "098ba590b4bb6f32",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -7062,7 +7062,7 @@
     "muse-video": {
       "model_id": "muse-video",
       "schemaVersion": "2.0",
-      "contractVersion": "23bb4f8bd7146e73",
+      "contractVersion": "1bc98d8b0a3565eb",
       "execution_status": "live",
       "family": "video",
       "status": "partial",
@@ -7076,6 +7076,7 @@
       "operations": [
         {
           "id": "text_to_video",
+          "modeKind": "text_to_video",
           "executable": true,
           "inputs": [
             {
@@ -7119,6 +7120,7 @@
         },
         {
           "id": "first_frame",
+          "modeKind": "first_frame",
           "executable": true,
           "inputs": [
             {
@@ -7175,6 +7177,7 @@
         },
         {
           "id": "video_multi_ref",
+          "modeKind": "image_reference",
           "executable": true,
           "inputs": [
             {
@@ -9704,7 +9707,7 @@
     "seedance-2-5": {
       "model_id": "seedance-2-5",
       "schemaVersion": "2.0",
-      "contractVersion": "98d2cdf7e2e1ace7",
+      "contractVersion": "7bd90e0916f978da",
       "execution_status": "live",
       "family": "video",
       "status": "documented",
@@ -9719,6 +9722,7 @@
       "operations": [
         {
           "id": "text_to_video",
+          "modeKind": "text_to_video",
           "executable": true,
           "inputs": [
             {
@@ -9758,17 +9762,30 @@
               ]
             },
             {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
               "name": "generate_audio",
               "type": "boolean",
               "default": false
             }
           ],
           "output": {
-            "type": "video"
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
           }
         },
         {
           "id": "first_frame",
+          "modeKind": "first_frame",
           "executable": true,
           "inputs": [
             {
@@ -9823,17 +9840,30 @@
               "fixed": "adaptive"
             },
             {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
               "name": "generate_audio",
               "type": "boolean",
               "default": false
             }
           ],
           "output": {
-            "type": "video"
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
           }
         },
         {
           "id": "first_last_frame",
+          "modeKind": "first_last_frame",
           "executable": true,
           "inputs": [
             {
@@ -9907,17 +9937,30 @@
               "fixed": "adaptive"
             },
             {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
               "name": "generate_audio",
               "type": "boolean",
               "default": false
             }
           ],
           "output": {
-            "type": "video"
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
           }
         },
         {
           "id": "video_multi_ref",
+          "modeKind": "multimodal_reference",
           "executable": true,
           "inputs": [
             {
@@ -10002,17 +10045,30 @@
               ]
             },
             {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
               "name": "generate_audio",
               "type": "boolean",
               "default": false
             }
           ],
           "output": {
-            "type": "video"
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
           }
         },
         {
           "id": "video_edit",
+          "modeKind": "video_edit",
           "executable": true,
           "inputs": [
             {
@@ -10062,17 +10118,30 @@
               "fixed": "adaptive"
             },
             {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
               "name": "generate_audio",
               "type": "boolean",
               "default": false
             }
           ],
           "output": {
-            "type": "video"
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
           }
         },
         {
           "id": "video_extend",
+          "modeKind": "video_extend",
           "executable": true,
           "inputs": [
             {
@@ -10121,13 +10190,25 @@
               "fixed": "adaptive"
             },
             {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
               "name": "generate_audio",
               "type": "boolean",
               "default": false
             }
           ],
           "output": {
-            "type": "video"
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
           }
         }
       ],
@@ -10153,6 +10234,10 @@
         "adaptive"
       ],
       "audio_supported": true,
+      "output_formats": [
+        "mp4",
+        "mov"
+      ],
       "reference_images": {
         "min": 1,
         "max": 30,

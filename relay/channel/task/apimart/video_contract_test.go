@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -190,6 +191,147 @@ func TestPhaseOneVideoContracts_AllDocumentedModesHaveValidFixture(t *testing.T)
 			if test.model == "wan-3.0" && test.operation == opTextToVideo {
 				assert.Equal(t, "720P", normalized["resolution"])
 			}
+		})
+	}
+}
+
+func TestSeedanceVideoRoutingRequest(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		body         map[string]any
+		want         modelcontracts.VideoRequest
+		wantTaskType string
+	}{
+		{
+			name: "frame roles and explicit parameter precedence",
+			body: map[string]any{
+				"prompt": "transition", "image_with_roles": []any{roleImage("first"), roleImage("last")},
+				"size": "adaptive", "aspect_ratio": "16:9", "duration": 8.0, "seconds": "10", "draft": false,
+			},
+			want: modelcontracts.VideoRequest{
+				Operation:  opFirstLastFrame,
+				Slots:      map[string]int{"prompt": 1, "first_frame": 1, "last_frame": 1},
+				Parameters: map[string]any{"aspect_ratio": "adaptive", "duration": 8},
+			},
+		},
+		{
+			name: "reference aliases and explicit auto duration and silent audio",
+			body: map[string]any{
+				"prompt": "reference", "images": []any{"asset://photo"},
+				"audio_urls": []any{"asset://sound"}, "seconds": "-1", "audio": false,
+				"resolution": "720p", "output_format": "mov",
+			},
+			want: modelcontracts.VideoRequest{
+				Operation:  opVideoMultiRef,
+				Slots:      map[string]int{"prompt": 1, "reference_images": 1, "reference_audios": 1},
+				Parameters: map[string]any{"duration": -1, "generate_audio": false, "resolution": "720p", "output_format": "mov"},
+			},
+		},
+		{
+			name: "edit keeps omission and distinguishes source from auxiliary references",
+			body: request(opVideoEdit, map[string]any{
+				"prompt": "edit", "video_urls": []any{"asset://source"}, "audio_urls": []any{"asset://sound"},
+			}),
+			want: modelcontracts.VideoRequest{
+				Operation:  opVideoEdit,
+				Slots:      map[string]int{"prompt": 1, "source_videos": 1, "reference_audios": 1},
+				Parameters: map[string]any{},
+			},
+			wantTaskType: "edit",
+		},
+		{
+			name: "explicit extension selects the provider task type",
+			body: request(opVideoExtend, map[string]any{
+				"prompt": "extend", "video_urls": []any{"asset://source"}, "duration": 8,
+			}),
+			want: modelcontracts.VideoRequest{
+				Operation:  opVideoExtend,
+				Slots:      map[string]int{"prompt": 1, "source_videos": 1},
+				Parameters: map[string]any{"duration": 8},
+			},
+			wantTaskType: "extend",
+		},
+		{
+			name: "explicit reference video avoids provider auto detection",
+			body: request(opVideoMultiRef, map[string]any{
+				"prompt": "match the example", "video_urls": []any{"asset://reference"},
+			}),
+			want: modelcontracts.VideoRequest{
+				Operation:  opVideoMultiRef,
+				Slots:      map[string]int{"prompt": 1, "reference_videos": 1},
+				Parameters: map[string]any{},
+			},
+			wantTaskType: "reference",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original, err := common.Marshal(tc.body)
+			require.NoError(t, err)
+			intent, err := VideoRoutingRequest("seedance-2.5", tc.body)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, intent)
+			normalized, _, err := normalizeManagedVideoRequest("seedance-2.5", tc.body)
+			require.NoError(t, err)
+			if tc.wantTaskType == "" {
+				assert.NotContains(t, normalized, "omni_reference_task_type")
+			} else {
+				assert.Equal(t, tc.wantTaskType, normalized["omni_reference_task_type"])
+			}
+			legacy, err := validatePhaseOneVideoRequest("seedance-2.5", tc.body)
+			require.NoError(t, err)
+			assert.NotContains(t, legacy, "omni_reference_task_type")
+			current, err := common.Marshal(tc.body)
+			require.NoError(t, err)
+			assert.JSONEq(t, string(original), string(current))
+		})
+	}
+}
+
+func TestSeedanceVideoRoutingRejectsUnverifiedForwardedShapes(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		body         map[string]any
+		want         string
+		rejectLegacy bool
+	}{
+		{
+			name: "provider infers the task type for a video reference",
+			body: map[string]any{"prompt": "reference", "video_urls": []any{"asset://reference"}},
+			want: "set operation",
+		},
+		{
+			name: "explicit subtype conflicts with the selected operation",
+			body: request(opVideoExtend, map[string]any{
+				"prompt": "extend", "video_urls": []any{"asset://source"}, "omni_reference_task_type": "edit",
+			}),
+			want:         "omni_reference_task_type extend",
+			rejectLegacy: true,
+		},
+		{
+			name: "provider audio flags conflict",
+			body: request(opTextToVideo, map[string]any{"prompt": "city", "generate_audio": false, "audio": true}),
+			want: "generate_audio and audio must agree",
+		},
+		{
+			name: "provider draft changes resolution",
+			body: request(opTextToVideo, map[string]any{"prompt": "city", "draft": true, "resolution": "720p"}),
+			want: "draft and draft_task_id are unavailable",
+		},
+		{
+			name: "draft completion inherits unverified inputs",
+			body: request(opTextToVideo, map[string]any{"prompt": "city", "draft_task_id": "task_fixture"}),
+			want: "draft and draft_task_id are unavailable",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, legacyErr := validatePhaseOneVideoRequest("seedance-2-5", tc.body)
+			if tc.rejectLegacy {
+				require.ErrorContains(t, legacyErr, tc.want)
+			} else {
+				require.NoError(t, legacyErr)
+			}
+			_, err := VideoRoutingRequest("seedance-2-5", tc.body)
+			require.ErrorContains(t, err, tc.want)
 		})
 	}
 }

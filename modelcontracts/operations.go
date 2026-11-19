@@ -2,6 +2,7 @@ package modelcontracts
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -22,8 +23,10 @@ const ExecutionStatusLive = "live"
 // Executable is the honesty bit: an operation listed from vendor documentation
 // but with no verified gateway path is published with Executable=false and no
 // invented inputs or parameters.
+// ModeKind is the optional display semantic for a verified video operation.
 type Operation struct {
 	ID         string          `json:"id"`
+	ModeKind   string          `json:"modeKind,omitempty"`
 	Executable bool            `json:"executable"`
 	Inputs     []Input         `json:"inputs"`
 	Parameters []Parameter     `json:"parameters"`
@@ -51,6 +54,7 @@ type Input struct {
 type Parameter struct {
 	Name        string       `json:"name"`
 	Type        string       `json:"type"`
+	Required    bool         `json:"required,omitempty"`
 	Enum        []any        `json:"enum,omitempty"`
 	Minimum     *float64     `json:"minimum,omitempty"`
 	Maximum     *float64     `json:"maximum,omitempty"`
@@ -79,9 +83,10 @@ type OperationOutput struct {
 // actually accepts, which may be narrower than the vendor's own capability
 // list.
 type GatewaySpec struct {
-	Profile     string   `json:"profile"`
-	Operations  []string `json:"operations"`
-	SourceClaim string   `json:"source_claim,omitempty"`
+	Profile     string            `json:"profile"`
+	Operations  []string          `json:"operations"`
+	ModeKinds   map[string]string `json:"mode_kinds,omitempty"`
+	SourceClaim string            `json:"source_claim,omitempty"`
 }
 
 // ExecutionSpec is the optional governance block for a model that is not
@@ -345,12 +350,44 @@ func projectGatewayOperations(spec specFile) ([]Operation, []string, error) {
 		if !profile.allows(spec.ModelID, operationID) {
 			return nil, nil, fmt.Errorf("operation %q is not allowed for model %q by profile %q", operationID, spec.ModelID, spec.Gateway.Profile)
 		}
+		if modeKind, declared := spec.Gateway.ModeKinds[operationID]; declared {
+			if spec.Family != "video" || !validVideoModeKind(operation, modeKind) {
+				return nil, nil, fmt.Errorf("mode kind %q is not supported for operation %q", modeKind, operationID)
+			}
+			operation.ModeKind = modeKind
+		}
 		operations = append(operations, operation)
 		for _, path := range operationUnknown {
 			unknown = append(unknown, "operations."+operationID+"."+path)
 		}
 	}
+	for _, operationID := range slices.Sorted(maps.Keys(spec.Gateway.ModeKinds)) {
+		if !seen[operationID] {
+			return nil, nil, fmt.Errorf("mode_kinds refers to an undeclared gateway operation %q", operationID)
+		}
+	}
 	return operations, unknown, nil
+}
+
+func validVideoModeKind(operation Operation, modeKind string) bool {
+	if operation.ID != operationVideoMultiRef {
+		return modeKind == operation.ID
+	}
+	mediaTypes := make(map[string]bool)
+	for _, input := range operation.Inputs {
+		switch input.Type {
+		case "image", "video", "audio":
+			mediaTypes[input.Type] = true
+		}
+	}
+	switch modeKind {
+	case "image_reference":
+		return len(mediaTypes) == 1 && mediaTypes["image"]
+	case "multimodal_reference":
+		return len(mediaTypes) > 1
+	default:
+		return false
+	}
 }
 
 // fallbackVideoOperations preserves the vendor/list-declared operation names

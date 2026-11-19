@@ -272,6 +272,9 @@ the keys in `reasoning_efforts`.
     "operations": [                       // 网关实际可执行的操作 ID，非空、无重复
       "text_to_video", "first_frame", "first_last_frame", "video_multi_ref"
     ],
+    "mode_kinds": {                       // 可选，指定已声明操作的展示语义
+      "video_multi_ref": "multimodal_reference"
+    },
     "source_claim": "一句话说明该 profile 与操作集合的代码依据"
   }
 }
@@ -289,6 +292,9 @@ the keys in `reasoning_efforts`.
   `plugins/tasks/autodl` 的 shapes 映射，或 `pkg/jsplugin/routing.go` 的 `openai_video`
   host protocol），并在 `sources[]` 中用 `repo:` 引文留证；`source_claim` 只是摘要，
   不能替代 `sources[]`。
+- `gateway.mode_kinds` 的键必须出现在 `gateway.operations` 中。视频 `video_multi_ref` 使用
+  `image_reference` 表示仅使用图片作为参考，使用 `multimodal_reference` 表示支持多个素材类型。
+  其他视频操作以自身 ID 表达语义。生成契约将该值发布为 `operations[].modeKind`。
 - 操作 ID 使用网关统一词表（视频类 `text_to_video`、`first_frame`、`end_frame`、
   `first_last_frame`、`video_multi_ref`、`video_edit`、`video_extend`、`document_to_video`、
   `webpage_to_video`；图像类 `text_to_image`、`image_to_image`、`multi_reference`；文本类 `chat`；
@@ -339,6 +345,7 @@ the keys in `reasoning_efforts`.
 ```jsonc
 {
   "id": "first_frame",
+  "modeKind": "first_frame",
   "executable": true,
   "inputs": [
     { "slot": "prompt", "type": "text", "required": true },
@@ -353,6 +360,8 @@ the keys in `reasoning_efforts`.
 ```
 
 - `id` 必填且非空；同一契约内不得重复。
+- `modeKind` 是可选的本地化键。同一模式的数量限制变化时继续使用该键，数量取自 `inputs`。
+  字段缺省时沿用 `id` 的展示映射，提交请求始终使用 `id`。
 - `executable`：`true` 表示本网关存在可执行通路（来自 `gateway` 模板核验）；`false` 表示只从厂商
   文档列出、未经本网关验证，`inputs` / `parameters` 可为空，但对应缺口必须写进契约 `unknowns[]`。
 - `inputs[]`：`slot`（输入槽名）、`type`（text/image/video/audio/file/url 等）、`role`（可选，如
@@ -389,6 +398,8 @@ the keys in `reasoning_efforts`.
 `limit_source.kind = policy_conservative` 的参数允许没有官方 claim，其余非 null 数值必须能在
 `sources[].claim` / `quote` 中找到数字或字段名。
 
+契约生成器校验 `gateway.mode_kinds` 的操作 ID、语义键和参考素材类型是否匹配。
+
 `scripts/ops/check-model-contract-completeness.mjs` 是上架门禁：所有 `status=1` 的在售模型必须
 `execution_status: live` 且至少一个 `executable: true` operation；executable operation 不得在
 `unknowns[]` 中留下 `operations.<id>.inputs` / `operations.<id>.parameters` 缺口。没有 gateway
@@ -417,6 +428,24 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 公开定价/目录响应中，也不得视为在售。`SelfUseModeEnabled` 为自建/BYO 部署保留旧行为；
 `OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED=1` 是应急开关。若契约载荷本身不可读，
 网关保持发布现有 Served 目录，不得把 `/api/pricing` 清空。
+
+### 6.9 试点视频的有效能力
+
+`/api/pricing` 的模型行和 `/api/model_contract/:model` 的 `data` 可在 `contract` 同级返回
+`effective_video`。其 `groups` 把当前账号可选的逻辑分组映射到完整操作变体，`version` 随该视角下
+的能力内容变化。模式、素材槽和参数需要同时匹配一个变体。相同操作 ID 可以有多个变体，参数上的
+`required: true` 表示调用方须显式传值。变体的 `modeKind` 和素材角色沿用模型级契约。
+
+缺省 `effective_video` 表示未启用试点。空 `groups` 表示当前视角没有可发布的试点分组。组内空数组
+表示该组目前没有经过核验的变体。实际提交和每次重试按请求权限、当前渠道状态和有效规则重新匹配。
+已核验的候选都不支持当前组合时返回 `400 video_capability_mismatch`。
+
+网关启动时可从 `OMNIMUX_VIDEO_CAPABILITIES_FILE` 装载试点规则。配置的 `models` 把
+`muse-video` 或 `seedance-2-5` 映射到各自的渠道规则数组。每条规则包含 `channel_id`、
+`channel_type`、`profile`、`upstream_model`、`base_url`、`evidence` 与 `operations`。
+变体引用既有操作 `id`，可用 `inputs` 和 `parameters` 限定该变体接受的槽位与参数。
+渠道身份、地址和证据留在规则配置中。Muse 试点使用网关内置的已核验插件实现，解码器会补齐
+5 秒的默认时长。Muse 变体声明 `parameters` 时需包含 `duration`，范围不含 5 秒时调用方须显式传值。
 
 ## Field: `basis`
 
