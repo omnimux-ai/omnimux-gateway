@@ -160,6 +160,7 @@ func acceptInfluencerCLIRequest(c *gin.Context, requestID, payloadHash, group, p
 		return retain
 	}
 	if !replay {
+		service.TrackFirstVideoStart(task, "cli")
 		c.Set("influencer_image_inputs_retained", true)
 		// A scheduled scanner also discovers this durable row after process failure.
 		if _, _, err := service.EnqueueSystemTask(model.SystemTaskTypeGenerationQueue, nil); err != nil {

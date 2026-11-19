@@ -411,7 +411,11 @@ func handleWaffoPayment(c *gin.Context, wh *core.WebhookHandler, result *core.Pa
 	LockOrder(merchantOrderId)
 	defer UnlockOrder(merchantOrderId)
 
-	if err := model.RechargeWaffo(merchantOrderId, c.ClientIP()); err != nil {
+	paidAmount, _ := strconv.ParseFloat(result.OrderAmount, 64)
+	if err := model.RechargeWaffo(merchantOrderId, c.ClientIP(), model.TopUpAnalyticsPayment{
+		Currency: result.OrderCurrency,
+		Amount:   paidAmount,
+	}); err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Waffo top-up processing failed trade_no=%s client_ip=%s error=%q", merchantOrderId, c.ClientIP(), err.Error()))
 		sendWaffoWebhookResponse(c, wh, false, err.Error())
 		return

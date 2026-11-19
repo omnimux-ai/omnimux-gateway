@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
@@ -26,7 +27,7 @@ import (
 // queueing and the result proxy stay native.
 
 // ActionInfluencerMotion marks video tasks submitted from the workbench.
-const ActionInfluencerMotion = "influencer_motion"
+const ActionInfluencerMotion = constant.TaskActionInfluencerMotion
 
 const (
 	influencerMotionModel       = "seedance-2-5"

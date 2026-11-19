@@ -19,6 +19,7 @@ const (
 	TaskActionFirstTailToVideo = "first_tail_to_video"
 	TaskActionReferenceToVideo = "reference_to_video"
 	TaskActionRemix            = "remix"
+	TaskActionInfluencerMotion = "influencer_motion"
 	// TaskActionImageEdit marks an image request carrying reference material.
 	// Adaptors that understand a reference share this value so the action string
 	// stays comparable across channel types.
