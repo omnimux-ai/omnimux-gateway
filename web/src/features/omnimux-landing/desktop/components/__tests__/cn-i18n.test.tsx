@@ -61,7 +61,7 @@ beforeEach(() => {
   stubNavigatorLangs(['zh-CN'])
 })
 
-async function renderLanding(awaitText: string | RegExp = '下载') {
+async function renderLanding(lang: LandingLang = 'zh-CN') {
   const root = createRootRoute()
   const index = createRoute({
     getParentRoute: () => root,
@@ -80,7 +80,7 @@ async function renderLanding(awaitText: string | RegExp = '下载') {
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  await screen.findAllByText(awaitText)
+  await screen.findByRole('button', { name: LANDING_COPIES[lang].nav.download })
 }
 
 describe('resolveLandingLang', () => {
@@ -121,6 +121,30 @@ describe('landing locale data', () => {
       expect(blob).not.toMatch(/50万\+|1000万\+|官方认证|guaranteed viral|TikTok Shop official/i)
     }
   })
+
+  it.each(LANDING_LANGS)(
+    'labels the main $code download buttons as beta',
+    ({ code }) => {
+      const betaMark: Record<LandingLang, RegExp> = {
+        en: /\bbeta\b/i,
+        id: /\bbeta\b/i,
+        es: /\bbeta\b/i,
+        ja: /β版|ベータ版/,
+        'zh-TW': /公測版/,
+        'zh-CN': /公测版/,
+      }
+      const { nav, hero, finalCta } = LANDING_COPIES[code]
+      for (const label of [
+        nav.download,
+        hero.dlMac,
+        hero.dlWin,
+        finalCta.dlMac,
+        finalCta.dlWin,
+      ]) {
+        expect(label).toMatch(betaMark[code])
+      }
+    }
+  )
 })
 
 describe('DesktopLanding language switching', () => {
@@ -148,7 +172,7 @@ describe('DesktopLanding language switching', () => {
 
   it('honours a stored language on initial render', async () => {
     window.localStorage.setItem(LANDING_LANG_STORAGE_KEY, 'ja')
-    await renderLanding('ダウンロード')
+    await renderLanding('ja')
     expect(
       screen.getByRole('button', { name: '日 · ページの言語：日本語' })
     ).toBeTruthy()
@@ -182,7 +206,7 @@ describe('DesktopLanding language links and headings', () => {
     )
     cleanup()
     window.localStorage.setItem(LANDING_LANG_STORAGE_KEY, 'en')
-    await renderLanding('Download')
+    await renderLanding('en')
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
       'Find, recreate & scale viral shoppable videos'
     )

@@ -31,8 +31,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore, type AuthBundle } from '@/stores/auth-store'
 
-import { LandingLangProvider } from '../../i18n'
+import { LANDING_COPIES, LandingLangProvider } from '../../i18n'
 import { CnNav } from '../cn/nav'
+
+const downloadLabel = LANDING_COPIES['zh-CN'].nav.download
 
 function makeBundle(): AuthBundle {
   return {
@@ -84,7 +86,7 @@ async function renderNav() {
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  await screen.findByRole('button', { name: '下载' })
+  await screen.findByRole('button', { name: downloadLabel })
 }
 
 afterEach(() => {
@@ -122,7 +124,7 @@ describe('desktop CN nav auth state', () => {
     useAuthStore.getState().auth.setBundle(makeBundle())
     await renderNav()
 
-    const download = screen.getByRole('button', { name: '下载' })
+    const download = screen.getByRole('button', { name: downloadLabel })
     const avatar = screen.getByRole('button', { name: '账户菜单' })
     const order = download.compareDocumentPosition(avatar)
     expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
