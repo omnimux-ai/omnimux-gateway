@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/QuantumNous/new-api/modelcontracts"
 )
 
 const (
@@ -78,6 +80,11 @@ func validatePhaseOneVideoRequest(modelName string, raw map[string]any) (map[str
 	if !ok {
 		return raw, nil
 	}
+	normalized, _, err := normalizePhaseOneVideoRequest(modelID, raw)
+	return normalized, err
+}
+
+func normalizePhaseOneVideoRequest(modelID string, raw map[string]any) (map[string]any, phaseOneMedia, error) {
 	out := make(map[string]any, len(raw))
 	for key, value := range raw {
 		out[key] = value
@@ -87,7 +94,7 @@ func validatePhaseOneVideoRequest(modelName string, raw map[string]any) (map[str
 	// validation so a native task adaptor never rejects its own gateway body.
 	if value, exists := out["images"]; exists && value != nil {
 		if _, hasCanonical := out["image_urls"]; hasCanonical {
-			return nil, fmt.Errorf("images and image_urls cannot both be set for %s", modelID)
+			return nil, phaseOneMedia{}, fmt.Errorf("images and image_urls cannot both be set for %s", modelID)
 		}
 		out["image_urls"] = value
 		delete(out, "images")
@@ -95,33 +102,119 @@ func validatePhaseOneVideoRequest(modelName string, raw map[string]any) (map[str
 	normalizePhaseOneGatewayFields(modelID, out)
 	for _, key := range []string{"image", "image_tail", "reference_images", "input_reference"} {
 		if value, exists := out[key]; exists && value != nil {
-			return nil, fmt.Errorf("%s is not an APIMart field for %s", key, modelID)
+			return nil, phaseOneMedia{}, fmt.Errorf("%s is not an APIMart field for %s", key, modelID)
 		}
 	}
 
 	media, err := normalizePhaseOneMedia(modelID, out)
 	if err != nil {
-		return nil, err
+		return nil, phaseOneMedia{}, err
 	}
 	operation := strings.TrimSpace(asString(out["operation"]))
 	if operation == "" {
 		operation = inferPhaseOneOperation(modelID, out, media)
 	}
 	if !operationAllowed(modelID, operation) {
-		return nil, fmt.Errorf("operation %q is not supported by %s", operation, modelID)
+		return nil, phaseOneMedia{}, fmt.Errorf("operation %q is not supported by %s", operation, modelID)
 	}
 	out["operation"] = operation
 
 	if err := validatePhaseOnePrompt(modelID, operation, out); err != nil {
-		return nil, err
+		return nil, phaseOneMedia{}, err
 	}
 	if err := validatePhaseOneParameters(modelID, operation, out); err != nil {
-		return nil, err
+		return nil, phaseOneMedia{}, err
 	}
 	if err := validatePhaseOneOperationMedia(modelID, operation, media, out); err != nil {
-		return nil, err
+		return nil, phaseOneMedia{}, err
 	}
-	return out, nil
+	return out, media, nil
+}
+
+// normalizeManagedVideoRequest keeps the operation used for routing and the
+// vendor task type used at submission in agreement.
+func normalizeManagedVideoRequest(modelName string, raw map[string]any) (map[string]any, phaseOneMedia, error) {
+	modelID, _ := canonicalPhaseOneVideoModel(modelName)
+	if modelID != "seedance-2-5" {
+		return nil, phaseOneMedia{}, fmt.Errorf("no video routing profile for %s", modelName)
+	}
+	draft := raw["draft"]
+	draftTaskID := raw["draft_task_id"]
+	if (draft != nil && draft != false) || (draftTaskID != nil && draftTaskID != "") {
+		return nil, phaseOneMedia{}, fmt.Errorf("draft and draft_task_id are unavailable for compatible routing")
+	}
+	normalized, media, err := normalizePhaseOneVideoRequest(modelID, raw)
+	if err != nil {
+		return nil, phaseOneMedia{}, err
+	}
+
+	operation := asString(normalized["operation"])
+	taskType := strings.TrimSpace(asString(normalized["omni_reference_task_type"]))
+	requiredTaskType := seedanceTaskType(operation)
+	if requiredTaskType == "" && taskType != "" && taskType != "auto" {
+		return nil, phaseOneMedia{}, fmt.Errorf("omni_reference_task_type %q conflicts with %s", taskType, operation)
+	}
+	if requiredTaskType != "" && taskType == "" && (operation != opVideoMultiRef || len(media.videos) > 0) {
+		// BuildRequestBody strips operation. Only an explicit operation can
+		// resolve ambiguous provider auto detection of video references.
+		if strings.TrimSpace(asString(raw["operation"])) == "" {
+			return nil, phaseOneMedia{}, fmt.Errorf("set operation to video_multi_ref, video_edit, or video_extend when supplying a reference video")
+		}
+		normalized["omni_reference_task_type"] = requiredTaskType
+	}
+
+	audio, hasAudio := normalized["audio"].(bool)
+	generateAudio, hasGenerateAudio := normalized["generate_audio"].(bool)
+	if hasGenerateAudio && hasAudio && generateAudio != audio {
+		return nil, phaseOneMedia{}, fmt.Errorf("generate_audio and audio must agree for compatible routing")
+	}
+	return normalized, media, nil
+}
+
+// VideoRoutingRequest extracts the Seedance 2.5 intent from the same normalized
+// request as the submission adapter. Omitted parameters use each channel's
+// own verified defaults.
+func VideoRoutingRequest(modelName string, raw map[string]any) (modelcontracts.VideoRequest, error) {
+	normalized, media, err := normalizeManagedVideoRequest(modelName, raw)
+	if err != nil {
+		return modelcontracts.VideoRequest{}, err
+	}
+	operation := asString(normalized["operation"])
+	videoSlot := "reference_videos"
+	if operation == opVideoEdit || operation == opVideoExtend {
+		videoSlot = "source_videos"
+	}
+	request := modelcontracts.VideoRequest{
+		Operation: operation,
+		Slots: map[string]int{
+			"prompt":           1,
+			"first_frame":      media.roles.first,
+			"last_frame":       media.roles.last,
+			"reference_images": len(media.images) + media.roles.reference,
+			videoSlot:          len(media.videos),
+			"reference_audios": len(media.audios),
+		},
+		Parameters: map[string]any{},
+	}
+	for slot, count := range request.Slots {
+		if count == 0 {
+			delete(request.Slots, slot)
+		}
+	}
+	for _, name := range []string{"duration", "resolution", "output_format"} {
+		if value, exists := normalized[name]; exists {
+			request.Parameters[name] = value
+		}
+	}
+	if size, exists := normalized["size"]; exists {
+		request.Parameters["aspect_ratio"] = size
+	}
+	if value, exists := normalized["generate_audio"]; exists {
+		request.Parameters["generate_audio"] = value
+	} else if value, exists := normalized["audio"]; exists {
+		request.Parameters["generate_audio"] = value
+	}
+	return request, nil
 }
 
 // normalizePhaseOneGatewayFields translates the shared gateway task request
@@ -565,11 +658,7 @@ func validatePhaseOneOperationMedia(modelID, operation string, media phaseOneMed
 	}
 	if modelID == "seedance-2-5" {
 		taskType := strings.TrimSpace(asString(out["omni_reference_task_type"]))
-		expected := map[string]string{
-			opVideoMultiRef: "reference",
-			opVideoEdit:     "edit",
-			opVideoExtend:   "extend",
-		}[operation]
+		expected := seedanceTaskType(operation)
 		if expected != "" && taskType != "" && taskType != expected {
 			return fmt.Errorf("%s requires omni_reference_task_type %s", operation, expected)
 		}
@@ -587,6 +676,19 @@ func validatePhaseOneOperationMedia(modelID, operation string, media phaseOneMed
 		}
 	}
 	return nil
+}
+
+func seedanceTaskType(operation string) string {
+	switch operation {
+	case opVideoMultiRef:
+		return "reference"
+	case opVideoEdit:
+		return "edit"
+	case opVideoExtend:
+		return "extend"
+	default:
+		return ""
+	}
 }
 
 func seedanceRatios() []string {

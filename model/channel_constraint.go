@@ -12,6 +12,7 @@ var filterEvalOrder = []dto.ChannelFilterKind{
 	dto.FilterRequestPath,
 	dto.FilterTaskPluginIdentity,
 	dto.FilterResponsesWebSocket,
+	dto.FilterVideoCapability,
 }
 
 // ChannelSatisfiesFilters reports whether ch passes every filter.
@@ -24,6 +25,12 @@ func ChannelSatisfiesFilters(ch *Channel, modelName string, filters []dto.Channe
 	for _, kind := range filterEvalOrder {
 		for _, filter := range filters {
 			if filter.Kind != kind {
+				continue
+			}
+			if kind == dto.FilterVideoCapability {
+				if rejected := videoChannelRejection(ch, modelName, filter.VideoRequest); rejected != "" {
+					return false, rejected
+				}
 				continue
 			}
 			if !channelMatchesFilter(ch, modelName, filter) {
@@ -49,14 +56,21 @@ func filterCandidateIDs(ids []int, modelName string, filters []dto.ChannelFilter
 			continue
 		}
 		next := make([]int, 0, len(kept))
+		rejectedBy := kind
+		if kind == dto.FilterVideoCapability {
+			rejectedBy = dto.FilterVideoCapabilityUnavailable
+		}
 		for _, id := range kept {
 			channel, exists := channelsIDM[id]
-			if candidatePassesKindFilters(channel, exists, modelName, kind, kindFilters) {
+			failure := candidateFilterRejection(channel, exists, modelName, kind, kindFilters)
+			if failure == "" {
 				next = append(next, id)
+			} else if failure == dto.FilterVideoCapability {
+				rejectedBy = failure
 			}
 		}
 		if len(kept) > 0 && len(next) == 0 {
-			return next, kind
+			return next, rejectedBy
 		}
 		kept = next
 	}
@@ -73,19 +87,27 @@ func filtersByKind(filters []dto.ChannelFilter, kind dto.ChannelFilterKind) []dt
 	return matched
 }
 
-func candidatePassesKindFilters(ch *Channel, exists bool, modelName string, kind dto.ChannelFilterKind, filters []dto.ChannelFilter) bool {
+func candidateFilterRejection(ch *Channel, exists bool, modelName string, kind dto.ChannelFilterKind, filters []dto.ChannelFilter) dto.ChannelFilterKind {
 	if kind == dto.FilterRequestPath && !exists {
-		return true
+		return ""
+	}
+	if kind == dto.FilterVideoCapability {
+		for _, filter := range filters {
+			if rejected := videoChannelRejection(ch, modelName, filter.VideoRequest); rejected != "" {
+				return rejected
+			}
+		}
+		return ""
 	}
 	if !exists || ch == nil {
-		return false
+		return kind
 	}
 	for _, filter := range filters {
 		if !channelMatchesFilter(ch, modelName, filter) {
-			return false
+			return kind
 		}
 	}
-	return true
+	return ""
 }
 
 func channelMatchesFilter(ch *Channel, modelName string, filter dto.ChannelFilter) bool {

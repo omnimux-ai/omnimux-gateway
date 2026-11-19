@@ -139,7 +139,8 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	var err error
 	selectGroup := param.TokenGroup
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
-	filters := GetChannelConstraints(param.Ctx).Filters
+	constraints := GetChannelConstraints(param.Ctx)
+	filters := constraints.Filters
 
 	if param.TokenGroup == "auto" {
 		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
@@ -150,6 +151,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		// startGroupIndex: the group index to start searching from
 		// startGroupIndex: 开始搜索的分组索引
 		startGroupIndex := 0
+		var mismatch bool
+		var lookupErr error
+		_, videoFiltered := constraints.VideoFilter()
 		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
 
 		if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
@@ -173,12 +177,20 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, _ = model.GetRandomSatisfiedChannel(
+			channel, err = model.GetRandomSatisfiedChannel(
 				autoGroup,
 				param.ModelName,
 				priorityRetry,
 				filters,
 			)
+			if videoFiltered && err != nil {
+				channel = nil
+				if errors.Is(err, model.ErrVideoCapabilityMismatch) {
+					mismatch = true
+				} else {
+					lookupErr = err
+				}
+			}
 			if channel == nil {
 				// Current group has no available channel for this model, try next group
 				// 当前分组没有该模型的可用渠道，尝试下一个分组
@@ -216,6 +228,14 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i)
 			}
 			break
+		}
+		if channel == nil && videoFiltered {
+			if lookupErr != nil {
+				return nil, selectGroup, lookupErr
+			}
+			if mismatch {
+				return nil, selectGroup, model.ErrVideoCapabilityMismatch
+			}
 		}
 	} else {
 		priorityRetry := param.GetRetry()
@@ -329,6 +349,12 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 			return nil, "", pinnedChannelUnavailable(pin, http.StatusForbidden, i18n.MsgDistributorChannelDisabled)
 		}
 		if ok, kind := model.ChannelSatisfiesFilters(channel, modelName, constraints.Filters); !ok {
+			if kind == dto.FilterVideoCapability {
+				return nil, "", videoCapabilityMismatch()
+			}
+			if kind == dto.FilterVideoCapabilityUnavailable {
+				return nil, "", &ChannelSelectError{StatusCode: http.StatusServiceUnavailable, Code: types.ErrorCodeModelNotFound, NoAvailableChannel: true}
+			}
 			return nil, "", &ChannelSelectError{
 				StatusCode: http.StatusBadRequest, Code: types.ErrorCode(kind), MessageID: i18n.MsgDistributorNoAvailableChannel,
 				Params:     map[string]any{"Group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup), "Model": modelName},
@@ -397,6 +423,9 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 		var err error
 		channel, selectGroup, err = CacheGetRandomSatisfiedChannel(retry)
 		if err != nil {
+			if errors.Is(err, model.ErrVideoCapabilityMismatch) {
+				return nil, selectGroup, videoCapabilityMismatch()
+			}
 			showGroup := usingGroup
 			if usingGroup == "auto" {
 				showGroup = fmt.Sprintf("auto(%s)", selectGroup)
@@ -414,6 +443,9 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 		}
 	}
 	if ok, kind := model.ChannelSatisfiesFilters(channel, modelName, constraints.Filters); !ok {
+		if kind == dto.FilterVideoCapability {
+			return nil, selectGroup, videoCapabilityMismatch()
+		}
 		return nil, selectGroup, &ChannelSelectError{
 			StatusCode: http.StatusServiceUnavailable, Code: types.ErrorCodeModelNotFound, MessageID: i18n.MsgDistributorNoAvailableChannel,
 			Params:     map[string]any{"Group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup), "Model": modelName},
@@ -421,6 +453,15 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 		}
 	}
 	return channel, selectGroup, nil
+}
+
+func videoCapabilityMismatch() *ChannelSelectError {
+	return &ChannelSelectError{
+		StatusCode: http.StatusBadRequest,
+		Code:       types.ErrorCode(dto.FilterVideoCapability),
+		MessageID:  i18n.MsgDistributorVideoCapabilityMismatch,
+		FilterKind: dto.FilterVideoCapability,
+	}
 }
 
 // Origin-task pins report a fixed code so task polling can tell a retired

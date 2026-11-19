@@ -79,7 +79,13 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	// Validate video duration/resolution billing inputs early (EstimateBilling cannot return errors).
 	if kind == kindVideo {
 		if isPhaseOneVideoModel(modelName) {
-			normalized, err := validatePhaseOneVideoRequest(modelName, raw)
+			var normalized map[string]any
+			var err error
+			if _, managed := service.GetChannelConstraints(c).VideoFilter(); managed {
+				normalized, _, err = normalizeManagedVideoRequest(modelName, raw)
+			} else {
+				normalized, err = validatePhaseOneVideoRequest(modelName, raw)
+			}
 			if err != nil {
 				return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 			}

@@ -370,6 +370,11 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	}
 	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
 	if err != nil {
+		if errors.Is(err, model.ErrVideoCapabilityMismatch) {
+			return nil, types.NewErrorWithStatusCode(
+				errors.New(i18n.T(c, i18n.MsgDistributorVideoCapabilityMismatch)),
+				types.ErrorCode(taskdto.FilterVideoCapability), http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
 		return nil, types.NewError(errors.New(i18n.T(c, i18n.MsgRelayRetryGetChannelFailed, map[string]any{"Group": selectGroup, "Model": info.OriginModelName, "Error": err.Error()})), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	if channel == nil {
@@ -757,6 +762,14 @@ func executeTaskSubmissionWith(
 
 		if lockedCh, ok := relayInfo.LockedChannel.(*model.Channel); ok && lockedCh != nil {
 			channel = lockedCh
+			if _, video := service.GetChannelConstraints(c).VideoFilter(); video {
+				current, _ := model.CacheGetChannel(channel.Id)
+				if apiErr := middleware.ValidateSelectedVideoChannel(c, current, relayInfo.OriginModelName); apiErr != nil {
+					taskErr = taskChannelSelectionError(taskErr, apiErr)
+					break
+				}
+				channel = current
+			}
 			policy.BeginAttempt(channel, relayInfo.UsingGroup)
 			if retryParam.GetRetry() > 0 {
 				if setupErr := middleware.SetupContextForSelectedChannel(c, channel, relayInfo.OriginModelName); setupErr != nil {
@@ -769,7 +782,7 @@ func executeTaskSubmissionWith(
 			channel, channelErr = getChannel(c, relayInfo, retryParam)
 			if channelErr != nil {
 				logger.LogError(c, channelErr.Error())
-				taskErr = taskChannelSelectionError(taskErr, channelErr, retryParam.GetRetry())
+				taskErr = taskChannelSelectionError(taskErr, channelErr)
 				break
 			}
 		}
@@ -1268,9 +1281,12 @@ func taskSubmissionAPIError(taskErr *taskdto.TaskError) *types.NewAPIError {
 // "no available channel" rejection; a failure while retrying means the group is
 // exhausted, and the last attempt error is the actionable cause, so keep it
 // instead of masking it with a generic selection error.
-func taskChannelSelectionError(previous *taskdto.TaskError, channelErr *types.NewAPIError, retry int) *taskdto.TaskError {
-	if retry > 0 && previous != nil {
+func taskChannelSelectionError(previous *taskdto.TaskError, channelErr *types.NewAPIError) *taskdto.TaskError {
+	if previous != nil {
 		return previous
+	}
+	if channelErr.GetErrorCode() == types.ErrorCode(taskdto.FilterVideoCapability) {
+		return service.TaskErrorWrapperLocal(channelErr.Err, string(taskdto.FilterVideoCapability), channelErr.StatusCode)
 	}
 	return service.TaskErrorWrapperLocal(channelErr.Err, "get_channel_failed", channelErr.StatusCode)
 }

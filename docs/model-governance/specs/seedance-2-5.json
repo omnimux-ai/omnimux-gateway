@@ -22,6 +22,14 @@
    "video_edit",
    "video_extend"
   ],
+  "mode_kinds": {
+   "text_to_video": "text_to_video",
+   "first_frame": "first_frame",
+   "first_last_frame": "first_last_frame",
+   "video_multi_ref": "multimodal_reference",
+   "video_edit": "video_edit",
+   "video_extend": "video_extend"
+  },
   "source_claim": "网关执行档案：APIMart video_contract.go 的 operationAllowed 对 seedance-2-5 允许 text_to_video / first_frame / first_last_frame / video_multi_ref / video_edit / video_extend"
  },
  "status": "documented",
@@ -229,6 +237,10 @@
   "adaptive"
  ],
  "audio_supported": true,
+ "output_formats": [
+  "mp4",
+  "mov"
+ ],
  "prompt_max_chars": null,
  "unknowns": [
   "提示词硬性字符上限：官方只给建议（中文不超过 500 字、英文不超过 1000 词），未公布硬上限，故 prompt_max_chars 为 null。",

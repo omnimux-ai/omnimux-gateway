@@ -224,6 +224,14 @@ type UsageFieldSchema struct {
 type LoadedPlugin struct {
 	Meta   Meta
 	Engine *Engine
+
+	factory bool
+}
+
+// IsFactory reports whether this exact loaded implementation was registered
+// as a factory plugin. Overrides can have the same key and version.
+func (p *LoadedPlugin) IsFactory() bool {
+	return p != nil && p.factory
 }
 
 // UsesSubmitEventDelta reports whether SSE submissions go through
@@ -310,6 +318,7 @@ func (r *Registry) register(source string, options Options, factory bool) (*Load
 	if err != nil {
 		return nil, err
 	}
+	plugin.factory = factory
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

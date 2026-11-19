@@ -6,21 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/modelcontracts"
 )
 
-// GetModelContract publishes one public model id's declared capability contract.
-//
-// fork: OmniMux — the catalog surfaces describe price and routing, so a caller
-// has no way to learn which parameter values a model accepts before submitting
-// and only finds out from a rejected request. This returns the same contract the
-// model page renders from, addressed by public model id, so a client can read it
-// instead of maintaining its own table.
-//
-// The contract is the single authority: whatever a model declares here is what
-// the page offers and what a request must supply. Read-only and descriptive — it
-// never participates in billing, quota, precharge or settlement.
-// See FORK_CUSTOMIZATIONS.md.
+// GetModelContract publishes one model's declared capability contract and, for
+// pilot models, the verified variants served to the caller's channel groups.
 func GetModelContract(c *gin.Context) {
 	modelID := c.Param("model")
 	if modelID == "" {
@@ -41,8 +32,26 @@ func GetModelContract(c *gin.Context) {
 	}
 
 	document := modelcontracts.All()
-	common.ApiSuccess(c, gin.H{
+	response := gin.H{
 		"contract": contract,
 		"version":  modelcontracts.Version(&document),
-	})
+	}
+	if modelcontracts.ActiveVideoCapabilities().Managed(modelID) {
+		c.Header("Cache-Control", "private, no-store")
+		_, _, groupRatios := pricingGroupView(c)
+		pricing := model.Pricing{ModelName: modelID, Contract: &contract}
+		for _, row := range model.GetCatalogPricing() {
+			if row.ModelName == modelID {
+				pricing = row
+				break
+			}
+			if row.ModelName == contract.ModelID {
+				pricing = row
+			}
+		}
+		if effective := pricing.VideoCapabilitiesForGroups(groupRatios); effective != nil {
+			response["effective_video"] = effective
+		}
+	}
+	common.ApiSuccess(c, response)
 }

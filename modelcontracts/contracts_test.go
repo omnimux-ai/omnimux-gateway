@@ -603,15 +603,20 @@ func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
 			"model_id": "muse-video",
 			"family": "video",
 			"status": "partial",
-			"operations": ["text_to_video", "first_frame"],
-			"gateway": {"profile": "openai_video", "operations": ["text_to_video", "first_frame"]},
+			"operations": ["text_to_video", "first_frame", "video_multi_ref"],
+			"gateway": {
+				"profile": "openai_video",
+				"operations": ["text_to_video", "first_frame", "video_multi_ref"],
+				"mode_kinds": {"video_multi_ref": "image_reference"}
+			},
 			"durations_seconds": {"min": 1, "max": 60, "default": 5},
 			"aspect_ratios": ["16:9", "9:16", "1:1"],
+			"reference_images": {"min": 2, "max": 2},
 			"output_formats": ["mp4"]
 		}`,
 	})
 	contract := doc.Models["muse-video"]
-	assert.Equal(t, []string{"text_to_video", "first_frame"}, contract.OperationIDs)
+	assert.Equal(t, []string{"text_to_video", "first_frame", "video_multi_ref"}, contract.OperationIDs)
 	assert.Equal(t, ExecutionStatusLive, contract.ExecutionStatus)
 	for _, operation := range contract.Operations {
 		assert.True(t, operation.Executable, operation.ID)
@@ -622,6 +627,11 @@ func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
 	require.Len(t, firstFrame.Inputs, 2)
 	assert.Equal(t, "first_frame", firstFrame.Inputs[1].Slot)
 	assert.True(t, firstFrame.Inputs[1].Required)
+	assert.Empty(t, firstFrame.ModeKind)
+	twoReferences := operationByID(t, contract, "video_multi_ref")
+	require.Len(t, twoReferences.Inputs, 2)
+	require.NotNil(t, twoReferences.Inputs[1].Max)
+	assert.Equal(t, 2, *twoReferences.Inputs[1].Max)
 
 	shipped, err := Build(specDir)
 	require.NoError(t, err)
@@ -633,11 +643,15 @@ func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
 	muse := shipped.Models["muse-video"]
 	assert.Equal(t, []string{"text_to_video", "first_frame", "video_multi_ref"}, muse.OperationIDs)
 	assert.Equal(t, "openai_video", muse.GatewayProtocol)
+	assert.Equal(t, "text_to_video", operationByID(t, muse, "text_to_video").ModeKind)
 	frame := operationByID(t, muse, "first_frame")
+	assert.Equal(t, "first_frame", frame.ModeKind)
 	require.Len(t, frame.Inputs, 2)
 	assert.Equal(t, 1, *frame.Inputs[1].Min)
 	assert.Equal(t, 1, *frame.Inputs[1].Max)
 	multi := operationByID(t, muse, "video_multi_ref")
+	assert.Equal(t, "image_reference", multi.ModeKind)
+	assert.Equal(t, multi.ModeKind, twoReferences.ModeKind)
 	require.Len(t, multi.Inputs, 2)
 	input := multi.Inputs[1]
 	assert.Equal(t, "reference_images", input.Slot)
@@ -647,6 +661,15 @@ func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
 	assert.Equal(t, 2, *input.Min)
 	assert.Equal(t, 10, *input.Max)
 	assert.Equal(t, "first_frame", input.FirstItemRole)
+
+	seedance := shipped.Models["seedance-2-5"]
+	seedanceReferences := operationByID(t, seedance, "video_multi_ref")
+	assert.Equal(t, "multimodal_reference", seedanceReferences.ModeKind)
+	assert.Equal(t, []string{"mp4", "mov"}, seedanceReferences.Output.Formats)
+	assert.Contains(t, seedanceReferences.Parameters, Parameter{Name: "output_format", Type: "enum", Enum: []any{"mp4", "mov"}})
+	for _, operationID := range []string{"text_to_video", "first_frame", "first_last_frame", "video_edit", "video_extend"} {
+		assert.Equal(t, operationID, operationByID(t, seedance, operationID).ModeKind)
+	}
 }
 
 func TestAutoDLH3VideoProfileExpandsItsOwnWorkflows(t *testing.T) {
@@ -855,7 +878,7 @@ func TestBuildRejectsUnknownGatewayProfile(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown gateway profile")
 }
 
-func TestBuildRejectsUnknownAndDisallowedOperations(t *testing.T) {
+func TestBuildRejectsInvalidGatewayOperationDeclarations(t *testing.T) {
 	cases := []struct {
 		name string
 		body string
@@ -882,6 +905,46 @@ func TestBuildRejectsUnknownAndDisallowedOperations(t *testing.T) {
 				"gateway": {"profile": "apimart_video", "operations": ["text_to_video", "video_edit"]}
 			}`,
 			want: "not allowed",
+		},
+		{
+			name: "semantics refer to an undeclared operation",
+			body: `{
+				"model_id": "muse-video",
+				"family": "video",
+				"status": "partial",
+				"gateway": {
+					"profile": "openai_video", "operations": ["text_to_video"],
+					"mode_kinds": {"first_frame": "first_frame"}
+				}
+			}`,
+			want: "mode_kinds refers to an undeclared gateway operation",
+		},
+		{
+			name: "reference semantics must match the accepted media types",
+			body: `{
+				"model_id": "muse-video",
+				"family": "video",
+				"status": "partial",
+				"reference_images": {"min": 2, "max": 10},
+				"gateway": {
+					"profile": "openai_video", "operations": ["video_multi_ref"],
+					"mode_kinds": {"video_multi_ref": "multimodal_reference"}
+				}
+			}`,
+			want: `mode kind "multimodal_reference" is not supported for operation "video_multi_ref"`,
+		},
+		{
+			name: "unknown mode kind",
+			body: `{
+				"model_id": "muse-video",
+				"family": "video",
+				"status": "partial",
+				"gateway": {
+					"profile": "openai_video", "operations": ["text_to_video"],
+					"mode_kinds": {"text_to_video": "unknown_mode"}
+				}
+			}`,
+			want: `mode kind "unknown_mode" is not supported for operation "text_to_video"`,
 		},
 	}
 	for _, testCase := range cases {
@@ -932,6 +995,7 @@ func TestOperationJSONPublishesEmptyArraysNotNull(t *testing.T) {
 	require.NoError(t, common.Unmarshal(body, &published))
 	assert.Equal(t, []any{}, published["inputs"])
 	assert.Equal(t, []any{}, published["parameters"])
+	assert.NotContains(t, published, "modeKind")
 }
 
 func TestNewModelsInAnEstablishedFamilyNeedOnlyASpec(t *testing.T) {

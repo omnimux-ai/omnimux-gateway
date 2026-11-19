@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"maps"
-
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/modelcontracts"
@@ -61,15 +59,11 @@ func filterPricingDefaults(pricing []model.Pricing, defaults map[string]string) 
 	return filtered
 }
 
-func GetPricing(c *gin.Context) {
-	pricing := model.GetCatalogPricing()
-	userId, exists := c.Get("id")
-	usableGroup := map[string]string{}
-	groupRatio := map[string]float64{}
-	maps.Copy(groupRatio, ratio_setting.GetGroupRatioCopy())
+func pricingGroupView(c *gin.Context) (string, map[string]string, map[string]float64) {
+	groupRatio := ratio_setting.GetGroupRatioCopy()
 	var group string
-	if exists {
-		user, err := model.GetUserCache(userId.(int))
+	if userID := c.GetInt("id"); userID > 0 {
+		user, err := model.GetUserCache(userID)
 		if err == nil {
 			group = user.Group
 			for g := range groupRatio {
@@ -81,12 +75,23 @@ func GetPricing(c *gin.Context) {
 		}
 	}
 
-	usableGroup = service.GetUserUsableGroups(group)
-	pricing = filterPricingByUsableGroups(pricing, usableGroup)
-	// check groupRatio contains usableGroup
-	for group := range ratio_setting.GetGroupRatioCopy() {
+	usableGroup := service.GetUserUsableGroups(group)
+	for group := range groupRatio {
 		if _, ok := usableGroup[group]; !ok {
 			delete(groupRatio, group)
+		}
+	}
+	return group, usableGroup, groupRatio
+}
+
+func GetPricing(c *gin.Context) {
+	pricing := model.GetCatalogPricing()
+	group, usableGroup, groupRatio := pricingGroupView(c)
+	pricing = filterPricingByUsableGroups(pricing, usableGroup)
+	if modelcontracts.ActiveVideoCapabilities() != nil {
+		c.Header("Cache-Control", "private, no-store")
+		for i := range pricing {
+			pricing[i].EffectiveVideo = pricing[i].VideoCapabilitiesForGroups(groupRatio)
 		}
 	}
 

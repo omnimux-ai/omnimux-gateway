@@ -1,11 +1,16 @@
 package model
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"maps"
 	"math"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -70,7 +75,41 @@ type Pricing struct {
 	// live executable contract is the catalog publication gate; its values are
 	// descriptive only and must never feed pricing, quota, precharge or
 	// settlement. See FORK_CUSTOMIZATIONS.md.
-	Contract *modelcontracts.Contract `json:"contract,omitempty"`
+	Contract       *modelcontracts.Contract `json:"contract,omitempty"`
+	EffectiveVideo *EffectiveVideo          `json:"effective_video,omitempty"`
+
+	// The shared pricing cache keeps channel variants for all served groups.
+	// Only the caller-scoped projection is serialized.
+	videoOperationsByGroup map[string][]modelcontracts.Operation
+}
+
+type EffectiveVideo struct {
+	Version string                                `json:"version"`
+	Groups  map[string][]modelcontracts.Operation `json:"groups"`
+}
+
+// VideoCapabilitiesForGroups projects the currently served variants scoped to
+// the same groups that the caller can select and see prices for.
+func (p Pricing) VideoCapabilitiesForGroups(groupRatios map[string]float64) *EffectiveVideo {
+	if p.Contract == nil || !modelcontracts.ActiveVideoCapabilities().Managed(p.ModelName) {
+		return nil
+	}
+	groups := make(map[string][]modelcontracts.Operation)
+	for group, operations := range p.videoOperationsByGroup {
+		if _, visible := groupRatios[group]; visible && group != "" && group != "auto" {
+			groups[group] = operations
+		}
+	}
+	content, err := common.Marshal(groups)
+	if err != nil {
+		common.SysLog(common.LogText("Could not encode video capabilities: %v", err))
+		return nil
+	}
+	version := sha256.New()
+	version.Write([]byte(p.Contract.ContractVersion))
+	version.Write([]byte{0})
+	version.Write(content)
+	return &EffectiveVideo{Version: hex.EncodeToString(version.Sum(nil)[:8]), Groups: groups}
 }
 
 type PricingVendor struct {
@@ -81,11 +120,12 @@ type PricingVendor struct {
 }
 
 var (
-	pricingMap           []Pricing
-	vendorsList          []PricingVendor
-	supportedEndpointMap map[string]common.EndpointInfo
-	lastGetPricingTime   time.Time
-	updatePricingLock    sync.Mutex
+	pricingMap             []Pricing
+	vendorsList            []PricingVendor
+	supportedEndpointMap   map[string]common.EndpointInfo
+	lastGetPricingTime     time.Time
+	updatePricingLock      sync.Mutex
+	videoPricingGeneration atomic.Pointer[jsplugin.RoutingGeneration]
 
 	// 缓存映射：模型名 -> 启用分组 / 计费类型
 	modelEnableGroups     = make(map[string][]string)
@@ -100,12 +140,20 @@ var (
 	modelSupportEndpointsLock = sync.RWMutex{}
 )
 
+func pricingCacheExpired() bool {
+	if time.Since(lastGetPricingTime) > time.Minute || len(pricingMap) == 0 {
+		return true
+	}
+	return modelcontracts.ActiveVideoCapabilities() != nil &&
+		videoPricingGeneration.Load() != jsplugin.DefaultRegistry.Generation()
+}
+
 func GetPricing() []Pricing {
-	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
+	if pricingCacheExpired() {
 		updatePricingLock.Lock()
 		defer updatePricingLock.Unlock()
 		// Double check after acquiring the lock
-		if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
+		if pricingCacheExpired() {
 			modelSupportEndpointsLock.Lock()
 			defer modelSupportEndpointsLock.Unlock()
 			updatePricing()
@@ -273,6 +321,82 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 	return configs
 }
 
+// loadPricingVideoOperations uses the same model/group membership and channel
+// rules as selection. The lock order matches loadPricingAdvancedCustomConfigs.
+func loadPricingVideoOperations(enableAbilities []AbilityWithChannel, generation *jsplugin.RoutingGeneration) map[string]map[string][]modelcontracts.Operation {
+	rules := modelcontracts.ActiveVideoCapabilities()
+	if rules == nil {
+		return nil
+	}
+	var pilotAbilities []AbilityWithChannel
+	channelIDs := make(map[int]struct{})
+	for _, ability := range enableAbilities {
+		if rules.Managed(ability.Model) {
+			pilotAbilities = append(pilotAbilities, ability)
+			channelIDs[ability.ChannelId] = struct{}{}
+		}
+	}
+	if len(pilotAbilities) == 0 {
+		return nil
+	}
+
+	useCache := common.MemoryCacheEnabled
+	var channelsByID map[int]*Channel
+	if useCache {
+		channelSyncLock.RLock()
+		channelsByID = channelsIDM
+	} else {
+		var channels []*Channel
+		if err := DB.Select("id", "type", "status", "base_url", "model_mapping", "param_override", "settings", "setting").
+			Where("id IN ? AND status = ?", slices.Collect(maps.Keys(channelIDs)), common.ChannelStatusEnabled).Find(&channels).Error; err != nil {
+			common.SysLog(common.LogText("Could not load channels for video capabilities: %v", err))
+			return nil
+		}
+		channelsByID = make(map[int]*Channel, len(channels))
+		for _, channel := range channels {
+			channelsByID[channel.Id] = channel
+		}
+	}
+
+	operationsByModel := make(map[string]map[string][]modelcontracts.Operation)
+	for _, ability := range pilotAbilities {
+		channel := channelsByID[ability.ChannelId]
+		if channel == nil || channel.Status != common.ChannelStatusEnabled {
+			continue
+		}
+		if useCache && !slices.Contains(group2model2channels[ability.Group][ability.Model], ability.ChannelId) {
+			continue
+		}
+		groups := operationsByModel[ability.Model]
+		if groups == nil {
+			groups = make(map[string][]modelcontracts.Operation)
+			operationsByModel[ability.Model] = groups
+		}
+		groups[ability.Group] = append(groups[ability.Group], videoChannelOperations(rules, generation, channel, ability.Model)...)
+	}
+	if useCache {
+		channelSyncLock.RUnlock()
+	}
+
+	for _, groups := range operationsByModel {
+		for group, operations := range groups {
+			unique := make(map[string]modelcontracts.Operation, len(operations))
+			for _, operation := range operations {
+				encoded, err := common.Marshal(operation)
+				if err == nil {
+					unique[string(encoded)] = operation
+				}
+			}
+			ordered := make([]modelcontracts.Operation, 0, len(unique))
+			for _, key := range slices.Sorted(maps.Keys(unique)) {
+				ordered = append(ordered, unique[key])
+			}
+			groups[group] = ordered
+		}
+	}
+	return operationsByModel
+}
+
 func appendPricingEndpoint(endpoints []string, endpoint string) []string {
 	if endpoint == "" || common.StringsContains(endpoints, endpoint) {
 		return endpoints
@@ -332,6 +456,8 @@ func updatePricing() {
 	//这里使用切片而不是Set，因为一个模型可能支持多个端点类型，并且第一个端点是优先使用端点
 	modelSupportEndpointsStr := make(map[string][]string)
 	advancedCustomConfigs := loadPricingAdvancedCustomConfigs(enableAbilities)
+	pluginGeneration := jsplugin.DefaultRegistry.Generation()
+	videoOperationsByModel := loadPricingVideoOperations(enableAbilities, pluginGeneration)
 
 	// 先根据已有能力填充原生端点
 	for _, ability := range enableAbilities {
@@ -415,12 +541,12 @@ func updatePricing() {
 	}
 
 	pricingMap = make([]Pricing, 0)
-	pluginGeneration := jsplugin.DefaultRegistry.Generation()
 	for model, groups := range modelGroupsMap {
 		pricing := Pricing{
 			ModelName:              model,
 			EnableGroup:            groups.Items(),
 			SupportedEndpointTypes: modelSupportEndpointTypes[model],
+			videoOperationsByGroup: videoOperationsByModel[model],
 		}
 
 		// fork: OmniMux — publish the declared capability contract next to the
@@ -563,6 +689,7 @@ func updatePricing() {
 	modelEnableGroupsLock.Unlock()
 
 	lastGetPricingTime = time.Now()
+	videoPricingGeneration.Store(pluginGeneration)
 }
 
 // GetSupportedEndpointMap 返回全局端点到路径的映射
