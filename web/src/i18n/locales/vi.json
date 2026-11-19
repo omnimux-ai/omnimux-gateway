@@ -9438,6 +9438,22 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Multiple image references": "Nhiều ảnh tham chiếu",
+    "Swap order": "Đổi thứ tự",
+    "Image {{index}}": "Ảnh {{index}}",
+    "Remove image {{index}}": "Xóa ảnh {{index}}",
+    "Image 1 is the default start. Use [图1] and [图2] in the prompt.": "Ảnh 1 mặc định là khung hình mở đầu. Dùng [图1] và [图2] trong lời nhắc.",
+    "Add two reference images": "Thêm hai ảnh tham chiếu",
+    "Muse video requires a JSON request": "Muse Video yêu cầu yêu cầu JSON",
+    "Muse video duration must be an integer from 1 to 60 seconds": "Thời lượng Muse Video phải là số nguyên từ 1 đến 60 giây",
+    "Supply only one set of Muse video image inputs": "Chỉ cung cấp một bộ ảnh cho Muse Video",
+    "Muse video first-frame mode requires one image": "Chế độ khung hình đầu của Muse Video yêu cầu một ảnh",
+    "Muse video references must be an array of images": "Ảnh tham chiếu của Muse Video phải ở dạng mảng",
+    "Muse video reference images must be non-empty": "Ảnh tham chiếu của Muse Video không được để trống",
+    "Muse video generation mode is unsupported": "Muse Video không hỗ trợ chế độ tạo này",
+    "Muse video multi-reference mode requires exactly two images": "Chế độ nhiều ảnh tham chiếu của Muse Video cần đúng hai ảnh",
+    "Muse text-to-video does not accept reference images": "Chế độ văn bản thành video của Muse không nhận ảnh tham chiếu",
+    "Only two reference images are allowed": "Chỉ được thêm hai ảnh tham chiếu"
   }
 }

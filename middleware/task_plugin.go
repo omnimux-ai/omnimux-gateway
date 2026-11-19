@@ -22,6 +22,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/modelcontracts"
 	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -374,7 +375,13 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 				rewriteTo = target.Alias
 			}
 		}
-		binding, found := generation.LookupEndpoint(c.Request.Method, c.Request.URL.Path, lookupModel)
+		lookupPath := c.Request.URL.Path
+		if c.Request.Method == http.MethodPost && (lookupPath == "/v1/video/generations" || lookupPath == "/pg/video/generations") {
+			if contract, ok := modelcontracts.For(lookupModel); ok && contract.GatewayProtocol == "openai_video" {
+				lookupPath = "/v1/videos"
+			}
+		}
+		binding, found := generation.LookupEndpoint(c.Request.Method, lookupPath, lookupModel)
 		if !found || binding.Plugin == nil {
 			c.Set(contextKeyTaskPluginEndpointModel, *modelRequest)
 			c.Next()
@@ -394,7 +401,7 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			})
 			if selectErr == nil && channel != nil {
 				c.Set(contextKeyTaskPluginEndpointChannel, channel)
-				candidates := generation.LookupEndpointCandidates(c.Request.Method, c.Request.URL.Path, lookupModel)
+				candidates := generation.LookupEndpointCandidates(c.Request.Method, lookupPath, lookupModel)
 				executable := slices.ContainsFunc(candidates, func(candidate pluginruntime.ProtocolBinding) bool {
 					if candidate.Plugin == nil {
 						return false
@@ -440,7 +447,7 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 		}
 		modelRequest.Model = pinModel
 		c.Set(contextKeyTaskPluginEndpointModel, *modelRequest)
-		candidates := generation.LookupEndpointCandidates(c.Request.Method, c.Request.URL.Path, lookupModel)
+		candidates := generation.LookupEndpointCandidates(c.Request.Method, lookupPath, lookupModel)
 		if len(candidates) == 0 {
 			candidates = []pluginruntime.ProtocolBinding{binding}
 		}

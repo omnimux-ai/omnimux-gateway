@@ -161,6 +161,9 @@ function parseTags(model: PricingModel): string[] {
 
 /** Output modality decides the playground shape; tags are the documented fallback. */
 export function resolveModality(model: PricingModel): PlaygroundModality {
+  const family = model.contract?.family
+  if (family === 'video' || family === 'image') return family
+
   const outputs = model.output_modalities ?? []
   if (outputs.includes('video')) return 'video'
   if (outputs.includes('image')) return 'image'
@@ -810,6 +813,9 @@ function contractInputControl(
     accept: acceptAttribute(input.allowedMimes, input.type),
   }
   if (mediaRole) control.mediaRole = mediaRole
+  if (input.firstItemRole === 'first_frame') {
+    control.firstItemRole = input.firstItemRole
+  }
   if (input.max !== undefined) control.maxCount = input.max
   // A document slot is a single file even when the contract states no count:
   // the wire field is one `file_url`, not a list.

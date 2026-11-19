@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"io/fs"
+	"slices"
 	"strings"
 	"testing"
 
@@ -117,6 +118,10 @@ func TestBuiltInTaskPluginResponsesAndUsageContracts(t *testing.T) {
 			assert.Equal(t, []string{"stream", "sync", "background"}, responsesClaim.Supports)
 			for _, model := range plugin.Meta.Models {
 				binding, claimed := registry.Generation().LookupEndpoint("POST", "/v1/responses", model)
+				if len(responsesClaim.Models) > 0 && !slices.Contains(responsesClaim.Models, model) {
+					assert.False(t, claimed, model)
+					continue
+				}
 				require.True(t, claimed, model)
 				assert.Same(t, plugin, binding.Plugin)
 			}

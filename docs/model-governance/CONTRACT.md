@@ -358,6 +358,8 @@ the keys in `reasoning_efforts`.
 - `inputs[]`：`slot`（输入槽名）、`type`（text/image/video/audio/file/url 等）、`role`（可选，如
   `first_frame` / `last_frame`）、`required`、`min` / `max`（数量约束）、`allowedMimes`、
   `maxSizeMb`、`minDurationSec` / `maxDurationSec`。未确立的轴省略，不得用 0 或默认值代替。
+- `firstItemRole`：可选字段。值为 `first_frame` 时，有序参考图列表的第一项默认作为起始画面，其余作为参考。首帧独立输入槽仍使用 `role: first_frame`。
+- `gateway_protocol`：可选字段。`openai_video` 表示该模型的兼容视频创建路由也使用 OpenAI Video 请求解码器。
 - `parameters[]`：从 6.3 的 `parameters` 与 profile 模板展开；`enum` / `minimum` / `maximum` /
   `step` / `default` / `fixed` / `limitSource` 含义与 6.3 相同（发布契约中使用 `limitSource`）。
 - `output`：必填对象，至少含 `type`（image/video/audio/text/data 等）；`formats`、`sizes` 可选。

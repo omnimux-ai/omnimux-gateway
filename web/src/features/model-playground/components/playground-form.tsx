@@ -31,6 +31,7 @@ import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { cn } from '@/lib/utils'
 
 import type {
   ParamControl,
@@ -45,7 +46,8 @@ export type PlaygroundFormProps = {
   disabled: boolean
   onParamChange: (key: string, value: string | number | boolean) => void
   onMediaFiles: (key: string, files: FileList | null) => void
-  onMediaRemove: (key: string, url: string) => void
+  onMediaRemove: (key: string, index: number) => void
+  onMediaSwap: (key: string) => void
 }
 
 /** localStorage-free description of a filled slot, for the accessible name. */
@@ -158,20 +160,59 @@ function MediaControl(props: {
   parityId?: string
   onMediaFiles: PlaygroundFormProps['onMediaFiles']
   onMediaRemove: PlaygroundFormProps['onMediaRemove']
+  onMediaSwap: PlaygroundFormProps['onMediaSwap']
 }) {
   const { t } = useTranslation()
   const { control } = props
   const maxCount = control.maxCount
   const isFull = maxCount !== undefined && props.urls.length >= maxCount
+  const orderedPair = control.firstItemRole === 'first_frame'
+  const disabled = props.disabled || props.uploading
+  const urlOccurrences = new Map<string, number>()
   const counter =
     maxCount === undefined
       ? `${props.urls.length}`
       : `${props.urls.length} / ${maxCount}`
 
   return (
-    <div data-parity={props.parityId} className='space-y-2'>
+    <div
+      data-parity={props.parityId}
+      className='space-y-2'
+      onDragOver={orderedPair ? (event) => event.preventDefault() : undefined}
+      onDrop={
+        orderedPair
+          ? (event) => {
+              event.preventDefault()
+              if (!disabled) {
+                props.onMediaFiles(control.key, event.dataTransfer.files)
+              }
+            }
+          : undefined
+      }
+    >
       <div className='flex items-center gap-2'>
-        <Label>{t(control.labelKey)}</Label>
+        <Label htmlFor={orderedPair ? `media-${control.key}` : undefined}>
+          {orderedPair ? t('Reference images') : t(control.labelKey)}
+        </Label>
+        {orderedPair && (
+          <div className='ml-auto flex items-center gap-2'>
+            <span className='text-muted-foreground text-xs tabular-nums'>
+              {counter}
+            </span>
+            {isFull && (
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                className='h-7 rounded-full text-xs'
+                disabled={disabled}
+                onClick={() => props.onMediaSwap(control.key)}
+              >
+                {t('Swap order')}
+              </Button>
+            )}
+          </div>
+        )}
         {control.hintKey && (
           <span className='text-muted-foreground text-[12px]'>
             {t(control.hintKey, { count: control.maxCount ?? 1 })}
@@ -189,55 +230,108 @@ function MediaControl(props: {
               {t('JPG / PNG / WebP')}
             </span>
           )}
-          <span className='text-muted-foreground text-[12px] tabular-nums'>
-            {props.uploading ? t('Uploading…') : counter}
-          </span>
+          {(props.uploading || !orderedPair) && (
+            <span className='text-muted-foreground text-[12px] tabular-nums'>
+              {props.uploading ? t('Uploading…') : counter}
+            </span>
+          )}
           <input
             type='file'
+            id={orderedPair ? `media-${control.key}` : undefined}
             multiple={maxCount !== 1}
             accept={control.accept}
             className='sr-only'
-            disabled={props.disabled || props.uploading}
-            onChange={(event) =>
-              props.onMediaFiles(control.key, event.target.files)
-            }
+            disabled={disabled}
+            onChange={(event) => {
+              props.onMediaFiles(control.key, event.currentTarget.files)
+              event.currentTarget.value = ''
+            }}
           />
         </label>
       )}
 
       {props.urls.length > 0 && (
-        <ul className='flex flex-wrap gap-2'>
-          {props.urls.map((url) => (
-            <li key={url} className='group relative size-12'>
-              {control.accept?.includes('image/') ? (
-                <img
-                  src={url}
-                  alt={slotName(url)}
-                  className='bg-muted size-12 rounded-lg object-cover'
-                />
-              ) : (
-                <span className='bg-muted flex size-12 items-center justify-center rounded-lg px-1 text-center text-[10px] break-all'>
-                  {slotName(url)}
-                </span>
-              )}{' '}
-              <Button
-                type='button'
-                variant='outline'
-                size='icon'
-                aria-label={t('Remove {{name}}', { name: slotName(url) })}
-                disabled={props.disabled}
-                className='bg-background absolute -top-2 -right-2 size-6 rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
-                onClick={() => props.onMediaRemove(control.key, url)}
+        <ol
+          className={cn(
+            'gap-2',
+            orderedPair ? 'grid grid-cols-2' : 'flex flex-wrap'
+          )}
+        >
+          {props.urls.map((url, index) => {
+            const occurrence = (urlOccurrences.get(url) ?? 0) + 1
+            urlOccurrences.set(url, occurrence)
+            return (
+              <li
+                key={`${url}:${occurrence}`}
+                className={cn(
+                  'group relative',
+                  orderedPair
+                    ? 'min-w-0 overflow-hidden rounded-lg border'
+                    : 'size-12'
+                )}
               >
-                <HugeiconsIcon
-                  icon={Cancel01Icon}
-                  className='size-3.5'
-                  aria-hidden='true'
-                />
-              </Button>
-            </li>
-          ))}
-        </ul>
+                {control.accept?.includes('image/') ? (
+                  <img
+                    src={url}
+                    alt={slotName(url)}
+                    className={cn(
+                      'bg-muted object-cover',
+                      orderedPair ? 'h-16 w-full' : 'size-12 rounded-lg'
+                    )}
+                  />
+                ) : (
+                  <span className='bg-muted flex size-12 items-center justify-center rounded-lg px-1 text-center text-[10px] break-all'>
+                    {slotName(url)}
+                  </span>
+                )}
+                {orderedPair && (
+                  <div className='bg-muted/40 flex items-center gap-1.5 px-2 py-1 text-xs'>
+                    <strong className='shrink-0'>
+                      {t('Image {{index}}', { index: index + 1 })}
+                    </strong>
+                    <span
+                      className='text-muted-foreground min-w-0 truncate'
+                      title={slotName(url)}
+                    >
+                      {slotName(url)}
+                    </span>
+                  </div>
+                )}
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='icon'
+                  aria-label={
+                    orderedPair
+                      ? t('Remove image {{index}}', { index: index + 1 })
+                      : t('Remove {{name}}', { name: slotName(url) })
+                  }
+                  disabled={disabled}
+                  className={cn(
+                    'bg-background absolute size-6 rounded-full',
+                    orderedPair
+                      ? 'top-1 right-1'
+                      : '-top-2 -right-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
+                  )}
+                  onClick={() => props.onMediaRemove(control.key, index)}
+                >
+                  <HugeiconsIcon
+                    icon={Cancel01Icon}
+                    className='size-3.5'
+                    aria-hidden='true'
+                  />
+                </Button>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+      {orderedPair && (
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            'Image 1 is the default start. Use [图1] and [图2] in the prompt.'
+          )}
+        </p>
       )}
     </div>
   )
@@ -251,6 +345,7 @@ function Control(props: {
   onParamChange: PlaygroundFormProps['onParamChange']
   onMediaFiles: PlaygroundFormProps['onMediaFiles']
   onMediaRemove: PlaygroundFormProps['onMediaRemove']
+  onMediaSwap: PlaygroundFormProps['onMediaSwap']
 }) {
   const { t } = useTranslation()
   const { control } = props
@@ -308,6 +403,7 @@ function Control(props: {
         parityId={parityId}
         onMediaFiles={props.onMediaFiles}
         onMediaRemove={props.onMediaRemove}
+        onMediaSwap={props.onMediaSwap}
       />
     )
   }
@@ -392,6 +488,7 @@ export function PlaygroundForm(props: PlaygroundFormProps) {
       onParamChange={props.onParamChange}
       onMediaFiles={props.onMediaFiles}
       onMediaRemove={props.onMediaRemove}
+      onMediaSwap={props.onMediaSwap}
     />
   )
 

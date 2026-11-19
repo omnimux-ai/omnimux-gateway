@@ -201,6 +201,7 @@ export type ContractInput = {
   slot: string
   type: 'text' | 'image' | 'video' | 'audio' | 'file' | 'url' | string
   role?: string
+  firstItemRole?: string
   required: boolean
   min?: number
   max?: number

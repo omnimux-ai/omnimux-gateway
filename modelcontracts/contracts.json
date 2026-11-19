@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "0c22fe001744c307",
+  "version": "beda034527e2300b",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -7062,14 +7062,16 @@
     "muse-video": {
       "model_id": "muse-video",
       "schemaVersion": "2.0",
-      "contractVersion": "7ff97159dc3b0992",
+      "contractVersion": "209975d764ec0be5",
       "execution_status": "live",
       "family": "video",
       "status": "partial",
       "basis": "line_restricted",
+      "gateway_protocol": "openai_video",
       "operation_ids": [
         "text_to_video",
-        "first_frame"
+        "first_frame",
+        "video_multi_ref"
       ],
       "operations": [
         {
@@ -7130,7 +7132,12 @@
               "role": "first_frame",
               "required": true,
               "min": 1,
-              "max": 1
+              "max": 1,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+              ]
             }
           ],
           "parameters": [
@@ -7165,13 +7172,72 @@
               "mp4"
             ]
           }
+        },
+        {
+          "id": "video_multi_ref",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "reference_images",
+              "type": "image",
+              "role": "reference",
+              "firstItemRole": "first_frame",
+              "required": true,
+              "min": 2,
+              "max": 2,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+              ]
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "step": 1,
+              "default": 5
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "9:16",
+                "1:1"
+              ]
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4"
+              ]
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4"
+            ]
+          }
         }
       ],
       "unknowns": [
         "prompt_max_chars",
         "resolutions",
+        "reference_images.max_bytes_each",
         "operations.text_to_video.parameters.resolution",
-        "operations.first_frame.parameters.resolution"
+        "operations.first_frame.parameters.resolution",
+        "operations.video_multi_ref.parameters.resolution"
       ],
       "durations_seconds": {
         "min": 1,
@@ -7186,6 +7252,15 @@
       "output_formats": [
         "mp4"
       ],
+      "reference_images": {
+        "min": 2,
+        "max": 2,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ]
+      },
       "billing": {
         "unit": "per_video",
         "unit_label": {

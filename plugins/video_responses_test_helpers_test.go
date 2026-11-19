@@ -16,6 +16,7 @@ type videoResponsesTestCase struct {
 	pluginKey           string
 	model               string
 	requestBody         map[string]any
+	wantResponsesModels []string
 	wantAction          string
 	wantRequest         map[string]any
 	wantUsageKeys       []string
@@ -31,13 +32,22 @@ func testVideoResponsesProtocol(t *testing.T, testCase videoResponsesTestCase) {
 	plugin, err := registry.RegisterFactory(source, jsplugin.Options{Key: testCase.pluginKey})
 	require.NoError(t, err)
 
-	t.Run("claims every model", func(t *testing.T) {
+	t.Run("claims expected Responses models", func(t *testing.T) {
+		expected := testCase.wantResponsesModels
+		if expected == nil {
+			expected = plugin.Meta.Models
+		}
+		var claimed []string
 		for _, model := range plugin.Meta.Models {
 			binding, found := registry.Generation().LookupEndpoint("POST", "/v1/responses", model)
-			require.True(t, found, model)
+			if !found {
+				continue
+			}
 			assert.Same(t, plugin, binding.Plugin)
 			assert.Equal(t, "openai_responses", binding.Protocol)
+			claimed = append(claimed, model)
 		}
+		assert.ElementsMatch(t, expected, claimed)
 	})
 
 	t.Run("declares documented usage facts", func(t *testing.T) {

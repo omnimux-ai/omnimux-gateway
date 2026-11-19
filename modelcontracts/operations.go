@@ -36,6 +36,7 @@ type Input struct {
 	Slot           string   `json:"slot"`
 	Type           string   `json:"type"`
 	Role           string   `json:"role,omitempty"`
+	FirstItemRole  string   `json:"firstItemRole,omitempty"`
 	Required       bool     `json:"required"`
 	Min            *int     `json:"min,omitempty"`
 	Max            *int     `json:"max,omitempty"`
@@ -218,9 +219,9 @@ var autodlH3VideoOperations = []string{
 // openAIVideoOperations mirrors the host protocol openai_video in
 // pkg/jsplugin/routing.go: POST /v1/videos creates a task and GET
 // /v1/videos/:task_id retrieves it. A task plugin declaring this protocol
-// receives the decoded request body, so text-to-video and a first-frame image
-// are the two shapes this profile may publish.
-var openAIVideoOperations = []string{operationTextToVideo, operationFirstFrame}
+// receives the decoded request body. The profile also publishes a fixed pair
+// when the adapter supports using the first reference as the starting image.
+var openAIVideoOperations = []string{operationTextToVideo, operationFirstFrame, operationVideoMultiRef}
 
 // gatewayProfile is one registered projection template.
 type gatewayProfile struct {
@@ -257,7 +258,20 @@ var gatewayProfiles = map[string]gatewayProfile{
 		allows: func(_, operationID string) bool {
 			return slices.Contains(openAIVideoOperations, operationID)
 		},
-		build: buildVideoOperation,
+		build: func(spec specFile, operationID string) (Operation, []string, bool) {
+			if operationID == operationVideoMultiRef {
+				images := spec.ReferenceImages
+				if images == nil || images.Min == nil || images.Max == nil || *images.Min != 2 || *images.Max != 2 || spec.ReferenceVideos != nil || spec.ReferenceAudios != nil {
+					return Operation{}, nil, false
+				}
+			}
+			operation, unknowns, ok := buildVideoOperation(spec, operationID)
+			if ok && operationID == operationVideoMultiRef {
+				operation.Inputs[1].Required = true
+				operation.Inputs[1].FirstItemRole = "first_frame"
+			}
+			return operation, unknowns, ok
+		},
 	},
 }
 

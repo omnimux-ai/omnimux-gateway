@@ -40,6 +40,7 @@ export type PlaygroundModeSelectorProps = {
   /** Starting rate for a mode; a mode without one drops the rate block. */
   priceFor?: (operation: PlaygroundOperation) => ModePriceLine | null
   disabled?: boolean
+  orderedImageReferences?: boolean
   onChange: (operation: PlaygroundOperation) => void
 }
 
@@ -67,7 +68,8 @@ export function PlaygroundModeSelector(props: PlaygroundModeSelectorProps) {
     const selected = listRef.current?.querySelector<HTMLButtonElement>(
       '[role="option"][aria-selected="true"]'
     )
-    const first = listRef.current?.querySelector<HTMLButtonElement>('[role="option"]')
+    const first =
+      listRef.current?.querySelector<HTMLButtonElement>('[role="option"]')
     ;(selected ?? first)?.focus()
   }, [open])
 
@@ -75,20 +77,32 @@ export function PlaygroundModeSelector(props: PlaygroundModeSelectorProps) {
     const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End']
     if (!keys.includes(event.key)) return
     const options = [
-      ...(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []),
+      ...(listRef.current?.querySelectorAll<HTMLButtonElement>(
+        '[role="option"]'
+      ) ?? []),
     ]
     if (options.length === 0) return
     event.preventDefault()
     const current = options.indexOf(document.activeElement as HTMLButtonElement)
     let next = current
     if (event.key === 'ArrowDown') next = (current + 1) % options.length
-    if (event.key === 'ArrowUp') next = (current - 1 + options.length) % options.length
+    if (event.key === 'ArrowUp') {
+      next = (current - 1 + options.length) % options.length
+    }
     if (event.key === 'Home') next = 0
     if (event.key === 'End') next = options.length - 1
     options[next < 0 ? 0 : next]?.focus()
   }
 
-  const title = (operation: PlaygroundOperation, price: ModePriceLine | null) => (
+  const modeLabel = (operation: PlaygroundOperation) =>
+    props.orderedImageReferences && operation === 'video_multi_ref'
+      ? t('Multiple image references')
+      : t(OPERATION_LABEL_KEYS[operation])
+
+  const title = (
+    operation: PlaygroundOperation,
+    price: ModePriceLine | null
+  ) => (
     <>
       <span
         aria-hidden='true'
@@ -96,11 +110,13 @@ export function PlaygroundModeSelector(props: PlaygroundModeSelectorProps) {
       />
       <span className='min-w-0 flex-1 pl-2'>
         <span className='block text-sm font-semibold'>
-          {t(OPERATION_LABEL_KEYS[operation])}
+          {modeLabel(operation)}
         </span>
         {price ? (
           <span className='text-muted-foreground block text-xs tabular-nums'>
-            {price.credits ? `${price.amount} · ${price.credits}` : price.amount}
+            {price.credits
+              ? `${price.amount} · ${price.credits}`
+              : price.amount}
           </span>
         ) : null}
       </span>
@@ -168,7 +184,7 @@ export function PlaygroundModeSelector(props: PlaygroundModeSelectorProps) {
                 }}
               >
                 <span className='min-w-0 flex-1 text-sm font-semibold'>
-                  {t(OPERATION_LABEL_KEYS[operation])}
+                  {modeLabel(operation)}
                 </span>
                 {price ? (
                   <span className='shrink-0 text-right'>

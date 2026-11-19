@@ -3,18 +3,20 @@
  "family": "video",
  "vendor": "Muse",
  "vendor_model_id": "muse-video",
- "capability": "视频生成（文生视频 / 首帧图生视频）",
+ "capability": "视频生成（文生视频 / 首帧图生视频 / 双图参考）",
  "operations": [
   "text_to_video",
-  "first_frame"
+  "first_frame",
+  "video_multi_ref"
  ],
  "gateway": {
   "profile": "openai_video",
   "operations": [
    "text_to_video",
-   "first_frame"
+   "first_frame",
+   "video_multi_ref"
   ],
-  "source_claim": "本服务 muse2api 的 openai_video 任务协议：POST /v1/videos 创建任务，GET /v1/videos/:task_id 查询；支持 text-to-video 与首帧 image-to-video"
+  "source_claim": "内置 Sora 任务插件接入 Muse 视频，支持文生视频、单图首帧及两张有序参考图"
  },
  "durations_seconds": {
   "min": 1,
@@ -31,13 +33,25 @@
  ],
  "status": "partial",
  "basis": "line_restricted",
- "checked_at": "2026-11-15",
+ "checked_at": "2026-11-19",
  "sources": [
   {
-   "claim": "muse2api 的 VideoCreateRequest 限制 duration / seconds 为 1–60 秒，并接受 image 作为首帧",
-   "url": "https://github.com/www222fff/muse2api/blob/main/src/muse2api/api/schemas.py",
-   "quote": "duration: int | None = Field(default=None, ge=1, le=60)",
-   "retrieved_at": "2026-11-15"
+   "claim": "网关受理 1–60 秒的请求时长，实际成片以生成结果为准",
+   "url": "repo:plugins/tasks/sora/plugin.js",
+   "quote": "duration < 1 || duration > 60",
+   "retrieved_at": "2026-11-19"
+  },
+  {
+   "claim": "网关首发多图参考固定 2 张，维持提交顺序",
+   "url": "repo:plugins/tasks/sora/plugin.js",
+   "quote": "references.length !== (operation === \"video_multi_ref\" ? 2 : 0)",
+   "retrieved_at": "2026-11-19"
+  },
+  {
+   "claim": "Muse2API 接受有序 images 数组，第一个附件默认是起始图",
+   "url": "https://github.com/czg86389-hub/muse2api/pull/32",
+   "quote": "the first image is described as the primary starting frame",
+   "retrieved_at": "2026-11-19"
   }
  ],
  "unknowns": [
@@ -46,7 +60,7 @@
   "提示词长度上限未公布",
   "参考图（首帧）的文件大小上限未公布"
  ],
- "notes": "本档案描述本服务 muse2api 的视频线路实际接受的信封（basis: line_restricted），不是 muse.ai 厂商全量能力。该线路实现 /v1/videos 与 /v1/video/generations 的文生视频和首帧图生视频，任务查询为 GET /v1/videos/{id} 或 /v1/video/generations/{id}。",
+ "notes": "Muse 视频支持文生视频、单图首帧和双图参考。双图参考按请求顺序送达，未通过提示词指定时以第一张作为起始图。",
  "billing": {
   "unit": "per_video",
   "unit_label": {
@@ -59,5 +73,15 @@
    "zh": "按请求的视频条数计费；实际费用受分组和会员倍率影响，以平台提交前报价为准。",
    "en": "Charged per requested video; the final quote includes group and membership multipliers; use the platform quote before submission."
   }
+ },
+ "reference_images": {
+  "min": 2,
+  "max": 2,
+  "formats": [
+   "image/jpeg",
+   "image/png",
+   "image/webp"
+  ],
+  "source_claim": "首发多图参考固定两张。第一个附件默认用作起始画面。"
  }
 }

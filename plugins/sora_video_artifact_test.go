@@ -84,3 +84,55 @@ func TestSoraCompletedVideoUsesPersistedDeliveryURL(t *testing.T) {
 		})
 	}
 }
+
+func TestMuseVideoReferencesReachSubmitInOrder(t *testing.T) {
+	plugin := loadSoraPlugin(t)
+	first, second := "https://example.com/first.png", "https://example.com/second.png"
+	for _, test := range []struct {
+		name    string
+		request map[string]any
+		want    map[string]any
+		wantErr string
+	}{
+		{name: "page order", request: map[string]any{"operation": "video_multi_ref", "image_urls": []string{first, second}}, want: map[string]any{"images": []any{first, second}}},
+		{name: "page reversed", request: map[string]any{"operation": "video_multi_ref", "image_urls": []string{second, first}}, want: map[string]any{"images": []any{second, first}}},
+		{name: "API native order", request: map[string]any{"images": []any{map[string]any{"url": second}, first}}, want: map[string]any{"images": []any{second, first}}},
+		{name: "page first frame", request: map[string]any{"operation": "first_frame", "image_with_roles": []map[string]any{{"role": "first_frame", "url": first}}}, want: map[string]any{"image": first}},
+		{name: "API single input", request: map[string]any{"input_reference": first}, want: map[string]any{"image": first}},
+		{name: "text mode", request: map[string]any{"operation": "text_to_video"}, want: map[string]any{}},
+		{name: "missing image", request: map[string]any{"operation": "video_multi_ref", "image_urls": []string{first}}, wantErr: "exactly two images"},
+		{name: "too many images", request: map[string]any{"images": []string{first, second, first}}, wantErr: "exactly two images"},
+		{name: "empty image", request: map[string]any{"operation": "video_multi_ref", "image_urls": []string{first, " "}}, wantErr: "must be non-empty"},
+		{name: "mixed image fields", request: map[string]any{"image": first, "image_urls": []string{first, second}}, wantErr: "only one set"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			test.request["prompt"] = "Create a video"
+			test.request["aspect_ratio"] = "16:9"
+			decoded, err := plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_video", "decodeRequest"}, map[string]any{
+				"model": "muse-video", "body": map[string]any{"kind": "json", "value": test.request},
+			})
+			if test.wantErr != "" {
+				require.ErrorContains(t, err, test.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			intent, ok := decoded.(map[string]any)
+			require.True(t, ok)
+			descriptor, err := plugin.Engine.Call(t.Context(), "buildSubmitRequest", map[string]any{
+				"baseUrl": "https://example.com", "upstreamModel": "muse-video", "requestBody": intent["requestBody"], "action": intent["action"],
+			})
+			require.NoError(t, err)
+			request, ok := descriptor.(map[string]any)
+			require.True(t, ok)
+			body, ok := request["body"].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, "1280x720", body["size"])
+			assert.NotContains(t, body, "image_urls")
+			assert.NotContains(t, body, "image_with_roles")
+			assert.NotContains(t, body, "operation")
+			for _, field := range []string{"image", "images"} {
+				assert.Equal(t, test.want[field], body[field])
+			}
+		})
+	}
+}

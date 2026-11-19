@@ -188,6 +188,61 @@ describe('playground mode-aware form', () => {
     ).toBeInTheDocument()
   })
 
+  test('requires two ordered image references and swaps their submitted order', () => {
+    const model = seedance()
+    model.model_name = 'muse-video'
+    model.contract = {
+      model_id: model.model_name,
+      family: 'video',
+      operations: [
+        {
+          id: 'video_multi_ref',
+          executable: true,
+          inputs: [
+            { slot: 'prompt', type: 'text', required: true },
+            {
+              slot: 'reference_images',
+              type: 'image',
+              firstItemRole: 'first_frame',
+              required: true,
+              min: 2,
+              max: 2,
+            },
+          ],
+          parameters: [],
+          output: { type: 'video' },
+        },
+      ],
+    }
+    renderSection(<ModelPlaygroundSection model={model} authenticated />)
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+    expect(screen.getByText('Add two reference images')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'JSON mode' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Request JSON' }), {
+      target: {
+        value: JSON.stringify({
+          prompt: 'Use both images',
+          reference_images: [
+            'https://example.com/first.png',
+            'https://example.com/second.png',
+          ],
+        }),
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Form mode' }))
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Swap order' }))
+    fireEvent.click(screen.getByRole('button', { name: 'JSON mode' }))
+    const editor = screen.getByRole('textbox', {
+      name: 'Request JSON',
+    }) as HTMLTextAreaElement
+    expect(JSON.parse(editor.value).image_urls).toEqual([
+      'https://example.com/second.png',
+      'https://example.com/first.png',
+    ])
+  })
+
   test('keeps the flat form for a model with no declared modes', () => {
     renderSection(<ModelPlaygroundSection model={imageModel()} authenticated />)
     expect(screen.queryByRole('button', { name: 'Generation mode' })).toBeNull()

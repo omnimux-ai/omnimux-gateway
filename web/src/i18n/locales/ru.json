@@ -9438,6 +9438,22 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Multiple image references": "Несколько изображений-референсов",
+    "Swap order": "Поменять порядок",
+    "Image {{index}}": "Изображение {{index}}",
+    "Remove image {{index}}": "Удалить изображение {{index}}",
+    "Image 1 is the default start. Use [图1] and [图2] in the prompt.": "Изображение 1 используется как начальный кадр. В промпте используйте [图1] и [图2].",
+    "Add two reference images": "Добавьте два изображения-референса",
+    "Muse video requires a JSON request": "Muse Video требует запрос JSON",
+    "Muse video duration must be an integer from 1 to 60 seconds": "Длительность Muse Video должна быть целым числом от 1 до 60 секунд",
+    "Supply only one set of Muse video image inputs": "Укажите только один набор изображений для Muse Video",
+    "Muse video first-frame mode requires one image": "Для режима первого кадра Muse Video требуется одно изображение",
+    "Muse video references must be an array of images": "Референсы Muse Video должны быть массивом изображений",
+    "Muse video reference images must be non-empty": "Изображения-референсы Muse Video не могут быть пустыми",
+    "Muse video generation mode is unsupported": "Этот режим генерации Muse Video не поддерживается",
+    "Muse video multi-reference mode requires exactly two images": "Для режима нескольких референсов Muse Video нужны ровно два изображения",
+    "Muse text-to-video does not accept reference images": "Генерация видео из текста в Muse не принимает референсы",
+    "Only two reference images are allowed": "Можно добавить не более двух изображений-референсов"
   }
 }

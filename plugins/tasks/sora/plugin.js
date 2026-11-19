@@ -1,3 +1,6 @@
+const SORA_MODELS = ["sora-2", "sora-2-pro"];
+const MUSE_VIDEO_MODEL = "muse-video";
+
 export const meta = {
   apiVersion: 1,
   key: "sora",
@@ -10,7 +13,7 @@ export const meta = {
   version: "1.1.0",
   channelTypes: [55, 1], // OpenAI-type channels natively serve sora with the same wire format
   author: { name: "QuantumNous" },
-  models: ["sora-2", "sora-2-pro"],
+  models: [...SORA_MODELS, MUSE_VIDEO_MODEL],
   fetchMode: "per_task",
   // A New API gateway serves /v1/videos as a host protocol, so no URL changes.
   upstreams: ["vendor", "new_api"],
@@ -33,7 +36,7 @@ export const meta = {
       description: { en: "Output video dimensions", zh: "输出视频尺寸" },
     },
   },
-  protocols: [{ name: "openai_responses", supports: ["stream", "sync", "background"] }, "openai_video"],
+  protocols: [{ name: "openai_responses", models: SORA_MODELS, supports: ["stream", "sync", "background"] }, "openai_video"],
 };
 
 function trimmed(value) {
@@ -367,8 +370,71 @@ const legacyRenderers = {
   },
 };
 
+// Muse accepts JSON attachments in order. Translate the gateway's media slots
+// before submission so neither a first frame nor the second reference is lost.
+function decodeMuseVideo(ctx) {
+  if (ctx.body?.kind !== "json" || !ctx.body.value || Array.isArray(ctx.body.value)) {
+    throw new Error("Muse video requires a JSON request");
+  }
+  const request = { ...ctx.body.value, model: ctx.model };
+  const duration = Number(request.duration ?? request.seconds ?? 5);
+  if (!Number.isInteger(duration) || duration < 1 || duration > 60 || (request.seconds !== undefined && Number(request.seconds) !== duration)) {
+    throw new Error("Muse video duration must be an integer from 1 to 60 seconds");
+  }
+  request.duration = duration;
+  delete request.seconds;
+  if (request.size === "16:9" || (!request.size && request.aspect_ratio === "16:9")) request.size = "1280x720";
+  if (request.size === "9:16" || (!request.size && request.aspect_ratio === "9:16")) request.size = "720x1280";
+
+  const mediaFields = ["images", "image_urls", "image_with_roles", "image", "image_url", "reference_image", "input_reference"];
+  const provided = mediaFields.filter(field => request[field] != null);
+  if (provided.length > 1 || ["videos", "audios", "files", "video_urls", "audio_urls", "reference_videos", "reference_audios"].some(field => request[field] != null)) {
+    throw new Error("Supply only one set of Muse video image inputs");
+  }
+  const field = provided[0];
+  let references = [];
+  if (field === "image_with_roles") {
+    const frames = request[field];
+    if (!Array.isArray(frames) || frames.length !== 1 || frames[0]?.role !== "first_frame") {
+      throw new Error("Muse video first-frame mode requires one image");
+    }
+    references = [frames[0].url];
+  } else if (field === "images" || field === "image_urls") {
+    if (!Array.isArray(request[field])) throw new Error("Muse video references must be an array of images");
+    references = request[field];
+  } else if (field) {
+    references = [request[field]];
+  }
+  references = references.map(reference => {
+    const url = typeof reference === "string" ? reference : (reference?.url ?? reference?.image_url);
+    if (typeof url !== "string" || !url.trim()) throw new Error("Muse video reference images must be non-empty");
+    return url.trim();
+  });
+  let operation = request.operation;
+  if (operation === undefined) {
+    operation = "text_to_video";
+    if (references.length === 1) operation = "first_frame";
+    if (references.length > 1) operation = "video_multi_ref";
+  }
+  if (!["text_to_video", "first_frame", "video_multi_ref"].includes(operation)) {
+    throw new Error("Muse video generation mode is unsupported");
+  }
+  if (operation === "first_frame") {
+    if (references.length !== 1) throw new Error("Muse video first-frame mode requires one image");
+  } else if (references.length !== (operation === "video_multi_ref" ? 2 : 0)) {
+    if (operation === "video_multi_ref") throw new Error("Muse video multi-reference mode requires exactly two images");
+    throw new Error("Muse text-to-video does not accept reference images");
+  }
+  for (const key of provided) delete request[key];
+  delete request.operation;
+  if (operation === "first_frame") request.image = references[0];
+  if (operation === "video_multi_ref") request.images = references;
+  return { kind: "submit", model: ctx.model, action: operation, requestBody: request };
+}
+
 protocols.openai_video = {
   decodeRequest: function (ctx) {
+    if (ctx.model === MUSE_VIDEO_MODEL || ctx.upstreamModel === MUSE_VIDEO_MODEL) return decodeMuseVideo(ctx);
     if (!ctx.body || (ctx.body.kind !== "json" && ctx.body.kind !== "multipart")) throw new Error("JSON or multipart body required");
     if (ctx.body.kind === "json") {
       if (!ctx.body.value || Array.isArray(ctx.body.value)) throw new Error("JSON object required");

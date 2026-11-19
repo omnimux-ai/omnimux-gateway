@@ -121,6 +121,7 @@ export type ParamControl = {
     | 'reference_audio'
   accept?: string
   maxCount?: number
+  firstItemRole?: 'first_frame'
   /** Per-file byte ceiling the model documents, refused before any upload. */
   maxBytes?: number
   /**
