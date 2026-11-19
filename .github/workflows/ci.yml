@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     types: [opened, synchronize]
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main]
 
@@ -18,7 +20,7 @@ concurrency:
 jobs:
   core-change-gate:
     name: Core business-change gate
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -29,11 +31,13 @@ jobs:
           ref: ${{ github.sha }}
 
       - name: Check core paths require Core-Change-Approved
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
         run: |
-          base="${{ github.event.pull_request.base.sha }}"
-          head="${{ github.event.pull_request.head.sha }}"
+          test -n "$BASE_SHA" && test -n "$HEAD_SHA" || exit 1
           chmod +x scripts/ops/check-core-change-gate.sh
-          scripts/ops/check-core-change-gate.sh range "${base}" "${head}"
+          scripts/ops/check-core-change-gate.sh range "$BASE_SHA" "$HEAD_SHA"
 
   cli-installer-parity:
     name: CLI installer copy parity
