@@ -235,6 +235,7 @@ func TestOAuthLoginBrowserProofPrecedesSessionAndSecondFactor(t *testing.T) {
 
 func TestOAuthLoginBrowserProofPrecedesSignup(t *testing.T) {
 	_, _ = setupSecurityEnrollmentTest(t)
+	events := captureSignupAnalytics(t)
 	provider := &authFlowTestOAuthProvider{}
 	oauth.Register("auth-flow-test", provider)
 	t.Cleanup(func() { oauth.Unregister("auth-flow-test") })
@@ -248,10 +249,18 @@ func TestOAuthLoginBrowserProofPrecedesSignup(t *testing.T) {
 	var after int64
 	require.NoError(t, model.DB.Model(&model.User{}).Count(&after).Error)
 	assert.Equal(t, before, after)
+	assert.Empty(t, *events)
 	response := oauthBrowserTestCallback(state, "&code=local-code", cookie)
 	var body securityEnrollmentResponse
 	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &body))
 	require.True(t, body.Success, response.Body.String())
 	require.NoError(t, model.DB.Model(&model.User{}).Count(&after).Error)
 	assert.Equal(t, before+1, after)
+	require.Len(t, *events, 1)
+	event := (*events)[0]
+	assert.Equal(t, "sign_up_success", event.Name)
+	assert.Equal(t, "oauth", event.Data["method"])
+	require.NoError(t, model.DB.First(&model.User{}, event.UserID).Error)
+	assert.Equal(t, http.StatusForbidden, oauthBrowserTestCallback(state, "&code=local-code", cookie).Code)
+	assert.Len(t, *events, 1)
 }

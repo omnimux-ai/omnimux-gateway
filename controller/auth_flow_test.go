@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/pkg/analytics"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/fxamacker/cbor/v2"
@@ -330,6 +332,74 @@ func (*boundLoginOAuthProvider) IsUserIDTaken(string) bool    { return true }
 func (*boundLoginOAuthProvider) ProviderUserIDColumn() string { return "github_id" }
 func (provider *boundLoginOAuthProvider) FillUserByProviderID(user *model.User, _ string) error {
 	return model.DB.First(user, provider.userID).Error
+}
+
+func captureSignupAnalytics(t *testing.T) *[]analytics.Event {
+	t.Helper()
+	previous := trackSignupEvent
+	events := []analytics.Event{}
+	trackSignupEvent = func(event analytics.Event) { events = append(events, event) }
+	t.Cleanup(func() { trackSignupEvent = previous })
+	return &events
+}
+
+func TestSelfServiceSignupAnalytics(t *testing.T) {
+	tests := []struct {
+		method  string
+		verb    string
+		path    string
+		body    string
+		handler gin.HandlerFunc
+	}{
+		{method: "password", verb: http.MethodPost, path: "/api/user/register", body: `{"username":"new-signup","password":"test-signup-password"}`, handler: Register},
+		{method: "wechat", verb: http.MethodGet, path: "/api/oauth/wechat?code=wechat-code", handler: WeChatAuth},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			_, _ = setupSecurityEnrollmentTest(t)
+			events := captureSignupAnalytics(t)
+			register, password, verify, generate := common.RegisterEnabled, common.PasswordRegisterEnabled, common.EmailVerificationEnabled, constant.GenerateDefaultToken
+			common.RegisterEnabled, common.PasswordRegisterEnabled, common.EmailVerificationEnabled, constant.GenerateDefaultToken = true, true, false, false
+			t.Cleanup(func() {
+				common.RegisterEnabled, common.PasswordRegisterEnabled, common.EmailVerificationEnabled, constant.GenerateDefaultToken = register, password, verify, generate
+			})
+			if tt.method == "wechat" {
+				upstream := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+					_, _ = writer.Write([]byte(`{"success":true,"data":"new-wechat-subject"}`))
+				}))
+				t.Cleanup(upstream.Close)
+				enabled, address := common.WeChatAuthEnabled, common.WeChatServerAddress
+				common.WeChatAuthEnabled, common.WeChatServerAddress = true, upstream.URL
+				t.Cleanup(func() { common.WeChatAuthEnabled, common.WeChatServerAddress = enabled, address })
+			}
+			request := func() *httptest.ResponseRecorder {
+				return securityEnrollmentRequest(tt.verb, tt.path, tt.body, "", service.AuthIdentity{}, tt.handler)
+			}
+
+			require.NoError(t, model.DB.Callback().Create().After("gorm:create").Register("analytics_signup_rollback", func(tx *gorm.DB) {
+				if tx.Statement.Table == "users" {
+					tx.AddError(errors.New("test rollback"))
+				}
+			}))
+			t.Cleanup(func() { _ = model.DB.Callback().Create().Remove("analytics_signup_rollback") })
+			request()
+			assert.Empty(t, *events)
+			require.NoError(t, model.DB.Callback().Create().Remove("analytics_signup_rollback"))
+
+			response := request()
+			var result securityEnrollmentResponse
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
+			require.True(t, result.Success, response.Body.String())
+			require.Len(t, *events, 1)
+			event := (*events)[0]
+			require.NoError(t, model.DB.First(&model.User{}, event.UserID).Error)
+			assert.Equal(t, analytics.EventSignUpSuccess, event.Name)
+			assert.Equal(t, tt.method, event.Data["method"])
+			request()
+			assert.Len(t, *events, 1)
+		})
+	}
 }
 
 func TestSecurityLoginAllPrimaryTransportsRequireAdditionalVerification(t *testing.T) {

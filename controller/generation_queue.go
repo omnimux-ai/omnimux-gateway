@@ -55,6 +55,7 @@ func enqueueInfluencerGeneration(c *gin.Context, path, action string, out, meta 
 		influencerError(c, 500, "generation_queue_unavailable", "failed to save generation request")
 		return true
 	}
+	service.TrackFirstVideoStart(task, "workbench")
 	c.Set("influencer_image_inputs_retained", true)
 	// The scheduled scanner recovers this row even when this best-effort wakeup fails.
 	if _, _, err := service.EnqueueSystemTask(model.SystemTaskTypeGenerationQueue, nil); err != nil {

@@ -1032,6 +1032,10 @@ func executeTaskSubmissionWith(
 		return nil, taskErr
 	}
 	durable = true
+	if queuedTask == nil {
+		service.TrackFirstVideoStart(task, "api")
+	}
+	service.TrackFirstVideoSuccess(task)
 	stage = "settle"
 	diagnostics.durable(task)
 	diagnostics.settleStart(task, result.Quota)

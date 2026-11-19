@@ -1036,15 +1036,27 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 }
 
 func (a *TaskAdaptor) ListArtifacts(task *model.Task) ([]channel.TaskArtifact, error) {
-	if !a.hasHook(context.Background(), "listArtifacts") {
+	return a.ListArtifactsWithContext(context.Background(), task)
+}
+
+// ListArtifactsWithContext lets background callers bound waiting for a shared
+// plugin execution slot and cancel the projection when their budget expires.
+func (a *TaskAdaptor) ListArtifactsWithContext(callCtx context.Context, task *model.Task) ([]channel.TaskArtifact, error) {
+	if err := callCtx.Err(); err != nil {
+		return nil, err
+	}
+	if !a.hasHook(callCtx, "listArtifacts") {
 		return nil, nil
 	}
 	ctx, err := taskArtifactContext(task)
 	if err != nil {
 		return nil, err
 	}
-	value, err := a.plugin.Engine.Call(context.Background(), "listArtifacts", ctx)
+	value, err := a.plugin.Engine.Call(callCtx, "listArtifacts", ctx)
 	if err != nil {
+		if contextErr := callCtx.Err(); contextErr != nil {
+			return nil, contextErr
+		}
 		return nil, fmt.Errorf("plugin artifact listing failed")
 	}
 	return validateTaskArtifacts(value)
