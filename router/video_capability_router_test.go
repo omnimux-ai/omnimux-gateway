@@ -187,8 +187,20 @@ func TestVideoCapabilityRoutesSelectAndRetryCompatibleChannels(t *testing.T) {
 					model.InitChannelCache()
 				})
 				require.True(t, model.UpdateChannelStatus(h.channels["muse-backup"], "", common.ChannelStatusManuallyDisabled, "fixture backup disabled"))
+				const path, token = "/v1/videos", "auto"
+				balances, err := h.readBalances(path, token)
+				require.NoError(t, err)
+				// A failed submission refunds asynchronously. Wait for both refunds before the next subtest reads this wallet.
+				t.Cleanup(func() {
+					require.EventuallyWithT(t, func(c *assert.CollectT) {
+						after, err := h.readBalances(path, token)
+						if assert.NoError(c, err) {
+							assert.Equal(c, balances, after)
+						}
+					}, time.Second, 5*time.Millisecond, "failed submission must restore the wallet and token balances")
+				})
 				start := h.attemptCount()
-				response := h.submit(t, "/v1/videos", "auto", map[string]any{
+				response := h.submit(t, path, token, map[string]any{
 					"model": "muse-video", "prompt": pauseMusePrimaryPrompt, "images": images,
 				})
 				require.Equal(t, http.StatusTooManyRequests, response.Code, response.Body.String())
@@ -315,12 +327,23 @@ type videoCapabilityAttempt struct {
 	body map[string]any
 }
 
+type videoCapabilityRouteToken struct {
+	id     int
+	bearer string
+}
+
+type videoCapabilityRouteBalances struct {
+	wallet         int
+	tokenRemaining int
+	tokenUsed      int
+}
+
 type videoCapabilityRouteHarness struct {
 	engine       *gin.Engine
 	userID       int
 	browserToken string
 	upstreamURL  string
-	tokens       map[string]string
+	tokens       map[string]videoCapabilityRouteToken
 	channels     map[string]int
 	mu           sync.Mutex
 	attempts     []videoCapabilityAttempt
@@ -399,17 +422,17 @@ func newVideoCapabilityRouteHarness(t *testing.T) *videoCapabilityRouteHarness {
 	})
 	require.NoError(t, err)
 	h := &videoCapabilityRouteHarness{
-		engine: gin.New(), userID: user.Id, browserToken: browserToken, tokens: map[string]string{}, channels: map[string]int{},
+		engine: gin.New(), userID: user.Id, browserToken: browserToken, tokens: map[string]videoCapabilityRouteToken{}, channels: map[string]int{},
 	}
 	for _, tc := range []struct{ name, group, autoGroups string }{
 		{"", "default", ""}, {"auto", "auto", `["narrow","default"]`}, {"restricted", "auto", `["narrow"]`},
 	} {
 		token := model.Token{
 			Name: "video test", Key: "video" + tc.name + suffix, UserId: user.Id, Status: common.TokenStatusEnabled,
-			ExpiredTime: -1, UnlimitedQuota: true, Group: tc.group, AutoGroups: tc.autoGroups,
+			ExpiredTime: -1, RemainQuota: user.Quota, Group: tc.group, AutoGroups: tc.autoGroups,
 		}
 		require.NoError(t, db.Create(&token).Error)
-		h.tokens[tc.name] = "sk-" + token.Key
+		h.tokens[tc.name] = videoCapabilityRouteToken{id: token.Id, bearer: "sk-" + token.Key}
 	}
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -462,7 +485,9 @@ func newVideoCapabilityRouteHarness(t *testing.T) *videoCapabilityRouteHarness {
 		require.NoError(t, channel.AddAbilities(nil))
 		h.channels[tc.key] = channel.Id
 	}
-	h.tokens["pin"] = h.tokens[""] + "-" + fmt.Sprint(h.channels["muse-narrow"])
+	pinned := h.tokens[""]
+	pinned.bearer += "-" + fmt.Sprint(h.channels["muse-narrow"])
+	h.tokens["pin"] = pinned
 	rules, err := modelcontracts.ReadVideoCapabilities(strings.NewReader(fmt.Sprintf(`{"models":{
 		"muse-video":[
 			{"channel_id":%[2]d,"channel_type":%[6]d,"profile":"openai_video","upstream_model":"muse-video","base_url":%[1]q,"evidence":"synthetic upstream",
@@ -496,7 +521,7 @@ func (h *videoCapabilityRouteHarness) submit(t *testing.T, path, token string, b
 	payload, err := common.Marshal(body)
 	require.NoError(t, err)
 	request := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(payload))
-	credential := h.tokens[token]
+	credential := h.tokens[token].bearer
 	if strings.HasPrefix(path, "/pg/") {
 		credential = h.browserToken
 	}
@@ -544,10 +569,25 @@ func (h *videoCapabilityRouteHarness) latestTask(t *testing.T) model.Task {
 	return task
 }
 
+func (h *videoCapabilityRouteHarness) readBalances(path, token string) (videoCapabilityRouteBalances, error) {
+	wallet, err := model.GetUserQuota(h.userID, true)
+	balances := videoCapabilityRouteBalances{wallet: wallet}
+	if err != nil || strings.HasPrefix(path, "/pg/") {
+		return balances, err
+	}
+	storedToken, err := model.GetTokenByIds(h.tokens[token].id, h.userID)
+	if err != nil {
+		return balances, err
+	}
+	balances.tokenRemaining = storedToken.RemainQuota
+	balances.tokenUsed = storedToken.UsedQuota
+	return balances, nil
+}
+
 func (h *videoCapabilityRouteHarness) requireMismatch(t *testing.T, path, token string, request map[string]any) {
 	t.Helper()
 	attempts := h.attemptCount()
-	before, err := model.GetUserQuota(h.userID, true)
+	before, err := h.readBalances(path, token)
 	require.NoError(t, err)
 	var tasksBefore int64
 	require.NoError(t, model.DB.Model(&model.Task{}).Where("user_id = ?", h.userID).Count(&tasksBefore).Error)
@@ -561,9 +601,9 @@ func (h *videoCapabilityRouteHarness) requireMismatch(t *testing.T, path, token 
 	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
 	assert.Equal(t, "video_capability_mismatch", result.Error.Code)
 	assert.Equal(t, attempts, h.attemptCount(), "incompatible work must not reach an upstream")
-	after, err := model.GetUserQuota(h.userID, true)
+	after, err := h.readBalances(path, token)
 	require.NoError(t, err)
-	assert.Equal(t, before, after)
+	assert.Equal(t, before, after, "rejected requests must leave wallet and token balances unchanged")
 	var tasksAfter int64
 	require.NoError(t, model.DB.Model(&model.Task{}).Where("user_id = ?", h.userID).Count(&tasksAfter).Error)
 	assert.Equal(t, tasksBefore, tasksAfter)
