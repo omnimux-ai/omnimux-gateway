@@ -223,6 +223,7 @@ This repository is the maintained fork of QuantumNous/new-api shipped as OmniMux
 
 - Scope: generative AI only — MUST NOT provide third-party scraping or multi-account automation.
 - **Model capability contract (hard gate)**: before adding, changing, removing, or reviewing a model, model page, operation, parameter, provider/task adaptor, or public contract, read and follow [the checked-in model contract](docs/model-governance/CONTRACT.md). A live (`status=1`) model MUST publish `execution_status: live` with at least one `executable: true` operation; a model without a verified gateway profile MUST be declared `stub`/`unavailable` and MUST NOT be sold. Generate `modelcontracts/contracts.json` with `go run ./modelcontracts/gen`. Run `make model-contract-check` before commit/PR and follow the contract's separate publication checks for changes that affect what is sold.
+- Follow the [independent pre-release model review](docs/model-governance/CONTRACT.md#发布前独立复核) for new models or groups and changes to their published capabilities, parameters, or upstream API.
 - `unaudited` models MUST NOT reach production.
 - **Model catalog descriptions**: every model meta write MUST set non-empty `description`, non-zero `vendor_id` (vendor = user-facing brand), and exactly one modality type tag (`Text`|`Image`|`Video`|`Audio Generation`); `task-*` helpers MAY omit the type tag but MUST carry `async,query,task`.
 
