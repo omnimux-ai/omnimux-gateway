@@ -168,6 +168,12 @@ func TestVideoCapabilitiesPublishMuseGatewayDuration(t *testing.T) {
 func TestVideoCapabilitiesRejectUnverifiedClaims(t *testing.T) {
 	const validMuse = `{"id":"video_multi_ref","inputs":[{"slot":"prompt"},{"slot":"reference_images","max":2}]}`
 	museFixture := testVideoRuleDocument("muse-video", 7, "openai_video", validMuse)
+	const validEconomy = `{
+		"id":"video_multi_ref",
+		"inputs":[{"slot":"prompt"},{"slot":"reference_images","required":true,"min":1,"max":1}],
+		"parameters":[{"name":"duration","fixed":30},{"name":"aspect_ratio","fixed":"9:16"},{"name":"resolution","fixed":"480p"}]
+	}`
+	economyFixture := testVideoRuleDocument("seedance-2-5", 7, VideoProfileSeedance25OpenAI, validEconomy)
 	for _, tc := range []struct {
 		name      string
 		document  string
@@ -189,6 +195,11 @@ func TestVideoCapabilitiesRejectUnverifiedClaims(t *testing.T) {
 		{"stub model", `{"models":{"kling-v3":[]}}`, "no live video contract"},
 		{"unknown model", `{"models":{"unknown-video":[]}}`, "no live video contract"},
 		{"unsupported channel profile", testVideoRuleDocument("muse-video", 7, "unknown", validMuse), "identify a verified video route"},
+		{"economy cannot use an unrelated public model", testVideoRuleDocument("muse-video", 7, VideoProfileSeedance25OpenAI, validEconomy), "identify a verified video route"},
+		{"economy cannot use the native channel type", strings.Replace(economyFixture, `"channel_type":1`, `"channel_type":63`, 1), "identify a verified video route"},
+		{"economy cannot publish more than one reference", strings.Replace(economyFixture, `"max":1`, `"max":2`, 1), "exactly one reference image"},
+		{"economy fixes one resolution", strings.Replace(economyFixture, `,"fixed":"480p"`, "", 1), "one fixed 480p or 720p resolution"},
+		{"economy cannot mix resolutions on a channel", testVideoRuleDocument("seedance-2-5", 7, VideoProfileSeedance25OpenAI, validEconomy+","+strings.Replace(validEconomy, "480p", "720p", 1)), "same fixed resolution"},
 		{"duplicate aliases", `{"models":{"seedance-2-5":[],"seedance-2.5":[]}}`, "one channel array"},
 		{"null is not an empty array", `{"models":{"seedance-2-5":null}}`, "one channel array"},
 	} {

@@ -357,6 +357,23 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, err.Error(), types.ErrorCodeInvalidRequest)
 			return
 		}
+		rules := modelcontracts.ActiveVideoCapabilities()
+		seedanceOpenAI := rules.HasSeedance25OpenAI(claimedModel)
+		if seedanceOpenAI && videoProtocol != "" {
+			// Use the same explicit-group authorization and precedence as distribution.
+			if !applyPerRequestModelGroup(c, modelRequest) {
+				return
+			}
+			if videoProtocol == modelcontracts.VideoProtocolOpenAI || c.GetHeader(modelcontracts.VideoProtocolHeader) == "" {
+				group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+				economyOnly, resolution := model.Seedance25VideoGroupProfile(rules, generation, claimedModel, group)
+				if economyOnly || videoProtocol == modelcontracts.VideoProtocolOpenAI {
+					videoProtocol = modelcontracts.VideoProtocolOpenAI
+					c.Set(contextKeySeedanceVideoResolution, resolution)
+				}
+			}
+			c.Set(contextKeyManagedVideoProtocol, videoProtocol)
+		}
 		if videoProtocol == modelcontracts.VideoProtocolGenerations {
 			c.Set(contextKeyTaskPluginEndpointModel, *modelRequest)
 			c.Next()
@@ -372,11 +389,13 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			if claimedModel != declared {
 				rewriteTo = declared
 			}
-		} else if videoProtocol == modelcontracts.VideoProtocolOpenAI && modelcontracts.ActiveVideoCapabilities().HasProtocol(claimedModel, videoProtocol) {
-			// The verified OpenAI Video profile supplies its decoder identity.
-			// A different mapping on a non-eligible channel cannot select it.
+		} else if videoProtocol == modelcontracts.VideoProtocolOpenAI && rules.HasProtocol(claimedModel, videoProtocol) {
+			// The verified profile supplies its decoder identity independently of the vendor model mapping.
 			lookupModel = model.MuseVideoDecoderModel
-			if ok && declared == lookupModel {
+			if seedanceOpenAI {
+				lookupModel = model.SoraVideoBindingModel
+				mappedModel = model.Seedance25OpenAIDecoder
+			} else if ok && declared == lookupModel {
 				pinModel = declared
 				if claimedModel != declared {
 					rewriteTo = declared
@@ -476,8 +495,10 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			candidates = []pluginruntime.ProtocolBinding{binding}
 		}
 		if videoProtocol == modelcontracts.VideoProtocolOpenAI {
-			candidates = slices.DeleteFunc(slices.Clone(candidates), func(candidate pluginruntime.ProtocolBinding) bool {
-				return !candidate.Plugin.IsFactory() || candidate.Protocol != videoProtocol || candidate.Plugin.Meta.Key != model.MuseVideoTaskPlugin
+			owner, _ := generation.GetByChannelType(constant.ChannelTypeOpenAI)
+			candidates = slices.DeleteFunc(candidates, func(candidate pluginruntime.ProtocolBinding) bool {
+				return !model.IsFactorySoraVideoPlugin(candidate.Plugin) || candidate.Protocol != videoProtocol ||
+					seedanceOpenAI && candidate.Plugin != owner
 			})
 			if len(candidates) == 0 {
 				c.Next()
@@ -685,8 +706,16 @@ func PrepareTaskPluginEndpoint() gin.HandlerFunc {
 			return
 		}
 		stream := false
-		if body, bodyOK := requestContext.Body.(map[string]any); bodyOK && body["kind"] == string(pluginruntime.BodyJSON) {
-			requestBody, _ := body["value"].(map[string]any)
+		if bodyKind == string(pluginruntime.BodyJSON) {
+			requestBody, _ := bodyObject["value"].(map[string]any)
+			if resolution := c.GetString(contextKeySeedanceVideoResolution); resolution != "" &&
+				requestBody != nil && pinned.MappedModel == model.Seedance25OpenAIDecoder {
+				if _, provided := requestBody["resolution"]; !provided {
+					// Use the same prepared JSON for filtering and the adaptor's retry decoder.
+					requestBody["resolution"] = resolution
+					requestContext.BodyText = nil
+				}
+			}
 			if streamValue, present := requestBody["stream"]; present {
 				stream, ok = streamValue.(bool)
 				if !ok {

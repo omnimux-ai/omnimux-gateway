@@ -21,7 +21,8 @@ const (
 	VideoProtocolGenerations = "video_generations"
 	VideoProtocolHeader      = "X-OmniMux-Video-Protocol"
 
-	seedance25VideoRequestModel = "seedance-2-5"
+	VideoProfileSeedance25OpenAI = "seedance25_openai_video"
+	seedance25VideoRequestModel  = "seedance-2-5"
 )
 
 // VideoRequest describes the operation and inputs already normalized by the
@@ -46,15 +47,18 @@ type VideoChannelRule struct {
 	Evidence      string      `json:"evidence"`
 	RequestModel  string      `json:"request_model,omitempty"`
 	Protocol      string      `json:"-"`
+
+	fixedResolution string
 }
 
 type VideoChannelIdentity struct {
-	ChannelType   int
-	Profile       string
-	UpstreamModel string
-	BaseURL       string
-	RequestModel  string
-	Protocol      string
+	ChannelType     int
+	Profile         string
+	UpstreamModel   string
+	BaseURL         string
+	RequestModel    string
+	Protocol        string
+	FixedResolution string
 }
 
 // VideoCapabilities is an immutable snapshot keyed by the public model and
@@ -67,6 +71,7 @@ type videoModelRules struct {
 	channels           map[int]VideoChannelRule
 	protocols          map[string]struct{}
 	nativeRequestModel string
+	seedance25OpenAI   bool
 }
 
 var activeVideoCapabilities atomic.Pointer[VideoCapabilities]
@@ -104,6 +109,11 @@ func (rules *VideoCapabilities) HasProtocol(modelID, protocol string) bool {
 	return found
 }
 
+// HasSeedance25OpenAI reports whether this public model has the single-image decoder.
+func (rules *VideoCapabilities) HasSeedance25OpenAI(modelID string) bool {
+	return rules.rulesForModel(modelID).seedance25OpenAI
+}
+
 func (rules *VideoCapabilities) ChannelIDs() []int {
 	if rules == nil {
 		return nil
@@ -138,6 +148,7 @@ func (rules *VideoCapabilities) ChannelIdentity(modelID string, id int) (VideoCh
 	return VideoChannelIdentity{
 		ChannelType: channel.ChannelType, Profile: channel.Profile, UpstreamModel: channel.UpstreamModel,
 		BaseURL: channel.BaseURL, RequestModel: channel.RequestModel, Protocol: channel.Protocol,
+		FixedResolution: channel.fixedResolution,
 	}, found
 }
 
@@ -246,6 +257,7 @@ func ReadVideoCapabilities(reader io.Reader) (*VideoCapabilities, error) {
 			}
 			model.channels[channel.ChannelID] = channel
 			model.protocols[channel.Protocol] = struct{}{}
+			model.seedance25OpenAI = model.seedance25OpenAI || channel.Profile == VideoProfileSeedance25OpenAI
 		}
 		for _, channel := range model.channels {
 			if len(model.protocols) > 1 || channel.Protocol != contract.GatewayProtocol {
@@ -285,6 +297,10 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, legacyNat
 		case constant.ChannelTypeOpenAI, constant.ChannelTypeSora, constant.ChannelTypeTaskPlugin, constant.ChannelTypeNewAPI:
 			validType = contract.GatewayProtocol == VideoProtocolOpenAI && channel.RequestModel == ""
 		}
+	case VideoProfileSeedance25OpenAI:
+		channel.Protocol = VideoProtocolOpenAI
+		validType = legacyNative && contract.GatewayProtocol != VideoProtocolOpenAI &&
+			channel.ChannelType == constant.ChannelTypeOpenAI && channel.RequestModel == ""
 	}
 	if channel.ChannelID < 1 || !validType || strings.TrimSpace(channel.UpstreamModel) != channel.UpstreamModel || channel.UpstreamModel == "" {
 		return VideoChannelRule{}, fmt.Errorf("channel_id, channel_type, profile and upstream_model must identify a verified video route")
@@ -301,16 +317,28 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, legacyNat
 	}
 	channel.Operations = make([]Operation, 0, len(spec.Operations))
 	for _, rawOperation := range spec.Operations {
-		operation, err := compileVideoOperationRule(rawOperation, contract, channel.Protocol, legacyNative)
+		operation, err := compileVideoOperationRule(rawOperation, contract, channel.Protocol, legacyNative, channel.Profile == VideoProfileSeedance25OpenAI)
 		if err != nil {
 			return VideoChannelRule{}, err
+		}
+		if channel.Profile == VideoProfileSeedance25OpenAI {
+			for _, parameter := range operation.Parameters {
+				if parameter.Name != "resolution" {
+					continue
+				}
+				resolution, _ := parameter.Fixed.(string)
+				if channel.fixedResolution != "" && channel.fixedResolution != resolution {
+					return VideoChannelRule{}, fmt.Errorf("Seedance OpenAI variants on one channel must use the same fixed resolution")
+				}
+				channel.fixedResolution = resolution
+			}
 		}
 		channel.Operations = append(channel.Operations, operation)
 	}
 	return channel, nil
 }
 
-func compileVideoOperationRule(raw common.RawMessage, contract Contract, protocol string, legacyNative bool) (Operation, error) {
+func compileVideoOperationRule(raw common.RawMessage, contract Contract, protocol string, legacyNative, seedance25OpenAI bool) (Operation, error) {
 	var spec struct {
 		ID         string              `json:"id"`
 		Executable *bool               `json:"executable"`
@@ -364,6 +392,12 @@ func compileVideoOperationRule(raw common.RawMessage, contract Contract, protoco
 		}
 		operation.Parameters = parameters
 	}
+	if seedance25OpenAI {
+		if err := validateSeedance25OpenAIVideoOperation(&operation); err != nil {
+			return Operation{}, err
+		}
+		return operation, nil
+	}
 	if protocol == VideoProtocolOpenAI {
 		// The Muse protocol decoder always supplies duration. Its default is
 		// established by plugins/tasks/sora/plugin.js before a channel is chosen.
@@ -401,6 +435,57 @@ func compileVideoOperationRule(raw common.RawMessage, contract Contract, protoco
 		return Operation{}, err
 	}
 	return operation, nil
+}
+
+// The economy decoder sends one unroled image and an explicit duration and
+// ratio. The resolved channel supplies the resolution when callers omit it.
+func validateSeedance25OpenAIVideoOperation(operation *Operation) error {
+	if operation.ID != operationVideoMultiRef || len(operation.Inputs) != 2 || !slices.ContainsFunc(operation.Inputs, func(input Input) bool {
+		return input.Slot == "prompt" && input.Required
+	}) || !slices.ContainsFunc(operation.Inputs, func(input Input) bool {
+		return input.Slot == "reference_images" && input.Required && input.FirstItemRole == "" &&
+			input.Min != nil && *input.Min == 1 && input.Max != nil && *input.Max == 1
+	}) {
+		return fmt.Errorf("Seedance OpenAI requires a prompt and exactly one reference image")
+	}
+	if len(operation.Parameters) != 3 {
+		return fmt.Errorf("Seedance OpenAI requires duration, aspect_ratio and resolution")
+	}
+	for i := range operation.Parameters {
+		parameter := &operation.Parameters[i]
+		switch parameter.Name {
+		case "duration":
+			seconds, ok := videoNumber(parameter.Fixed)
+			if parameter.Type != "integer" || !ok || seconds < 4 || seconds > 30 || math.Trunc(seconds) != seconds || parameter.Default != nil {
+				return fmt.Errorf("Seedance OpenAI requires an explicit fixed duration from 4 to 30 seconds")
+			}
+			parameter.Required = true
+		case "aspect_ratio":
+			if parameter.Type != "enum" || parameter.Fixed != "9:16" || parameter.Default != nil {
+				return fmt.Errorf("Seedance OpenAI requires an explicit fixed 9:16 aspect ratio")
+			}
+			parameter.Required = true
+		case "resolution":
+			resolution, ok := parameter.Fixed.(string)
+			if parameter.Type != "enum" || !ok || resolution != "480p" && resolution != "720p" {
+				return fmt.Errorf("Seedance OpenAI requires one fixed 480p or 720p resolution")
+			}
+			// The group catalog may supply a default after checking all eligible channels.
+			parameter.Default = nil
+			parameter.Required = true
+		default:
+			return fmt.Errorf("parameter %q is unavailable for Seedance OpenAI", parameter.Name)
+		}
+	}
+	// The model-wide media specifications do not establish the economy route's
+	// input MIME/byte limits or its output encoding.
+	for i := range operation.Inputs {
+		operation.Inputs[i].AllowedMimes = nil
+		operation.Inputs[i].MaxSizeMb = nil
+	}
+	operation.Output.Formats = nil
+	operation.ModeKind = "image_reference"
+	return nil
 }
 
 // The managed codecs retain different request fields and media semantics.
