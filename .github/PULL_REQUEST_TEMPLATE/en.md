@@ -27,6 +27,9 @@ Chinese template: `.github/PULL_REQUEST_TEMPLATE.md`
 ## Description
 (Briefly describe what changed and why it works. Do not paste unfiltered AI-generated text. If that is hard to summarize, consider splitting the scope or aligning with maintainers in an Issue first.)
 
+## Documentation impact
+(Follow the [documentation impact rules](../../.agents/rules/development-workflow.md#文档影响). List changes, updated docs, and evidence, or explain why docs are unaffected. For cross-repository updates, include the related task or PR, its status, and the release verification criteria.)
+
 ## Proof of Work
 (Record how this was verified: the actual commands or steps and the observed results. Stating only that `go build` or tests passed is not valid proof. For UI changes, include a screenshot or recording. For bug fixes, describe the reproduction and the result after the fix.)
 

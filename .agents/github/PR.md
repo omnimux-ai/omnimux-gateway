@@ -142,6 +142,13 @@ Open them. Do not write "already checked" without sources.
 - After:
 - Explicit non-goals / leftover work:
 
+## Documentation impact
+
+Follow the [documentation impact rules](../rules/development-workflow.md#文档影响).
+
+- Changed behavior, updated docs, and evidence, or reason docs are unaffected:
+- Cross-repository task or PR, status, and release verification criteria, if applicable:
+
 ## Verification
 
 Only what was actually run. Do not state only that `go build` or tests passed.
