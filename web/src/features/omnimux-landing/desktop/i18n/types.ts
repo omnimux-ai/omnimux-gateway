@@ -152,6 +152,9 @@ export interface LandingCopy {
 
   nav: {
     brand: string
+    capabilities: string
+    workflow: string
+    inspiration: string
     home: string
     models: string
     tools: string
@@ -159,8 +162,10 @@ export interface LandingCopy {
     pricing: string
     resources: string
     download: string
+    downloadDesktop: string
     login: string
     menuOpen: string
+    menuClose: string
     langTitle: string
     brandAria: string
     navAria: string
@@ -201,11 +206,40 @@ export interface LandingCopy {
   }
 
   hero: {
+    eyebrow: string
     titleA: string
     titleB: string
     subPre: string
     subHighlight: string
     subPost: string
+    secondaryCta: string
+    mobileCopyLabel: string
+    mobileCopiedLabel: string
+    mobileHint: string
+    microTrust: string
+    trustAria: string
+    trustStrip: readonly [string, string]
+    mockAria: string
+    mockBadge: string
+    mockTitle: string
+    mockSide: readonly [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ]
+    mockSidebarGroup: string
+    mockUserAvatar: string
+    mockPrompt: string
+    mockLinkCard: string
+    mockSteps: readonly [string, string, string]
+    mockTags: readonly [string, string, string]
+    mockTileBadge: string
+    mockNote: string
     tabsAria: string
     tabs: { agent: string; video: string; image: string }
     inputLabel: string
@@ -269,7 +303,9 @@ export interface LandingCopy {
   }
 
   flow: {
+    kicker: string
     h2: string
+    lead: string
     lineAria: string
     steps: readonly FlowStepCopy[]
 
@@ -434,16 +470,41 @@ export interface LandingCopy {
     rows: readonly { name: string; category: string; points: string }[]
   }
 
+  capabilities: {
+    kicker: string
+    h2: string
+    lead: string
+    cards: readonly { title: string; body: string }[]
+  }
+
   proof: {
+    kicker: string
     h2: string
     lead: string
     facts: readonly { value: string; label: string }[]
     platformsAria: string
     platforms: readonly string[]
     badges: readonly string[]
+    source: string
+  }
+
+  pricingTeaser: {
+    kicker: string
+    h2: string
+    lead: string
+    ctaPrimary: string
+    ctaSecondary: string
+    cardSubtitle: string
+    cardPriceTitle: string
+    cardPriceSub: string
+    tierCredits: string
+    tierSave: string
+    cardCta: string
+    cardFootnote: string
   }
 
   faq: {
+    kicker: string
     h2: string
     lead: string
     items: readonly { q: string; a: string }[]

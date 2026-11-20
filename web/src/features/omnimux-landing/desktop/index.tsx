@@ -21,8 +21,7 @@ import { useEffect } from 'react'
 
 import './assets/cn/fonts/smiley/result.css'
 import './desktop-cn.css'
-import { CnAgentDemo } from './components/cn/agent-demo'
-import { CnCreate } from './components/cn/create'
+import { CnCapabilities } from './components/cn/capabilities'
 import { DownloadProvider } from './components/cn/download'
 import { CnFaq } from './components/cn/faq'
 import { CnFinalCta } from './components/cn/final-cta'
@@ -31,10 +30,8 @@ import { CnFooter } from './components/cn/footer'
 import { CnHero } from './components/cn/hero'
 import { IconSprite } from './components/cn/icons'
 import { CnNav } from './components/cn/nav'
+import { CnPricingTeaser } from './components/cn/pricing-teaser'
 import { CnProof } from './components/cn/proof'
-import { CnSurfaces } from './components/cn/surfaces'
-import { CnTools } from './components/cn/tools'
-import { CnWorkspace } from './components/cn/workspace'
 import {
   LandingLangProviderBase,
   landingLangOption,
@@ -99,13 +96,10 @@ function LandingView() {
         <CnNav />
         <main id='cn-main'>
           <CnHero />
-          <CnAgentDemo />
           <CnFlow />
-          <CnCreate />
-          <CnSurfaces />
-          <CnTools />
-          <CnWorkspace />
+          <CnCapabilities />
           <CnProof />
+          <CnPricingTeaser />
           <CnFaq />
           <CnFinalCta />
         </main>

@@ -28,12 +28,23 @@ type NavigatorWithUaData = Navigator & {
   maxTouchPoints?: number
 }
 
+export function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const nav = navigator as NavigatorWithUaData
+  const platform = nav.userAgentData?.platform || nav.platform || ''
+  // iPadOS can report a desktop Mac UA; touch support distinguishes it.
+  return (
+    ((nav.maxTouchPoints ?? 0) > 1 && /mac/i.test(platform)) ||
+    /iphone|ipad|ipod|android|mobile/i.test(nav.userAgent || '')
+  )
+}
+
 /**
  * The operating system behind this visit, ignoring chip. Phones and tablets get
  * `null` because a desktop installer is the wrong answer there.
  */
 export function detectOs(): 'mac' | 'win' | null {
-  if (typeof navigator === 'undefined') return null
+  if (typeof navigator === 'undefined' || isMobileDevice()) return null
 
   const ua = navigator.userAgent || ''
   const nav = navigator as NavigatorWithUaData
@@ -42,10 +53,6 @@ export function detectOs(): 'mac' | 'win' | null {
     navigator.platform ||
     ''
   ).toLowerCase()
-
-  // iPadOS reports a desktop Mac UA, so touch support is the tell.
-  const isIpadOs = (nav.maxTouchPoints ?? 0) > 1 && /mac/.test(platform)
-  if (isIpadOs || /iphone|ipad|ipod|android|mobile/i.test(ua)) return null
 
   if (/win/.test(platform) || /windows/i.test(ua)) return 'win'
   if (/mac/.test(platform) || /mac os x/i.test(ua)) return 'mac'

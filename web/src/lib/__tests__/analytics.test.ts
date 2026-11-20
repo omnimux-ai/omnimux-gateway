@@ -34,6 +34,15 @@ const downloadClick = {
   cta_variant: 'primary',
 } as const
 
+const desktopCopy = {
+  page: 'home',
+  locale: 'zh-TW',
+  cta_id: 'hero_copy_download_link',
+  cta_position: 'hero',
+  cta_variant: 'copy_link',
+  destination: 'desktop_download_page',
+} as const
+
 function captureUmami() {
   const payloads: { name: string; data: Record<string, unknown> }[] = []
   const track: NonNullable<Window['umami']>['track'] = (build) => {
@@ -135,6 +144,139 @@ describe('Umami adapter', () => {
       data: { ...downloadClick, destination: DOWNLOAD_DESTINATION },
     })
     expect(JSON.stringify(sent)).not.toMatch(/secret|private/)
+  })
+
+  it('delivers the home CTA events to Umami through the installed tracker', async () => {
+    const { installAnalytics } = await import('../analytics-bootstrap')
+    const adapter = await import('../analytics')
+    const {
+      trackHomeDesktopCopy,
+      trackHomeHeroCtaClick,
+      trackHomePricingTeaserClick,
+    } = await import('@/features/omnimux-landing/desktop/lib/home-analytics')
+    const sent = captureUmami()
+    installAnalytics(async () => adapter)
+
+    trackHomeHeroCtaClick('download', 'mac-x64')
+    trackHomeHeroCtaClick('copy_link', 'mobile_fallback')
+    trackHomeDesktopCopy('zh-TW')
+    trackHomeHeroCtaClick('scroll_workflow', 'win')
+    trackHomePricingTeaserClick('full_pricing')
+    trackHomePricingTeaserClick('download_first')
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(sent.map(({ name, data }) => ({ name, data }))).toEqual([
+      {
+        name: 'home_hero_cta_click',
+        data: { cta_type: 'download', platform: 'mac-x64' },
+      },
+      {
+        name: 'home_hero_cta_click',
+        data: { cta_type: 'copy_link', platform: 'mobile_fallback' },
+      },
+      { name: 'download_cta_click', data: desktopCopy },
+      {
+        name: 'home_hero_cta_click',
+        data: { cta_type: 'scroll_workflow', platform: 'win' },
+      },
+      {
+        name: 'home_pricing_teaser_click',
+        data: { cta_id: 'full_pricing' },
+      },
+      {
+        name: 'home_pricing_teaser_click',
+        data: { cta_id: 'download_first' },
+      },
+    ])
+  })
+
+  it('rejects malformed home CTA events and sends only allowed properties', async () => {
+    const { createAnalyticsTracker } = await import('../analytics')
+    const { DOWNLOAD_DESTINATION } = await import('../download-cta')
+    const sent = captureUmami()
+    const track = createAnalyticsTracker()
+    const privateUrl = 'https://app.example/?token=secret'
+
+    for (const overrides of [
+      { locale: privateUrl },
+      { page: 'pricing' },
+      { cta_position: 'header' },
+      { cta_id: 'other' },
+      { cta_variant: 'primary' },
+      { cta_variant: 'primary', destination: DOWNLOAD_DESTINATION },
+      { destination: DOWNLOAD_DESTINATION },
+      { destination: privateUrl },
+    ]) {
+      track(
+        analyticsEvent('download_cta_click', { ...desktopCopy, ...overrides })
+      )
+    }
+    track(analyticsEvent('home_hero_cta_click', { cta_type: 'download' }))
+    track(
+      analyticsEvent('home_hero_cta_click', {
+        cta_type: 'download',
+        platform: privateUrl,
+      })
+    )
+    track(
+      analyticsEvent('home_hero_cta_click', {
+        cta_type: 'unknown',
+        platform: 'win',
+      })
+    )
+    track(analyticsEvent('home_pricing_teaser_click', { cta_id: privateUrl }))
+    track(analyticsEvent('home_pricing_teaser_click'))
+    expect(sent).toEqual([])
+
+    track(
+      analyticsEvent('download_cta_click', { ...desktopCopy, url: privateUrl })
+    )
+    track(
+      analyticsEvent('home_hero_cta_click', {
+        cta_type: 'download',
+        platform: 'mac-arm64',
+        prompt: 'private prompt',
+      })
+    )
+    track(
+      analyticsEvent('home_pricing_teaser_click', {
+        cta_id: 'download_first',
+        href: privateUrl,
+      })
+    )
+
+    expect(sent.map(({ name, data }) => ({ name, data }))).toEqual([
+      { name: 'download_cta_click', data: desktopCopy },
+      {
+        name: 'home_hero_cta_click',
+        data: { cta_type: 'download', platform: 'mac-arm64' },
+      },
+      {
+        name: 'home_pricing_teaser_click',
+        data: { cta_id: 'download_first' },
+      },
+    ])
+  })
+
+  it('keeps home analytics best effort with missing and failing trackers', async () => {
+    const {
+      trackHomeDesktopCopy,
+      trackHomeHeroCtaClick,
+      trackHomePricingTeaserClick,
+    } = await import('@/features/omnimux-landing/desktop/lib/home-analytics')
+    const report = () => {
+      trackHomeDesktopCopy('en')
+      trackHomeHeroCtaClick('scroll_workflow', 'mobile_fallback')
+      trackHomePricingTeaserClick('full_pricing')
+    }
+
+    expect(report).not.toThrow()
+    expect(window.localStorage.length).toBe(0)
+    const tracker = installGlobalSpy().mockImplementation(() => {
+      throw new Error('tracker failure')
+    })
+    expect(report).not.toThrow()
+    expect(tracker).toHaveBeenCalledTimes(3)
   })
 
   it('sends the four pricing interactions through the pricing bridge and sanitizes their fields', async () => {
@@ -432,5 +574,42 @@ describe('desktop download click', () => {
       href
     )
     expect(track).toHaveBeenCalledTimes(2)
+  })
+
+  it('deduplicates mobile link copies across tabs and keeps installer activation separate', async () => {
+    const track = installGlobalSpy()
+    const firstTab =
+      await import('@/features/omnimux-landing/desktop/lib/home-analytics')
+    const { DOWNLOAD_DESTINATION, trackDownloadCtaClick } =
+      await import('../download-cta')
+
+    const installerHref = `https://${DOWNLOAD_DESTINATION}/installer`
+    trackDownloadCtaClick(downloadClick, firstTab.HOME_DESKTOP_DOWNLOAD_PAGE)
+    trackDownloadCtaClick(
+      { ...downloadClick, cta_id: desktopCopy.cta_id },
+      installerHref
+    )
+    firstTab.trackHomeDesktopCopy('zh-TW')
+    trackDownloadCtaClick(downloadClick, installerHref)
+    vi.resetModules()
+    const secondTab =
+      await import('@/features/omnimux-landing/desktop/lib/home-analytics')
+    secondTab.trackHomeDesktopCopy('en')
+
+    expect(track.mock.calls).toEqual([
+      ['download_cta_click', desktopCopy],
+      [
+        'download_cta_click',
+        { ...downloadClick, destination: DOWNLOAD_DESTINATION },
+      ],
+    ])
+
+    vi.advanceTimersByTime(10_000)
+    secondTab.trackHomeDesktopCopy('en')
+    expect(track).toHaveBeenLastCalledWith('download_cta_click', {
+      ...desktopCopy,
+      locale: 'en',
+    })
+    expect(track).toHaveBeenCalledTimes(3)
   })
 })
