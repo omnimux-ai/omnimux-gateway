@@ -15,13 +15,21 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 )
 
-const VideoCapabilitiesFileEnv = "OMNIMUX_VIDEO_CAPABILITIES_FILE"
+const (
+	VideoCapabilitiesFileEnv = "OMNIMUX_VIDEO_CAPABILITIES_FILE"
+	VideoProtocolOpenAI      = "openai_video"
+	VideoProtocolGenerations = "video_generations"
+	VideoProtocolHeader      = "X-OmniMux-Video-Protocol"
+
+	seedance25VideoRequestModel = "seedance-2-5"
+)
 
 // VideoRequest describes the operation and inputs already normalized by the
 // gateway. Slots contain counts by contract slot. Parameters include explicit
 // zero and false as well as defaults filled by the selected protocol.
 type VideoRequest struct {
 	Operation  string
+	Protocol   string
 	Slots      map[string]int
 	Parameters map[string]any
 }
@@ -36,6 +44,8 @@ type VideoChannelRule struct {
 	BaseURL       string      `json:"base_url"`
 	Operations    []Operation `json:"operations"`
 	Evidence      string      `json:"evidence"`
+	RequestModel  string      `json:"request_model,omitempty"`
+	Protocol      string      `json:"-"`
 }
 
 type VideoChannelIdentity struct {
@@ -43,12 +53,20 @@ type VideoChannelIdentity struct {
 	Profile       string
 	UpstreamModel string
 	BaseURL       string
+	RequestModel  string
+	Protocol      string
 }
 
 // VideoCapabilities is an immutable snapshot keyed by the public model and
-// physical channel. A model with an empty rule set is enrolled in the pilot.
+// physical channel. An empty channel map enrolls a model with no verified routes.
 type VideoCapabilities struct {
-	models map[string]map[int]VideoChannelRule
+	models map[string]videoModelRules
+}
+
+type videoModelRules struct {
+	channels           map[int]VideoChannelRule
+	protocols          map[string]struct{}
+	nativeRequestModel string
 }
 
 var activeVideoCapabilities atomic.Pointer[VideoCapabilities]
@@ -61,9 +79,9 @@ func SetVideoCapabilities(rules *VideoCapabilities) *VideoCapabilities {
 	return activeVideoCapabilities.Swap(rules)
 }
 
-func (rules *VideoCapabilities) rulesForModel(modelID string) map[int]VideoChannelRule {
+func (rules *VideoCapabilities) rulesForModel(modelID string) videoModelRules {
 	if rules == nil {
-		return nil
+		return videoModelRules{}
 	}
 	if channels, ok := rules.models[modelID]; ok {
 		return channels
@@ -72,7 +90,18 @@ func (rules *VideoCapabilities) rulesForModel(modelID string) map[int]VideoChann
 }
 
 func (rules *VideoCapabilities) Managed(modelID string) bool {
-	return rules.rulesForModel(modelID) != nil
+	return rules.rulesForModel(modelID).channels != nil
+}
+
+// NativeRequestModel is the shared native decoder for a model's verified channels.
+func (rules *VideoCapabilities) NativeRequestModel(modelID string) string {
+	return rules.rulesForModel(modelID).nativeRequestModel
+}
+
+// HasProtocol reports whether any compiled channel uses the public protocol.
+func (rules *VideoCapabilities) HasProtocol(modelID, protocol string) bool {
+	_, found := rules.rulesForModel(modelID).protocols[protocol]
+	return found
 }
 
 func (rules *VideoCapabilities) ChannelIDs() []int {
@@ -81,8 +110,8 @@ func (rules *VideoCapabilities) ChannelIDs() []int {
 	}
 	seen := make(map[int]struct{})
 	var ids []int
-	for _, channels := range rules.models {
-		for id := range channels {
+	for _, model := range rules.models {
+		for id := range model.channels {
 			if _, ok := seen[id]; !ok {
 				seen[id] = struct{}{}
 				ids = append(ids, id)
@@ -95,8 +124,8 @@ func (rules *VideoCapabilities) ChannelIDs() []int {
 
 func (rules *VideoCapabilities) UsesChannel(id int) bool {
 	if rules != nil {
-		for _, channels := range rules.models {
-			if _, found := channels[id]; found {
+		for _, model := range rules.models {
+			if _, found := model.channels[id]; found {
 				return true
 			}
 		}
@@ -105,19 +134,25 @@ func (rules *VideoCapabilities) UsesChannel(id int) bool {
 }
 
 func (rules *VideoCapabilities) ChannelIdentity(modelID string, id int) (VideoChannelIdentity, bool) {
-	channel, found := rules.rulesForModel(modelID)[id]
-	return VideoChannelIdentity{ChannelType: channel.ChannelType, Profile: channel.Profile, UpstreamModel: channel.UpstreamModel, BaseURL: channel.BaseURL}, found
+	channel, found := rules.rulesForModel(modelID).channels[id]
+	return VideoChannelIdentity{
+		ChannelType: channel.ChannelType, Profile: channel.Profile, UpstreamModel: channel.UpstreamModel,
+		BaseURL: channel.BaseURL, RequestModel: channel.RequestModel, Protocol: channel.Protocol,
+	}, found
 }
 
 func (rules *VideoCapabilities) Accepts(modelID string, id int, request VideoRequest) bool {
-	channel := rules.rulesForModel(modelID)[id]
+	channel, found := rules.rulesForModel(modelID).channels[id]
+	if !found || request.Protocol != "" && channel.Protocol != request.Protocol {
+		return false
+	}
 	return slices.ContainsFunc(channel.Operations, func(operation Operation) bool {
 		return VideoOperationAccepts(operation, request)
 	})
 }
 
 func (rules *VideoCapabilities) ChannelRule(modelID string, id int) (VideoChannelRule, bool) {
-	channel, found := rules.rulesForModel(modelID)[id]
+	channel, found := rules.rulesForModel(modelID).channels[id]
 	if found {
 		channel.Operations = slices.Clone(channel.Operations)
 		for index, operation := range channel.Operations {
@@ -161,7 +196,7 @@ func cloneVideoPointer[T any](value *T) *T {
 }
 
 // ReadVideoCapabilities compiles a complete snapshot before it can become
-// active. The configured channels can only narrow executable pilot operations.
+// active. The configured channels can only narrow executable video operations.
 func ReadVideoCapabilities(reader io.Reader) (*VideoCapabilities, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
@@ -177,62 +212,82 @@ func ReadVideoCapabilities(reader io.Reader) (*VideoCapabilities, error) {
 		return nil, fmt.Errorf("video capabilities: models object is required")
 	}
 
-	rules := &VideoCapabilities{models: make(map[string]map[int]VideoChannelRule, len(document.Models))}
-	for model, rawChannels := range document.Models {
-		contract, found := For(model)
-		if !found || !contract.IsLiveExecutable() {
-			return nil, fmt.Errorf("video capabilities: model %q has no live contract", model)
+	rules := &VideoCapabilities{models: make(map[string]videoModelRules, len(document.Models))}
+	for name, rawChannels := range document.Models {
+		contract, found := For(name)
+		if !found || contract.Family != "video" || !contract.IsLiveExecutable() {
+			return nil, fmt.Errorf("video capabilities: model %q has no live video contract", name)
 		}
-		modelID := contract.ModelID
-		var profile string
-		switch modelID {
-		case "muse-video":
-			profile = profileOpenAIVideo
-		case "seedance-2-5":
-			profile = profileAPIMartVideo
-		default:
-			return nil, fmt.Errorf("video capabilities: model %q is outside the pilot", model)
+		if rawChannels == nil || rules.Managed(contract.ModelID) {
+			return nil, fmt.Errorf("video capabilities: model %q needs one channel array", name)
 		}
-		if rawChannels == nil || rules.Managed(modelID) {
-			return nil, fmt.Errorf("video capabilities: model %q needs one channel array", model)
+		legacyNative := contract.ModelID == seedance25VideoRequestModel
+		if contract.GatewayProtocol != VideoProtocolOpenAI && contract.GatewayProtocol != VideoProtocolGenerations && !legacyNative {
+			return nil, fmt.Errorf("video capabilities: model %q has no verified video protocol", name)
 		}
 
-		channels := make(map[int]VideoChannelRule, len(rawChannels))
-		for index, raw := range rawChannels {
-			channel, err := compileVideoChannelRule(raw, contract, profile)
-			if err != nil {
-				return nil, fmt.Errorf("video capabilities: model %q channel %d: %w", modelID, index+1, err)
-			}
-			if _, found := channels[channel.ChannelID]; found {
-				return nil, fmt.Errorf("video capabilities: model %q repeats channel %d", modelID, channel.ChannelID)
-			}
-			channels[channel.ChannelID] = channel
+		model := videoModelRules{
+			channels:  make(map[int]VideoChannelRule, len(rawChannels)),
+			protocols: make(map[string]struct{}),
 		}
-		rules.models[modelID] = channels
+		for index, raw := range rawChannels {
+			channel, err := compileVideoChannelRule(raw, contract, legacyNative)
+			if err != nil {
+				return nil, fmt.Errorf("video capabilities: model %q channel %d: %w", contract.ModelID, index+1, err)
+			}
+			if _, found := model.channels[channel.ChannelID]; found {
+				return nil, fmt.Errorf("video capabilities: model %q repeats channel %d", contract.ModelID, channel.ChannelID)
+			}
+			if channel.RequestModel != "" {
+				if model.nativeRequestModel != "" && model.nativeRequestModel != channel.RequestModel {
+					return nil, fmt.Errorf("video capabilities: model %q uses multiple native request dialects", contract.ModelID)
+				}
+				model.nativeRequestModel = channel.RequestModel
+			}
+			model.channels[channel.ChannelID] = channel
+			model.protocols[channel.Protocol] = struct{}{}
+		}
+		for _, channel := range model.channels {
+			if len(model.protocols) > 1 || channel.Protocol != contract.GatewayProtocol {
+				for i := range channel.Operations {
+					channel.Operations[i].GatewayProtocol = channel.Protocol
+				}
+			}
+		}
+		rules.models[contract.ModelID] = model
 	}
 	return rules, nil
 }
 
-func compileVideoChannelRule(raw common.RawMessage, contract Contract, profile string) (VideoChannelRule, error) {
+func compileVideoChannelRule(raw common.RawMessage, contract Contract, legacyNative bool) (VideoChannelRule, error) {
 	var spec struct {
 		VideoChannelRule
 		Operations []common.RawMessage `json:"operations"`
 	}
-	if err := decodeVideoRule(raw, &spec, "channel_id", "channel_type", "profile", "upstream_model", "base_url", "operations", "evidence"); err != nil {
+	if err := decodeVideoRule(raw, &spec, "channel_id", "channel_type", "profile", "upstream_model", "base_url", "operations", "evidence", "request_model"); err != nil {
 		return VideoChannelRule{}, err
 	}
 	channel := spec.VideoChannelRule
-	validType := channel.ChannelType == constant.ChannelTypeApiMart
-	if profile == profileOpenAIVideo {
+	var validType bool
+	switch channel.Profile {
+	case profileAPIMartVideo:
+		channel.Protocol = VideoProtocolGenerations
+		if channel.RequestModel == "" && (legacyNative || contract.GatewayProtocol == VideoProtocolGenerations) {
+			channel.RequestModel = seedance25VideoRequestModel
+		}
+		if channel.RequestModel != seedance25VideoRequestModel {
+			return VideoChannelRule{}, fmt.Errorf("request_model must name a verified native request dialect")
+		}
+		validType = channel.ChannelType == constant.ChannelTypeApiMart
+	case profileOpenAIVideo:
+		channel.Protocol = VideoProtocolOpenAI
 		switch channel.ChannelType {
 		case constant.ChannelTypeOpenAI, constant.ChannelTypeSora, constant.ChannelTypeTaskPlugin, constant.ChannelTypeNewAPI:
-			validType = true
-		default:
-			validType = false
+			validType = contract.GatewayProtocol == VideoProtocolOpenAI && channel.RequestModel == ""
 		}
 	}
-	if channel.ChannelID < 1 || !validType || channel.Profile != profile || strings.TrimSpace(channel.UpstreamModel) != channel.UpstreamModel || channel.UpstreamModel == "" {
-		return VideoChannelRule{}, fmt.Errorf("channel_id, channel_type, profile and upstream_model must identify the pilot route")
+	if channel.ChannelID < 1 || !validType || strings.TrimSpace(channel.UpstreamModel) != channel.UpstreamModel || channel.UpstreamModel == "" {
+		return VideoChannelRule{}, fmt.Errorf("channel_id, channel_type, profile and upstream_model must identify a verified video route")
 	}
 	parsedURL, err := url.Parse(channel.BaseURL)
 	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" ||
@@ -246,7 +301,7 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, profile s
 	}
 	channel.Operations = make([]Operation, 0, len(spec.Operations))
 	for _, rawOperation := range spec.Operations {
-		operation, err := compileVideoOperationRule(rawOperation, contract, profile)
+		operation, err := compileVideoOperationRule(rawOperation, contract, channel.Protocol, legacyNative)
 		if err != nil {
 			return VideoChannelRule{}, err
 		}
@@ -255,7 +310,7 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, profile s
 	return channel, nil
 }
 
-func compileVideoOperationRule(raw common.RawMessage, contract Contract, profile string) (Operation, error) {
+func compileVideoOperationRule(raw common.RawMessage, contract Contract, protocol string, legacyNative bool) (Operation, error) {
 	var spec struct {
 		ID         string              `json:"id"`
 		Executable *bool               `json:"executable"`
@@ -303,13 +358,13 @@ func compileVideoOperationRule(raw common.RawMessage, contract Contract, profile
 		operation.Parameters[i].Default = nil
 	}
 	if spec.Parameters != nil {
-		parameters, err := compileVideoParameterRules(spec.Parameters, operation.Parameters, profile == profileAPIMartVideo)
+		parameters, err := compileVideoParameterRules(spec.Parameters, operation.Parameters, protocol == VideoProtocolGenerations && legacyNative)
 		if err != nil {
 			return Operation{}, fmt.Errorf("operation %q: %w", operation.ID, err)
 		}
 		operation.Parameters = parameters
 	}
-	if profile == profileOpenAIVideo {
+	if protocol == VideoProtocolOpenAI {
 		// The Muse protocol decoder always supplies duration. Its default is
 		// established by plugins/tasks/sora/plugin.js before a channel is chosen.
 		const gatewayDuration = 5
@@ -342,7 +397,112 @@ func compileVideoOperationRule(raw common.RawMessage, contract Contract, profile
 		operation.Output.Formats = formats
 		break
 	}
+	if err := validateManagedVideoOperation(&operation, protocol, legacyNative); err != nil {
+		return Operation{}, err
+	}
 	return operation, nil
+}
+
+// The managed codecs retain different request fields and media semantics.
+// Keep these boundaries in parity with decodeMuseVideo in the built-in
+// plugin and normalizeManagedVideoRequest in the native video adapter.
+func validateManagedVideoOperation(operation *Operation, protocol string, legacyNative bool) error {
+	native := protocol == VideoProtocolGenerations
+	allowedOperations := openAIVideoOperations
+	inputLimits := map[string]int{"first_frame": 1, "reference_images": 10}
+	enums := map[string][]string{
+		"aspect_ratio":  {"16:9", "9:16", "1:1", "adaptive"},
+		"output_format": {"mp4"},
+	}
+	minDuration, maxDuration := 1.0, 60.0
+	if native {
+		allowedOperations = apimartVideoOperations[seedance25VideoRequestModel]
+		inputLimits = map[string]int{
+			"first_frame": 1, "last_frame": 1, "reference_images": 30,
+			"reference_videos": 10, "reference_audios": 10, "source_videos": 10,
+		}
+		enums = map[string][]string{
+			"aspect_ratio":  {"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+			"output_format": {"mp4", "mov"},
+			"resolution":    {"480p", "720p", "1080p"},
+		}
+		if operation.ID == operationVideoEdit || operation.ID == operationVideoExtend {
+			enums["aspect_ratio"] = []string{"adaptive"}
+		}
+		minDuration, maxDuration = 4, 30
+	}
+	if !slices.Contains(allowedOperations, operation.ID) || operation.ID == operationVideoEdit && !legacyNative {
+		return fmt.Errorf("operation %q is not supported by the verified %s decoder", operation.ID, protocol)
+	}
+	for _, input := range operation.Inputs {
+		if input.Slot == "prompt" {
+			continue
+		}
+		limit, known := inputLimits[input.Slot]
+		firstItemRole := ""
+		minimumCount := 0
+		if !native && input.Slot == "reference_images" {
+			firstItemRole, minimumCount = "first_frame", 2
+		}
+		if !known || input.FirstItemRole != firstItemRole || input.Min == nil || *input.Min < minimumCount ||
+			input.Max == nil || *input.Max < 1 || *input.Max > limit || *input.Min > *input.Max {
+			return fmt.Errorf("operation %q slot %q has incompatible media semantics for the %s decoder", operation.ID, input.Slot, protocol)
+		}
+	}
+	if native && !legacyNative {
+		duration := slices.IndexFunc(operation.Parameters, func(parameter Parameter) bool {
+			return parameter.Name == "duration"
+		})
+		if duration < 0 {
+			return fmt.Errorf("operation %q requires a duration parameter for this video protocol", operation.ID)
+		}
+		if operation.Parameters[duration].Default != nil {
+			return fmt.Errorf("operation %q duration requires an explicit value and cannot have a default", operation.ID)
+		}
+		operation.Parameters[duration].Required = true
+	}
+	for _, parameter := range operation.Parameters {
+		valid := false
+		switch parameter.Name {
+		case "duration":
+			if native && legacyNative && equalVideoValue(parameter.Fixed, -1) {
+				valid = parameter.Type == "integer" &&
+					parameter.Minimum != nil && *parameter.Minimum == -1 &&
+					parameter.Maximum != nil && *parameter.Maximum == -1
+				break
+			}
+			valid = parameter.Type == "integer" &&
+				(len(parameter.Enum) > 0 || parameter.Minimum != nil && parameter.Maximum != nil) &&
+				(parameter.Minimum == nil || *parameter.Minimum >= minDuration) &&
+				(parameter.Maximum == nil || *parameter.Maximum <= maxDuration) &&
+				(parameter.Minimum == nil || parameter.Maximum == nil || *parameter.Minimum <= *parameter.Maximum)
+			for _, choice := range parameter.Enum {
+				value, numeric := videoNumber(choice)
+				valid = valid && numeric && math.Trunc(value) == value && value >= minDuration && value <= maxDuration
+			}
+		case "generate_audio":
+			valid = native && parameter.Type == "boolean"
+		default:
+			choices, known := enums[parameter.Name]
+			valid = known && parameter.Type == "enum" && len(parameter.Enum) > 0
+			for _, choice := range parameter.Enum {
+				value, isString := choice.(string)
+				valid = valid && isString && slices.Contains(choices, value)
+			}
+		}
+		valid = valid &&
+			(parameter.Default == nil || videoParameterAccepts(parameter, parameter.Default)) &&
+			(parameter.Fixed == nil || videoParameterAccepts(parameter, parameter.Fixed))
+		if !valid {
+			return fmt.Errorf("operation %q parameter %q exceeds the verified %s decoder contract", operation.ID, parameter.Name, protocol)
+		}
+	}
+	for _, format := range operation.Output.Formats {
+		if !slices.Contains(enums["output_format"], format) {
+			return fmt.Errorf("operation %q output format %q is not supported by the verified %s decoder", operation.ID, format, protocol)
+		}
+	}
+	return nil
 }
 
 func compileVideoInputRules(rules []common.RawMessage, base []Input) ([]Input, error) {
@@ -534,7 +694,8 @@ func decodeVideoRule(raw common.RawMessage, target any, keys ...string) error {
 // VideoOperationAccepts tests the whole intent against one variant. A caller
 // checks each variant separately, so one channel cannot borrow another's axes.
 func VideoOperationAccepts(operation Operation, request VideoRequest) bool {
-	if !operation.Executable || operation.ID != request.Operation {
+	if !operation.Executable || operation.ID != request.Operation ||
+		operation.GatewayProtocol != "" && request.Protocol != "" && operation.GatewayProtocol != request.Protocol {
 		return false
 	}
 	for _, input := range operation.Inputs {
@@ -587,7 +748,10 @@ func videoParameterAccepts(parameter Parameter, value any) bool {
 		return ok && !math.IsNaN(number) && !math.IsInf(number, 0) &&
 			(parameter.Type != "integer" || math.Trunc(number) == number) &&
 			(parameter.Minimum == nil || number >= *parameter.Minimum) &&
-			(parameter.Maximum == nil || number <= *parameter.Maximum)
+			(parameter.Maximum == nil || number <= *parameter.Maximum) &&
+			(len(parameter.Enum) == 0 || slices.ContainsFunc(parameter.Enum, func(candidate any) bool {
+				return equalVideoValue(candidate, value)
+			}))
 	case "boolean":
 		_, ok := value.(bool)
 		return ok

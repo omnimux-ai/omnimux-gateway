@@ -406,8 +406,13 @@ func projectContract(spec specFile) (Contract, error) {
 		DefaultReasoningEffort: spec.DefaultReasoningEffort,
 		Billing:                spec.Billing,
 	}
-	if spec.Gateway != nil && spec.Gateway.Profile == profileOpenAIVideo {
-		contract.GatewayProtocol = profileOpenAIVideo
+	if spec.Gateway != nil {
+		switch {
+		case spec.Gateway.Profile == profileOpenAIVideo:
+			contract.GatewayProtocol = VideoProtocolOpenAI
+		case spec.Gateway.RequestModel != "":
+			contract.GatewayProtocol = VideoProtocolGenerations
+		}
 	}
 	version, err := contractVersion(contract)
 	if err != nil {

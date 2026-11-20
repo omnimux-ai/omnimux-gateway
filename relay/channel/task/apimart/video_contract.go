@@ -133,10 +133,10 @@ func normalizePhaseOneVideoRequest(modelID string, raw map[string]any) (map[stri
 
 // normalizeManagedVideoRequest keeps the operation used for routing and the
 // vendor task type used at submission in agreement.
-func normalizeManagedVideoRequest(modelName string, raw map[string]any) (map[string]any, phaseOneMedia, error) {
-	modelID, _ := canonicalPhaseOneVideoModel(modelName)
+func normalizeManagedVideoRequest(requestModel string, raw map[string]any) (map[string]any, phaseOneMedia, error) {
+	modelID, _ := canonicalPhaseOneVideoModel(requestModel)
 	if modelID != "seedance-2-5" {
-		return nil, phaseOneMedia{}, fmt.Errorf("no video routing profile for %s", modelName)
+		return nil, phaseOneMedia{}, fmt.Errorf("no verified request decoder for this video profile")
 	}
 	draft := raw["draft"]
 	draftTaskID := raw["draft_task_id"]
@@ -171,11 +171,11 @@ func normalizeManagedVideoRequest(modelName string, raw map[string]any) (map[str
 	return normalized, media, nil
 }
 
-// VideoRoutingRequest extracts the Seedance 2.5 intent from the same normalized
-// request as the submission adapter. Omitted parameters use each channel's
-// own verified defaults.
-func VideoRoutingRequest(modelName string, raw map[string]any) (modelcontracts.VideoRequest, error) {
-	normalized, media, err := normalizeManagedVideoRequest(modelName, raw)
+// VideoRoutingRequest extracts intent using the registered native decoder
+// shared by channel selection and submission. Omitted parameters use each
+// channel's verified defaults.
+func VideoRoutingRequest(requestModel string, raw map[string]any) (modelcontracts.VideoRequest, error) {
+	normalized, media, err := normalizeManagedVideoRequest(requestModel, raw)
 	if err != nil {
 		return modelcontracts.VideoRequest{}, err
 	}

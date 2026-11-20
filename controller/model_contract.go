@@ -11,7 +11,7 @@ import (
 )
 
 // GetModelContract publishes one model's declared capability contract and, for
-// pilot models, the verified variants served to the caller's channel groups.
+// enrolled video models, the verified variants served to the caller's groups.
 func GetModelContract(c *gin.Context) {
 	modelID := c.Param("model")
 	if modelID == "" {
@@ -36,7 +36,8 @@ func GetModelContract(c *gin.Context) {
 		"contract": contract,
 		"version":  modelcontracts.Version(&document),
 	}
-	if modelcontracts.ActiveVideoCapabilities().Managed(modelID) {
+	if contract.GatewayProtocol == modelcontracts.VideoProtocolGenerations ||
+		modelcontracts.ActiveVideoCapabilities().Managed(modelID) {
 		c.Header("Cache-Control", "private, no-store")
 		_, _, groupRatios := pricingGroupView(c)
 		pricing := model.Pricing{ModelName: modelID, Contract: &contract}
