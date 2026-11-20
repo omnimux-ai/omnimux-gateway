@@ -1,0 +1,626 @@
+{
+  "/api/model_contract/example-mixed-video": {
+    "data": {
+      "contract": {
+        "aspect_ratios": [
+          "16:9",
+          "adaptive"
+        ],
+        "contractVersion": "ff197cce94cefb75",
+        "durations_seconds": {
+          "max": 6,
+          "min": 4
+        },
+        "execution_status": "live",
+        "family": "video",
+        "gateway_protocol": "openai_video",
+        "model_id": "example-mixed-video",
+        "operation_ids": [
+          "first_frame",
+          "video_multi_ref"
+        ],
+        "operations": [
+          {
+            "executable": true,
+            "id": "first_frame",
+            "inputs": [
+              {
+                "required": true,
+                "slot": "prompt",
+                "type": "text"
+              },
+              {
+                "allowedMimes": [
+                  "image/png"
+                ],
+                "max": 1,
+                "min": 1,
+                "required": true,
+                "role": "first_frame",
+                "slot": "first_frame",
+                "type": "image"
+              }
+            ],
+            "modeKind": "first_frame",
+            "output": {
+              "formats": [
+                "mp4"
+              ],
+              "type": "video"
+            },
+            "parameters": [
+              {
+                "maximum": 6,
+                "minimum": 4,
+                "name": "duration",
+                "step": 1,
+                "type": "integer"
+              },
+              {
+                "default": "adaptive",
+                "enum": [
+                  "adaptive"
+                ],
+                "fixed": "adaptive",
+                "name": "aspect_ratio",
+                "type": "enum"
+              },
+              {
+                "enum": [
+                  "mp4"
+                ],
+                "name": "output_format",
+                "type": "enum"
+              }
+            ]
+          },
+          {
+            "executable": true,
+            "id": "video_multi_ref",
+            "inputs": [
+              {
+                "required": true,
+                "slot": "prompt",
+                "type": "text"
+              },
+              {
+                "allowedMimes": [
+                  "image/png"
+                ],
+                "firstItemRole": "first_frame",
+                "max": 4,
+                "min": 2,
+                "required": true,
+                "role": "reference",
+                "slot": "reference_images",
+                "type": "image"
+              }
+            ],
+            "modeKind": "image_reference",
+            "output": {
+              "formats": [
+                "mp4"
+              ],
+              "type": "video"
+            },
+            "parameters": [
+              {
+                "maximum": 6,
+                "minimum": 4,
+                "name": "duration",
+                "step": 1,
+                "type": "integer"
+              },
+              {
+                "enum": [
+                  "16:9",
+                  "adaptive"
+                ],
+                "name": "aspect_ratio",
+                "type": "enum"
+              },
+              {
+                "enum": [
+                  "mp4"
+                ],
+                "name": "output_format",
+                "type": "enum"
+              }
+            ]
+          }
+        ],
+        "output_formats": [
+          "mp4"
+        ],
+        "reference_images": {
+          "formats": [
+            "image/png"
+          ],
+          "max": 4,
+          "min": 2
+        },
+        "schemaVersion": "2.0",
+        "status": "partial",
+        "unknowns": [
+          "prompt_max_chars",
+          "resolutions",
+          "reference_images.max_bytes_each",
+          "operations.first_frame.parameters.resolution",
+          "operations.video_multi_ref.parameters.resolution"
+        ]
+      },
+      "effective_video": {
+        "groups": {
+          "default": [
+            {
+              "executable": true,
+              "gateway_protocol": "video_generations",
+              "id": "first_frame",
+              "inputs": [
+                {
+                  "required": true,
+                  "slot": "prompt",
+                  "type": "text"
+                },
+                {
+                  "allowedMimes": [
+                    "image/png"
+                  ],
+                  "max": 1,
+                  "min": 1,
+                  "required": true,
+                  "role": "first_frame",
+                  "slot": "first_frame",
+                  "type": "image"
+                }
+              ],
+              "modeKind": "first_frame",
+              "output": {
+                "formats": [
+                  "mp4"
+                ],
+                "type": "video"
+              },
+              "parameters": [
+                {
+                  "maximum": 6,
+                  "minimum": 4,
+                  "name": "duration",
+                  "required": true,
+                  "step": 1,
+                  "type": "integer"
+                },
+                {
+                  "enum": [
+                    "adaptive"
+                  ],
+                  "fixed": "adaptive",
+                  "name": "aspect_ratio",
+                  "type": "enum"
+                },
+                {
+                  "enum": [
+                    "mp4"
+                  ],
+                  "name": "output_format",
+                  "type": "enum"
+                }
+              ]
+            }
+          ],
+          "narrow": [
+            {
+              "executable": true,
+              "gateway_protocol": "openai_video",
+              "id": "video_multi_ref",
+              "inputs": [
+                {
+                  "required": true,
+                  "slot": "prompt",
+                  "type": "text"
+                },
+                {
+                  "allowedMimes": [
+                    "image/png"
+                  ],
+                  "firstItemRole": "first_frame",
+                  "max": 2,
+                  "min": 2,
+                  "required": true,
+                  "role": "reference",
+                  "slot": "reference_images",
+                  "type": "image"
+                }
+              ],
+              "modeKind": "image_reference",
+              "output": {
+                "formats": [
+                  "mp4"
+                ],
+                "type": "video"
+              },
+              "parameters": [
+                {
+                  "default": 5,
+                  "maximum": 6,
+                  "minimum": 4,
+                  "name": "duration",
+                  "step": 1,
+                  "type": "integer"
+                },
+                {
+                  "enum": [
+                    "16:9",
+                    "adaptive"
+                  ],
+                  "name": "aspect_ratio",
+                  "type": "enum"
+                },
+                {
+                  "enum": [
+                    "mp4"
+                  ],
+                  "name": "output_format",
+                  "type": "enum"
+                }
+              ]
+            }
+          ]
+        },
+        "version": "58cff3fa201d19bf"
+      },
+      "version": "90b62321b6f8a673"
+    },
+    "message": "",
+    "success": true
+  },
+  "/api/pricing": {
+    "auto_groups": [
+      "default"
+    ],
+    "data": [
+      {
+        "billing_usage_schema": {
+          "seconds": {
+            "description": {
+              "en": "Video generation unit price",
+              "zh": "视频生成单价"
+            },
+            "type": "number",
+            "unit": "second"
+          },
+          "size": {
+            "description": {
+              "en": "Output video dimensions",
+              "zh": "输出视频尺寸"
+            },
+            "enum": [
+              "720x1280",
+              "1280x720",
+              "1792x1024",
+              "1024x1792"
+            ],
+            "enumLabels": {
+              "1024x1792": {
+                "en": "1024x1792",
+                "zh": "1024x1792"
+              },
+              "1280x720": {
+                "en": "1280x720",
+                "zh": "1280x720"
+              },
+              "1792x1024": {
+                "en": "1792x1024",
+                "zh": "1792x1024"
+              },
+              "720x1280": {
+                "en": "720x1280",
+                "zh": "720x1280"
+              }
+            }
+          }
+        },
+        "completion_ratio": 0,
+        "contract": {
+          "aspect_ratios": [
+            "16:9",
+            "adaptive"
+          ],
+          "contractVersion": "ff197cce94cefb75",
+          "durations_seconds": {
+            "max": 6,
+            "min": 4
+          },
+          "execution_status": "live",
+          "family": "video",
+          "gateway_protocol": "openai_video",
+          "model_id": "example-mixed-video",
+          "operation_ids": [
+            "first_frame",
+            "video_multi_ref"
+          ],
+          "operations": [
+            {
+              "executable": true,
+              "id": "first_frame",
+              "inputs": [
+                {
+                  "required": true,
+                  "slot": "prompt",
+                  "type": "text"
+                },
+                {
+                  "allowedMimes": [
+                    "image/png"
+                  ],
+                  "max": 1,
+                  "min": 1,
+                  "required": true,
+                  "role": "first_frame",
+                  "slot": "first_frame",
+                  "type": "image"
+                }
+              ],
+              "modeKind": "first_frame",
+              "output": {
+                "formats": [
+                  "mp4"
+                ],
+                "type": "video"
+              },
+              "parameters": [
+                {
+                  "maximum": 6,
+                  "minimum": 4,
+                  "name": "duration",
+                  "step": 1,
+                  "type": "integer"
+                },
+                {
+                  "default": "adaptive",
+                  "enum": [
+                    "adaptive"
+                  ],
+                  "fixed": "adaptive",
+                  "name": "aspect_ratio",
+                  "type": "enum"
+                },
+                {
+                  "enum": [
+                    "mp4"
+                  ],
+                  "name": "output_format",
+                  "type": "enum"
+                }
+              ]
+            },
+            {
+              "executable": true,
+              "id": "video_multi_ref",
+              "inputs": [
+                {
+                  "required": true,
+                  "slot": "prompt",
+                  "type": "text"
+                },
+                {
+                  "allowedMimes": [
+                    "image/png"
+                  ],
+                  "firstItemRole": "first_frame",
+                  "max": 4,
+                  "min": 2,
+                  "required": true,
+                  "role": "reference",
+                  "slot": "reference_images",
+                  "type": "image"
+                }
+              ],
+              "modeKind": "image_reference",
+              "output": {
+                "formats": [
+                  "mp4"
+                ],
+                "type": "video"
+              },
+              "parameters": [
+                {
+                  "maximum": 6,
+                  "minimum": 4,
+                  "name": "duration",
+                  "step": 1,
+                  "type": "integer"
+                },
+                {
+                  "enum": [
+                    "16:9",
+                    "adaptive"
+                  ],
+                  "name": "aspect_ratio",
+                  "type": "enum"
+                },
+                {
+                  "enum": [
+                    "mp4"
+                  ],
+                  "name": "output_format",
+                  "type": "enum"
+                }
+              ]
+            }
+          ],
+          "output_formats": [
+            "mp4"
+          ],
+          "reference_images": {
+            "formats": [
+              "image/png"
+            ],
+            "max": 4,
+            "min": 2
+          },
+          "schemaVersion": "2.0",
+          "status": "partial",
+          "unknowns": [
+            "prompt_max_chars",
+            "resolutions",
+            "reference_images.max_bytes_each",
+            "operations.first_frame.parameters.resolution",
+            "operations.video_multi_ref.parameters.resolution"
+          ]
+        },
+        "effective_video": {
+          "groups": {
+            "default": [
+              {
+                "executable": true,
+                "gateway_protocol": "video_generations",
+                "id": "first_frame",
+                "inputs": [
+                  {
+                    "required": true,
+                    "slot": "prompt",
+                    "type": "text"
+                  },
+                  {
+                    "allowedMimes": [
+                      "image/png"
+                    ],
+                    "max": 1,
+                    "min": 1,
+                    "required": true,
+                    "role": "first_frame",
+                    "slot": "first_frame",
+                    "type": "image"
+                  }
+                ],
+                "modeKind": "first_frame",
+                "output": {
+                  "formats": [
+                    "mp4"
+                  ],
+                  "type": "video"
+                },
+                "parameters": [
+                  {
+                    "maximum": 6,
+                    "minimum": 4,
+                    "name": "duration",
+                    "required": true,
+                    "step": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "enum": [
+                      "adaptive"
+                    ],
+                    "fixed": "adaptive",
+                    "name": "aspect_ratio",
+                    "type": "enum"
+                  },
+                  {
+                    "enum": [
+                      "mp4"
+                    ],
+                    "name": "output_format",
+                    "type": "enum"
+                  }
+                ]
+              }
+            ],
+            "narrow": [
+              {
+                "executable": true,
+                "gateway_protocol": "openai_video",
+                "id": "video_multi_ref",
+                "inputs": [
+                  {
+                    "required": true,
+                    "slot": "prompt",
+                    "type": "text"
+                  },
+                  {
+                    "allowedMimes": [
+                      "image/png"
+                    ],
+                    "firstItemRole": "first_frame",
+                    "max": 2,
+                    "min": 2,
+                    "required": true,
+                    "role": "reference",
+                    "slot": "reference_images",
+                    "type": "image"
+                  }
+                ],
+                "modeKind": "image_reference",
+                "output": {
+                  "formats": [
+                    "mp4"
+                  ],
+                  "type": "video"
+                },
+                "parameters": [
+                  {
+                    "default": 5,
+                    "maximum": 6,
+                    "minimum": 4,
+                    "name": "duration",
+                    "step": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "enum": [
+                      "16:9",
+                      "adaptive"
+                    ],
+                    "name": "aspect_ratio",
+                    "type": "enum"
+                  },
+                  {
+                    "enum": [
+                      "mp4"
+                    ],
+                    "name": "output_format",
+                    "type": "enum"
+                  }
+                ]
+              }
+            ]
+          },
+          "version": "58cff3fa201d19bf"
+        },
+        "enable_groups": [
+          "default",
+          "narrow"
+        ],
+        "model_name": "example-mixed-video",
+        "model_price": 0.001,
+        "model_ratio": 0,
+        "owner_by": "",
+        "quota_type": 1,
+        "supported_endpoint_types": [
+          "openai",
+          "openai-video"
+        ]
+      }
+    ],
+    "group_ratio": {
+      "default": 1,
+      "narrow": 1
+    },
+    "pricing_version": "a42d372ccf0b5dd13ecf71203521f9d2",
+    "success": true,
+    "supported_endpoint": {
+      "openai": {
+        "method": "POST",
+        "path": "/v1/chat/completions"
+      }
+    },
+    "usable_group": {
+      "auto": "Automatic",
+      "default": "Default",
+      "narrow": "Narrow"
+    },
+    "vendors": []
+  }
+}

@@ -16,9 +16,11 @@ import (
 
 var ErrVideoCapabilityMismatch = errors.New("no verified channel accepts this video request")
 
-// MuseVideoTaskPlugin is the executing plugin of the verified OpenAI Video
-// profile. A different plugin claiming the endpoint does not inherit its rules.
-const MuseVideoTaskPlugin = "sora"
+// The OpenAI Video profile requires the factory plugin's ordered-image decoder.
+const (
+	MuseVideoTaskPlugin   = "sora"
+	MuseVideoDecoderModel = "muse-video"
+)
 
 // videoChannelOperations returns the confirmed operations of an enabled
 // channel. The same binding checks run on every routing attempt.
@@ -33,6 +35,10 @@ func videoChannelOperations(rules *modelcontracts.VideoCapabilities, generation 
 func videoChannelRejection(ch *Channel, modelName string, request *modelcontracts.VideoRequest) dto.ChannelFilterKind {
 	rules := modelcontracts.ActiveVideoCapabilities()
 	if request == nil || !videoChannelQualified(rules, jsplugin.DefaultRegistry.Generation(), ch, modelName) {
+		return dto.FilterVideoCapabilityUnavailable
+	}
+	identity, _ := rules.ChannelIdentity(modelName, ch.Id)
+	if request.Protocol != "" && identity.Protocol != request.Protocol {
 		return dto.FilterVideoCapabilityUnavailable
 	}
 	if !rules.Accepts(modelName, ch.Id, *request) {
@@ -90,15 +96,14 @@ func videoChannelQualified(rules *modelcontracts.VideoCapabilities, generation *
 		}
 	}
 
-	switch identity.Profile {
-	case "apimart_video":
+	switch identity.Protocol {
+	case modelcontracts.VideoProtocolGenerations:
 		return ch.Type == constant.ChannelTypeApiMart
-	case "openai_video":
-		contract, ok := modelcontracts.For(modelName)
-		if !ok || contract.GatewayProtocol != identity.Profile {
+	case modelcontracts.VideoProtocolOpenAI:
+		if modelName != MuseVideoDecoderModel && upstream != MuseVideoDecoderModel {
 			return false
 		}
-		candidates := generation.LookupEndpointCandidates(http.MethodPost, "/v1/videos", contract.ModelID)
+		candidates := generation.LookupEndpointCandidates(http.MethodPost, "/v1/videos", MuseVideoDecoderModel)
 		var settings kitdto.ChannelSettings
 		if ch.Setting != nil && *ch.Setting != "" && common.UnmarshalJsonStr(*ch.Setting, &settings) != nil {
 			return false
@@ -118,7 +123,7 @@ func videoChannelQualified(rules *modelcontracts.VideoCapabilities, generation *
 				bound = owner == candidate.Plugin
 			}
 			if bound {
-				return candidate.Protocol == identity.Profile && candidate.Plugin.Meta.Key == MuseVideoTaskPlugin && candidate.Plugin.IsFactory()
+				return candidate.Protocol == identity.Protocol && candidate.Plugin.Meta.Key == MuseVideoTaskPlugin && candidate.Plugin.IsFactory()
 			}
 		}
 	}

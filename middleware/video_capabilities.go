@@ -18,40 +18,68 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func managedVideoProtocol(c *gin.Context, modelName string) (string, error) {
+	if c.Request.Method != http.MethodPost {
+		return "", nil
+	}
+	path := c.Request.URL.Path
+	switch path {
+	case "/v1/videos", "/v1/video/generations", "/pg/video/generations":
+	default:
+		return "", nil
+	}
+	contract, _ := modelcontracts.For(modelName)
+	if contract.GatewayProtocol != modelcontracts.VideoProtocolGenerations &&
+		!modelcontracts.ActiveVideoCapabilities().Managed(modelName) {
+		return "", nil
+	}
+	if protocol := c.GetHeader(modelcontracts.VideoProtocolHeader); protocol != "" {
+		if protocol == modelcontracts.VideoProtocolOpenAI ||
+			protocol == modelcontracts.VideoProtocolGenerations && path != "/v1/videos" {
+			return protocol, nil
+		}
+		return "", errors.New("unsupported video request protocol for this endpoint")
+	}
+	if path == "/v1/videos" || contract.GatewayProtocol == modelcontracts.VideoProtocolOpenAI {
+		return modelcontracts.VideoProtocolOpenAI, nil
+	}
+	return modelcontracts.VideoProtocolGenerations, nil
+}
+
 // prepareVideoCapabilityFilter reads the same request shape the chosen
 // adaptor will submit. Downloading or decoding media bytes stays downstream.
 func prepareVideoCapabilityFilter(c *gin.Context, modelName string) *types.NewAPIError {
-	if c.Request.Method != http.MethodPost || !modelcontracts.ActiveVideoCapabilities().Managed(modelName) {
-		return nil
+	protocol, err := managedVideoProtocol(c, modelName)
+	if err != nil {
+		return types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
-	switch c.Request.URL.Path {
-	case "/v1/videos", "/v1/video/generations", "/pg/video/generations":
-	default:
+	if protocol == "" {
 		return nil
 	}
 
 	var intent modelcontracts.VideoRequest
-	var err error
-	contract, _ := modelcontracts.For(modelName)
-	if contract.GatewayProtocol == "openai_video" {
+	if protocol == modelcontracts.VideoProtocolOpenAI {
 		value, _ := c.Get(jsplugin.ContextKeyPinnedEndpoint)
 		pinned, _ := value.(jsplugin.PinnedEndpoint)
-		if pinned.Protocol != contract.GatewayProtocol || !pinned.Plugin.IsFactory() || pinned.Plugin.Meta.Key != model.MuseVideoTaskPlugin {
+		if pinned.Protocol != protocol || !pinned.Plugin.IsFactory() || pinned.Plugin.Meta.Key != model.MuseVideoTaskPlugin ||
+			(pinned.Model != model.MuseVideoDecoderModel && pinned.MappedModel != model.MuseVideoDecoderModel) {
 			return videoCapabilityUnavailable(c, modelName)
 		}
 		intent, err = orderedImageVideoIntent(c)
 	} else {
+		requestModel := modelcontracts.ActiveVideoCapabilities().NativeRequestModel(modelName)
 		var raw map[string]any
-		if _, claimed := c.Get(jsplugin.ContextKeyPinnedEndpoint); claimed {
+		if _, claimed := c.Get(jsplugin.ContextKeyPinnedEndpoint); claimed || requestModel == "" {
 			return videoCapabilityUnavailable(c, modelName)
 		}
 		if err = common.UnmarshalBodyReusable(c, &raw); err == nil {
-			intent, err = apimart.VideoRoutingRequest(modelName, raw)
+			intent, err = apimart.VideoRoutingRequest(requestModel, raw)
 		}
 	}
 	if err != nil {
 		return types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
+	intent.Protocol = protocol
 	service.GetChannelConstraints(c).AddFilter(dto.ChannelFilter{Kind: dto.FilterVideoCapability, VideoRequest: &intent})
 	return nil
 }

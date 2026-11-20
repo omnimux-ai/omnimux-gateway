@@ -352,15 +352,37 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		videoProtocol, err := managedVideoProtocol(c, claimedModel)
+		if err != nil {
+			abortWithOpenAiMessage(c, http.StatusBadRequest, err.Error(), types.ErrorCodeInvalidRequest)
+			return
+		}
+		if videoProtocol == modelcontracts.VideoProtocolGenerations {
+			c.Set(contextKeyTaskPluginEndpointModel, *modelRequest)
+			c.Next()
+			return
+		}
 		lookupModel := claimedModel
 		pinModel := claimedModel
 		mappedModel := ""
 		rewriteTo := ""
-		if declared, ok := generation.CanonicalModel(claimedModel); ok {
+		if declared, ok := generation.CanonicalModel(claimedModel); ok && videoProtocol == "" {
 			lookupModel = declared
 			pinModel = declared
 			if claimedModel != declared {
 				rewriteTo = declared
+			}
+		} else if videoProtocol == modelcontracts.VideoProtocolOpenAI && modelcontracts.ActiveVideoCapabilities().HasProtocol(claimedModel, videoProtocol) {
+			// The verified OpenAI Video profile supplies its decoder identity.
+			// A different mapping on a non-eligible channel cannot select it.
+			lookupModel = model.MuseVideoDecoderModel
+			if ok && declared == lookupModel {
+				pinModel = declared
+				if claimedModel != declared {
+					rewriteTo = declared
+				}
+			} else {
+				mappedModel = lookupModel
 			}
 		} else if target, ok := model.ResolveTaskModelAlias(generation, claimedModel); ok && target.Routable {
 			if target.Declared == "" {
@@ -376,7 +398,9 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			}
 		}
 		lookupPath := c.Request.URL.Path
-		if c.Request.Method == http.MethodPost && (lookupPath == "/v1/video/generations" || lookupPath == "/pg/video/generations") {
+		if videoProtocol == modelcontracts.VideoProtocolOpenAI {
+			lookupPath = "/v1/videos"
+		} else if c.Request.Method == http.MethodPost && (lookupPath == "/v1/video/generations" || lookupPath == "/pg/video/generations") {
 			if contract, ok := modelcontracts.For(lookupModel); ok && contract.GatewayProtocol == "openai_video" {
 				lookupPath = "/v1/videos"
 			}
@@ -450,6 +474,16 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 		candidates := generation.LookupEndpointCandidates(c.Request.Method, lookupPath, lookupModel)
 		if len(candidates) == 0 {
 			candidates = []pluginruntime.ProtocolBinding{binding}
+		}
+		if videoProtocol == modelcontracts.VideoProtocolOpenAI {
+			candidates = slices.DeleteFunc(slices.Clone(candidates), func(candidate pluginruntime.ProtocolBinding) bool {
+				return !candidate.Plugin.IsFactory() || candidate.Protocol != videoProtocol || candidate.Plugin.Meta.Key != model.MuseVideoTaskPlugin
+			})
+			if len(candidates) == 0 {
+				c.Next()
+				return
+			}
+			binding = candidates[0]
 		}
 		if definition, known := pluginruntime.HostProtocol(binding.Protocol); known && len(definition.DefinedModes()) > 0 {
 			stream, background := jsonBodyBoolFlags(c)

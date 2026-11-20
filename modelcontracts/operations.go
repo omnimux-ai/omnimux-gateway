@@ -25,12 +25,13 @@ const ExecutionStatusLive = "live"
 // invented inputs or parameters.
 // ModeKind is the optional display semantic for a verified video operation.
 type Operation struct {
-	ID         string          `json:"id"`
-	ModeKind   string          `json:"modeKind,omitempty"`
-	Executable bool            `json:"executable"`
-	Inputs     []Input         `json:"inputs"`
-	Parameters []Parameter     `json:"parameters"`
-	Output     OperationOutput `json:"output"`
+	ID              string          `json:"id"`
+	ModeKind        string          `json:"modeKind,omitempty"`
+	Executable      bool            `json:"executable"`
+	Inputs          []Input         `json:"inputs"`
+	Parameters      []Parameter     `json:"parameters"`
+	Output          OperationOutput `json:"output"`
+	GatewayProtocol string          `json:"gateway_protocol,omitempty"`
 }
 
 // Input is one input slot of an operation. An absent constraint means "not
@@ -83,10 +84,11 @@ type OperationOutput struct {
 // actually accepts, which may be narrower than the vendor's own capability
 // list.
 type GatewaySpec struct {
-	Profile     string            `json:"profile"`
-	Operations  []string          `json:"operations"`
-	ModeKinds   map[string]string `json:"mode_kinds,omitempty"`
-	SourceClaim string            `json:"source_claim,omitempty"`
+	Profile      string            `json:"profile"`
+	Operations   []string          `json:"operations"`
+	ModeKinds    map[string]string `json:"mode_kinds,omitempty"`
+	SourceClaim  string            `json:"source_claim,omitempty"`
+	RequestModel string            `json:"request_model,omitempty"`
 }
 
 // ExecutionSpec is the optional governance block for a model that is not
@@ -170,14 +172,14 @@ const (
 	profileFalH3Video    = "fal_h3_video"
 	profileFalH3LipSync  = "fal_h3_lip_sync"
 	profileAutoDLH3Video = "autodl_h3_video"
-	profileOpenAIVideo   = "openai_video"
+	profileOpenAIVideo   = VideoProtocolOpenAI
 )
 
 // apimartVideoOperations mirrors operationAllowed in
 // relay/channel/task/apimart/video_contract.go. It is deliberately duplicated:
 // modelcontracts cannot import relay (the relay packages import the catalog),
 // and this table is the bridge that keeps the published executable set honest.
-// Adding a model here is a gateway-code change, not a spec-only change.
+// An existing request dialect can also be selected by gateway.request_model.
 var apimartVideoOperations = map[string][]string{
 	"seedance-2-0": {
 		operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef,
@@ -188,7 +190,7 @@ var apimartVideoOperations = map[string][]string{
 	"seedance-2-0-mini": {
 		operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef,
 	},
-	"seedance-2-5": {
+	seedance25VideoRequestModel: {
 		operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef,
 		operationVideoEdit, operationVideoExtend,
 	},
@@ -328,6 +330,13 @@ func projectGatewayOperations(spec specFile) ([]Operation, []string, error) {
 	if !ok {
 		return nil, nil, fmt.Errorf("unknown gateway profile %q", spec.Gateway.Profile)
 	}
+	requestModel := spec.ModelID
+	if spec.Gateway.RequestModel != "" {
+		if spec.Family != "video" || spec.Gateway.Profile != profileAPIMartVideo || spec.Gateway.RequestModel != seedance25VideoRequestModel {
+			return nil, nil, fmt.Errorf("gateway request_model %q is not a verified request dialect for profile %q", spec.Gateway.RequestModel, spec.Gateway.Profile)
+		}
+		requestModel = spec.Gateway.RequestModel
+	}
 	operationIDs := spec.Gateway.Operations
 	if len(operationIDs) == 0 {
 		return nil, nil, fmt.Errorf("gateway profile %q declares no operations", spec.Gateway.Profile)
@@ -347,7 +356,7 @@ func projectGatewayOperations(spec specFile) ([]Operation, []string, error) {
 		if !known {
 			return nil, nil, fmt.Errorf("unknown operation %q for profile %q", operationID, spec.Gateway.Profile)
 		}
-		if !profile.allows(spec.ModelID, operationID) {
+		if !profile.allows(requestModel, operationID) {
 			return nil, nil, fmt.Errorf("operation %q is not allowed for model %q by profile %q", operationID, spec.ModelID, spec.Gateway.Profile)
 		}
 		if modeKind, declared := spec.Gateway.ModeKinds[operationID]; declared {
@@ -355,6 +364,11 @@ func projectGatewayOperations(spec specFile) ([]Operation, []string, error) {
 				return nil, nil, fmt.Errorf("mode kind %q is not supported for operation %q", modeKind, operationID)
 			}
 			operation.ModeKind = modeKind
+		}
+		if spec.Gateway.RequestModel != "" {
+			if err := validateManagedVideoOperation(&operation, VideoProtocolGenerations, spec.ModelID == seedance25VideoRequestModel); err != nil {
+				return nil, nil, err
+			}
 		}
 		operations = append(operations, operation)
 		for _, path := range operationUnknown {

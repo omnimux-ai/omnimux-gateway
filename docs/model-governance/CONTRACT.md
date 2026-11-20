@@ -309,6 +309,9 @@ make model-contract-check
 - `gateway.mode_kinds` 的键必须出现在 `gateway.operations` 中。视频 `video_multi_ref` 使用
   `image_reference` 表示仅使用图片作为参考，使用 `multimodal_reference` 表示支持多个素材类型。
   其他视频操作以自身 ID 表达语义。生成契约将该值发布为 `operations[].modeKind`。
+- 新公开 ID 可在 `apimart_video` 下用 `gateway.request_model` 复用已登记的原生请求解码器。
+  当前可复用 `seedance-2-5` 解码器，经运行时渠道规则登记后才可发布到付费目录。该字段是档案内部的解码器选择，
+  生成契约只公开 `gateway_protocol: "video_generations"`。已有档案沿用原发布字段。
 - 操作 ID 使用网关统一词表（视频类 `text_to_video`、`first_frame`、`end_frame`、
   `first_last_frame`、`video_multi_ref`、`video_edit`、`video_extend`、`document_to_video`、
   `webpage_to_video`；图像类 `text_to_image`、`image_to_image`、`multi_reference`；文本类 `chat`；
@@ -382,7 +385,7 @@ make model-contract-check
   `first_frame` / `last_frame`）、`required`、`min` / `max`（数量约束）、`allowedMimes`、
   `maxSizeMb`、`minDurationSec` / `maxDurationSec`。未确立的轴省略，不得用 0 或默认值代替。
 - `firstItemRole`：可选字段。值为 `first_frame` 时，有序参考图列表的第一项默认作为起始画面，其余作为参考。首帧独立输入槽仍使用 `role: first_frame`。
-- `gateway_protocol`：可选字段。`openai_video` 表示该模型的兼容视频创建路由也使用 OpenAI Video 请求解码器。
+- `gateway_protocol` 是可选的模型默认协议。逐组有效操作也可提供同名字段来指定该操作变体的协议，见 §6.9。
 - `parameters[]`：从 6.3 的 `parameters` 与 profile 模板展开；`enum` / `minimum` / `maximum` /
   `step` / `default` / `fixed` / `limitSource` 含义与 6.3 相同（发布契约中使用 `limitSource`）。
 - `output`：必填对象，至少含 `type`（image/video/audio/text/data 等）；`formats`、`sizes` 可选。
@@ -437,31 +440,53 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 1. 模型仍有启用渠道可路由（Served）；
 2. 契约 `execution_status` 为 `live`；
 3. 契约至少有一个 `executable: true` 的 operation。
+4. 新档案声明 `gateway_protocol: video_generations` 时，该公开模型已登记到运行时视频分组规则。
 
 不满足 2/3 的模型属于 **routable but unlisted**：仍可按模型 id 显式调用，但不出现在
 公开定价/目录响应中，也不得视为在售。`SelfUseModeEnabled` 为自建/BYO 部署保留旧行为；
 `OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED=1` 是应急开关。若契约载荷本身不可读，
 网关保持发布现有 Served 目录，不得把 `/api/pricing` 清空。
 
-### 6.9 试点视频的有效能力（#68 已交付行为）
+### 6.9 视频分组的有效能力
 
 `/api/pricing` 的模型行和 `/api/model_contract/:model` 的 `data` 可在 `contract` 同级返回
 `effective_video`。其 `groups` 把当前账号可选的逻辑分组映射到完整操作变体，`version` 随该视角下
 的能力内容变化。模式、素材槽和参数需要同时匹配一个变体。相同操作 ID 可以有多个变体，参数上的
 `required: true` 表示调用方须显式传值。变体的 `modeKind` 和素材角色沿用模型级契约。
 
-缺省 `effective_video` 时保留模型级 `contract` 和原调用方式。空 `groups` 表示当前视角没有可发布的试点分组。组内空数组
-表示该组目前没有经过核验的变体。实际提交和每次重试按请求权限、当前渠道状态和有效规则重新匹配。
+缺省 `effective_video` 时保留模型级 `contract` 和原调用方式。空 `groups` 表示当前视角没有可发布的分组。
+组内空数组表示该组目前没有经过核验的变体。`effective_video.groups` 是目录中该账号逐组的能力视图。
+请求使用实际提交令牌的访问权限。显式选择具体组，例如 `model@group`，会把提交和重试限制在该组。
 已核验的候选都不支持当前组合时返回 `400 video_capability_mismatch`。当前没有可用的已核验候选时返回 `503`。
 
-网关启动时可从 `OMNIMUX_VIDEO_CAPABILITIES_FILE` 装载试点规则。配置的 `models` 把
-`muse-video` 或 `seedance-2-5` 映射到各自的渠道规则数组。每条规则包含 `channel_id`、
+调用方优先读取操作变体的 `gateway_protocol`，缺省时继承 `contract.gateway_protocol`。试点旧版的两个字段都可能缺省，
+此时沿用旧客户端已知的提交方式。协议确定创建、查询入口及请求格式。
+
+| 协议 | 创建 | 查询 |
+| --- | --- | --- |
+| `openai_video` | `POST /v1/videos` | `GET /v1/videos/:task_id` |
+| `video_generations` | `POST /v1/video/generations` | `GET /v1/video/generations/:task_id` |
+
+原生协议可以在创建请求中携带 `X-OmniMux-Video-Protocol: video_generations`。
+当模型默认协议是 `openai_video` 且选择原生变体时，在原生创建入口携带该请求头。旧客户端访问原生创建入口时，
+原有的 OpenAI Video 模型默认解码行为继续有效。重试使用初次请求的协议和能力条件。查询使用创建返回的任务 ID 及对应协议，
+并用原任务记录获取结果。
+
+网关启动时可从 `OMNIMUX_VIDEO_CAPABILITIES_FILE` 装载分组规则。配置的 `models` 把已有可执行视频档案并使用已核验
+解码器的公开 ID 映射到各自的渠道规则数组。每条规则包含 `channel_id`、
 `channel_type`、`profile`、`upstream_model`、`base_url`、`evidence` 与 `operations`。
 变体引用既有操作 `id`，可用 `inputs` 和 `parameters` 限定该变体接受的槽位与参数。
-渠道身份、地址和证据留在规则配置中。Muse 试点使用网关内置的已核验插件实现，解码器会补齐
-5 秒的默认时长。Muse 变体声明 `parameters` 时需包含 `duration`，范围不含 5 秒时调用方须显式传值。
+规则需要与当前通道类型、上游模型映射、地址和插件实现一致。渠道身份、地址和证据留在规则配置中。
+原生规则可指定 `request_model`，用于在模型默认协议不同的情况下选择已核验的解码器。
+同一公开模型的原生规则共享一个解码器。OpenAI Video 规则使用网关内置的有序参考图解码器，
+新公开 ID 由渠道模型映射到该解码器的既有目标。该解码器补齐 5 秒默认时长，变体声明 `parameters` 时需包含
+`duration`，范围不含 5 秒时调用方须显式传值。新增原生公开 ID 的变体要求调用方显式填写正时长。
 
-试点范围和通用分组契约的后续验收记录见 [#74](https://github.com/omnimux-ai/omnimux-gateway/issues/74)。
+从 #68 双模型试点扩展到复用已核验解码器的验收记录见 [#74](https://github.com/omnimux-ai/omnimux-gateway/issues/74)。
+调用方可使用由两个目录入口实际生成的[同协议样例](../../router/testdata/issue-74/catalog.json)
+和[混合协议样例](../../router/testdata/issue-74/mixed-catalog.json)。样例仅包含各自的合成模型及用于选组的响应字段。
+普通测试核对保存的样例，重新生成时运行
+`OMNIMUX_UPDATE_GROUPED_VIDEO_FIXTURES=1 go test ./router -run '^TestRegisteredVideoProtocolCatalogAndRoutes$' -count=1`。
 
 ## Field: `basis`
 

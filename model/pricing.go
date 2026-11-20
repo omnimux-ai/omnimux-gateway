@@ -91,7 +91,8 @@ type EffectiveVideo struct {
 // VideoCapabilitiesForGroups projects the currently served variants scoped to
 // the same groups that the caller can select and see prices for.
 func (p Pricing) VideoCapabilitiesForGroups(groupRatios map[string]float64) *EffectiveVideo {
-	if p.Contract == nil || !modelcontracts.ActiveVideoCapabilities().Managed(p.ModelName) {
+	if p.Contract == nil || p.Contract.GatewayProtocol != modelcontracts.VideoProtocolGenerations &&
+		!modelcontracts.ActiveVideoCapabilities().Managed(p.ModelName) {
 		return nil
 	}
 	groups := make(map[string][]modelcontracts.Operation)
@@ -192,9 +193,8 @@ func GetCatalogPricing() []Pricing {
 	return published
 }
 
-// GetCatalogGaps returns the served model names that are deliberately kept out
-// of the public catalog because they have no live executable contract. The
-// list is sorted for deterministic logs and diagnostics.
+// GetCatalogGaps returns served model names that fail the publication gate.
+// The list is sorted for deterministic logs and diagnostics.
 func GetCatalogGaps() []string {
 	if !catalogContractGateEnabled() || modelcontracts.Count() == 0 {
 		return nil
@@ -210,7 +210,13 @@ func GetCatalogGaps() []string {
 }
 
 func isCatalogPublished(row Pricing) bool {
-	return row.Contract != nil && row.Contract.IsLiveExecutable()
+	if row.Contract == nil || !row.Contract.IsLiveExecutable() {
+		return false
+	}
+	// A newly declared native decoder profile needs runtime channel rules to
+	// back its executable contract. The legacy catalog keeps its own behavior.
+	return row.Contract.GatewayProtocol != modelcontracts.VideoProtocolGenerations ||
+		modelcontracts.ActiveVideoCapabilities().Managed(row.ModelName)
 }
 
 // catalogContractGateEnabled reports whether the public catalog publication
@@ -328,15 +334,15 @@ func loadPricingVideoOperations(enableAbilities []AbilityWithChannel, generation
 	if rules == nil {
 		return nil
 	}
-	var pilotAbilities []AbilityWithChannel
+	var managedAbilities []AbilityWithChannel
 	channelIDs := make(map[int]struct{})
 	for _, ability := range enableAbilities {
 		if rules.Managed(ability.Model) {
-			pilotAbilities = append(pilotAbilities, ability)
+			managedAbilities = append(managedAbilities, ability)
 			channelIDs[ability.ChannelId] = struct{}{}
 		}
 	}
-	if len(pilotAbilities) == 0 {
+	if len(managedAbilities) == 0 {
 		return nil
 	}
 
@@ -359,7 +365,7 @@ func loadPricingVideoOperations(enableAbilities []AbilityWithChannel, generation
 	}
 
 	operationsByModel := make(map[string]map[string][]modelcontracts.Operation)
-	for _, ability := range pilotAbilities {
+	for _, ability := range managedAbilities {
 		channel := channelsByID[ability.ChannelId]
 		if channel == nil || channel.Status != common.ChannelStatusEnabled {
 			continue

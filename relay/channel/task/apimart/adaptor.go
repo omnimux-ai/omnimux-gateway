@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	taskdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/QuantumNous/new-api/relay/channel"
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -44,9 +45,10 @@ const (
 
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
-	ChannelType int
-	baseURL     string
-	apiKey      string
+	ChannelType  int
+	baseURL      string
+	apiKey       string
+	managedVideo bool
 }
 
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
@@ -73,19 +75,25 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	}
 
 	kind := detectKind(modelName, c.Request.URL.Path)
+	filter, managed := service.GetChannelConstraints(c).VideoFilter()
+	a.managedVideo = managed && filter.VideoRequest != nil && filter.VideoRequest.Protocol == modelcontracts.VideoProtocolGenerations
+	if a.managedVideo {
+		kind = kindVideo
+	}
 	c.Set(contextKeyApimartKind, kind)
 	info.Action = constant.TaskActionGenerate
 
 	// Validate video duration/resolution billing inputs early (EstimateBilling cannot return errors).
 	if kind == kindVideo {
-		if isPhaseOneVideoModel(modelName) {
-			var normalized map[string]any
-			var err error
-			if _, managed := service.GetChannelConstraints(c).VideoFilter(); managed {
-				normalized, _, err = normalizeManagedVideoRequest(modelName, raw)
-			} else {
-				normalized, err = validatePhaseOneVideoRequest(modelName, raw)
+		if a.managedVideo {
+			requestModel := modelcontracts.ActiveVideoCapabilities().NativeRequestModel(modelName)
+			normalized, _, err := normalizeManagedVideoRequest(requestModel, raw)
+			if err != nil {
+				return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 			}
+			raw = normalized
+		} else if isPhaseOneVideoModel(modelName) {
+			normalized, err := validatePhaseOneVideoRequest(modelName, raw)
 			if err != nil {
 				return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 			}
@@ -121,7 +129,7 @@ func detectKind(modelName, path string) string {
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
 	// MJ / Suno music / Suno sound effects: ModelPrice is USD per call.
 	kind := detectKind(info.OriginModelName, c.Request.URL.Path)
-	if kind == kindMusic || kind == kindSoundEffect || kind == kindMidjourney {
+	if !a.managedVideo && (kind == kindMusic || kind == kindSoundEffect || kind == kindMidjourney) {
 		return map[string]float64{"units": 1}
 	}
 
@@ -145,6 +153,9 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	base := a.baseURL
 	if base == "" {
 		base = defaultBaseURL
+	}
+	if a.managedVideo {
+		return base + "/v1/videos/generations", nil
 	}
 	// Kind is also recoverable from model name if context is unavailable.
 	kind := detectKind(info.OriginModelName, "")
@@ -197,6 +208,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	out["model"] = upstream
 
 	kind := detectKind(info.OriginModelName, c.Request.URL.Path)
+	if a.managedVideo {
+		kind = kindVideo
+	}
 	if kind == kindMusic {
 		if _, ok := out["version"]; !ok {
 			out["version"] = defaultSunoVersion
@@ -227,7 +241,7 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 				return nil, err
 			}
 		}
-		if !isPhaseOneVideoModel(info.OriginModelName) {
+		if !a.managedVideo && !isPhaseOneVideoModel(info.OriginModelName) {
 			if prompt, _ := out["prompt"].(string); strings.TrimSpace(prompt) == "" {
 				return nil, fmt.Errorf("prompt is required for video generation")
 			}
