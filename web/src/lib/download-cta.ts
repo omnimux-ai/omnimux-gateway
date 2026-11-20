@@ -36,6 +36,9 @@ export const DOWNLOAD_LOCALES = [
   'ja',
   'zh-TW',
   'zh-CN',
+  'fr',
+  'ru',
+  'vi',
 ] as const
 export const DOWNLOAD_VARIANTS = [
   'primary',

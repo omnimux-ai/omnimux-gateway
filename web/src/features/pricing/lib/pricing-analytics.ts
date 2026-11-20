@@ -17,11 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-/**
- * Stable public-pricing analytics event names (PRD §9 / architecture §9).
- * Until a product-wide track() SDK is wired, events are no-op in production
- * and logged in DEV so QA can verify call sites.
- */
+/** Stable public-pricing analytics event names. */
 export const PRICING_ANALYTICS_EVENTS = {
   PAGE_VIEW: 'pricing_page_view',
   MODALITY_SWITCH: 'pricing_modality_switch',
@@ -34,6 +30,10 @@ export const PRICING_ANALYTICS_EVENTS = {
   SERVED_FROM_CACHE: 'pricing_served_from_cache',
   FETCH_ERROR: 'pricing_fetch_error',
   EXPR_PARSE_ERROR: 'pricing_expr_parse_error',
+  TOPUP_CLICK: 'pricing_topup_click',
+  ESTIMATOR_INTERACT: 'pricing_estimator_interact',
+  CATALOG_EXPAND: 'pricing_catalog_expand',
+  FAQ_TOGGLE: 'pricing_faq_toggle',
 } as const
 
 export type PricingAnalyticsEvent =

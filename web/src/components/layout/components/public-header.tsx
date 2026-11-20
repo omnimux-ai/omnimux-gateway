@@ -116,6 +116,7 @@ export interface PublicHeaderProps {
   showNavigation?: boolean
   showAuthButtons?: boolean
   showNotifications?: boolean
+  showSystemUpdate?: boolean
   className?: string
   fullWidth?: boolean
 }
@@ -449,7 +450,9 @@ export function PublicHeader(props: PublicHeaderProps) {
               >
                 {logoContent}
               </Link>
-              <SystemUpdateAction presentation='version' />
+              {props.showSystemUpdate !== false && (
+                <SystemUpdateAction presentation='version' />
+              )}
             </div>
 
             {/* Desktop nav */}

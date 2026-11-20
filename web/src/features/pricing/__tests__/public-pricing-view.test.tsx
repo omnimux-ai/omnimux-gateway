@@ -16,17 +16,23 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import type { PublicModelCardItem, PricingVendor } from '../types'
 import { PublicPricingView } from '../public-pricing-view'
+import type { PricingData, PricingVendor, PublicModelCardItem } from '../types'
+import { renderPricing } from './render-pricing'
+
+vi.mock('../components/pricing-download-cta', () => ({
+  PricingDownloadCta: () => null,
+}))
 
 const forceRefetchMock = vi.fn()
 
 type PricingHookState = {
+  rawPricingData?: PricingData
   cards: PublicModelCardItem[]
   vendors: PricingVendor[]
   isLoading: boolean
@@ -45,9 +51,7 @@ vi.mock('../hooks/use-pricing-data', () => ({
 }))
 
 vi.mock('@/lib/lobe-icon-lazy', () => ({
-  getLobeIcon: (name: string) => (
-    <span data-testid='vendor-icon'>{name}</span>
-  ),
+  getLobeIcon: (name: string) => <span data-testid='vendor-icon'>{name}</span>,
 }))
 
 vi.mock('@/hooks/use-copy-to-clipboard', () => ({
@@ -59,7 +63,10 @@ vi.mock('@/hooks/use-copy-to-clipboard', () => ({
 
 function makeCard(
   overrides: Partial<PublicModelCardItem> &
-    Pick<PublicModelCardItem, 'id' | 'name' | 'modelId' | 'provider' | 'category'>
+    Pick<
+      PublicModelCardItem,
+      'id' | 'name' | 'modelId' | 'provider' | 'category'
+    >
 ): PublicModelCardItem {
   return {
     tiers: [
@@ -122,6 +129,8 @@ const CARDS: PublicModelCardItem[] = [
 beforeAll(() => {
   i18next.addResourceBundle('en', 'translation', {
     Pricing: 'Pricing',
+    'View all {{count}} models and technical specs':
+      'View all {{count}} models and technical specs',
     'Pay for what you use': 'Pay for what you use',
     'Every model on OmniMux is pay-as-you-go. No subscription, no seat fees, no minimums — top up credits and call {{count}}+ production models through one API.':
       'Every model on OmniMux is pay-as-you-go. No subscription, no seat fees, no minimums — top up credits and call {{count}}+ production models through one API.',
@@ -213,21 +222,32 @@ describe('PublicPricingView', () => {
     }
   })
 
-  test('renders hero, billing steps, toolbar, and model cards when data is ready', async () => {
+  test('keeps the catalog collapsed by default and preserves model tabs when opened', async () => {
     const user = userEvent.setup()
-    render(<PublicPricingView />)
+    renderPricing(<PublicPricingView />)
 
     expect(
-      screen.getByRole('heading', { name: 'Pay for what you use' })
+      screen.getByRole('heading', {
+        name: 'Pay for what you use — no subscription required',
+      })
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'How billing works' })
+      screen.getByRole('heading', {
+        name: 'Roughly how much is a 15-second product video?',
+      })
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'Top up more, pay less' })
     ).toBeInTheDocument()
     expect(document.querySelector('#pricing-models')).not.toBeNull()
 
+    const trigger = screen.getByRole('button', { name: /view all 4 models/i })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByRole('tab', { name: /^VIDEO/ })
+    ).not.toBeInTheDocument()
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
     // Tab order: VIDEO, LLM, IMAGE, AUDIO, ALL
     expect(screen.getByRole('tab', { name: /^VIDEO/ })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^LLM/ })).toBeInTheDocument()
@@ -245,7 +265,7 @@ describe('PublicPricingView', () => {
     expect(screen.getByText('Claude Sonnet')).toBeInTheDocument()
   })
 
-  test('shows loading skeleton while pricing data is loading', () => {
+  test('shows the catalog loading state on a video deep link', () => {
     pricingHookState = {
       ...pricingHookState,
       cards: [],
@@ -253,13 +273,19 @@ describe('PublicPricingView', () => {
       dataSource: 'none',
     }
 
-    const { container } = render(<PublicPricingView />)
+    const { container } = renderPricing(
+      <PublicPricingView search={{ modality: 'video' }} />
+    )
 
     expect(
-      screen.getByRole('heading', { name: 'Pay for what you use' })
+      screen.getByRole('heading', {
+        name: 'Pay for what you use — no subscription required',
+      })
     ).toBeInTheDocument()
     expect(screen.queryByText('GPT-4o')).not.toBeInTheDocument()
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    expect(
+      container.querySelectorAll('[data-slot="skeleton"]').length
+    ).toBeGreaterThan(0)
   })
 
   test('shows offline banner when serving from cache and refresh triggers forceRefetch', async () => {
@@ -271,7 +297,7 @@ describe('PublicPricingView', () => {
       lastUpdated: Date.UTC(2026, 2, 1, 8, 30, 0),
     }
 
-    render(<PublicPricingView />)
+    renderPricing(<PublicPricingView search={{ modality: 'video' }} />)
 
     expect(
       screen.getByText(/Showing cached prices that may be outdated/i)
@@ -283,8 +309,9 @@ describe('PublicPricingView', () => {
 
   test('filters cards by modality tab', async () => {
     const user = userEvent.setup()
-    render(<PublicPricingView />)
+    renderPricing(<PublicPricingView />)
 
+    await user.click(screen.getByRole('button', { name: /view all 4 models/i }))
     await user.click(screen.getByRole('tab', { name: /^IMAGE/ }))
 
     expect(screen.getByText('DALL·E 3')).toBeInTheDocument()
@@ -301,7 +328,7 @@ describe('PublicPricingView', () => {
       dataSource: 'none',
     }
 
-    render(<PublicPricingView />)
+    renderPricing(<PublicPricingView search={{ modality: 'video' }} />)
 
     const alert = screen.getByRole('alert')
     expect(
@@ -313,10 +340,69 @@ describe('PublicPricingView', () => {
     expect(forceRefetchMock).toHaveBeenCalledTimes(1)
   })
 
+  test('opens a filtered pricing URL with its modality, provider and search applied', () => {
+    renderPricing(
+      <PublicPricingView
+        search={{ modality: 'text', vendor: '1', search: 'gpt' }}
+      />
+    )
+
+    expect(
+      screen.getByRole('button', { name: /view all 4 models/i })
+    ).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('tab', { name: /^LLM/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByText('GPT-4o')).toBeInTheDocument()
+    expect(screen.queryByText('Claude Sonnet')).not.toBeInTheDocument()
+  })
+
+  test('uses the visible group from a deep link for the video estimate', async () => {
+    const user = userEvent.setup()
+    const group = 'wan-3.0-720p'
+    pricingHookState.rawPricingData = {
+      success: true,
+      data: [
+        {
+          id: 7,
+          model_name: 'wan-3.0',
+          quota_type: 1,
+          model_ratio: 1,
+          completion_ratio: 1,
+          model_price: 0.176471,
+          enable_groups: [group],
+          contract: {
+            model_id: 'wan-3.0',
+            billing: {
+              unit: 'per_second',
+              pricing_basis: 'duration_seconds',
+              unit_price_usd: 0.176471,
+            },
+          },
+        },
+      ],
+      vendors: [],
+      group_ratio: { [group]: 0.5 },
+      usable_group: { [group]: 'Wan 3.0 720p' },
+      supported_endpoint: {},
+      auto_groups: [],
+    }
+
+    renderPricing(<PublicPricingView search={{ group }} />)
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Estimator model' }),
+      'wan-3.0'
+    )
+    expect(screen.getByText('13.2 credits')).toBeInTheDocument()
+    expect(screen.getByText('≈ $1.32')).toBeInTheDocument()
+  })
+
   test('shows empty state when filters yield no cards', async () => {
     const user = userEvent.setup()
-    render(<PublicPricingView />)
+    renderPricing(<PublicPricingView />)
 
+    await user.click(screen.getByRole('button', { name: /view all 4 models/i }))
     await user.click(screen.getByRole('tab', { name: /^AUDIO/ }))
 
     expect(screen.getByText('No models found')).toBeInTheDocument()

@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -16,138 +17,73 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowDown, MessageSquareCode } from 'lucide-react'
-import { useCallback } from 'react'
+import { ArrowDown } from 'lucide-react'
+import { useReducedMotion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { buttonVariants } from '@/components/ui/button'
 
-/** Anchor target for the primary CTA (aligned with PRD / architecture). */
+import { USD_PER_CREDIT } from '../constants'
+import { PricingTopupLink } from './pricing-topup-link'
+import { ESTIMATOR_SECTION_ID } from './video-cost-estimator'
+
 export const PRICING_MODELS_SECTION_ID = 'pricing-models'
 
-const ENTERPRISE_MAILTO = 'mailto:sales@omnimux.ai'
-
-const FEATURE_PILL_KEYS = [
-  'Check prices and wallet allowances',
-  'Review generation history',
-  'Failed tasks return generation credits',
-] as const
-
-export type BillingHeroProps = {
-  /** Live model count for the subtitle; omit to use a generic phrase. */
-  modelCount?: number
-  /** Override scroll target id (default: pricing-models). */
-  scrollTargetId?: string
-  onScrollToModels?: () => void
-  onConsultEnterprise?: () => void
-  className?: string
-}
-
-export function BillingHero(props: BillingHeroProps) {
+export function BillingHero() {
   const { t } = useTranslation()
-  const scrollTargetId = props.scrollTargetId || PRICING_MODELS_SECTION_ID
-
-  const handleScrollClick = useCallback(() => {
-    if (props.onScrollToModels) {
-      props.onScrollToModels()
-      return
-    }
-    const target = document.querySelector(`#${CSS.escape(scrollTargetId)}`)
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [props, scrollTargetId])
-
-  const handleEnterpriseClick = useCallback(() => {
-    if (props.onConsultEnterprise) {
-      props.onConsultEnterprise()
-      return
-    }
-    toast.info(
-      t('Opening enterprise pricing contact… sales@omnimux.ai')
-    )
-    window.location.assign(ENTERPRISE_MAILTO)
-  }, [props, t])
-
-  const subtitle =
-    typeof props.modelCount === 'number' && props.modelCount > 0
-      ? t(
-          'Top up and pay per generation. This catalog lists {{count}} available models; prices and allowances follow your wallet settings.',
-          { count: props.modelCount }
-        )
-      : t(
-          'Top up and pay per generation. Check current prices and allowances in your wallet.'
-        )
+  const reduceMotion = useReducedMotion()
 
   return (
     <section
-      className={cn(
-        'pt-6 pb-10 text-center sm:pt-10 sm:pb-14',
-        props.className
-      )}
+      className='py-8 text-center sm:py-12'
       aria-labelledby='billing-hero-heading'
     >
-      <div className='mb-4 inline-flex items-center justify-center'>
-        <span className='bg-card text-foreground/72 border-border rounded-sm border px-2.5 py-1 font-mono text-xs font-semibold tracking-widest uppercase sm:text-sm'>
-          {t('Pricing')}
-        </span>
-      </div>
-
       <h1
         id='billing-hero-heading'
-        className='text-foreground mb-4 text-4xl leading-[1.1] font-bold tracking-tight sm:mb-5 sm:text-5xl lg:text-6xl'
+        className='text-foreground mx-auto max-w-4xl text-4xl leading-tight font-bold tracking-tight text-balance sm:text-6xl'
       >
-        {t('Pay for what you use')}
+        {t('Pay for what you use — no subscription required')}
       </h1>
-
-      <p className='text-muted-foreground mx-auto mb-8 max-w-2xl px-2 text-sm leading-relaxed sm:max-w-3xl sm:text-base'>
-        {subtitle}
+      <p className='text-muted-foreground mx-auto mt-4 max-w-2xl text-base'>
+        {t(
+          'Estimate a video’s cost first, then choose a credit top-up. Balances, charges, and credit returns are visible in your wallet.'
+        )}
       </p>
-
-      <div className='mx-auto mb-8 flex max-w-4xl flex-wrap items-center justify-center gap-2 px-2 sm:mb-10 sm:gap-3'>
-        {FEATURE_PILL_KEYS.map((key) => (
-          <div
-            key={key}
-            className='bg-card text-foreground border-border hover:border-border/80 inline-flex items-center rounded-sm border px-3.5 py-1.5 text-xs transition-colors select-none sm:text-sm'
+      <div className='mx-auto mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row'>
+        <PricingTopupLink position='hero' />
+        <Link
+          to='/pricing'
+          search
+          hash={ESTIMATOR_SECTION_ID}
+          hashScrollIntoView={{
+            block: 'start',
+            behavior: reduceMotion ? 'auto' : 'smooth',
+          }}
+          resetScroll={false}
+          className={buttonVariants({
+            size: 'lg',
+            variant: 'outline',
+            className: 'h-10 rounded-full px-4',
+          })}
+        >
+          {t('Estimate a video cost')}
+          <ArrowDown aria-hidden='true' />
+        </Link>
+      </div>
+      <ul className='text-muted-foreground mx-auto mt-5 flex max-w-4xl flex-wrap justify-center gap-2 text-xs'>
+        {[
+          t('1 credit = ${{usd}} USD', { usd: USD_PER_CREDIT.toFixed(2) }),
+          t('Card, Alipay/WeChat, or wire transfer'),
+          t('Generation credit refunds follow task records'),
+        ].map((item) => (
+          <li
+            key={item}
+            className='border-border rounded-full border px-3 py-1'
           >
-            <span
-              className='text-success mr-2 font-mono text-xs'
-              aria-hidden='true'
-            >
-              ✓
-            </span>
-            <span>{t(key)}</span>
-          </div>
+            {item}
+          </li>
         ))}
-      </div>
-
-      <div className='flex flex-col items-center justify-center gap-3 px-4 sm:flex-row sm:gap-4'>
-        <Button
-          type='button'
-          size='lg'
-          onClick={handleScrollClick}
-          className='w-full gap-2 sm:w-auto'
-        >
-          <span>{t('View model prices')}</span>
-          <ArrowDown className='size-4' aria-hidden='true' />
-        </Button>
-
-        <Button
-          type='button'
-          variant='outline'
-          size='lg'
-          onClick={handleEnterpriseClick}
-          className='bg-card w-full gap-2 sm:w-auto'
-        >
-          <MessageSquareCode
-            className='text-muted-foreground size-4'
-            aria-hidden='true'
-          />
-          <span>{t('Enterprise pricing')}</span>
-        </Button>
-      </div>
+      </ul>
     </section>
   )
 }

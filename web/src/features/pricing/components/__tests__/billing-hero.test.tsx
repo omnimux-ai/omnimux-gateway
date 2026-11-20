@@ -16,84 +16,48 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import i18next from 'i18next'
-import { beforeAll, describe, expect, test, vi } from 'vitest'
+import { screen } from '@testing-library/react'
+import { afterEach, describe, expect, test } from 'vitest'
 
-import { BillingHero, PRICING_MODELS_SECTION_ID } from '../billing-hero'
+import { useAuthStore } from '@/stores/auth-store'
 
-beforeAll(() => {
-  i18next.addResourceBundle('en', 'translation', {
-    Pricing: 'Pricing',
-    'Pay for what you use': 'Pay for what you use',
-    'Every model on OmniMux is pay-as-you-go. No subscription, no seat fees, no minimums — top up credits and call {{count}}+ production models through one API.':
-      'Every model on OmniMux is pay-as-you-go. No subscription, no seat fees, no minimums — top up credits and call {{count}}+ production models through one API.',
-    'Every model on OmniMux is pay-as-you-go. No subscription, no seat fees, no minimums — top up credits and call production-grade models through one API.':
-      'Every model on OmniMux is pay-as-you-go. No subscription, no seat fees, no minimums — top up credits and call production-grade models through one API.',
-    'No monthly fee — prepaid credits': 'No monthly fee — prepaid credits',
-    'API key without a credit card': 'API key without a credit card',
-    'Credits never expire': 'Credits never expire',
-    'Failed generations are free': 'Failed generations are free',
-    'View model prices': 'View model prices',
-    'Enterprise pricing': 'Enterprise pricing',
-    'Opening enterprise pricing contact… sales@omnimux.ai':
-      'Opening enterprise pricing contact… sales@omnimux.ai',
-  })
-})
+import { renderPricing } from '../../__tests__/render-pricing'
+import { BillingHero } from '../billing-hero'
+
+afterEach(() => useAuthStore.getState().auth.reset())
 
 describe('BillingHero', () => {
-  test('renders heading, feature pills, and both CTAs', () => {
-    render(<BillingHero modelCount={80} />)
+  test('shows the estimate and routes guests to sign-in for a top-up', () => {
+    renderPricing(<BillingHero />)
 
     expect(
-      screen.getByRole('heading', { name: 'Pay for what you use' })
+      screen.getByRole('heading', {
+        name: 'Pay for what you use — no subscription required',
+      })
     ).toBeInTheDocument()
-    // 订阅套餐已下线，hero 不得再宣称「可选套餐」。
-    expect(screen.queryByText(/optional plans/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/prepaid credits/i)).not.toBeInTheDocument()
-    expect(screen.getByText('Check prices and wallet allowances')).toBeInTheDocument()
-    expect(screen.getByText('Review generation history')).toBeInTheDocument()
-    expect(screen.getByText('Failed tasks return generation credits')).toBeInTheDocument()
-    expect(screen.queryByText(/no subscription|never expire|no minimums/i)).not.toBeInTheDocument()
+    expect(screen.getByText('1 credit = $0.10 USD')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /View model prices/i })
+      screen.getByText('Generation credit refunds follow task records')
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /Enterprise pricing/i })
-    ).toBeInTheDocument()
-    expect(screen.getByText(/80 available models/)).toBeInTheDocument()
+      screen.queryByText(
+        /never expire|no minimums|optional plans|prepaid credits/i
+      )
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Estimate a video cost' })
+    ).toHaveAttribute('href', '/pricing#estimator')
+    expect(
+      screen.getByRole('link', { name: 'Top up credits' })
+    ).toHaveAttribute('href', '/sign-in?redirect=%2Fwallet')
   })
 
-  test('primary CTA scrolls to the pricing models section by default', async () => {
-    const user = userEvent.setup()
-    const target = document.createElement('div')
-    target.id = PRICING_MODELS_SECTION_ID
-    const scrollIntoView = vi.fn()
-    Object.defineProperty(target, 'scrollIntoView', {
-      configurable: true,
-      value: scrollIntoView,
-    })
-    document.body.appendChild(target)
+  test('opens the wallet deposit section for a signed-in visitor', () => {
+    useAuthStore.getState().auth.setUser({ id: 7, username: 'member', role: 1 })
+    renderPricing(<BillingHero />)
 
-    render(<BillingHero />)
-    await user.click(screen.getByRole('button', { name: /View model prices/i }))
-
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: 'smooth',
-      block: 'start',
-    })
-
-    target.remove()
-  })
-
-  test('invokes onConsultEnterprise when provided', async () => {
-    const user = userEvent.setup()
-    const onConsultEnterprise = vi.fn()
-
-    render(<BillingHero onConsultEnterprise={onConsultEnterprise} />)
-    await user.click(screen.getByRole('button', { name: /Enterprise pricing/i }))
-
-    expect(onConsultEnterprise).toHaveBeenCalledTimes(1)
+    expect(
+      screen.getByRole('link', { name: 'Top up credits' })
+    ).toHaveAttribute('href', '/wallet#wallet-add-funds')
   })
 })

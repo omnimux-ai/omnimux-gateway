@@ -16,39 +16,37 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useTranslation } from 'react-i18next'
+
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
+import { LandingFooter } from '@/features/omnimux-landing/components/landing-footer'
 
-import { PublicPricingView } from './public-pricing-view'
+import { PricingTopupLink } from './components/pricing-topup-link'
+import {
+  PublicPricingView,
+  type PricingCatalogSearch,
+} from './public-pricing-view'
 
-/**
- * Public /pricing route entry.
- * P0 default: conversion-oriented PublicPricingView (ADR-001).
- * Legacy sidebar/table/drawer console view is retained under components/
- * for a future P1 console surface and is no longer the default.
- */
-export function Pricing() {
+export function Pricing(props: { search?: PricingCatalogSearch } = {}) {
+  const { t } = useTranslation()
+
   return (
-    <PublicLayout showMainContainer={false}>
-      <div className='relative'>
-        <div
-          aria-hidden
-          className='pointer-events-none absolute inset-x-0 top-0 h-[600px] opacity-20 dark:opacity-[0.10]'
-          style={{
-            background: [
-              'radial-gradient(ellipse 60% 50% at 20% 20%, oklch(0.72 0.18 250 / 80%) 0%, transparent 70%)',
-              'radial-gradient(ellipse 50% 40% at 80% 15%, oklch(0.65 0.15 200 / 60%) 0%, transparent 70%)',
-              'radial-gradient(ellipse 40% 35% at 50% 70%, oklch(0.70 0.12 280 / 40%) 0%, transparent 70%)',
-            ].join(', '),
-            maskImage:
-              'linear-gradient(to bottom, black 40%, transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, black 40%, transparent 100%)',
-          }}
-        />
-        <PageTransition className='relative'>
-          <PublicPricingView />
-        </PageTransition>
+    <PublicLayout
+      showMainContainer={false}
+      headerProps={{ showSystemUpdate: false }}
+    >
+      <PageTransition>
+        <PublicPricingView search={props.search} />
+      </PageTransition>
+      <div className='pb-28 md:pb-0'>
+        <LandingFooter containerClassName='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8' />
+      </div>
+      <div className='bg-background/95 border-border fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden'>
+        <p className='text-foreground min-w-0 text-sm font-medium'>
+          {t('Pay per use, presets from $10')}
+        </p>
+        <PricingTopupLink position='sticky_mobile' />
       </div>
     </PublicLayout>
   )
