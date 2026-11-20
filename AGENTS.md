@@ -276,8 +276,9 @@ Protected prefixes (truth: [scripts/ops/core-change-paths.txt](scripts/ops/core-
 
 ### Docs sync (fork)
 
-- Update affected Agent/human docs when a fix changes documented behavior or durable norms.
+- Update affected Agent and developer docs in the same PR when a change alters documented behavior or durable rules.
 - Public HTTP/catalog changes require smoke, `OmniMux-docs` zh+en, and a changelog.
+- Record and review [documentation impact](.agents/rules/development-workflow.md#文档影响) before opening a PR.
 
 ### Wait and resume (fork)
 

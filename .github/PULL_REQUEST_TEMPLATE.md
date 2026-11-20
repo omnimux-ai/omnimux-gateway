@@ -27,6 +27,9 @@ English template: `.github/PULL_REQUEST_TEMPLATE/en.md`
 ## 📝 变更描述 / Description
 (简述做了什么、为什么生效。不得直接粘贴未经人工过滤的大段 AI 文本。如果难以简述，建议先拆分范围，或在 Issue 中与维护者对齐。)
 
+## 文档影响 / Documentation impact
+(按[文档影响规则](../.agents/rules/development-workflow.md#文档影响)列出变更、更新的文档和依据，或说明无影响的理由。涉及跨仓时记录关联任务或 PR、状态及发布验收条件。)
+
 ## 📸 运行证明 / Proof of Work
 (请写明如何验证：实际命令或步骤，以及观察结果。仅声明 `go build` 通过或测试通过，不视为有效证明。UI 变更请附截图或录屏；Bug 修复请说明复现过程与修复后结果。)
 
