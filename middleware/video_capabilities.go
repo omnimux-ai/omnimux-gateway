@@ -18,6 +18,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	contextKeyManagedVideoProtocol    = "managed_video_protocol"
+	contextKeySeedanceVideoResolution = "seedance_video_resolution"
+)
+
 func managedVideoProtocol(c *gin.Context, modelName string) (string, error) {
 	if c.Request.Method != http.MethodPost {
 		return "", nil
@@ -27,6 +32,9 @@ func managedVideoProtocol(c *gin.Context, modelName string) (string, error) {
 	case "/v1/videos", "/v1/video/generations", "/pg/video/generations":
 	default:
 		return "", nil
+	}
+	if protocol := c.GetString(contextKeyManagedVideoProtocol); protocol != "" {
+		return protocol, nil
 	}
 	contract, _ := modelcontracts.For(modelName)
 	if contract.GatewayProtocol != modelcontracts.VideoProtocolGenerations &&
@@ -58,16 +66,26 @@ func prepareVideoCapabilityFilter(c *gin.Context, modelName string) *types.NewAP
 	}
 
 	var intent modelcontracts.VideoRequest
+	rules := modelcontracts.ActiveVideoCapabilities()
 	if protocol == modelcontracts.VideoProtocolOpenAI {
 		value, _ := c.Get(jsplugin.ContextKeyPinnedEndpoint)
 		pinned, _ := value.(jsplugin.PinnedEndpoint)
-		if pinned.Protocol != protocol || !pinned.Plugin.IsFactory() || pinned.Plugin.Meta.Key != model.MuseVideoTaskPlugin ||
-			(pinned.Model != model.MuseVideoDecoderModel && pinned.MappedModel != model.MuseVideoDecoderModel) {
+		if pinned.Protocol != protocol || !model.IsFactorySoraVideoPlugin(pinned.Plugin) {
 			return videoCapabilityUnavailable(c, modelName)
 		}
-		intent, err = orderedImageVideoIntent(c)
+		if rules.HasSeedance25OpenAI(modelName) {
+			if pinned.Model != modelName || pinned.MappedModel != model.Seedance25OpenAIDecoder {
+				return videoCapabilityUnavailable(c, modelName)
+			}
+			intent, err = seedanceSingleImageVideoIntent(c)
+		} else {
+			if pinned.Model != model.MuseVideoDecoderModel && pinned.MappedModel != model.MuseVideoDecoderModel {
+				return videoCapabilityUnavailable(c, modelName)
+			}
+			intent, err = orderedImageVideoIntent(c)
+		}
 	} else {
-		requestModel := modelcontracts.ActiveVideoCapabilities().NativeRequestModel(modelName)
+		requestModel := rules.NativeRequestModel(modelName)
 		var raw map[string]any
 		if _, claimed := c.Get(jsplugin.ContextKeyPinnedEndpoint); claimed || requestModel == "" {
 			return videoCapabilityUnavailable(c, modelName)
@@ -82,6 +100,22 @@ func prepareVideoCapabilityFilter(c *gin.Context, modelName string) *types.NewAP
 	intent.Protocol = protocol
 	service.GetChannelConstraints(c).AddFilter(dto.ChannelFilter{Kind: dto.FilterVideoCapability, VideoRequest: &intent})
 	return nil
+}
+
+func seedanceSingleImageVideoIntent(c *gin.Context) (modelcontracts.VideoRequest, error) {
+	value, _ := c.Get("task_request")
+	body, ok := value.(map[string]any)
+	if !ok || c.GetString("task_action") != "video_multi_ref" {
+		return modelcontracts.VideoRequest{}, errors.New("the Seedance video request could not be normalized")
+	}
+	images, _ := body["images"].([]any)
+	return modelcontracts.VideoRequest{
+		Operation: "video_multi_ref",
+		Slots:     map[string]int{"prompt": 1, "reference_images": len(images)},
+		Parameters: map[string]any{
+			"duration": body["seconds"], "resolution": body["resolution"], "aspect_ratio": body["aspect_ratio"],
+		},
+	}, nil
 }
 
 func orderedImageVideoIntent(c *gin.Context) (modelcontracts.VideoRequest, error) {

@@ -1,5 +1,6 @@
 const SORA_MODELS = ["sora-2", "sora-2-pro"];
 const MUSE_VIDEO_MODEL = "muse-video";
+const SEEDANCE_VIDEO_DECODER = "seedance-2-5-openai-decoder";
 
 export const meta = {
   apiVersion: 1,
@@ -127,9 +128,17 @@ export function parseSubmitResponse(ctx, resp) {
   return { taskId, taskData: body };
 }
 
+function isSeedanceEconomyVideo(ctx) {
+  return ctx.action === "video_multi_ref" && String(ctx.model || "").toLowerCase().replace(/\./g, "-") === "seedance-2-5";
+}
+
 export function extractUsage(ctx) {
   if (ctx.action === "remix") return {};
   const req = ctx.requestBody || {};
+  if (isSeedanceEconomyVideo(ctx)) {
+    // The decoder validates seconds. The resolution tier does not establish output dimensions.
+    return { seconds: req.seconds };
+  }
   let seconds = Number(req.seconds || req.duration || 4);
   if (!Number.isFinite(seconds) || seconds <= 0) seconds = 4;
   return { seconds: Math.min(seconds, 3600), size: req.size || "720x1280" };
@@ -224,7 +233,7 @@ function isImageTaskData(data) {
 }
 
 export function buildQueryRequest(ctx) {
-  if (isAsyncImageModel(ctx.model) || isAsyncImageModel(ctx.upstreamModel)) {
+  if (!isSeedanceEconomyVideo(ctx) && (isAsyncImageModel(ctx.model) || isAsyncImageModel(ctx.upstreamModel))) {
     return { url: ctx.baseUrl + "/v1/tasks/" + ctx.taskId, method: "GET", headers: { Authorization: "Bearer " + ctx.apiKey } };
   }
   return { url: ctx.baseUrl + "/v1/videos/" + ctx.taskId, method: "GET", headers: { Authorization: "Bearer " + ctx.apiKey } };
@@ -431,8 +440,58 @@ function decodeMuseVideo(ctx) {
   return { kind: "submit", model: ctx.model, action: operation, requestBody: request };
 }
 
+// The economy route takes a single unroled image in the images array. Keep
+// the prepared body on the same wire keys used by the submit and usage hooks.
+function decodeSeedanceVideo(ctx) {
+  const request = ctx.body?.value;
+  if (ctx.body?.kind !== "json" || !request || typeof request !== "object" || Array.isArray(request)) {
+    throw new Error("Seedance video requires a JSON object");
+  }
+  const fields = ["model", "group", "prompt", "operation", "images", "image_urls", "duration", "seconds", "aspect_ratio", "size", "resolution", "stream"];
+  if (Object.keys(request).some(field => !fields.includes(field)) || (request.stream !== undefined && request.stream !== false)) {
+    throw new Error("Unsupported field for this Seedance video route");
+  }
+  if (request.operation !== undefined && request.operation !== "video_multi_ref") {
+    throw new Error("This Seedance video route requires single-image reference mode");
+  }
+  if (typeof request.prompt !== "string" || !request.prompt.trim()) throw new Error("field prompt is required");
+
+  const imageFields = ["images", "image_urls"].filter(field => request[field] !== undefined);
+  const images = request[imageFields[0]];
+  if (imageFields.length !== 1 || !Array.isArray(images) || images.length !== 1 ||
+      typeof images[0] !== "string" || !/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(images[0].trim())) {
+    throw new Error("This Seedance video route requires exactly one image URL");
+  }
+  const durations = [request.duration, request.seconds].filter(value => value !== undefined)
+    .map(value => typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value);
+  if (!durations.length || durations.some(value => !Number.isInteger(value) || value < 4 || value > 30 || value !== durations[0])) {
+    throw new Error("Seedance video duration and seconds must specify the same integer from 4 to 30");
+  }
+  const aspectRatio = request.aspect_ratio === undefined ? request.size : request.aspect_ratio;
+  if (aspectRatio !== "9:16" || (request.size !== undefined && request.size !== aspectRatio)) {
+    throw new Error("This Seedance video route requires a 9:16 aspect ratio");
+  }
+  if (!["480p", "720p"].includes(request.resolution)) {
+    throw new Error("Select a Seedance resolution group or specify resolution as 480p or 720p");
+  }
+  return {
+    kind: "submit",
+    model: ctx.model,
+    action: "video_multi_ref",
+    requestBody: {
+      model: ctx.model,
+      prompt: request.prompt,
+      seconds: durations[0],
+      resolution: request.resolution,
+      aspect_ratio: aspectRatio,
+      images: [images[0].trim()],
+    },
+  };
+}
+
 protocols.openai_video = {
   decodeRequest: function (ctx) {
+    if (ctx.upstreamModel === SEEDANCE_VIDEO_DECODER) return decodeSeedanceVideo(ctx);
     if (ctx.model === MUSE_VIDEO_MODEL || ctx.upstreamModel === MUSE_VIDEO_MODEL) return decodeMuseVideo(ctx);
     if (!ctx.body || (ctx.body.kind !== "json" && ctx.body.kind !== "multipart")) throw new Error("JSON or multipart body required");
     if (ctx.body.kind === "json") {

@@ -465,7 +465,8 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 `/api/pricing` 的模型行和 `/api/model_contract/:model` 的 `data` 可在 `contract` 同级返回
 `effective_video`。其 `groups` 把当前账号可选的逻辑分组映射到完整操作变体，`version` 随该视角下
 的能力内容变化。模式、素材槽和参数需要同时匹配一个变体。相同操作 ID 可以有多个变体，参数上的
-`required: true` 表示调用方须显式传值。变体的 `modeKind` 和素材角色沿用模型级契约。
+`required: true` 表示调用方须显式传值。变体默认沿用模型级契约的 `modeKind` 和素材角色，
+已核验的 profile 可以将 `modeKind` 收窄到实际接受的素材类型。
 
 缺省 `effective_video` 时保留模型级 `contract` 和原调用方式。空 `groups` 表示当前视角没有可发布的分组。
 组内空数组表示该组目前没有经过核验的变体。`effective_video.groups` 是目录中该账号逐组的能力视图。
@@ -491,9 +492,21 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 变体引用既有操作 `id`，可用 `inputs` 和 `parameters` 限定该变体接受的槽位与参数。
 规则需要与当前通道类型、上游模型映射、地址和插件实现一致。渠道身份、地址和证据留在规则配置中。
 原生规则可指定 `request_model`，用于在模型默认协议不同的情况下选择已核验的解码器。
-同一公开模型的原生规则共享一个解码器。OpenAI Video 规则使用网关内置的有序参考图解码器，
-新公开 ID 由渠道模型映射到该解码器的既有目标。该解码器补齐 5 秒默认时长，变体声明 `parameters` 时需包含
+同一公开模型的原生规则共享一个解码器。`openai_video` profile 使用网关内置的 Muse 有序参考图解码器，
+新公开 ID 由渠道模型映射到该解码器的既有目标。Muse 解码器补齐 5 秒默认时长，变体声明 `parameters` 时需包含
 `duration`，范围不含 5 秒时调用方须显式传值。新增原生公开 ID 的变体要求调用方显式填写正时长。
+
+`seedance25_openai_video` profile 仅用于 `seedance-2-5` 的 OpenAI 类型渠道，由工厂 Sora 插件解码并按渠道映射提交。
+对外协议为 `openai_video`。`video_multi_ref` 变体发布 `modeKind: "image_reference"`，用 `reference_images` 槽承载一张无首尾帧角色的图片 URL。
+调用方使用 `images` 或 `image_urls`，二选一。明确传入 `duration`（也接受 `seconds`）和 `aspect_ratio: "9:16"`。
+同组只有一个已核验的经济档分辨率时，目录和网关采用该值作为 `resolution` 的默认值。
+同组有多个经济档分辨率时，各经济档变体要求调用方显式传入 `resolution`，目录省略默认值。
+原生创建入口的无协议头请求在选定只有该 profile 的具体组时也走这个解码器。混合协议组和 `auto` 在该入口沿用原生默认值。
+首帧语义、供应侧实际图片上限和成片规格仍待实测。规则的单图上限只表示网关承诺受理的请求形状。
+五组[本地规则样例](../../router/testdata/issue-74/five-group-rules.json)使用合成渠道和回环 mock，可用
+`go test ./router -run '^TestFiveVideoGroups$' -count=1` 验证目录投影、外发请求和原任务回收。
+用 `OMNIMUX_TEST_GATEWAY_BINARY` 指定从仓库根目录构建的网关二进制，可在同一用例中改用独立网关进程和临时 SQLite。
+设置 `OMNIMUX_TEST_FIVE_GROUP_CATALOG` 为输出路径，可导出实测目录供客户端离线复验。
 
 从 #68 双模型试点扩展到复用已核验解码器的验收记录见 [#74](https://github.com/omnimux-ai/omnimux-gateway/issues/74)。
 调用方可使用由两个目录入口实际生成的[同协议样例](../../router/testdata/issue-74/catalog.json)

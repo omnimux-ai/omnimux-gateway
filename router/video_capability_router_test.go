@@ -8,6 +8,8 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"maps"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,21 +17,27 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	builtinplugins "github.com/QuantumNous/new-api/plugins"
 	"github.com/QuantumNous/new-api/relay"
+	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
+	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
@@ -339,6 +347,507 @@ func TestRegisteredVideoProtocolCatalogAndRoutes(t *testing.T) {
 	h := newVideoCapabilityRouteHarness(t)
 	t.Run("native", func(t *testing.T) { assertNativeGroupedVideoRoutes(t, h) })
 	t.Run("mixed", func(t *testing.T) { assertMixedGroupedVideoRoutes(t, h) })
+}
+
+func TestFiveVideoGroups(t *testing.T) {
+	h := newVideoCapabilityRouteHarness(t)
+	// The shared harness also seeds default-group channels for other tests.
+	// Isolate this catalog so its only memberships are the five fixtures below.
+	require.NoError(t, model.DB.Where("model IN ?", []string{"muse-video", "seedance-2-5"}).Delete(&model.Ability{}).Error)
+	bin := os.Getenv("OMNIMUX_TEST_GATEWAY_BINARY")
+	rulesPath, err := filepath.Abs(filepath.Join("testdata", "issue-74", "five-group-rules.json"))
+	require.NoError(t, err)
+	raw, err := os.ReadFile(rulesPath)
+	require.NoError(t, err)
+	raw = bytes.ReplaceAll(raw, []byte("http://127.0.0.1:3211"), []byte(h.upstreamURL))
+
+	const openAIPath, nativePath = "/v1/videos", "/v1/video/generations"
+	groups := []struct {
+		id, channelType                         int
+		group, model, mapped, resolution, ratio string
+		multiplier                              float64
+		quota                                   int
+	}{
+		{1001, constant.ChannelTypeOpenAI, "pool", "muse-video", "muse-video", "", "16:9", 0.5, 2500},
+		{1002, constant.ChannelTypeOpenAI, "seedance-2-5-480p", "seedance-2-5", "fixture-video-image-480p", "480p", "9:16", 0.25, 37500},
+		{1003, constant.ChannelTypeOpenAI, "seedance-2-5-720p", "seedance-2-5", "fixture-video-720p", "720p", "9:16", 0.125, 18750},
+		{1004, constant.ChannelTypeApiMart, "seedance-2-5-480p-pro", "seedance-2-5", "fixture-seedance-2.5-pro", "480p", "9:16", 0.75, 6672},
+		{1005, constant.ChannelTypeApiMart, "seedance-2-5-720p-pro", "seedance-2-5", "fixture-seedance-2.5-pro", "720p", "16:9", 1.5, 30000},
+	}
+	pricing := map[string]float64{"default": 1, "fixture-hidden": 1}
+	usable := map[string]string{"default": "Default"}
+	for _, group := range groups {
+		pricing[group.group] = group.multiplier
+		usable[group.group] = group.group
+		mapping, err := common.Marshal(map[string]string{group.model: group.mapped})
+		require.NoError(t, err)
+		channel := model.Channel{
+			Id: group.id, Type: group.channelType, Key: group.group, Name: group.group,
+			Models: group.model, Group: group.group, BaseURL: &h.upstreamURL, Status: common.ChannelStatusEnabled,
+			Priority: common.GetPointer(int64(10)), AutoBan: common.GetPointer(0), ModelMapping: common.GetPointer(string(mapping)),
+		}
+		if group.id == 1002 {
+			channel.Group += ",fixture-hidden"
+		}
+		require.NoError(t, model.DB.Create(&channel).Error)
+		require.NoError(t, channel.AddAbilities(nil))
+	}
+
+	// One extra physical channel in the same group forces a same-group retry.
+	// Its variants deduplicate to the same public rule as the fallback channel.
+	retryID := h.addSyntheticChannel(t, "fixture-economy-retry", "seedance-2-5", groups[1].group, groups[1].mapped, 1, 30)
+	var ruleDocument struct {
+		Models map[string][]common.RawMessage `json:"models"`
+	}
+	require.NoError(t, common.Unmarshal(raw, &ruleDocument))
+	seedance := ruleDocument.Models["seedance-2-5"]
+	retryRule := bytes.Replace(seedance[0], []byte(`"channel_id": 1002`), []byte(fmt.Sprintf(`"channel_id": %d`, retryID)), 1)
+	require.NotEqual(t, seedance[0], common.RawMessage(retryRule))
+	ruleDocument.Models["seedance-2-5"] = append(seedance, retryRule)
+	raw, err = common.Marshal(ruleDocument)
+	require.NoError(t, err)
+	rules, err := modelcontracts.ReadVideoCapabilities(bytes.NewReader(raw))
+	require.NoError(t, err)
+	modelcontracts.SetVideoCapabilities(rules)
+	model.InvalidatePricingCache()
+
+	fetch := system_setting.GetFetchSetting()
+	previousFetch := *fetch
+	t.Cleanup(func() { *fetch = previousFetch })
+	fetch.AllowPrivateIp = true
+	mockURL, err := url.Parse(h.upstreamURL)
+	require.NoError(t, err)
+	fetch.AllowedPorts = []string{mockURL.Port()}
+	groupRatios, err := common.Marshal(pricing)
+	require.NoError(t, err)
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(string(groupRatios)))
+	usableGroups, err := common.Marshal(usable)
+	require.NoError(t, err)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(string(usableGroups)))
+	if bin != "" {
+		file := filepath.Join(t.TempDir(), "rules.json")
+		require.NoError(t, os.WriteFile(file, raw, 0o600))
+		allowedPorts, err := common.Marshal(fetch.AllowedPorts)
+		require.NoError(t, err)
+		for key, value := range map[string]string{
+			"GroupRatio": string(groupRatios), "UserUsableGroups": string(usableGroups),
+			"ModelPrice": ratio_setting.ModelPrice2JSONString(), "RetryTimes": "1",
+			"fetch_setting.allow_private_ip": "true", "fetch_setting.allowed_ports": string(allowedPorts),
+			// The fixture exercises routing independently of the test host's load.
+			"performance_setting.monitor_enabled": "false",
+		} {
+			require.NoError(t, model.DB.Create(&model.Option{Key: key, Value: value}).Error)
+		}
+		h.gateway = startFiveGroupGateway(t, bin, file)
+	}
+
+	var pricingRows []map[string]any
+	catalog := make(map[string]any, 3)
+	for _, name := range []string{"muse-video", "seedance-2-5"} {
+		pricingResponse, contractResponse := h.syntheticCatalogResponses(t, name)
+		row := pricingResponse["data"].([]map[string]any)[0]
+		pricingRows = append(pricingRows, row)
+		pricingResponse["data"] = pricingRows
+		catalog["/api/pricing"] = pricingResponse
+		catalog["/api/model_contract/"+name] = contractResponse
+		data := contractResponse["data"].(map[string]any)
+		view := data["effective_video"].(map[string]any)
+		assert.Equal(t, view, row["effective_video"])
+		assert.NotEmpty(t, view["version"])
+		published := view["groups"].(map[string]any)
+		assert.NotContains(t, published, "fixture-hidden")
+		var wantGroups []string
+		for _, group := range groups {
+			if group.model != name {
+				continue
+			}
+			wantGroups = append(wantGroups, group.group)
+			variants := published[group.group].([]any)
+			if name == "muse-video" {
+				assert.Len(t, variants, 3)
+				assert.Equal(t, "openai_video", data["contract"].(map[string]any)["gateway_protocol"])
+				continue
+			}
+			require.Len(t, variants, 1)
+			variant := variants[0].(map[string]any)
+			assert.Equal(t, group.resolution, videoFixtureParameter(variant, "resolution")["fixed"])
+			assert.Equal(t, group.ratio, videoFixtureParameter(variant, "aspect_ratio")["fixed"])
+			if group.channelType == constant.ChannelTypeApiMart {
+				assert.Equal(t, "video_generations", variant["gateway_protocol"])
+				assert.Equal(t, "text_to_video", variant["id"])
+				assert.EqualValues(t, 4, videoFixtureParameter(variant, "duration")["fixed"])
+				assert.Len(t, variant["inputs"], 1)
+				continue
+			}
+			assert.Equal(t, "openai_video", variant["gateway_protocol"])
+			assert.Equal(t, "video_multi_ref", variant["id"])
+			assert.Equal(t, "image_reference", variant["modeKind"])
+			assert.EqualValues(t, 30, videoFixtureParameter(variant, "duration")["fixed"])
+			resolution := videoFixtureParameter(variant, "resolution")
+			assert.Equal(t, group.resolution, resolution["default"])
+			assert.NotContains(t, resolution, "required")
+			inputs := variant["inputs"].([]any)
+			require.Len(t, inputs, 2)
+			image := inputs[1].(map[string]any)
+			assert.Equal(t, "reference_images", image["slot"])
+			assert.EqualValues(t, 1, image["min"])
+			assert.EqualValues(t, 1, image["max"])
+			assert.NotContains(t, image, "firstItemRole")
+			assert.NotContains(t, image, "allowedMimes")
+			assert.NotContains(t, image, "maxSizeMb")
+			assert.NotContains(t, variant["output"], "formats")
+		}
+		assert.ElementsMatch(t, wantGroups, slices.Collect(maps.Keys(published)))
+		encoded, err := common.Marshal(view)
+		require.NoError(t, err)
+		for _, private := range []string{"fixture-video-", "fixture-seedance-", h.upstreamURL, "Synthetic", "1002"} {
+			assert.NotContains(t, string(encoded), private)
+		}
+	}
+
+	originalResolver := service.GetTaskAdaptorFunc
+	t.Cleanup(func() { service.GetTaskAdaptorFunc = originalResolver })
+	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
+		return relay.GetTaskAdaptor(platform)
+	}
+	const imageURL = "https://media.example/reference.png"
+	for _, group := range groups {
+		t.Run(group.group, func(t *testing.T) {
+			path, protocol, operation, duration := openAIPath, "", "text_to_video", 1
+			if group.channelType == constant.ChannelTypeApiMart {
+				path, duration = nativePath, 4
+				if group.resolution == "480p" {
+					protocol = "video_generations"
+				}
+			} else if group.model == "seedance-2-5" {
+				operation, duration = "video_multi_ref", 30
+			}
+			body := map[string]any{
+				"model": group.model + "@" + group.group, "prompt": "Animate the fixture", "operation": operation,
+				"duration": duration, "aspect_ratio": group.ratio,
+			}
+			if group.resolution != "" && group.channelType == constant.ChannelTypeApiMart {
+				body["resolution"] = group.resolution
+			}
+			if operation == "video_multi_ref" {
+				body["images"] = []string{imageURL}
+				if group.id == 1002 {
+					// The legacy shared path has neither an operation nor a protocol
+					// header. The explicit group determines its decoder and resolution.
+					path = nativePath
+					delete(body, "operation")
+					delete(body, "duration")
+					body["seconds"] = "30"
+				}
+			}
+			start := h.attemptCount()
+			before, err := h.readBalances(path, "")
+			require.NoError(t, err)
+			rejected := maps.Clone(body)
+			rejected["duration"] = duration + 1
+			if group.model == "muse-video" {
+				rejected["images"] = []string{imageURL}
+			}
+			response := h.submitWithProtocol(t, path, "", protocol, rejected)
+			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+			if operation == "video_multi_ref" {
+				shorter := maps.Clone(body)
+				delete(shorter, "seconds")
+				shorter["duration"] = 4
+				h.requireMismatch(t, path, "", shorter)
+				for field, value := range map[string]any{
+					"images": []string{imageURL, imageURL}, "image_urls": []string{imageURL},
+					"image_with_roles": []map[string]string{{"role": "first_frame", "url": imageURL}},
+					"resolution":       map[string]string{"480p": "720p", "720p": "480p"}[group.resolution],
+					"size":             "16:9", "generate_audio": false,
+				} {
+					invalid := maps.Clone(body)
+					invalid[field] = value
+					response := h.submit(t, path, "", invalid)
+					assert.Equal(t, http.StatusBadRequest, response.Code, "%s: %s", field, response.Body.String())
+				}
+			}
+			if group.id == 1002 {
+				unauthorized := maps.Clone(body)
+				unauthorized["model"] = group.model + "@fixture-hidden"
+				response := h.submit(t, path, "", unauthorized)
+				assert.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+			}
+			assert.Equal(t, start, h.attemptCount())
+			uncharged, err := h.readBalances(path, "")
+			require.NoError(t, err)
+			assert.Equal(t, before, uncharged)
+
+			response = h.submitWithProtocol(t, path, "", protocol, body)
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			attempts := h.attemptsFrom(start)
+			keys := []string{group.group}
+			if group.id == 1002 {
+				keys = append([]string{"fixture-economy-retry"}, keys...)
+			}
+			require.Len(t, attempts, len(keys))
+			for i, attempt := range attempts {
+				assert.Equal(t, keys[i], attempt.key)
+				assert.Equal(t, group.mapped, attempt.body["model"])
+				assert.NotContains(t, attempt.body, "operation")
+				if operation == "video_multi_ref" {
+					assert.Equal(t, openAIPath, attempt.path)
+					assert.Equal(t, []any{imageURL}, attempt.body["images"])
+					assert.Equal(t, group.resolution, attempt.body["resolution"])
+					assert.Equal(t, group.ratio, attempt.body["aspect_ratio"])
+					assert.EqualValues(t, duration, attempt.body["seconds"])
+					assert.NotContains(t, attempt.body, "duration")
+				} else {
+					assert.EqualValues(t, duration, attempt.body["duration"])
+					assert.NotContains(t, attempt.body, "images")
+					if group.channelType == constant.ChannelTypeApiMart {
+						assert.Equal(t, openAIPath+"/generations", attempt.path)
+						assert.Equal(t, group.resolution, attempt.body["resolution"])
+						assert.Equal(t, group.ratio, attempt.body["size"])
+					}
+				}
+			}
+			task := h.latestTask(t)
+			assert.Equal(t, group.id, task.ChannelId)
+			assert.Equal(t, group.group, task.Group)
+			if group.channelType != constant.ChannelTypeApiMart {
+				assert.Equal(t, operation, task.Action)
+			}
+			assert.Equal(t, group.quota, task.Quota)
+			require.NotNil(t, task.PrivateData.BillingContext)
+			assert.Equal(t, group.multiplier, task.PrivateData.BillingContext.GroupRatio)
+			assert.EqualValues(t, duration, task.PrivateData.BillingContext.OtherRatios["seconds"])
+
+			upstreamID := task.GetUpstreamTaskID()
+			pollStart := h.attemptCount()
+			require.NoError(t, service.UpdateVideoTasks(t.Context(), task.Platform, map[int][]string{task.ChannelId: {upstreamID}}, map[string]*model.Task{upstreamID: &task}))
+			polls := h.attemptsFrom(pollStart)
+			require.Len(t, polls, 1)
+			assert.Equal(t, group.group, polls[0].key)
+			queryPath := openAIPath
+			upstreamQuery := openAIPath
+			if group.channelType == constant.ChannelTypeApiMart {
+				queryPath = nativePath
+				upstreamQuery = "/v1/tasks"
+			}
+			assert.Equal(t, upstreamQuery+"/"+upstreamID, polls[0].path)
+			query := h.get(t, queryPath+"/"+task.TaskID, h.tokens[""].bearer)
+			require.Equal(t, http.StatusOK, query.Code, query.Body.String())
+			if queryPath == nativePath {
+				var result dto.TaskResponse[dto.TaskDto]
+				require.NoError(t, common.Unmarshal(query.Body.Bytes(), &result))
+				assert.True(t, result.IsSuccess())
+				assert.Equal(t, task.TaskID, result.Data.TaskID)
+				assert.Equal(t, string(model.TaskStatusSuccess), result.Data.Status)
+			} else {
+				var result kitdto.OpenAIVideo
+				require.NoError(t, common.Unmarshal(query.Body.Bytes(), &result))
+				assert.Equal(t, task.TaskID, result.ID)
+				assert.Equal(t, kitdto.VideoStatusCompleted, result.Status)
+				assert.Equal(t, group.model, result.Model)
+			}
+			assert.Equal(t, model.TaskStatus(model.TaskStatusSuccess), h.latestTask(t).Status)
+			clip := h.get(t, openAIPath+"/"+task.TaskID+"/content", h.tokens[""].bearer)
+			require.Equal(t, http.StatusOK, clip.Code, clip.Body.String())
+			assert.Equal(t, "video/mp4", clip.Header().Get("Content-Type"))
+			assert.Equal(t, syntheticVideoBytes, clip.Body.String())
+			settled, err := h.readBalances(path, "")
+			require.NoError(t, err)
+			assert.Equal(t, group.quota, before.wallet-settled.wallet)
+			assert.Equal(t, group.quota, before.tokenRemaining-settled.tokenRemaining)
+			assert.Equal(t, group.quota, settled.tokenUsed-before.tokenUsed)
+		})
+	}
+	if h.gateway == "" {
+		t.Run("economy expression reserves and settles reported usage", func(t *testing.T) {
+			h.assertEconomyExpressionSettlement(t, nativePath, groups[1].group, imageURL)
+		})
+		t.Run("economy group with two resolutions requires an explicit choice", func(t *testing.T) {
+			h.assertEconomyGroupResolutionRequired(t, nativePath, groups[1].group, groups[2].group, groups[2].id, imageURL)
+		})
+	}
+	if path := os.Getenv("OMNIMUX_TEST_FIVE_GROUP_CATALOG"); path != "" && !t.Failed() {
+		raw, err := common.Marshal(catalog)
+		require.NoError(t, err)
+		formatted, err := common.IndentJson(raw)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, append(formatted, '\n'), 0o600))
+	}
+}
+
+func (h *videoCapabilityRouteHarness) assertEconomyExpressionSettlement(t *testing.T, path, group, imageURL string) {
+	t.Helper()
+	const expression = `u("size") == "720x1280" ? tier("reported_size", u("seconds") * 0.002) : tier("duration", u("seconds") * 0.001)`
+	previous, err := common.Marshal(billing_setting.GetPluginBillingExprCopy())
+	require.NoError(t, err)
+	loadExpression := func(raw []byte) {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{billing_setting.PluginBillingExprOption: string(raw)}))
+	}
+	t.Cleanup(func() { loadExpression(previous) })
+	configured, err := common.Marshal(map[string]string{billing_setting.PluginBillingExprKey("sora", "seedance-2-5"): expression})
+	require.NoError(t, err)
+	loadExpression(configured)
+
+	before, err := h.readBalances(path, "")
+	require.NoError(t, err)
+	response := h.submit(t, path, "", map[string]any{
+		"model": "seedance-2-5@" + group, "prompt": "Animate the fixture", "duration": 30, "aspect_ratio": "9:16", "images": []string{imageURL},
+	})
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	task := h.latestTask(t)
+	require.NotNil(t, task.PrivateData.BillingContext)
+	snapshot := task.PrivateData.BillingContext.TieredSnapshot
+	require.NotNil(t, snapshot)
+	assert.True(t, snapshot.TaskUsageBilling)
+	assert.Equal(t, expression, snapshot.ExprString)
+	assert.Equal(t, map[string]any{"seconds": float64(30)}, snapshot.UsageFacts)
+	// The fixture group ratio is 0.25. Submission reserves 30 seconds at the
+	// duration tier. The mock reports 28 seconds on completion without a size.
+	const reservedQuota, settledQuota = 3750, 3500
+	assert.Equal(t, reservedQuota, snapshot.EstimatedQuotaAfterGroup)
+	assert.Equal(t, reservedQuota, task.Quota)
+	reserved, err := h.readBalances(path, "")
+	require.NoError(t, err)
+	assert.Equal(t, reservedQuota, before.wallet-reserved.wallet)
+	assert.Equal(t, reservedQuota, before.tokenRemaining-reserved.tokenRemaining)
+
+	// Poll from the persisted task after the capability file has been withdrawn.
+	rules := modelcontracts.SetVideoCapabilities(nil)
+	t.Cleanup(func() { modelcontracts.SetVideoCapabilities(rules) })
+	upstreamID := task.GetUpstreamTaskID()
+	require.NoError(t, service.UpdateVideoTasks(t.Context(), task.Platform, map[int][]string{task.ChannelId: {upstreamID}}, map[string]*model.Task{upstreamID: &task}))
+	completed := h.latestTask(t)
+	assert.Equal(t, model.TaskStatus(model.TaskStatusSuccess), completed.Status)
+	assert.Equal(t, settledQuota, completed.Quota)
+	settled, err := h.readBalances(path, "")
+	require.NoError(t, err)
+	assert.Equal(t, settledQuota, before.wallet-settled.wallet)
+	assert.Equal(t, settledQuota, before.tokenRemaining-settled.tokenRemaining)
+	assert.Equal(t, settledQuota, settled.tokenUsed-before.tokenUsed)
+}
+
+func (h *videoCapabilityRouteHarness) assertEconomyGroupResolutionRequired(t *testing.T, path, mixedGroup, singleGroup string, secondChannelID int, imageURL string) {
+	t.Helper()
+	var channel model.Channel
+	require.NoError(t, model.DB.First(&channel, secondChannelID).Error)
+	channel.Group += "," + mixedGroup
+	require.NoError(t, channel.AddAbilities(nil))
+	model.InvalidatePricingCache()
+
+	pricing, contract := h.syntheticCatalogResponses(t, "seedance-2-5")
+	view := contract["data"].(map[string]any)["effective_video"].(map[string]any)
+	assert.Equal(t, view, pricing["data"].([]map[string]any)[0]["effective_video"])
+	groups := view["groups"].(map[string]any)
+	variants := groups[mixedGroup].([]any)
+	require.Len(t, variants, 2)
+	var observed []any
+	for _, value := range variants {
+		resolution := videoFixtureParameter(value.(map[string]any), "resolution")
+		observed = append(observed, resolution["fixed"])
+		assert.Equal(t, true, resolution["required"])
+		assert.NotContains(t, resolution, "default")
+	}
+	assert.ElementsMatch(t, []string{"480p", "720p"}, observed)
+	remaining := groups[singleGroup].([]any)
+	require.Len(t, remaining, 1)
+	resolution := videoFixtureParameter(remaining[0].(map[string]any), "resolution")
+	assert.Equal(t, "720p", resolution["default"])
+	assert.NotContains(t, resolution, "required")
+
+	body := map[string]any{
+		"model": "seedance-2-5@" + mixedGroup, "prompt": "Animate the fixture", "duration": 30, "aspect_ratio": "9:16", "images": []string{imageURL},
+	}
+	start := h.attemptCount()
+	before, err := h.readBalances(path, "")
+	require.NoError(t, err)
+	rejected := h.submit(t, path, "", body)
+	require.Equal(t, http.StatusBadRequest, rejected.Code, rejected.Body.String())
+	assert.Equal(t, start, h.attemptCount())
+	uncharged, err := h.readBalances(path, "")
+	require.NoError(t, err)
+	assert.Equal(t, before, uncharged)
+	body["resolution"] = "720p"
+	accepted := h.submit(t, path, "", body)
+	require.Equal(t, http.StatusOK, accepted.Code, accepted.Body.String())
+	attempts := h.attemptsFrom(start)
+	require.Len(t, attempts, 1)
+	assert.Equal(t, singleGroup, attempts[0].key)
+	assert.Equal(t, "720p", attempts[0].body["resolution"])
+	task := h.latestTask(t)
+	assert.Equal(t, secondChannelID, task.ChannelId)
+	assert.Equal(t, mixedGroup, task.Group)
+}
+
+func startFiveGroupGateway(t *testing.T, binary, rules string) string {
+	t.Helper()
+	binary, err := filepath.Abs(binary)
+	require.NoError(t, err)
+	dir := t.TempDir()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+	require.NoError(t, listener.Close())
+	log, err := os.Create(filepath.Join(dir, "gateway.log"))
+	require.NoError(t, err)
+	defer log.Close()
+	cmd := exec.Command(binary, "-log-dir", dir)
+	cmd.Dir = dir
+	cmd.Env = []string{
+		"PATH=/usr/bin:/bin", "HOME=" + dir, "TMPDIR=" + dir, "LISTEN_HOST=127.0.0.1", "PORT=" + port,
+		"SQLITE_PATH=" + common.SQLitePath, "SESSION_SECRET=" + common.SessionSecret,
+		"OMNIMUX_VIDEO_CAPABILITIES_FILE=" + rules, "UPDATE_TASK=false", "SHUTDOWN_TIMEOUT_SECONDS=2",
+	}
+	cmd.Stdout, cmd.Stderr = log, log
+	require.NoError(t, cmd.Start())
+	finished := make(chan error, 1)
+	go func() { finished <- cmd.Wait() }()
+	t.Cleanup(func() {
+		signalErr := cmd.Process.Signal(syscall.SIGTERM)
+		select {
+		case err := <-finished:
+			if signalErr != nil {
+				t.Errorf("could not send SIGTERM to local gateway: %v (wait: %v)", signalErr, err)
+				break
+			}
+			// The HTTP listener can serve requests before the signal handler is installed.
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signal() == syscall.SIGTERM {
+					break
+				}
+			}
+			assert.NoError(t, err, "wait for local gateway shutdown")
+		case <-time.After(5 * time.Second):
+			_ = cmd.Process.Kill()
+			<-finished
+			t.Error("local gateway did not shut down")
+		}
+		if t.Failed() {
+			output, err := os.ReadFile(log.Name())
+			if err == nil {
+				t.Logf("local gateway log:\n%s", output)
+			}
+		}
+	})
+	address := "http://127.0.0.1:" + port
+	client := &http.Client{Timeout: time.Second}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		resp, err := client.Get(address + "/api/status")
+		if assert.NoError(c, err) {
+			resp.Body.Close()
+			assert.Equal(c, http.StatusOK, resp.StatusCode)
+		}
+	}, 15*time.Second, 50*time.Millisecond)
+	return address
+}
+
+func videoFixtureParameter(variant map[string]any, name string) map[string]any {
+	for _, value := range variant["parameters"].([]any) {
+		parameter := value.(map[string]any)
+		if parameter["name"] == name {
+			return parameter
+		}
+	}
+	return nil
 }
 
 func assertNativeGroupedVideoRoutes(t *testing.T, h *videoCapabilityRouteHarness) {
@@ -718,6 +1227,7 @@ type videoCapabilityRouteBalances struct {
 
 type videoCapabilityRouteHarness struct {
 	engine       *gin.Engine
+	gateway      string
 	userID       int
 	browserToken string
 	upstreamURL  string
@@ -815,6 +1325,21 @@ func newVideoCapabilityRouteHarness(t *testing.T) *videoCapabilityRouteHarness {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if r.Method == http.MethodGet && (key == "pool" || strings.HasPrefix(key, "seedance-2-5-")) {
+			h.mu.Lock()
+			h.attempts = append(h.attempts, videoCapabilityAttempt{key: key, path: r.URL.Path})
+			h.mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			clip := "http://" + r.Host + "/fixtures/clip.mp4"
+			if strings.HasSuffix(key, "-pro") {
+				_, _ = fmt.Fprintf(w, `{"code":200,"data":{"status":"completed","result":{"videos":[{"url":%q}]}}}`, clip)
+			} else if key == "seedance-2-5-480p" {
+				_, _ = fmt.Fprintf(w, `{"status":"completed","video_url":%q,"seconds":"28"}`, clip)
+			} else {
+				_, _ = fmt.Fprintf(w, `{"status":"completed","video_url":%q}`, clip)
+			}
+			return
+		}
 		if r.Method == http.MethodGet && key == "example-narrow-backup" {
 			h.mu.Lock()
 			h.attempts = append(h.attempts, videoCapabilityAttempt{key: key, path: r.URL.Path})
@@ -848,7 +1373,7 @@ func newVideoCapabilityRouteHarness(t *testing.T) *videoCapabilityRouteHarness {
 				return
 			}
 		}
-		if key == "muse-primary" || key == "example-narrow-primary" {
+		if key == "muse-primary" || key == "example-narrow-primary" || key == "fixture-economy-retry" {
 			if key == "muse-primary" && body["prompt"] == pauseMusePrimaryPrompt {
 				assert.True(t, model.UpdateChannelStatus(h.channels[key], "", common.ChannelStatusManuallyDisabled, "fixture primary disabled"))
 			}
@@ -929,8 +1454,28 @@ func (h *videoCapabilityRouteHarness) submitWithProtocol(t *testing.T, path, tok
 	if protocol != "" {
 		request.Header.Set("X-OmniMux-Video-Protocol", protocol)
 	}
+	return h.serve(t, request)
+}
+
+func (h *videoCapabilityRouteHarness) serve(t *testing.T, request *http.Request) *httptest.ResponseRecorder {
+	t.Helper()
 	recorder := httptest.NewRecorder()
-	h.engine.ServeHTTP(recorder, request)
+	if h.gateway == "" {
+		h.engine.ServeHTTP(recorder, request)
+		return recorder
+	}
+	outgoing, err := http.NewRequestWithContext(t.Context(), request.Method, h.gateway+request.URL.RequestURI(), request.Body)
+	require.NoError(t, err)
+	outgoing.Header = request.Header
+	outgoing.ContentLength = request.ContentLength
+	client := &http.Client{Timeout: 5 * time.Second}
+	response, err := client.Do(outgoing)
+	require.NoError(t, err)
+	defer response.Body.Close()
+	maps.Copy(recorder.Header(), response.Header)
+	recorder.WriteHeader(response.StatusCode)
+	_, err = io.Copy(recorder, response.Body)
+	require.NoError(t, err)
 	return recorder
 }
 
@@ -953,9 +1498,7 @@ func (h *videoCapabilityRouteHarness) get(t *testing.T, path, bearer string) *ht
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, path, nil)
 	request.Header.Set("Authorization", "Bearer "+bearer)
-	response := httptest.NewRecorder()
-	h.engine.ServeHTTP(response, request)
-	return response
+	return h.serve(t, request)
 }
 
 func (h *videoCapabilityRouteHarness) attemptCount() int {

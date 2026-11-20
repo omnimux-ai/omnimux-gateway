@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -16,11 +17,77 @@ import (
 
 var ErrVideoCapabilityMismatch = errors.New("no verified channel accepts this video request")
 
-// The OpenAI Video profile requires the factory plugin's ordered-image decoder.
 const (
-	MuseVideoTaskPlugin   = "sora"
 	MuseVideoDecoderModel = "muse-video"
+	SoraVideoBindingModel = "sora-2"
+	// Seedance25OpenAIDecoder selects the factory hook's economy request shape.
+	// The public task and the upstream request still use their own model IDs.
+	Seedance25OpenAIDecoder = "seedance-2-5-openai-decoder"
 )
+
+func IsFactorySoraVideoPlugin(plugin *jsplugin.LoadedPlugin) bool {
+	return plugin != nil && plugin.IsFactory() && plugin.Meta.Key == "sora"
+}
+
+// Seedance25VideoGroupProfile identifies the request protocol for old callers
+// that name a concrete group, and the resolution that group can default to.
+// Both decisions use the same verified channels as the catalog and distributor.
+func Seedance25VideoGroupProfile(rules *modelcontracts.VideoCapabilities, generation *jsplugin.RoutingGeneration, modelName, group string) (economyOnly bool, resolution string) {
+	if group == "" || group == "auto" {
+		return false, ""
+	}
+	var native, ambiguous bool
+	for _, id := range rules.ChannelIDs() {
+		identity, exists := rules.ChannelIdentity(modelName, id)
+		if !exists || !IsChannelEnabledForGroupModel(group, modelName, id) {
+			continue
+		}
+		channel, err := CacheGetChannel(id)
+		if err != nil || !videoChannelQualified(rules, generation, channel, modelName) {
+			continue
+		}
+		if identity.Protocol == modelcontracts.VideoProtocolGenerations {
+			native = true
+		} else if identity.Profile == modelcontracts.VideoProfileSeedance25OpenAI {
+			ambiguous = ambiguous || resolution != "" && resolution != identity.FixedResolution
+			resolution = identity.FixedResolution
+		}
+	}
+	economyOnly = resolution != "" && !native
+	if ambiguous {
+		resolution = ""
+	}
+	return economyOnly, resolution
+}
+
+// projectSeedanceEconomyResolution supplies a catalog default when all of the
+// group's eligible economy variants use the same resolution, as routing does.
+// The variants are copies of the channel rules, local to this group.
+func projectSeedanceEconomyResolution(operations []modelcontracts.Operation) {
+	var resolution string
+	var parameters []*modelcontracts.Parameter
+	for _, operation := range operations {
+		if operation.GatewayProtocol != modelcontracts.VideoProtocolOpenAI {
+			continue
+		}
+		for i := range operation.Parameters {
+			parameter := &operation.Parameters[i]
+			if parameter.Name != "resolution" {
+				continue
+			}
+			fixed, _ := parameter.Fixed.(string)
+			if fixed == "" || resolution != "" && resolution != fixed {
+				return
+			}
+			resolution = fixed
+			parameters = append(parameters, parameter)
+		}
+	}
+	for _, parameter := range parameters {
+		parameter.Default = resolution
+		parameter.Required = false
+	}
+}
 
 // videoChannelOperations returns the confirmed operations of an enabled
 // channel. The same binding checks run on every routing attempt.
@@ -100,6 +167,13 @@ func videoChannelQualified(rules *modelcontracts.VideoCapabilities, generation *
 	case modelcontracts.VideoProtocolGenerations:
 		return ch.Type == constant.ChannelTypeApiMart
 	case modelcontracts.VideoProtocolOpenAI:
+		if identity.Profile == modelcontracts.VideoProfileSeedance25OpenAI {
+			owner, _ := generation.GetByChannelType(ch.Type)
+			return ch.Type == constant.ChannelTypeOpenAI && IsFactorySoraVideoPlugin(owner) &&
+				slices.ContainsFunc(generation.LookupEndpointCandidates(http.MethodPost, "/v1/videos", SoraVideoBindingModel), func(candidate jsplugin.ProtocolBinding) bool {
+					return candidate.Plugin == owner && candidate.Protocol == identity.Protocol
+				})
+		}
 		if modelName != MuseVideoDecoderModel && upstream != MuseVideoDecoderModel {
 			return false
 		}
@@ -123,7 +197,7 @@ func videoChannelQualified(rules *modelcontracts.VideoCapabilities, generation *
 				bound = owner == candidate.Plugin
 			}
 			if bound {
-				return candidate.Protocol == identity.Protocol && candidate.Plugin.Meta.Key == MuseVideoTaskPlugin && candidate.Plugin.IsFactory()
+				return candidate.Protocol == identity.Protocol && IsFactorySoraVideoPlugin(candidate.Plugin)
 			}
 		}
 	}

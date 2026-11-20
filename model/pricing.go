@@ -384,8 +384,11 @@ func loadPricingVideoOperations(enableAbilities []AbilityWithChannel, generation
 		channelSyncLock.RUnlock()
 	}
 
-	for _, groups := range operationsByModel {
+	for modelName, groups := range operationsByModel {
 		for group, operations := range groups {
+			if rules.HasSeedance25OpenAI(modelName) {
+				projectSeedanceEconomyResolution(operations)
+			}
 			unique := make(map[string]modelcontracts.Operation, len(operations))
 			for _, operation := range operations {
 				encoded, err := common.Marshal(operation)
