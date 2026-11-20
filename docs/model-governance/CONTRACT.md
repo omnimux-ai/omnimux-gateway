@@ -3,6 +3,8 @@
 > 目的：把"每个模型到底支持什么、限制是什么、依据是什么"变成**落盘的、可复用的、可被门禁校验的**事实，
 > 而不是靠记忆、上下文或临时搜索。模型规格很少变，所以一份档案可以被反复使用。
 
+本文件是网关仓的模型治理入口。新工作树可直接按本文件操作。
+
 ## 一、三条铁律
 
 1. **不得编造**。任何写进档案的数字（张数、时长、分辨率、大小、上下文长度、速率）都必须有
@@ -94,7 +96,7 @@
 
 能力不一致时的处置顺序（由轻到重）：
 
-1. 先在模型页与公开文档**明示各档差异**（哪个档支持什么），让用户的预期与事实一致；
+1. 有运行时分组契约时，由目录发布逐组的完整能力，支持该字段的调用方读取同一契约。公开文档解释字段，尚未纳入运行时分组契约的线路在文档中说明已核验的差异；
 2. 只有当"必须给用户一个跨档位都成立的承诺"时，才拆 ID 或统一上游。
 
 同时在档案里用 `routing` 字段逐条记录实际上游，`status` 用 `partial`。
@@ -207,14 +209,26 @@ the keys in `reasoning_efforts`.
 - `text_to_video` → `family: "video"`
 - `text_to_music`、`speech_to_text` → `family: "audio"`
 
-同一操作只能被一个模型推荐；`modelcontracts.Build` 与 `check-model-specs.mjs`
+同一操作只能被一个模型推荐；`modelcontracts.Build` 与上线前的档案校验
 都会拒绝未知键、重复推荐和 family 不匹配。推荐的 model 只有在
 `/api/pricing` 同一响应中可见且 `enable_groups` 非空时才会出现在顶层
 `defaults`；否则该键省略，绝不返回不可选的 model ID。
 
 ## 四、门禁约定（机器校验）
 
-`scripts/ops/check-model-specs.mjs` 对每个档案做确定性校验，任一条不满足即失败：
+公开仓从根目录运行以下检查：
+
+```sh
+bun install --cwd web --frozen-lockfile
+make model-contract-check
+```
+
+此命令检查生成物是否与档案一致、数字限制是否有来源，以及前端图像和视频表单与静态生成契约是否一致。
+规格溯源检查拒绝声明了需溯源的数值限制、但没有 `sources[]` 的档案，并报告有来源但尚未逐项对应声明的限制。
+公开 CI 的 Model capability contract 检查覆盖 Go 投影和数值溯源，表单一致性用例归入前端测试。
+
+完整的档案校验、目录发布校验和在售契约完整性校验依赖实际目录基线，在上线前由部署维护者运行。
+其中档案校验对照基线检查下列条件：
 
 1. 目录里的**每个模型**都有对应档案文件；文件名 = `model_id`（`/` 替换为 `__`）。
 2. 通用必填字段齐全且非空；`family` / `status` 取值在枚举内。
@@ -233,8 +247,8 @@ the keys in `reasoning_efforts`.
 ## 五、档案的生命周期
 
 - **新增模型**：先落档案 → 过门禁 → 才允许进目录。
-- **厂商改规格**：更新档案的 `checked_at` 与 `sources`，同一变更集里同步前端限制表与公开文档。
-- **档案与线上不一致**：以档案为准，视为线上缺陷。
+- **厂商改规格**：更新档案的 `checked_at` 与 `sources`，重新生成发布契约，复核契约驱动的前端表单并同步双语公开文档。仅前端无法表达新契约结构、或旧版回退行为需要修复时，才涉及前端代码。
+- **档案与实际执行不一致**：查明厂商规格、发布契约和选线各自的口径，修正错误的一侧。按原入口验证通过后才能宣称该能力可用。
 - **定期复核**：季度巡检，只更新有变化的档案（模型规格很少变，所以成本很低）。
 
 ## 六、Contract v2: executable operation schema（schemaVersion 2.0）
@@ -387,7 +401,7 @@ the keys in `reasoning_efforts`.
 
 ### 6.6 门禁
 
-`scripts/ops/check-model-specs.mjs` 在原有规则之外，对**出现即校验**的可选块执行：
+依赖目录基线的档案校验也检查以下可选块：
 
 - `gateway.profile` 只能是已注册模板；`gateway.operations` 非空且无重复。
 - `parameters` 必须是数组；`name` 非空，`type` 合法，`enum` 非空且类型一致，
@@ -400,7 +414,7 @@ the keys in `reasoning_efforts`.
 
 契约生成器校验 `gateway.mode_kinds` 的操作 ID、语义键和参考素材类型是否匹配。
 
-`scripts/ops/check-model-contract-completeness.mjs` 是上架门禁：所有 `status=1` 的在售模型必须
+上线前的在售契约完整性校验覆盖实际目录：所有 `status=1` 的在售模型必须
 `execution_status: live` 且至少一个 `executable: true` operation；executable operation 不得在
 `unknowns[]` 中留下 `operations.<id>.inputs` / `operations.<id>.parameters` 缺口。没有 gateway
 profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
@@ -410,8 +424,8 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 1. 先写/更新 `docs/model-governance/specs/<model_id>.json`；不得先改前端或 Go 适配器来“补”模型。
 2. 选择已注册 profile；新 profile 必须同时补 `modelcontracts/operations.go` 的模板与 adapter parity 测试。
 3. 运行 `go run ./modelcontracts/gen`，确认 `contractVersion` 变化且 `execution_status` 正确。
-4. 运行 `make model-contract-check`；所有门禁和前端 contract parity 必须通过。
-5. 公开目录/模型页变更同步 public docs、changelog 与模型页验收；涉及前端时按 §Surfaces 的 HTML 演示确认规则执行。
+4. 运行 `make model-contract-check`。在目标测试环境从目录入口验证投影与提交、查询等实际执行路径，记录版本及结果。上线前另由部署维护者运行依赖目录基线的检查。
+5. 公开目录/模型页变更同步双语公开文档、changelog 与模型页验收。涉及前端代码时按 [Surfaces](../../AGENTS.md#surfaces-fork) 的 HTML 演示确认规则执行。
 
 没有 `gateway` / `parameters` 的历史档案不受 v2 结构本身影响，但只有 `stub`/`unavailable` 状态可以保留；
 `status=1` 的在售模型必须完成上述 Definition of Done。
@@ -429,16 +443,16 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 `OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED=1` 是应急开关。若契约载荷本身不可读，
 网关保持发布现有 Served 目录，不得把 `/api/pricing` 清空。
 
-### 6.9 试点视频的有效能力
+### 6.9 试点视频的有效能力（#68 已交付行为）
 
 `/api/pricing` 的模型行和 `/api/model_contract/:model` 的 `data` 可在 `contract` 同级返回
 `effective_video`。其 `groups` 把当前账号可选的逻辑分组映射到完整操作变体，`version` 随该视角下
 的能力内容变化。模式、素材槽和参数需要同时匹配一个变体。相同操作 ID 可以有多个变体，参数上的
 `required: true` 表示调用方须显式传值。变体的 `modeKind` 和素材角色沿用模型级契约。
 
-缺省 `effective_video` 表示未启用试点。空 `groups` 表示当前视角没有可发布的试点分组。组内空数组
+缺省 `effective_video` 时保留模型级 `contract` 和原调用方式。空 `groups` 表示当前视角没有可发布的试点分组。组内空数组
 表示该组目前没有经过核验的变体。实际提交和每次重试按请求权限、当前渠道状态和有效规则重新匹配。
-已核验的候选都不支持当前组合时返回 `400 video_capability_mismatch`。
+已核验的候选都不支持当前组合时返回 `400 video_capability_mismatch`。当前没有可用的已核验候选时返回 `503`。
 
 网关启动时可从 `OMNIMUX_VIDEO_CAPABILITIES_FILE` 装载试点规则。配置的 `models` 把
 `muse-video` 或 `seedance-2-5` 映射到各自的渠道规则数组。每条规则包含 `channel_id`、
@@ -446,6 +460,8 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 变体引用既有操作 `id`，可用 `inputs` 和 `parameters` 限定该变体接受的槽位与参数。
 渠道身份、地址和证据留在规则配置中。Muse 试点使用网关内置的已核验插件实现，解码器会补齐
 5 秒的默认时长。Muse 变体声明 `parameters` 时需包含 `duration`，范围不含 5 秒时调用方须显式传值。
+
+试点范围和通用分组契约的后续验收记录见 [#74](https://github.com/omnimux-ai/omnimux-gateway/issues/74)。
 
 ## Field: `basis`
 
