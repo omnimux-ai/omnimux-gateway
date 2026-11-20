@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import { PRICING_ANALYTICS_EVENTS } from '@/features/pricing/lib/pricing-analytics'
+
 import {
   ANALYTICS_QUEUE_MAX,
   ANALYTICS_QUEUE_TIMEOUT_MS,
@@ -40,6 +42,7 @@ import {
 type AnalyticsValue = string | number | boolean
 type AnalyticsProps = Record<string, AnalyticsValue>
 type Field = (value: unknown) => AnalyticsValue | undefined
+type EventField = Field | { required: Field }
 type UmamiDefaults = {
   website?: string
   hostname?: string
@@ -64,9 +67,12 @@ declare global {
 }
 
 const allowed =
-  (values: readonly string[]): Field =>
+  (values: readonly (string | number)[]): Field =>
   (value) =>
-    typeof value === 'string' && values.includes(value) ? value : undefined
+    (typeof value === 'string' || typeof value === 'number') &&
+    values.includes(value)
+      ? value
+      : undefined
 const boundedNumber =
   (min: number, max: number): Field =>
   (value) =>
@@ -76,6 +82,14 @@ const boundedNumber =
     value <= max
       ? value
       : undefined
+const boundedInteger = (min: number, max: number): Field => {
+  const validate = boundedNumber(min, max)
+  return (value) =>
+    typeof value === 'number' && Number.isInteger(value)
+      ? validate(value)
+      : undefined
+}
+const required = (validate: Field): EventField => ({ required: validate })
 const identifier = (value: unknown) =>
   typeof value === 'string' &&
   /^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,119}$/.test(value) &&
@@ -97,7 +111,7 @@ const timestamp: Field = (value) => {
   return boundedNumber(0, Number.MAX_SAFE_INTEGER)(value)
 }
 
-const eventFields: Record<string, Record<string, Field>> = {
+const eventFields: Record<string, Record<string, EventField>> = {
   [DOWNLOAD_CTA_NAME]: {
     page: allowed(DOWNLOAD_PAGES),
     cta_id: (value) =>
@@ -125,6 +139,23 @@ const eventFields: Record<string, Record<string, Field>> = {
   pricing_served_from_cache: { lastUpdated: timestamp },
   pricing_fetch_error: {},
   pricing_expr_parse_error: {},
+  [PRICING_ANALYTICS_EVENTS.TOPUP_CLICK]: {
+    cta_position: required(allowed(['hero', 'ladder', 'sticky_mobile'])),
+    amount_usd: allowed([10, 50, 100, 300, 1000, 3000]),
+    is_authenticated: required(boolean),
+  },
+  [PRICING_ANALYTICS_EVENTS.ESTIMATOR_INTERACT]: {
+    model_id: required(allowed(['seedance-2-5', 'wan-3.0', 'seedance-2-0'])),
+    seconds: required(boundedInteger(5, 30)),
+  },
+  [PRICING_ANALYTICS_EVENTS.CATALOG_EXPAND]: {
+    expanded: required(boolean),
+    model_count: required(boundedInteger(0, 100_000)),
+  },
+  [PRICING_ANALYTICS_EVENTS.FAQ_TOGGLE]: {
+    faq_id: required(allowed(['q1', 'q2', 'q3', 'q4', 'q5'])),
+    expanded: required(boolean),
+  },
   influencer_page_view: { guest: boolean },
   influencer_login_cta: {
     action: allowed(['sign_in', 'sign_up']),
@@ -196,10 +227,12 @@ function sanitizeProperties(event: AnalyticsEvent): AnalyticsProps | null {
   const input = (event.props ?? {}) as Record<string, unknown>
   const fields = eventFields[event.name]
   const data: AnalyticsProps = {}
-  for (const [key, validate] of Object.entries(fields)) {
+  for (const [key, field] of Object.entries(fields)) {
+    const isRequired = typeof field !== 'function'
+    const validate = isRequired ? field.required : field
     const value = Object.hasOwn(input, key) ? validate(input[key]) : undefined
     if (value === undefined) {
-      if (event.name === DOWNLOAD_CTA_NAME) return null
+      if (isRequired || event.name === DOWNLOAD_CTA_NAME) return null
     } else {
       data[key] = value
     }

@@ -153,6 +153,12 @@ export type ModelContract = {
   streaming?: boolean
   prompt_caching?: boolean
   audio_kind?: string
+  /** Published display unit and base price for a model's billing basis. */
+  billing?: {
+    unit?: string
+    pricing_basis?: string
+    unit_price_usd?: number
+  }
   input_formats?: string[]
   max_input_bytes?: number
   max_input_seconds?: number

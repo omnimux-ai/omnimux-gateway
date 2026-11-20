@@ -20,11 +20,13 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import i18next from 'i18next'
 import { beforeAll, describe, expect, test } from 'vitest'
 
+import { renderPricing } from '../../__tests__/render-pricing'
 import { TOPUP_LADDER } from '../../constants'
+import { REFERENCE_CLIP_CREDITS } from '../../lib/video-cost-estimate'
 import { TopupLadder } from '../topup-ladder'
 
 /**
@@ -55,7 +57,12 @@ beforeAll(() => {
 
 describe('TopupLadder', () => {
   test('renders one rung per preset amount with credits and USD usage', () => {
-    render(<TopupLadder ladder={TOPUP_LADDER} />)
+    renderPricing(
+      <TopupLadder
+        ladder={TOPUP_LADDER}
+        referenceClipCredits={REFERENCE_CLIP_CREDITS}
+      />
+    )
 
     expect(
       screen.getByRole('heading', { name: 'Top up more, pay less' })
@@ -69,10 +76,20 @@ describe('TopupLadder', () => {
 
     expect(screen.getByText('10,000')).toBeInTheDocument()
     expect(screen.getByText('$1,000')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Select 3,000 credits' })
+    const recommended = link.closest('li')
+    expect(recommended).toHaveTextContent('Recommended')
+    expect(recommended).toHaveTextContent('About 25 15-second videos')
+    expect(link).toHaveAttribute('href', '/sign-in?redirect=%2Fwallet')
   })
 
   test('shows a saving badge only on discounted rungs', () => {
-    render(<TopupLadder ladder={TOPUP_LADDER} />)
+    renderPricing(
+      <TopupLadder
+        ladder={TOPUP_LADDER}
+        referenceClipCredits={REFERENCE_CLIP_CREDITS}
+      />
+    )
 
     const discounted = TOPUP_LADDER.filter((rung) => rung.discount < 1)
     expect(discounted).toHaveLength(3)
@@ -85,35 +102,40 @@ describe('TopupLadder', () => {
   })
 
   test('renders nothing when the ladder is empty', () => {
-    const { container } = render(<TopupLadder ladder={[]} />)
+    const { container } = renderPricing(
+      <TopupLadder ladder={[]} referenceClipCredits={REFERENCE_CLIP_CREDITS} />
+    )
 
     expect(container).toBeEmptyDOMElement()
   })
 
-  test.skipIf(!existsSync(LADDER_JSON))('mirrors the canonical ops ladder used for production writes', () => {
-    const canonical = JSON.parse(
-      readFileSync(LADDER_JSON, 'utf8')
-    ) as LadderFile
+  test.skipIf(!existsSync(LADDER_JSON))(
+    'mirrors the canonical ops ladder used for production writes',
+    () => {
+      const canonical = JSON.parse(
+        readFileSync(LADDER_JSON, 'utf8')
+      ) as LadderFile
 
-    expect(TOPUP_LADDER.map((rung) => rung.amountUsd)).toEqual(
-      canonical.amount_options
-    )
+      expect(TOPUP_LADDER.map((rung) => rung.amountUsd)).toEqual(
+        canonical.amount_options
+      )
 
-    for (const rung of TOPUP_LADDER) {
-      const expectedDiscount =
-        canonical.amount_discount[String(rung.amountUsd)] ?? 1
-      expect(rung.discount).toBe(expectedDiscount)
+      for (const rung of TOPUP_LADDER) {
+        const expectedDiscount =
+          canonical.amount_discount[String(rung.amountUsd)] ?? 1
+        expect(rung.discount).toBe(expectedDiscount)
+      }
+
+      // Every discount in the ops file must be advertised by the page, and the
+      // credits shown must follow the 1 USD = 10 credits rule.
+      expect(Object.keys(canonical.amount_discount).map(Number).sort()).toEqual(
+        TOPUP_LADDER.filter((rung) => rung.discount < 1)
+          .map((rung) => rung.amountUsd)
+          .sort()
+      )
+      for (const rung of TOPUP_LADDER) {
+        expect(rung.credits).toBe(rung.amountUsd / 0.1)
+      }
     }
-
-    // Every discount in the ops file must be advertised by the page, and the
-    // credits shown must follow the 1 USD = 10 credits rule.
-    expect(Object.keys(canonical.amount_discount).map(Number).sort()).toEqual(
-      TOPUP_LADDER.filter((rung) => rung.discount < 1)
-        .map((rung) => rung.amountUsd)
-        .sort()
-    )
-    for (const rung of TOPUP_LADDER) {
-      expect(rung.credits).toBe(rung.amountUsd / 0.1)
-    }
-  })
+  )
 })

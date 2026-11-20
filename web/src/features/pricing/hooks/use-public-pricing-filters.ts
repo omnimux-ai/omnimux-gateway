@@ -83,13 +83,14 @@ function matchesVendor(card: PublicModelCardItem, vendorId: string): boolean {
  * Operates on ACL card view-models from `transformPricingDataToCards`.
  */
 export function usePublicPricingFilters(
-  cards: PublicModelCardItem[]
+  cards: PublicModelCardItem[],
+  initial?: { search?: string; vendor?: string; modality?: ModalityFilter }
 ): PublicPricingFiltersState {
-  const [searchInput, setSearchInputState] = useState('')
+  const [searchInput, setSearchInputState] = useState(initial?.search ?? '')
   const [modality, setModalityState] = useState<ModalityFilter>(
-    MODALITY_FILTERS.VIDEO
+    initial?.modality ?? MODALITY_FILTERS.VIDEO
   )
-  const [vendorId, setVendorIdState] = useState<string>(FILTER_ALL)
+  const [vendorId, setVendorIdState] = useState(initial?.vendor || FILTER_ALL)
 
   const debouncedSearch = useDebounce(searchInput, 200)
 

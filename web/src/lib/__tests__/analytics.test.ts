@@ -35,7 +35,7 @@ const downloadClick = {
 } as const
 
 function captureUmami() {
-  const payloads: unknown[] = []
+  const payloads: { name: string; data: Record<string, unknown> }[] = []
   const track: NonNullable<Window['umami']>['track'] = (build) => {
     const defaults = {
       website: 'test-site',
@@ -136,6 +136,128 @@ describe('Umami adapter', () => {
     })
     expect(JSON.stringify(sent)).not.toMatch(/secret|private/)
   })
+
+  it('sends the four pricing interactions through the pricing bridge and sanitizes their fields', async () => {
+    const { installAnalytics } = await import('../analytics-bootstrap')
+    const adapter = await import('../analytics')
+    const { trackPricingEvent, PRICING_ANALYTICS_EVENTS: events } =
+      await import('@/features/pricing/lib/pricing-analytics')
+    const sent = captureUmami()
+    installAnalytics(async () => adapter)
+
+    trackPricingEvent(events.TOPUP_CLICK, {
+      cta_position: 'ladder',
+      amount_usd: 300,
+      is_authenticated: false,
+      token: 'private-token',
+    })
+    trackPricingEvent(events.ESTIMATOR_INTERACT, {
+      model_id: 'wan-3.0',
+      seconds: 15,
+      prompt: 'private-prompt',
+    })
+    trackPricingEvent(events.CATALOG_EXPAND, {
+      expanded: true,
+      model_count: 16,
+      query: 'private-query',
+    })
+    trackPricingEvent(events.FAQ_TOGGLE, {
+      faq_id: 'q1',
+      expanded: false,
+      email: 'private@example.com',
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(sent.map(({ name, data }) => ({ name, data }))).toEqual([
+      {
+        name: 'pricing_topup_click',
+        data: {
+          cta_position: 'ladder',
+          amount_usd: 300,
+          is_authenticated: false,
+        },
+      },
+      {
+        name: 'pricing_estimator_interact',
+        data: { model_id: 'wan-3.0', seconds: 15 },
+      },
+      {
+        name: 'pricing_catalog_expand',
+        data: { expanded: true, model_count: 16 },
+      },
+      {
+        name: 'pricing_faq_toggle',
+        data: { faq_id: 'q1', expanded: false },
+      },
+    ])
+  })
+
+  it('drops malformed pricing interactions and omits invalid optional amounts', async () => {
+    const { createAnalyticsTracker } = await import('../analytics')
+    const sent = captureUmami()
+    const track = createAnalyticsTracker()
+
+    track(analyticsEvent('pricing_topup_click', { cta_position: 'hero' }))
+    track(
+      analyticsEvent('pricing_estimator_interact', {
+        model_id: 'private-token',
+        seconds: 15,
+      })
+    )
+    for (const seconds of [15.5, 31]) {
+      track(
+        analyticsEvent('pricing_estimator_interact', {
+          model_id: 'wan-3.0',
+          seconds,
+        })
+      )
+    }
+    track(
+      analyticsEvent('pricing_catalog_expand', {
+        expanded: true,
+        model_count: -1,
+      })
+    )
+    track(
+      analyticsEvent('pricing_faq_toggle', { faq_id: 'q6', expanded: false })
+    )
+    track(
+      analyticsEvent('pricing_topup_click', {
+        cta_position: 'sticky_mobile',
+        amount_usd: '300',
+        is_authenticated: true,
+      })
+    )
+
+    expect(sent.map(({ name, data }) => ({ name, data }))).toEqual([
+      {
+        name: 'pricing_topup_click',
+        data: { cta_position: 'sticky_mobile', is_authenticated: true },
+      },
+    ])
+  })
+
+  it.each(['fr', 'ru', 'vi'])(
+    'accepts %s on a pricing footer download',
+    async (locale) => {
+      const { createAnalyticsTracker } = await import('../analytics')
+      const { DOWNLOAD_DESTINATION } = await import('../download-cta')
+      const sent = captureUmami()
+      const track = createAnalyticsTracker()
+      const data = {
+        page: 'pricing',
+        cta_id: 'pricing_download_mac',
+        cta_position: 'footer',
+        cta_variant: 'direct',
+        locale,
+        destination: DOWNLOAD_DESTINATION,
+      }
+
+      track(analyticsEvent('download_cta_click', data))
+
+      expect(sent).toMatchObject([{ name: 'download_cta_click', data }])
+    }
+  )
 
   it('preserves the tracked route and flushes only the bounded queue when Umami loads', async () => {
     const { createAnalyticsTracker } = await import('../analytics')

@@ -51,7 +51,7 @@ const LANGUAGE_SHORT_LABELS: Record<string, string> = {
 const LINK_CLASS =
   'text-[14px] font-medium text-white/70 transition-colors duration-150 hover:text-white'
 
-export function LandingFooter() {
+export function LandingFooter(props: { containerClassName?: string } = {}) {
   const { t } = useTranslation()
   const { currentLanguage, changeLanguage } = useInterfaceLanguage()
 
@@ -90,7 +90,7 @@ export function LandingFooter() {
 
   return (
     <footer className='border-t border-white/8 bg-[#0C0C0E]'>
-      <div className='omx-shell py-12 sm:py-14'>
+      <div className={cn('omx-shell py-12 sm:py-14', props.containerClassName)}>
         <div className='flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10'>
           {/* Brand */}
           <Link

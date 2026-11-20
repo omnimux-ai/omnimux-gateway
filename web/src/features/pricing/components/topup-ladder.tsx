@@ -18,27 +18,27 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { TopupRung } from '../constants'
+import {
+  PRICING_ANALYTICS_EVENTS,
+  trackPricingEvent,
+} from '../lib/pricing-analytics'
+import { PricingTopupLink } from './pricing-topup-link'
 import { SavingBadge } from './saving-badge'
 
 export type TopupLadderProps = {
   /** Preset top-up rungs, cheapest first. */
   ladder: readonly TopupRung[]
+  referenceClipCredits: number
   className?: string
 }
 
-/**
- * Read-only volume ladder for the public pricing page.
- *
- * Reads no network state: the rungs come from `TOPUP_LADDER`, which a
- * regression test keeps in sync with `scripts/ops/payment/amount-ladder.json`.
- * Shows credits and the USD usage value only — the payable amount depends on
- * the visitor's currency and payment provider, so it belongs to the wallet page.
- */
+/** Shows USD preset values. Final payment options and amounts come from the wallet. */
 export function TopupLadder(props: TopupLadderProps) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
@@ -49,7 +49,8 @@ export function TopupLadder(props: TopupLadderProps) {
 
   return (
     <section
-      className={cn('mb-12 sm:mb-16', props.className)}
+      id='topup'
+      className={cn('scroll-mt-24', props.className)}
       aria-labelledby='topup-ladder-heading'
     >
       <div className='border-border/60 mb-6 flex flex-col gap-2 border-b pb-5'>
@@ -67,11 +68,21 @@ export function TopupLadder(props: TopupLadderProps) {
       <ul className='grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6'>
         {props.ladder.map((rung) => {
           const offPercent = Math.round((1 - rung.discount) * 100)
+          const recommended = rung.credits === 3000
+          const clips = Math.floor(rung.credits / props.referenceClipCredits)
           return (
             <li
               key={rung.amountUsd}
-              className='bg-card border-border flex flex-col gap-1 rounded-sm border p-4'
+              className={cn(
+                'bg-card border-border flex flex-col gap-1 rounded-2xl border p-4',
+                recommended && 'border-foreground/60'
+              )}
             >
+              {recommended && (
+                <Badge variant='secondary' className='self-start'>
+                  {t('Recommended')}
+                </Badge>
+              )}
               <span className='text-foreground font-mono text-lg font-semibold tracking-tight tabular-nums'>
                 {formatNumber(rung.credits, locale)}
               </span>
@@ -87,10 +98,37 @@ export function TopupLadder(props: TopupLadderProps) {
               <span className='text-muted-foreground mt-1 font-mono text-xs tabular-nums'>
                 {`$${formatNumber(rung.amountUsd, locale)}`}
               </span>
+              <span className='text-muted-foreground mb-2 text-xs'>
+                {clips > 0
+                  ? t('About {{total}} 15-second videos', {
+                      total: formatNumber(clips, locale),
+                    })
+                  : t('For a shorter clip')}
+              </span>
+              <PricingTopupLink
+                className='mt-auto self-start'
+                position='ladder'
+                amountUsd={rung.amountUsd}
+                prominent={recommended}
+              />
             </li>
           )
         })}
       </ul>
+      <p className='text-muted-foreground mt-4 text-sm'>
+        {t(
+          'Video counts use the estimated cost of a 15-second Seedance 2.5 clip. Actual charges follow your wallet and task records.'
+        )}
+      </p>
+      <a
+        className='text-foreground mt-3 inline-block text-sm underline underline-offset-4'
+        href='mailto:sales@omnimux.ai'
+        onClick={() =>
+          trackPricingEvent(PRICING_ANALYTICS_EVENTS.CTA_ENTERPRISE)
+        }
+      >
+        {t('Contact sales for enterprise purchasing')}
+      </a>
     </section>
   )
 }
