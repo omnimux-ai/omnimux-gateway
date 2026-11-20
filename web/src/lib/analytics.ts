@@ -17,6 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import {
+  HOME_HERO_CTA_EVENT,
+  HOME_HERO_CTA_PLATFORMS,
+  HOME_HERO_CTA_TYPES,
+  HOME_PRICING_TEASER_EVENT,
+  HOME_PRICING_TEASER_IDS,
+} from '@/features/omnimux-landing/desktop/lib/home-analytics'
 import { PRICING_ANALYTICS_EVENTS } from '@/features/pricing/lib/pricing-analytics'
 
 import {
@@ -32,6 +39,7 @@ import {
   DOWNLOAD_PAGES,
   DOWNLOAD_POSITIONS,
   DOWNLOAD_VARIANTS,
+  HOME_DESKTOP_COPY_CTA,
 } from './download-cta'
 import {
   buildToolCtaClick,
@@ -111,6 +119,15 @@ const timestamp: Field = (value) => {
   return boundedNumber(0, Number.MAX_SAFE_INTEGER)(value)
 }
 
+const homeDesktopCopyFields = {
+  page: allowed([HOME_DESKTOP_COPY_CTA.page]),
+  cta_id: allowed([HOME_DESKTOP_COPY_CTA.cta_id]),
+  cta_position: allowed([HOME_DESKTOP_COPY_CTA.cta_position]),
+  cta_variant: allowed([HOME_DESKTOP_COPY_CTA.cta_variant]),
+  locale: allowed(DOWNLOAD_LOCALES),
+  destination: allowed([HOME_DESKTOP_COPY_CTA.destination]),
+}
+
 const eventFields: Record<string, Record<string, EventField>> = {
   [DOWNLOAD_CTA_NAME]: {
     page: allowed(DOWNLOAD_PAGES),
@@ -122,6 +139,13 @@ const eventFields: Record<string, Record<string, EventField>> = {
     cta_variant: allowed(DOWNLOAD_VARIANTS),
     locale: allowed(DOWNLOAD_LOCALES),
     destination: allowed([DOWNLOAD_DESTINATION]),
+  },
+  [HOME_HERO_CTA_EVENT]: {
+    cta_type: required(allowed(HOME_HERO_CTA_TYPES)),
+    platform: required(allowed(HOME_HERO_CTA_PLATFORMS)),
+  },
+  [HOME_PRICING_TEASER_EVENT]: {
+    cta_id: required(allowed(HOME_PRICING_TEASER_IDS)),
   },
   pricing_page_view: {
     dataSource: allowed(['network', 'cache', 'none']),
@@ -225,7 +249,11 @@ function sanitizeProperties(event: AnalyticsEvent): AnalyticsProps | null {
   if (!Object.hasOwn(eventFields, event.name)) return null
 
   const input = (event.props ?? {}) as Record<string, unknown>
-  const fields = eventFields[event.name]
+  const fields =
+    event.name === DOWNLOAD_CTA_NAME &&
+    input.cta_id === HOME_DESKTOP_COPY_CTA.cta_id
+      ? homeDesktopCopyFields
+      : eventFields[event.name]
   const data: AnalyticsProps = {}
   for (const [key, field] of Object.entries(fields)) {
     const isRequired = typeof field !== 'function'

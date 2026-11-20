@@ -27,6 +27,11 @@ export const es: LandingCopy = {
   skip: 'Saltar al contenido',
 
   nav: {
+    capabilities: 'Funciones',
+    workflow: 'Flujo de trabajo',
+    inspiration: 'Inspiración',
+    downloadDesktop: 'Descargar la app de escritorio',
+    menuClose: 'Cerrar menú',
     brand: 'Desktop',
     home: 'Inicio',
     models: 'Modelos',
@@ -34,7 +39,7 @@ export const es: LandingCopy = {
     ext: 'Extensión',
     pricing: 'Precios',
     resources: 'Recursos',
-    download: 'Bajar beta',
+    download: 'Usar gratis',
     login: 'Iniciar sesión',
     menuOpen: 'Abrir menú',
     langTitle: 'Idioma de la página',
@@ -77,20 +82,62 @@ export const es: LandingCopy = {
   },
 
   hero: {
+    eyebrow: 'Para vendedores de comercio transfronterizo y de contenidos',
+    secondaryCta: 'Ver cómo se hace un vídeo',
+    mobileCopyLabel: 'Copiar enlace de descarga',
+    mobileCopiedLabel: 'Enlace copiado · Ábrelo en tu ordenador',
+    mobileHint:
+      'La app de escritorio se instala en macOS o Windows. Copia el enlace y ábrelo en el navegador de tu ordenador.',
+    microTrust:
+      'macOS 12+ / Windows 10 / 11 · Descarga gratuita · Pago por uso sin suscripción',
+    trustAria: 'Información del producto y las plataformas',
+    trustStrip: ['Código abierto · AGPL-3.0', 'macOS + Windows'],
+    mockAria: 'Vista previa de la interfaz de OmniMux Desktop',
+    mockBadge: 'Vista previa',
+    mockTitle: 'OmniMux Desktop · Nuevo chat',
+    mockSide: [
+      'Nuevo chat',
+      'Apps',
+      'Productos',
+      'Recursos',
+      'Inspiración',
+      'Publicar',
+      'Lienzo',
+      'Editor',
+    ],
+    mockSidebarGroup: 'Espacio de trabajo',
+    mockUserAvatar: 'L',
+    mockPrompt:
+      'Usa esta referencia viral para crear 3 vídeos de 15 segundos para @Sérum. Empieza mostrando el efecto sobre la piel.',
+    mockLinkCard:
+      'tiktok.com/@pet.diary/video/73421 · Un día con mi gato: abriendo su comida',
+    mockSteps: [
+      'Referencia analizada: gancho inicial, argumentos de venta y llamada a la compra',
+      'Ventajas del producto identificadas: absorción rápida, sin residuos y apto para piel seca',
+      'Guiones y guiones gráficos preparados para los 3 vídeos',
+    ],
+    mockTags: [
+      'Gancho · Antes y después en los primeros 2 segundos',
+      'Ventaja · Primer plano al aplicar el producto',
+      'Compra · Enlace al producto al final',
+    ],
+    mockTileBadge: 'Generado',
+    mockNote:
+      'Vista previa de la interfaz · Ejemplo estático · Recursos de muestra del espacio de trabajo',
     titleA: 'Descubre, recrea y escala',
     titleB: 'vídeos virales de venta',
     subPre:
-      'Un sistema de comercio de contenidos que lleva los puntos fuertes de tu producto a cada vídeo. Usa ',
+      'Un sistema de comercio basado en contenidos que lleva los puntos fuertes de tu producto a cada vídeo. Usa ',
     subHighlight: 'los Agents que ya conoces',
     subPost:
-      ' para crear anuncios, vídeos de venta y reseñas en un solo lugar.',
+      ' para pasar del análisis de referencias a la publicación programada de anuncios, vídeos de venta y reseñas desde una sola app.',
     tabsAria: 'Modo de creación',
     tabs: { agent: 'Agent', video: 'Vídeo', image: 'Imagen' },
     inputLabel: 'Describe lo que quieres crear',
     attachAria: 'Añadir un vídeo o imagen de referencia',
     sendAria: 'Empezar en desktop',
-    dlMac: 'Descargar beta para macOS',
-    dlWin: 'Descargar beta para Windows',
+    dlMac: 'Usar gratis',
+    dlWin: 'Usar gratis',
     dlMenuAria: 'Elegir versión de descarga',
     ghStar: 'Danos una estrella en GitHub',
     dlMacArm: 'macOS (Apple Silicon)',
@@ -218,21 +265,23 @@ export const es: LandingCopy = {
   },
 
   flow: {
-    h2: 'De la idea de producto al vídeo de venta',
+    kicker: 'Flujo de trabajo',
+    lead: 'Busca, analiza, crea, publica y revisa en un mismo espacio de trabajo. En cada paso puedes ver qué entra, qué sale y qué hacer después.',
+    h2: 'De la idea de producto al vídeo de venta en 5 pasos',
     lineAria: 'Descubrir · Analizar · Crear · Publicar · Revisar',
     steps: [
       {
         kind: 'Descubrir',
-        title: 'Encuentra vídeos virales de venta en tu categoría',
-        desc: 'Recopila vídeos de referencia de donde los encuentres y analiza su gancho y sus puntos de venta.',
+        title: 'Buscar referencias de tu categoría',
+        desc: 'Reúne los vídeos que encuentres y descubre qué estructuras funcionan para productos de tu categoría.',
         chips: ['Vídeos y posts virales de venta'],
         primary: 'Analizar un vídeo de referencia',
         secondary: 'Guardar inspiración con la extensión',
       },
       {
         kind: 'Analizar',
-        title: 'Entiende por qué vende',
-        desc: 'Descompón el gancho, los argumentos de venta y la guía de compra de un vídeo de éxito en una estructura reutilizable. También puedes analizar cuentas de la competencia.',
+        title: 'Preparar un guion reutilizable',
+        desc: 'Analiza el gancho inicial, las ventajas del producto y la llamada a la compra. Ordénalos en una estructura reutilizable.',
         chips: [
           'Desglose de guiones',
           'Cuentas de la competencia',
@@ -242,23 +291,23 @@ export const es: LandingCopy = {
       },
       {
         kind: 'Crear',
-        title: 'Convierte tu producto en un vídeo de venta',
-        desc: 'Genera vídeos originales a partir de una foto o un enlace de producto, o recrea un éxito viral con tu propio producto.',
+        title: 'Crear vídeos con tus productos o personajes',
+        desc: 'Crea o recrea vídeos de venta con fotos de productos o recursos de personajes. Acaba el vídeo en el lienzo y el editor.',
         primary: 'Generar vídeo',
         secondary: 'Recrear un vídeo viral',
       },
       {
         kind: 'Publicar',
-        title: 'Publica en TikTok, Instagram, Facebook y YouTube',
-        desc: 'Conecta tus cuentas y publica vídeos y posts de imágenes de venta al instante o de forma programada.',
+        title: 'Conectar cuentas y programar publicaciones',
+        desc: 'Conecta tus cuentas para programar publicaciones en TikTok, Instagram, Facebook y YouTube.',
         chips: ['TikTok', 'Instagram', 'Facebook', 'YouTube'],
         primary: 'Publicar vídeo',
         secondary: 'Posts de vídeo · Posts de imágenes',
       },
       {
         kind: 'Revisar',
-        title: 'Convierte el feedback real en tu próximo vídeo',
-        desc: 'Con las cuentas conectadas, las visualizaciones, likes y comentarios se sincronizan solos — y el Agent te dice qué crear después.',
+        title: 'Usar los datos para el próximo vídeo',
+        desc: 'Lleva los datos de publicación al espacio de trabajo para orientar el próximo análisis y mejorar el siguiente vídeo.',
         primary: 'Analizar cuenta',
       },
     ],
@@ -714,9 +763,32 @@ export const es: LandingCopy = {
     ],
   },
 
+  capabilities: {
+    kicker: 'Funciones',
+    h2: 'Tus argumentos de venta en todos los vídeos',
+    lead: 'Reúne materiales, personajes y herramientas en un mismo flujo, desde el catálogo de productos hasta el centro de publicación.',
+    cards: [
+      {
+        title: 'Catálogo de productos',
+        body: 'Guarda fotos, argumentos de venta, públicos y recursos en un solo lugar. El Agent puede consultarlos cada vez que crea un vídeo.',
+      },
+      {
+        title: 'Análisis y recreación de referencias',
+        body: 'Analiza el gancho, los argumentos de venta y la llamada a la compra. Reproduce la estructura con tu propio producto o personaje.',
+      },
+      {
+        title: 'Personajes coherentes desde varios ángulos',
+        body: 'Reutiliza un personaje de IA y sus referencias desde varios ángulos en distintos vídeos. La coherencia visual depende de las entradas y de los ajustes de generación.',
+      },
+    ],
+  },
+
   proof: {
-    h2: 'Hecho para vendedores transfronterizos',
-    lead: 'Encuentra éxitos, analízalos, crea y publica — todo dentro de una app de escritorio.',
+    kicker: 'Para vendedores transfronterizos',
+    source:
+      'Código abierto · AGPL-3.0 · El cliente de escritorio y sus plugins, y el gateway, se publican por separado en GitHub',
+    h2: 'Busca referencias, analiza, crea y publica desde una app de escritorio',
+    lead: 'Prepara el contenido con las skills integradas y las plantillas. Programa su publicación desde el centro de publicación.',
     facts: [
       { value: '17', label: 'skills integradas' },
       { value: '7', label: 'plantillas de vídeo' },
@@ -725,50 +797,52 @@ export const es: LandingCopy = {
     platformsAria: 'Plataformas de publicación compatibles',
     platforms: ['TikTok', 'Instagram', 'Facebook', 'YouTube'],
     badges: [
-      'Confirma parámetros y créditos antes de generar',
-      'Créditos reembolsados automáticamente en tareas fallidas',
+      'Confirma los parámetros y créditos antes de generar',
+      'Consulta el registro de tareas para saber qué créditos se devuelven',
     ],
   },
 
+  pricingTeaser: {
+    kicker: 'Precios',
+    h2: 'Pago por uso sin suscripción',
+    lead: 'Recarga créditos y utilízalos al generar contenido. Empieza con una recarga pequeña para tu primer vídeo y añade más cuando los necesites. Consulta los precios y tu cartera para ver los importes, créditos y descuentos vigentes.',
+    ctaPrimary: 'Ver todos los precios',
+    ctaSecondary: 'Descargar antes de recargar',
+    cardSubtitle:
+      'Pago por generación · Créditos válidos para todos los modelos',
+    cardPriceTitle: '{credits} créditos',
+    cardPriceSub: 'Recargas predefinidas desde {amount}',
+    tierCredits: '{credits} créditos',
+    tierSave: 'Ahorra un {percent}%',
+    cardCta: 'Ver todas las opciones de recarga',
+    cardFootnote:
+      '1 crédito = {price} · Los descuentos se aplican a importes predefinidos',
+  },
+
   faq: {
-    h2: 'Preguntas frecuentes',
-    lead: 'Lo que más preguntan los vendedores de e-commerce',
+    kicker: 'Preguntas frecuentes',
+    h2: 'Lo que más preguntan los vendedores de e-commerce',
+    lead: 'Código abierto, plataformas compatibles y costes de generación.',
     items: [
       {
         q: '¿OmniMux es de código abierto?',
-        a: 'Sí. El cliente de escritorio y los plugins se publican en github.com/omnimux-ai/omnimux-client, y el código del gateway en github.com/omnimux-ai/omnimux-gateway, bajo AGPL-3.0. El servicio alojado mantiene fuera de alcance las credenciales de canales, el libro de precios, la operación y los datos de usuarios.',
+        a: 'Sí. El código del cliente de escritorio y los plugins está en github.com/omnimux-ai/omnimux-client y el del gateway está en github.com/omnimux-ai/omnimux-gateway. Ambos se publican con licencia AGPL-3.0. Las credenciales de los canales, los registros de precios, la operación y los datos de usuarios del servicio alojado quedan fuera del código abierto.',
       },
       {
-        q: '¿Qué puede hacer el Agent de OmniMux?',
-        a: 'El Agent de OmniMux analiza vídeos de referencia, escribe guiones, genera vídeos e imágenes y ayuda a publicar en las plataformas que hayas conectado. Describe tu producto y tu objetivo en lenguaje cotidiano y elegirá la herramienta adecuada para cada paso.',
+        q: '¿Puedo generar contenido justo después de descargarlo?',
+        a: 'Descarga la aplicación, instálala e inicia sesión para entrar al espacio de trabajo. Las generaciones consumen créditos según tu saldo y tu registro de tareas. Antes de generar, confirma los parámetros y el consumo de créditos.',
       },
       {
-        q: '¿El Agent generará o publicará sin mi aprobación?',
-        a: 'No. Antes de generar vídeo o imágenes — y antes de publicar — el Agent muestra los parámetros y el coste estimado de créditos y espera tu confirmación. Puedes ajustar los parámetros antes. Si una tarea falla por motivos del sistema, los créditos cobrados se reembolsan.',
+        q: '¿En qué plataformas puedo publicar?',
+        a: 'Puedes programar publicaciones en TikTok, Instagram, Facebook y YouTube desde el centro de publicación. La integración directa con TikTok está desactivada por defecto y su privacidad por defecto es SELF_ONLY. Actualmente quedan fuera Douyin, Xiaohongshu, WeChat Channels, Kuaishou y Bilibili.',
       },
       {
-        q: '¿Cómo hago un vídeo de venta con IA?',
-        a: 'Pega un enlace de producto o elige una referencia viral, genera un vídeo original o recreado y publícalo en las plataformas que hayas conectado. Sin grabar ni editar.',
+        q: '¿Puedo saber el precio exacto antes de generar un vídeo?',
+        a: 'El estudio de imágenes muestra una estimación de referencia. Para los vídeos, consulta el registro de tareas y el importe que se cargó. Confirma los parámetros y los créditos antes de generar. El precio exacto depende de la configuración de tu cartera.',
       },
       {
-        q: '¿Los vídeos generados se pueden publicar directamente?',
-        a: 'Sí. Conecta tu cuenta una vez en la app de escritorio y publica directamente, sin subidas manuales. Puedes añadir la declaración de contenido IA que exige cada plataforma al publicar.',
-      },
-      {
-        q: '¿Los vídeos hechos con IA pueden hacer que me baneen la cuenta?',
-        a: 'OmniMux no puede garantizar protección contra baneos: la seguridad de la cuenta depende de tu contenido y tu comportamiento. Al publicar puedes añadir una declaración de contenido generado por IA al vídeo; respeta las políticas de cada plataforma.',
-      },
-      {
-        q: '¿Puede convertir imágenes de producto en vídeo?',
-        a: 'Sí. Sube una imagen de producto o pega un enlace de producto y la IA genera un vídeo de presentación listo para publicar, sin grabación.',
-      },
-      {
-        q: '¿Cómo recreo el vídeo viral de un competidor?',
-        a: 'La IA estudia su forma de crear — ritmo, encuadre, tono — y genera un vídeo nuevo con tu producto y metraje original. Recreas el enfoque, no el clip original.',
-      },
-      {
-        q: '¿Puedo usar los vídeos generados con fines comerciales?',
-        a: 'El uso comercial se rige por los Términos de Servicio. Para retratos, imágenes de producto y vídeos de referencia que subas, confirmas que tienes derechos de uso y cumples las reglas de cada plataforma.',
+        q: '¿Garantizáis que el vídeo se hará viral?',
+        a: 'OmniMux ofrece herramientas para analizar referencias, recrear estructuras y producir vídeos. Las visualizaciones, las ventas y la viralidad quedan fuera de las garantías. La seguridad de tu cuenta también depende de tu contenido y de cómo uses tu cuenta.',
       },
     ],
   },
@@ -776,8 +850,8 @@ export const es: LandingCopy = {
   finalCta: {
     h2: 'Tu próximo vídeo viral — déjaselo a OmniMux',
     lead: 'Analiza éxitos, genera vídeos, publica y revisa — un solo Agent ejecuta todo el ciclo.',
-    dlMac: 'Descargar beta para macOS',
-    dlWin: 'Descargar beta para Windows',
+    dlMac: 'Descargar para macOS',
+    dlWin: 'Descargar para Windows',
     note: 'macOS 12+ (universal Apple silicon e Intel) · Windows 10 / 11 x64',
   },
 
@@ -825,24 +899,24 @@ export const es: LandingCopy = {
             label: 'Descargador de fotos de TikTok',
             href: '/tools/tiktok-photo-downloader',
           },
-          { label: 'Producto a vídeo', href: '#tools' },
-          { label: 'Recreación viral', href: '#tools' },
-          { label: 'Vídeo a prompt', href: '#tools' },
-          { label: 'Sets de imágenes de producto', href: '#tools' },
-          { label: 'Imágenes de página de detalle', href: '#tools' },
-          { label: 'Carruseles de imágenes', href: '#tools' },
-          { label: 'Humanos digitales', href: '#tools' },
-          { label: 'Subtítulos incrustados', href: '#tools' },
+          { label: 'Producto a vídeo', href: '#capabilities' },
+          { label: 'Recreación viral', href: '#capabilities' },
+          { label: 'Vídeo a prompt', href: '#capabilities' },
+          { label: 'Sets de imágenes de producto', href: '#capabilities' },
+          { label: 'Imágenes de página de detalle', href: '#capabilities' },
+          { label: 'Carruseles de imágenes', href: '#capabilities' },
+          { label: 'Humanos digitales', href: '#capabilities' },
+          { label: 'Subtítulos incrustados', href: '#capabilities' },
         ],
       },
       {
         title: 'Modelos',
         links: [
-          { label: 'Seedance 2.5', href: '#models' },
-          { label: 'Seedance 2.0', href: '#models' },
-          { label: 'GPT Image 2.5', href: '#models' },
-          { label: 'Nano Banana', href: '#models' },
-          { label: 'Suno', href: '#models' },
+          { label: 'Seedance 2.5', href: '/pricing' },
+          { label: 'Seedance 2.0', href: '/pricing' },
+          { label: 'GPT Image 2.5', href: '/pricing' },
+          { label: 'Nano Banana', href: '/pricing' },
+          { label: 'Suno', href: '/pricing' },
         ],
       },
       {

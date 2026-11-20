@@ -17,15 +17,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { assert, describe, expect, it, vi } from 'vitest'
 
+import { CnCapabilities } from '../../desktop/components/cn/capabilities'
 import { CnNav } from '../../desktop/components/cn/nav'
 import { LandingLangProvider } from '../../desktop/i18n'
+import { zhCN } from '../../desktop/i18n/locales/zh-CN'
+import { docsQuickstartUrl } from '../../lib/landing-urls'
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: (props: { to: string; children: React.ReactNode }) => (
-    <a href={props.to}>{props.children}</a>
+  Link: ({ to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
+    <a href={to} {...props} />
   ),
 }))
 vi.mock('@/stores/auth-store', () => ({
@@ -36,52 +40,80 @@ vi.mock('@/hooks/use-sidebar-config', () => ({
   useIsSidebarModuleVisible: () => false,
 }))
 
-function renderNav() {
-  // CnNav reads the sidebar visibility toggle through useStatus (React Query).
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+describe('landing navigation outside the homepage', () => {
+  it('returns to homepage sections and offers the languages published by the tool page', async () => {
+    const user = userEvent.setup()
+    const onLangChange = vi.fn()
+    const client = new QueryClient()
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <div className='omc'>
+          <LandingLangProvider
+            lang='zh-CN'
+            langs={['en', 'zh-CN']}
+            onLangChange={onLangChange}
+          >
+            <CnNav anchorBase='/' />
+          </LandingLangProvider>
+        </div>
+      </QueryClientProvider>
+    )
+
+    expect(
+      screen.getByRole('link', { name: zhCN.nav.brandAria })
+    ).toHaveAttribute('href', '/')
+    const nav = screen.getByRole('navigation', { name: zhCN.nav.navAria })
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toEqual(['/#capabilities', '/#workflow', '/pricing', '/inspiration'])
+
+    await user.click(screen.getByRole('button', { name: zhCN.nav.menuOpen }))
+    const sheet = container.querySelector<HTMLElement>('#cn-sheet')
+    assert(sheet)
+    expect(
+      within(sheet)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toEqual([
+      '/#capabilities',
+      '/#workflow',
+      '/pricing',
+      '/inspiration',
+      '/#download',
+      '/sign-in',
+    ])
+    const languages = within(sheet).getByRole('group', {
+      name: zhCN.nav.langTitle,
+    })
+    expect(
+      within(languages)
+        .getAllByRole('button')
+        .map((button) => button.textContent)
+    ).toEqual(['English', '简体中文'])
+    await user.click(within(languages).getByRole('button', { name: 'English' }))
+    expect(onLangChange).toHaveBeenCalledWith('en')
   })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <div className='omc'>
-        <LandingLangProvider lang='zh-CN'>
-          <CnNav />
-        </LandingLangProvider>
-      </div>
-    </QueryClientProvider>
+})
+
+it('keeps tool, Agent, and documentation destinations in the capability section', () => {
+  render(
+    <LandingLangProvider lang='zh-CN'>
+      <CnCapabilities />
+    </LandingLangProvider>
   )
-}
 
-describe('landing nav tools menu', () => {
-  it('groups the creative tool pages and the Agent entry pages by name only', async () => {
-    renderNav()
-    const trigger = screen.getByRole('button', { name: /工具/ })
-    fireEvent.mouseDown(trigger, { button: 0 })
-    fireEvent.click(trigger)
-
-    const menu = await screen.findByRole('menu', {}, { timeout: 2000 })
-    expect(within(menu).getByText('创意')).toBeInTheDocument()
-    expect(within(menu).getByText('Agent')).toBeInTheDocument()
-    const video = within(menu).getByRole('link', { name: 'TikTok 视频下载' })
-    const photo = within(menu).getByRole('link', { name: 'TikTok 图文下载' })
-    expect(video).toHaveAttribute('href', '/zh/tools/tiktok-video-downloader')
-    expect(photo).toHaveAttribute('href', '/zh/tools/tiktok-photo-downloader')
-    // The two Agent entry pages hang off the same menu.
-    expect(within(menu).getByRole('link', { name: 'CLI' })).toHaveAttribute(
-      'href',
-      '/zh/cli'
-    )
-    expect(within(menu).getByRole('link', { name: 'Skills' })).toHaveAttribute(
-      'href',
-      '/zh/skills'
-    )
-    // Names only: no descriptions, and no "全部工具" entry (no such page).
-    expect(within(menu).queryByText(/MP4|原图/)).toBeNull()
-    expect(within(menu).queryByText(/全部工具/)).toBeNull()
-  })
-
-  it('no longer offers a For AI navigation entry', () => {
-    renderNav()
-    expect(screen.queryByRole('link', { name: 'For AI' })).toBeNull()
-  })
+  const resources = screen.getByRole('navigation', { name: zhCN.nav.resources })
+  expect(
+    within(resources)
+      .getAllByRole('link')
+      .map((link) => [link.textContent, link.getAttribute('href')])
+  ).toEqual([
+    ['TikTok 视频下载', '/zh/tools/tiktok-video-downloader'],
+    ['TikTok 图文下载', '/zh/tools/tiktok-photo-downloader'],
+    ['CLI', '/zh/cli'],
+    ['Skills', '/zh/skills'],
+    ['开发文档', docsQuickstartUrl('zh-CN')],
+  ])
 })

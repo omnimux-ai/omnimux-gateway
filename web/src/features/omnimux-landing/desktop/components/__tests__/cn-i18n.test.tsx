@@ -18,19 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
-  cleanup,
-  render,
-  screen,
-  within,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import {
   createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
@@ -118,22 +113,29 @@ describe('landing locale data', () => {
   it('keeps capability boundaries out of every locale', () => {
     for (const copy of Object.values(LANDING_COPIES)) {
       const blob = JSON.stringify(copy)
-      expect(blob).not.toMatch(/50万\+|1000万\+|官方认证|guaranteed viral|TikTok Shop official/i)
+      expect(blob).not.toMatch(
+        /50万\+|1000万\+|官方认证|guaranteed viral|TikTok Shop official/i
+      )
     }
   })
 
   it.each(LANDING_LANGS)(
-    'labels the main $code download buttons as beta',
+    'labels the main and final $code desktop actions without a trial claim',
     ({ code }) => {
-      const betaMark: Record<LandingLang, RegExp> = {
-        en: /\bbeta\b/i,
-        id: /\bbeta\b/i,
-        es: /\bbeta\b/i,
-        ja: /β版|ベータ版/,
-        'zh-TW': /公測版/,
-        'zh-CN': /公测版/,
+      const mainLabel: Record<LandingLang, string> = {
+        en: 'Use for free',
+        id: 'Gunakan gratis',
+        es: 'Usar gratis',
+        ja: '無料で使う',
+        'zh-TW': '免費使用',
+        'zh-CN': '免费使用',
       }
       const { nav, hero, finalCta } = LANDING_COPIES[code]
+      expect([nav.download, hero.dlMac, hero.dlWin]).toEqual([
+        mainLabel[code],
+        mainLabel[code],
+        mainLabel[code],
+      ])
       for (const label of [
         nav.download,
         hero.dlMac,
@@ -141,7 +143,10 @@ describe('landing locale data', () => {
         finalCta.dlMac,
         finalCta.dlWin,
       ]) {
-        expect(label).toMatch(betaMark[code])
+        expect(label.trim()).not.toBe('')
+        expect(label).not.toMatch(
+          /\bbeta\b|β版|ベータ版|公[测測]版|free trial|free credit|免费[试試]用|免費[试試]用/i
+        )
       }
     }
   )
@@ -150,7 +155,9 @@ describe('landing locale data', () => {
 describe('DesktopLanding language switching', () => {
   it('renders Simplified Chinese by default and a compact language trigger', async () => {
     await renderLanding()
-    const trigger = screen.getByRole('button', { name: '中 · 页面语言：简体中文' })
+    const trigger = screen.getByRole('button', {
+      name: '中 · 页面语言：简体中文',
+    })
     expect(trigger.textContent).toBe('中')
     expect(screen.getByText('发现、复刻和裂变')).toBeTruthy()
   })
@@ -158,7 +165,9 @@ describe('DesktopLanding language switching', () => {
   it('switches the page to English and persists the choice', async () => {
     const user = userEvent.setup()
     await renderLanding()
-    await user.click(screen.getByRole('button', { name: '中 · 页面语言：简体中文' }))
+    await user.click(
+      screen.getByRole('button', { name: '中 · 页面语言：简体中文' })
+    )
     const menu = document.querySelector('.cn-langmenu')
     expect(menu).toBeTruthy()
     await user.click(within(menu as HTMLElement).getByText('English'))
@@ -182,6 +191,47 @@ describe('DesktopLanding language switching', () => {
 })
 
 describe('DesktopLanding language links and headings', () => {
+  it('renders seven ordered sections and keeps tools and pricing reachable', async () => {
+    await renderLanding()
+    const main = screen.getByRole('main')
+    expect(
+      Array.from(
+        main.querySelectorAll(':scope > section'),
+        (section) => section.id
+      )
+    ).toEqual([
+      'top',
+      'workflow',
+      'capabilities',
+      'proof',
+      'pricing',
+      'faq',
+      'download',
+    ])
+
+    const capabilities = main.querySelector('#capabilities')
+    expect(
+      capabilities?.querySelector(
+        'a[href^="/zh/tools/tiktok-video-downloader"]'
+      )
+    ).toBeTruthy()
+    expect(capabilities?.querySelector('a[href="/zh/cli"]')).toBeTruthy()
+    expect(capabilities?.querySelector('a[href="/zh/skills"]')).toBeTruthy()
+    expect(
+      capabilities?.querySelector(
+        'a[href="https://docs.omnimux.ai/zh/quickstart"]'
+      )
+    ).toBeTruthy()
+    const pricing = main.querySelector('#pricing')
+    expect(pricing?.querySelectorAll('a[href="/pricing"]')).toHaveLength(2)
+    expect(pricing?.querySelector('a[href="#download"]')).toBeTruthy()
+    expect(pricing?.querySelectorAll('li')).toHaveLength(3)
+
+    const faq = main.querySelector('#faq')
+    expect(faq?.querySelectorAll('details')).toHaveLength(5)
+    expect(faq?.querySelector('details')).toHaveAttribute('open')
+  })
+
   it('offers each language as a homepage ?lang= link and marks only the current one', async () => {
     const user = userEvent.setup()
     await renderLanding()

@@ -17,24 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { assert, describe, expect, it, vi } from 'vitest'
 
 import { CnNav } from '../../desktop/components/cn/nav'
 import { LandingLangProvider } from '../../desktop/i18n'
+import { zhCN } from '../../desktop/i18n/locales/zh-CN'
 
-// Forward the props Base UI puts on the rendered element (role, tabIndex) so
-// the menu item behaves the same here as it does with the real Link.
 vi.mock('@tanstack/react-router', () => ({
-  Link: (props: {
-    to: string
-    children: React.ReactNode
-    role?: string
-    tabIndex?: number
-  }) => (
-    <a href={props.to} role={props.role} tabIndex={props.tabIndex}>
-      {props.children}
-    </a>
+  Link: ({ to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
+    <a href={to} {...props} />
   ),
 }))
 vi.mock('@/stores/auth-store', () => ({
@@ -46,11 +39,9 @@ vi.mock('@/hooks/use-sidebar-config', () => ({
 }))
 
 function renderNav() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
+  const client = new QueryClient()
   return render(
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={client}>
       <div className='omc'>
         <LandingLangProvider lang='zh-CN'>
           <CnNav />
@@ -60,49 +51,73 @@ function renderNav() {
   )
 }
 
-/**
- * The two resource destinations used to live only in the footer. The header
- * now carries a resources menu so both are reachable without scrolling.
- */
-describe('landing nav resources menu', () => {
-  it('sits directly after the pricing entry and opens the two destinations', async () => {
+describe('landing primary navigation', () => {
+  it('lists the four approved destinations in order', () => {
     renderNav()
-    const navRow = screen.getByRole('navigation', { name: '主导航' })
-    const entries = within(navRow)
-      .getAllByRole('link')
-      .map((node) => node.textContent ?? '')
-    expect(entries).toContain('价格')
 
-    const trigger = within(navRow).getByRole('button', { name: /资源/ })
-    const triggerIndex = [...navRow.querySelectorAll('a, button')].indexOf(
-      trigger
-    )
-    const pricingIndex = [...navRow.querySelectorAll('a, button')].indexOf(
-      within(navRow).getByRole('link', { name: '价格' })
-    )
-    expect(triggerIndex).toBe(pricingIndex + 1)
-
-    fireEvent.mouseDown(trigger, { button: 0 })
-    fireEvent.click(trigger)
-
-    const menu = await screen.findByRole('menu', {}, { timeout: 2000 })
-    // Base UI renders menu items as `menuitem`, not `link`, even when the
-    // item renders an anchor.
-    const inspiration = within(menu).getByRole('menuitem', { name: '灵感社区' })
-    const docs = within(menu).getByRole('menuitem', { name: '开发文档' })
-    expect(inspiration).toHaveAttribute('href', '/inspiration')
-    expect(docs).toHaveAttribute(
-      'href',
-      'https://docs.omnimux.ai/zh/quickstart'
-    )
-    expect(docs).toHaveAttribute('target', '_blank')
-    expect(docs).toHaveAttribute('rel', 'noopener noreferrer')
+    const nav = screen.getByRole('navigation', { name: '主导航' })
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')])
+    ).toEqual([
+      ['产品能力', '#capabilities'],
+      ['工作流', '#workflow'],
+      ['价格', '/pricing'],
+      ['灵感社区', '/inspiration'],
+    ])
+    expect(within(nav).queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('keeps both destinations out of the top-level row and the footer stays intact', () => {
-    renderNav()
-    const navRow = screen.getByRole('navigation', { name: '主导航' })
-    expect(within(navRow).queryByRole('link', { name: '灵感社区' })).toBeNull()
-    expect(within(navRow).queryByRole('link', { name: '开发文档' })).toBeNull()
+  it('opens by keyboard, exposes the drawer links, and returns focus on Escape', async () => {
+    const user = userEvent.setup()
+    const { container } = renderNav()
+
+    const trigger = screen.getByRole('button', { name: zhCN.nav.menuOpen })
+    const sheet = container.querySelector<HTMLElement>('#cn-sheet')
+    assert(sheet)
+    expect(trigger).toHaveAttribute('aria-controls', 'cn-sheet')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(sheet).not.toBeVisible()
+    expect(within(sheet).queryByRole('link')).not.toBeInTheDocument()
+
+    trigger.focus()
+    await user.keyboard('{Enter}')
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(trigger).toHaveAccessibleName(zhCN.nav.menuClose)
+    expect(
+      within(sheet)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toEqual([
+      '#capabilities',
+      '#workflow',
+      '/pricing',
+      '/inspiration',
+      '#download',
+      '/sign-in',
+    ])
+    const languages = within(sheet).getByRole('group', {
+      name: zhCN.nav.langTitle,
+    })
+    expect(within(languages).getAllByRole('button')).toHaveLength(6)
+    expect(
+      within(languages).getByRole('button', { name: '简体中文', pressed: true })
+    ).toBeVisible()
+
+    await user.tab()
+    expect(within(sheet).getByRole('link', { name: '产品能力' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+
+    expect(sheet).not.toBeVisible()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+
+    await user.keyboard('{Enter}')
+    await user.click(within(sheet).getByRole('link', { name: '下载桌面端' }))
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(sheet).not.toBeVisible()
   })
 })

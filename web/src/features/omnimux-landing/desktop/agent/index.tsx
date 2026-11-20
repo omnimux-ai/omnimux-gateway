@@ -114,7 +114,7 @@ function AgentPageView(props: AgentPageProps) {
         <a className='skip' href='#cn-main'>
           {copy.skip}
         </a>
-        <CnNav anchorBase='/' current='tools' />
+        <CnNav anchorBase='/' />
         <main id='cn-main'>
           <section className='agent-hero'>
             <div className='hero-glow' aria-hidden='true' />

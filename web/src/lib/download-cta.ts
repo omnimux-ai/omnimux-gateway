@@ -54,6 +54,13 @@ export const DOWNLOAD_VARIANTS = [
 ] as const
 export const DOWNLOAD_DESTINATION = new URL(DESKTOP_RELEASE_ORIGIN).hostname
 export const DOWNLOAD_CTA_NAME = 'download_cta_click'
+export const HOME_DESKTOP_COPY_CTA = {
+  page: 'home',
+  cta_id: 'hero_copy_download_link',
+  cta_position: 'hero',
+  cta_variant: 'copy_link',
+  destination: 'desktop_download_page',
+} as const
 export const DOWNLOAD_CLICK_WINDOW_MS = 10_000
 export const DEVICE_ID_STORAGE_KEY = 'omnimux.analytics.device_id'
 const LOCK_NAME = 'omnimux.analytics.downloads'
@@ -73,6 +80,9 @@ type DownloadCtaClick = DownloadCtaIntent & {
   page: DownloadCtaPage
   locale: string
 }
+type DownloadCtaEvent =
+  | (DownloadCtaClick & { destination: string })
+  | (typeof HOME_DESKTOP_COPY_CTA & { locale: string })
 
 const memoryClicks = new Map<string, number>()
 
@@ -97,15 +107,8 @@ function persistDownloadClick(ctaID: string, now: number): boolean {
   return true
 }
 
-/** Report only a real installer link. The link's normal activation keeps its
- * own navigation timing, even while an analytics lock or the tracker loads.
- */
-export function trackDownloadCtaClick(
-  input: DownloadCtaClick,
-  href: string
-): void {
+function reportDownloadCtaClick(input: DownloadCtaEvent): void {
   try {
-    if (new URL(href).origin !== DESKTOP_RELEASE_ORIGIN) return
     const tracker = (globalThis as { [TRACKER_NAME]?: AnalyticsTracker })[
       TRACKER_NAME
     ]
@@ -121,10 +124,7 @@ export function trackDownloadCtaClick(
 
     const report = () => {
       try {
-        tracker(DOWNLOAD_CTA_NAME, {
-          ...input,
-          destination: DOWNLOAD_DESTINATION,
-        })
+        tracker(DOWNLOAD_CTA_NAME, input)
       } catch {
         // A tracker failure must not affect downloading.
       }
@@ -146,4 +146,27 @@ export function trackDownloadCtaClick(
   } catch {
     // A restricted browser API must not affect downloading.
   }
+}
+
+/** Report only a real installer link. The link's normal activation keeps its
+ * own navigation timing, even while an analytics lock or the tracker loads.
+ */
+export function trackDownloadCtaClick(
+  input: DownloadCtaClick,
+  href: string
+): void {
+  try {
+    if (input.cta_id === HOME_DESKTOP_COPY_CTA.cta_id) return
+    if (new URL(href).origin !== DESKTOP_RELEASE_ORIGIN) return
+    reportDownloadCtaClick({ ...input, destination: DOWNLOAD_DESTINATION })
+  } catch {
+    // An invalid installer URL must not affect the click.
+  }
+}
+
+export function trackHomeDesktopCopy(
+  locale: (typeof DOWNLOAD_LOCALES)[number]
+): void {
+  if (!DOWNLOAD_LOCALES.includes(locale)) return
+  reportDownloadCtaClick({ ...HOME_DESKTOP_COPY_CTA, locale })
 }

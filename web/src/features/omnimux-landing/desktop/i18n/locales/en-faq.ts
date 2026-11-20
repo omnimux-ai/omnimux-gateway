@@ -23,50 +23,36 @@ For commercial licensing, please contact support@quantumnous.com
  * (`web/scripts/landing-structured-data.mjs`) reads the same items.
  */
 export interface LandingFaqCopy {
+  kicker: string
   h2: string
   lead: string
   items: { q: string; a: string }[]
 }
 
 export const enFaq: LandingFaqCopy = {
-  h2: 'Frequently asked questions',
-  lead: 'What e-commerce sellers ask most',
+  kicker: 'Frequently asked questions',
+  h2: 'What e-commerce sellers ask most',
+  lead: 'Learn about open source, publishing platforms, and generation costs.',
   items: [
     {
       q: 'Is OmniMux open source?',
       a: 'Yes. The desktop client and the plugins are published at github.com/omnimux-ai/omnimux-client, and the gateway source at github.com/omnimux-ai/omnimux-gateway, under AGPL-3.0. The hosted service keeps its channel credentials, pricing ledger, operations and user data out of scope.',
     },
     {
-      q: 'What can the OmniMux Agent do?',
-      a: 'The OmniMux Agent analyzes reference videos, writes scripts, generates videos and images, and helps publish to the platforms you have connected. Describe your product and goal in plain language and it picks the right tool for each step.',
+      q: 'Can I start generating right after downloading?',
+      a: 'Download, install, and sign in to enter the workspace. Generations deduct credits according to your wallet balance and task records; parameters and credit usage are confirmed beforehand.',
     },
     {
-      q: 'Will the Agent generate or publish without my approval?',
-      a: 'No. Before generating video or images — and before publishing — the Agent shows you the parameters and estimated credit cost and waits for your confirmation. You can adjust the parameters first. If a task fails for system reasons, the charged credits are refunded.',
+      q: 'Which platforms are supported for publishing?',
+      a: 'Schedule posts through the publishing hub to TikTok, Instagram, Facebook, and YouTube. Direct TikTok integration is off by default and defaults to SELF_ONLY privacy; Douyin, Xiaohongshu, WeChat Channels, Kuaishou, and Bilibili are not supported.',
     },
     {
-      q: 'How do I make a shoppable video with AI?',
-      a: 'Paste a product link or pick a viral reference, generate an original or recreated video, then publish to the platforms you have connected. No filming or editing needed.',
+      q: 'Can I see an exact price before generating a video?',
+      a: 'The image studio displays a reference quote; video billing follows task records and actual charges. Parameters and credit usage are confirmed beforehand, with exact rates governed by wallet settings.',
     },
     {
-      q: 'Can generated videos be published directly?',
-      a: 'Yes. Connect your account once in the desktop app and publish directly — no manual uploads. You can add the AI-content declaration required by each platform when publishing.',
-    },
-    {
-      q: 'Will AI-made videos get my account banned?',
-      a: 'OmniMux cannot guarantee protection from bans — account safety depends on your content and account behavior. When publishing you can add an AI-generated-content disclosure to your video; please follow each platform’s policies.',
-    },
-    {
-      q: 'Can it turn product images into video?',
-      a: 'Yes. Upload a product image or paste a product link and the AI generates a publish-ready showcase video — no filming required.',
-    },
-    {
-      q: 'How do I recreate a competitor’s viral video?',
-      a: 'The AI studies their craft — pacing, framing, tone — then generates a brand-new video with your product and original footage. You recreate the approach, not the original clip.',
-    },
-    {
-      q: 'Can I use generated videos commercially?',
-      a: 'Commercial usage is governed by the Terms of Service. For uploaded portraits, product images and reference videos, you confirm you hold the rights to use them and comply with each platform’s rules.',
+      q: 'Do you guarantee viral results?',
+      a: 'No. OmniMux provides workspace tools for reference breakdown, recreation, and video creation — it does not guarantee views, sales, or viral results. Account safety depends on your content and account behavior.',
     },
   ],
 }
