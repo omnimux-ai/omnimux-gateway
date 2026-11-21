@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -11,10 +12,12 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	filterdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -58,6 +61,69 @@ type Channel struct {
 
 	// cache info
 	Keys []string `json:"-" gorm:"-"`
+
+	// Set on private snapshots read for queue pricing.
+	quoteOnly bool
+}
+
+// GetChannelForGenerationQuote reads eligible routing configuration without
+// advancing channel state. It reports whether the candidates agree on inputs
+// that can affect the price, including when the worker selects another channel.
+func GetChannelForGenerationQuote(ctx context.Context, group, modelName string, filters []filterdto.ChannelFilter) (*Channel, bool, error) {
+	db := DB.WithContext(ctx)
+	models := []string{modelName}
+	if normalized := ratio_setting.RoutingMatchModelName(modelName); common.MemoryCacheEnabled && normalized != modelName {
+		models = append(models, normalized)
+	}
+	mismatch := false
+	for _, bindingModel := range models {
+		binding := db.Model(&Ability{}).Select("channel_id").Where(&Ability{Group: group, Model: bindingModel, Enabled: true})
+		var channels []Channel
+		if err := db.Omit("key").Where("id IN (?) AND status = ?", binding, common.ChannelStatusEnabled).
+			Order("priority DESC, id ASC").Find(&channels).Error; err != nil {
+			return nil, false, err
+		}
+		var selected *Channel
+		for i := range channels {
+			channel := &channels[i]
+			channel.quoteOnly = true
+			if ok, rejected := ChannelSatisfiesFilters(channel, modelName, filters); !ok {
+				mismatch = mismatch || rejected == filterdto.FilterVideoCapability
+				continue
+			}
+			if selected == nil {
+				selected = channel
+			} else if !selected.agreesOnGenerationQuote(channel) {
+				return selected, false, nil
+			}
+		}
+		if selected != nil {
+			return selected, true, nil
+		}
+	}
+	if mismatch {
+		return nil, false, ErrVideoCapabilityMismatch
+	}
+	return nil, false, nil
+}
+
+func (channel *Channel) agreesOnGenerationQuote(other *Channel) bool {
+	return channel.Type == other.Type && channel.GetModelMapping() == other.GetModelMapping() &&
+		channel.GetBaseURL() == other.GetBaseURL() && lo.FromPtr(channel.Setting) == lo.FromPtr(other.Setting) &&
+		channel.OtherSettings == other.OtherSettings && lo.FromPtr(channel.ParamOverride) == lo.FromPtr(other.ParamOverride) &&
+		lo.FromPtr(channel.HeaderOverride) == lo.FromPtr(other.HeaderOverride) && channel.Other == other.Other
+}
+
+// ForGenerationQuote strips credentials and makes any later setting reads
+// non-persistent, including those made by shared channel filters.
+func (channel *Channel) ForGenerationQuote() *Channel {
+	if channel == nil {
+		return nil
+	}
+	copy := *channel
+	copy.Key, copy.Keys = "", nil
+	copy.quoteOnly = true
+	return &copy
 }
 
 const ChannelStatusReasonAllKeysDisabled = "All keys are disabled"
@@ -1049,7 +1115,9 @@ func (channel *Channel) GetSetting() dto.ChannelSettings {
 	setting := dto.ChannelSettings{}
 	if channel.Setting != nil && *channel.Setting != "" {
 		err := common.Unmarshal([]byte(*channel.Setting), &setting)
-		if err != nil {
+		// Alias lookup may load only mapping and setting columns while quoting.
+		// A projection without a channel status must never save a partial row.
+		if err != nil && !channel.quoteOnly && channel.Status != 0 {
 			common.SysLog(common.LogText("failed to unmarshal setting: channel_id=%d, error=%v", channel.Id, err))
 			channel.Setting = nil // 清空设置以避免后续错误
 			_ = channel.Save()    // 保存修改
@@ -1071,7 +1139,7 @@ func (channel *Channel) GetOtherSettings() dto.ChannelOtherSettings {
 	setting := dto.ChannelOtherSettings{}
 	if channel.OtherSettings != "" {
 		err := common.UnmarshalJsonStr(channel.OtherSettings, &setting)
-		if err != nil {
+		if err != nil && !channel.quoteOnly {
 			common.SysLog(common.LogText("failed to unmarshal setting: channel_id=%d, error=%v", channel.Id, err))
 			channel.OtherSettings = "{}" // 清空设置以避免后续错误
 			_ = channel.Save()           // 保存修改

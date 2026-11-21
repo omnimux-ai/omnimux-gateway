@@ -3,6 +3,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
@@ -18,11 +24,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"net/http/httptest"
-	"sync/atomic"
-	"testing"
-	"time"
 )
 
 func TestGenerationQueueWorkerRebuildsIdentityAndChargesNativeWallet(t *testing.T) {
@@ -154,8 +155,13 @@ func TestGenerationQueueOldWorkerCannotRejectNewClaim(t *testing.T) {
 func TestGenerationQueueReceiptPersistsWithoutBillingOrSecrets(t *testing.T) {
 	events := []string{}
 	db := setupTaskSubmissionDatabase(t, true, &events)
+	require.NoError(t, db.AutoMigrate(&model.User{}))
+	t.Cleanup(func() { require.NoError(t, db.Migrator().DropTable(&model.User{})) })
+	user := model.User{Id: 17, Group: "image-group", Quota: 5000}
+	require.NoError(t, db.Create(&user).Error)
+	events = nil
 	c := taskSubmissionTestContext()
-	c.Set("id", 17)
+	c.Set("id", user.Id)
 	c.Request.Header.Set("Authorization", "secret")
 	c.Request.Header.Set("Cookie", "private")
 	c.Request.Header.Set("X-Omnimux-Group", "image-group")

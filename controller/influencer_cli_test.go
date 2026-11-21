@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -16,25 +19,38 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/i18n"
+	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/analytics"
+	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/pkg/storage"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // Public literal storage keeps ownership and frozen-byte validation real while
 // every read remains inside the in-memory fixture.
 type influencerCLIImageTestDriver struct {
 	*influencerPresetTestDriver
+	publicOrigin string
 }
 
 func (d *influencerCLIImageTestDriver) GetPublicURL(key string) string {
-	return "https://8.8.8.8/" + strings.TrimPrefix(key, "/")
+	origin := d.publicOrigin
+	if origin == "" {
+		origin = "https://8.8.8.8"
+	}
+	return origin + "/" + strings.TrimPrefix(key, "/")
 }
 
 func (d *influencerCLIImageTestDriver) Upload(ctx context.Context, key string, data []byte, contentType string) (string, error) {
@@ -55,6 +71,12 @@ func createInfluencerCLIImageUpload(t *testing.T, userID int, key string, data [
 
 func setupInfluencerCLIAPI(t *testing.T) (*gin.Engine, *model.UserAccessToken) {
 	t.Helper()
+	user := model.User{Id: 41, Username: "cli-owner", AffCode: "cli-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 100000}
+	return setupInfluencerCLIAPIWithOwner(t, &user)
+}
+
+func setupInfluencerCLIAPIWithOwner(t *testing.T, user *model.User) (*gin.Engine, *model.UserAccessToken) {
+	t.Helper()
 	db, dialect := openInfluencerCLITestDatabase(t, &model.Task{}, &model.InfluencerGenerationRequest{}, &model.User{}, &model.UserAccessToken{}, &model.Ability{}, &model.Channel{}, &model.SystemTask{}, &model.SystemTaskLock{}, &model.File{})
 	previousDB, previousMain, previousLog := model.DB, common.MainDatabaseType(), common.LogDatabaseType()
 	previousStorage := storage.GetStorageDriver()
@@ -63,7 +85,7 @@ func setupInfluencerCLIAPI(t *testing.T) (*gin.Engine, *model.UserAccessToken) {
 	previousAddress, previousPublic, previousSecret := system_setting.ServerAddress, system_setting.TaskPublicAddress, common.CryptoSecret
 	model.DB = db
 	common.SetDatabaseTypes(dialect, dialect)
-	storage.SetGlobalDriver(&influencerCLIImageTestDriver{newInfluencerPresetTestDriver()})
+	storage.SetGlobalDriver(&influencerCLIImageTestDriver{influencerPresetTestDriver: newInfluencerPresetTestDriver()})
 	system_setting.ServerAddress, system_setting.TaskPublicAddress, common.CryptoSecret = "https://gateway.example", "", "cli-controller-test-only"
 	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"default","gpt-image-2.5-sunburst-image":"anchor","gpt-image-2.5-sunburst-test":"image","seedance-2-5-480p":"video","seedance-2-5-720p":"video"}`))
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"gpt-image-2.5-sunburst-image":1,"gpt-image-2.5-sunburst-test":1,"seedance-2-5-480p":1,"seedance-2-5-720p":2}`))
@@ -78,8 +100,7 @@ func setupInfluencerCLIAPI(t *testing.T) (*gin.Engine, *model.UserAccessToken) {
 		system_setting.ServerAddress, system_setting.TaskPublicAddress, common.CryptoSecret = previousAddress, previousPublic, previousSecret
 	})
 	t.Setenv("INFLUENCER_CLI_CREATION_ENABLED", "true")
-	user := model.User{Id: 41, Username: "cli-owner", AffCode: "cli-owner", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Quota: 100000}
-	require.NoError(t, db.Create(&user).Error)
+	require.NoError(t, db.Create(user).Error)
 	token := &model.UserAccessToken{UserId: user.Id, TokenHash: "test-only-cli-token", ExpiresAt: time.Now().Add(time.Hour).Unix()}
 	require.NoError(t, token.SetScopes([]string{"influencer_creation:read", "influencer_creation:write"}))
 	require.NoError(t, db.Create(token).Error)
@@ -97,7 +118,7 @@ func setupInfluencerCLIAPI(t *testing.T) (*gin.Engine, *model.UserAccessToken) {
 	group := engine.Group("/api/influencer/v1", func(c *gin.Context) {
 		c.Set("id", user.Id)
 		c.Set("group", user.Group)
-		common.SetContextKey(c, constant.ContextKeyUserGroup, user.Group)
+		user.ToBaseUser().WriteContext(c)
 		c.Set("use_access_token", true)
 		c.Set("access_token_id", token.Id)
 		c.Set("access_token_scopes", []string{"influencer_creation:read", "influencer_creation:write"})
@@ -108,11 +129,18 @@ func setupInfluencerCLIAPI(t *testing.T) (*gin.Engine, *model.UserAccessToken) {
 
 func influencerCLIAPIRequest(t *testing.T, engine *gin.Engine, method, path string, input any) (*httptest.ResponseRecorder, map[string]any) {
 	t.Helper()
+	return influencerCreationAPIRequest(t, engine, method, "/api/influencer/v1"+path, input)
+}
+
+func influencerCreationAPIRequest(t *testing.T, engine *gin.Engine, method, path string, input any) (*httptest.ResponseRecorder, map[string]any) {
+	t.Helper()
 	body, err := common.Marshal(input)
 	require.NoError(t, err)
-	request := httptest.NewRequest(method, "/api/influencer/v1"+path, bytes.NewReader(body))
+	request := httptest.NewRequest(method, path, bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("X-Omnimux-Group", "caller-cannot-choose")
+	if strings.HasPrefix(path, "/api/influencer/v1/") {
+		request.Header.Set("X-Omnimux-Group", "caller-cannot-choose")
+	}
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)
 	var response map[string]any
@@ -634,4 +662,632 @@ func TestInfluencerCLIOptionsReflectAccountRoutesWithoutSupplierControls(t *test
 	assert.NotContains(t, recorder.Body.String(), "gpt-image-2.5-sunburst-test")
 	assert.NotContains(t, recorder.Body.String(), "seedance-2-5-480p")
 	assert.Contains(t, data["taxonomy"], "categories")
+}
+
+const (
+	influencerFundingParentID = "issue89-parent"
+	influencerFundedBalance   = 100_000
+)
+
+type influencerFundingFixture struct {
+	engine   *gin.Engine
+	owner    *model.User
+	storage  *influencerCLIImageTestDriver
+	imageURL string
+	videoURL string
+	metadata service.InfluencerVideoMetadata
+}
+
+func setupInfluencerFundingAPI(t *testing.T, ownerID int, cache *redis.Client) influencerFundingFixture {
+	t.Helper()
+	alias := fmt.Sprintf("issue89-%d", ownerID)
+	owner := &model.User{Id: ownerID, Username: alias, AffCode: alias, Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", Setting: `{"billing_preference":"wallet_only"}`}
+	engine, _ := setupInfluencerCLIAPIWithOwner(t, owner)
+	db := model.DB
+	require.NoError(t, db.AutoMigrate(&model.SubscriptionPlan{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}))
+	oldLogDB, oldMaster := model.LOG_DB, common.IsMasterNode
+	t.Setenv("LOG_SQL_DSN", "")
+	common.IsMasterNode = false
+	initErr := model.InitLogDB() // Initializes the dialect's reserved column names for distribution.
+	common.IsMasterNode = oldMaster
+	t.Cleanup(func() { model.LOG_DB = oldLogDB })
+	require.NoError(t, initErr)
+	oldCache, oldRedis, oldMemory := common.RDB, common.RedisEnabled, common.MemoryCacheEnabled
+	common.RDB, common.RedisEnabled, common.MemoryCacheEnabled = cache, cache != nil, false
+	oldPrices := ratio_setting.ModelPrice2JSONString()
+	fetch := system_setting.GetFetchSetting()
+	oldFetch := *fetch
+	oldClient, oldBrowser, oldInspector := influencerReferenceHTTPClient, service.InfluencerBrowserVideoPreparer, service.InfluencerVideoInspector
+	oldResolver := net.DefaultResolver
+	// The only network peers are numeric loopback listeners. The public-looking
+	// material URLs are handled by the synthetic transport or the storage driver.
+	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: func(context.Context, string, string) (net.Conn, error) {
+		return nil, fmt.Errorf("unexpected DNS in creation fixture")
+	}}
+	t.Cleanup(func() {
+		requireBackgroundJobsDrained(t)
+		common.RDB, common.RedisEnabled, common.MemoryCacheEnabled = oldCache, oldRedis, oldMemory
+		*fetch = oldFetch
+		net.DefaultResolver = oldResolver
+		influencerReferenceHTTPClient, service.InfluencerBrowserVideoPreparer, service.InfluencerVideoInspector = oldClient, oldBrowser, oldInspector
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(oldPrices))
+	})
+	withTieredBillingConfig(t, map[string]string{influencerImageModel: "tiered_expr", influencerMotionModel: "ratio"}, map[string]string{influencerImageModel: `tier("fixture", fixed(0.01)) * image_count`})
+	prices, err := common.Marshal(map[string]float64{influencerMotionModel: 0.01})
+	require.NoError(t, err)
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(string(prices)))
+	require.NoError(t, i18n.Init())
+
+	// The browser already supplied the declaration. The local response supplies
+	// bytes for native staging and Discard without requiring an ffmpeg install.
+	const clip = "synthetic reference bytes"
+	metadata := service.InfluencerVideoMetadata{Duration: 5, VideoDuration: 5, Width: 720, Height: 1280, FrameRate: 24, VideoCodec: "h264", Container: "mp4", SizeBytes: int64(len(clip))}
+	local := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/reference" {
+			_, _ = io.WriteString(w, clip)
+			return
+		}
+		t.Errorf("generation acceptance contacted the provider: %s %s", r.Method, r.URL.Path)
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	t.Cleanup(local.Close)
+	fetch.EnableSSRFProtection = false // This fixture downloads exclusively from its local server.
+	if service.GetHttpClient() == nil {
+		service.InitHttpClient()
+	}
+	service.InfluencerBrowserVideoPreparer = func(ctx context.Context, _ string, userID int, declaration service.InfluencerVideoMetadata, valid func(string) bool) (service.PreparedInfluencerVideo, error) {
+		return oldBrowser(ctx, local.URL+"/reference", userID, declaration, valid)
+	}
+	service.InfluencerVideoInspector = func(ctx context.Context, _ string, userID int, valid func(string) bool) (service.PreparedInfluencerVideo, error) {
+		return oldBrowser(ctx, local.URL+"/reference", userID, metadata, valid)
+	}
+	influencerReferenceHTTPClient = &http.Client{Transport: influencerImageTransport{influencerPresetTestPNG(t, 16, 9)}}
+
+	// Reuse the existing native Sunburst route for text and reference. Video
+	// needs the APIMart adaptor, which validates the Seedance duration and tier.
+	require.NoError(t, db.Model(&model.Channel{}).Where("id = ?", 1).Updates(model.Channel{
+		Key: "fixture-key", BaseURL: &local.URL,
+		OtherSettings: `{"image_task_contract":{"protocol":"openai_multipart","modes":["text","reference"],"sizes":["1024x576"]}}`,
+	}).Error)
+	video := model.Channel{Type: constant.ChannelTypeApiMart, Name: "local video", Key: "fixture-key", BaseURL: &local.URL, Status: common.ChannelStatusEnabled, Models: influencerMotionModel, Group: influencerMotionGroups["480p"]}
+	require.NoError(t, db.Create(&video).Error)
+	require.NoError(t, db.Model(&model.Ability{}).Where("model = ?", influencerMotionModel).UpdateColumn("channel_id", video.Id).Error)
+
+	parent := model.Task{TaskID: influencerFundingParentID, UserId: ownerID, Action: ActionInfluencerSheet, Status: model.TaskStatusSuccess, Properties: model.Properties{OriginModelName: influencerImageModel, Input: `{"tier":"normal","selection":{},"brief":"a portrait"}`}, PrivateData: model.TaskPrivateData{ResultURL: "https://example.test/parent.png"}}
+	require.NoError(t, db.Create(&parent).Error)
+	imageURL, err := service.BuildTaskArtifactContentURL(parent.TaskID, "image")
+	require.NoError(t, err)
+	driver, ok := storage.GetStorageDriver().(*influencerCLIImageTestDriver)
+	require.True(t, ok)
+	driver.publicOrigin = "https://files.example.test"
+	videoURL := driver.GetPublicURL("uploads/reference.mp4")
+	require.NoError(t, model.CreateFile(&model.File{FileId: "issue89-reference", UserId: ownerID, FileName: "reference.mp4", StorageKey: "uploads/reference.mp4", UploadPath: "uploads", FileUrl: videoURL, MimeType: "video/mp4", FileSize: metadata.SizeBytes, Status: model.FileStatusActive, ExpiresAt: time.Now().Add(time.Hour)}))
+
+	web := engine.Group("/pg/influencer", func(c *gin.Context) {
+		c.Set("id", owner.Id)
+		c.Set("group", owner.Group)
+		owner.ToBaseUser().WriteContext(c)
+	})
+	web.POST("/sheet", PrepareInfluencerSheet, middleware.Distribute(), PostInfluencerSheet)
+	web.POST("/multiview", PrepareInfluencerMultiView, middleware.Distribute(), PostInfluencerMultiView)
+	web.POST("/motion", PrepareInfluencerMotion, middleware.Distribute(), PostInfluencerMotion)
+	return influencerFundingFixture{engine: engine, owner: owner, storage: driver, imageURL: imageURL, videoURL: videoURL, metadata: metadata}
+}
+
+func (f influencerFundingFixture) setBalance(t *testing.T, quota int) {
+	t.Helper()
+	require.NoError(t, model.DB.Model(f.owner).UpdateColumn("quota", quota).Error)
+	f.owner.Quota = quota
+}
+
+func (f influencerFundingFixture) motionInput(mode string) gin.H {
+	return gin.H{"mode": mode, "resolution": "480p", "video_url": f.videoURL, "video_metadata": f.metadata, "subject_image_url": "https://example.test/subject.png"}
+}
+
+func (f influencerFundingFixture) cliVideoInput() gin.H {
+	return gin.H{"video_url": f.videoURL, "image_urls": []string{"https://example.test/subject.png"}}
+}
+
+func (f influencerFundingFixture) submissionCounts(t *testing.T) (tasks, receipts int64) {
+	t.Helper()
+	require.NoError(t, model.DB.Model(&model.Task{}).Where("user_id = ?", f.owner.Id).Count(&tasks).Error)
+	require.NoError(t, model.DB.Model(&model.InfluencerGenerationRequest{}).Where("user_id = ?", f.owner.Id).Count(&receipts).Error)
+	return tasks, receipts
+}
+
+// Exercise the public envelopes and the durable acceptance boundaries together.
+func (f influencerFundingFixture) submit(t *testing.T, path string, input gin.H, wantStatus int) string {
+	t.Helper()
+	tasks, receipts := f.submissionCounts(t)
+	recorder, response := influencerCreationAPIRequest(t, f.engine, http.MethodPost, path, input)
+	assert.Equal(t, wantStatus, recorder.Code, recorder.Body.String())
+	cli := strings.HasPrefix(path, "/api/influencer/v1/")
+	switch wantStatus {
+	case http.StatusForbidden:
+		if cli {
+			assert.JSONEq(t, `{"success":false,"code":"insufficient_user_quota","message":"Insufficient user quota"}`, recorder.Body.String())
+		} else {
+			assert.JSONEq(t, `{"error":{"message":"Insufficient user quota","type":"invalid_request_error","param":null,"code":"insufficient_user_quota"}}`, recorder.Body.String())
+		}
+	case http.StatusOK:
+		tasks++
+		if cli {
+			receipts++
+		}
+	}
+	gotTasks, gotReceipts := f.submissionCounts(t)
+	assert.Equal(t, tasks, gotTasks, "task rows")
+	assert.Equal(t, receipts, gotReceipts, "CLI receipt rows")
+	var account model.User
+	require.NoError(t, model.DB.First(&account, f.owner.Id).Error)
+	assert.Equal(t, f.owner.Quota, account.Quota)
+	assert.Zero(t, account.UsedQuota)
+	if wantStatus != http.StatusOK || recorder.Code != http.StatusOK {
+		return ""
+	}
+	data := response
+	if cli {
+		assert.Equal(t, true, response["success"])
+		assert.NotContains(t, response, "error")
+		data, _ = response["data"].(map[string]any)
+		require.NotNil(t, data)
+		assert.Equal(t, input["request_id"], data["request_id"])
+		assert.Equal(t, false, data["replayed"])
+		assert.Equal(t, "waiting", data["status"])
+	} else {
+		assert.NotContains(t, response, "error")
+		assert.Equal(t, "queued", data["status"])
+		assert.Equal(t, data["task_id"], data["id"])
+	}
+	id, _ := data["task_id"].(string)
+	require.NotEmpty(t, id)
+	var task model.Task
+	require.NoError(t, model.DB.Where("task_id = ? AND user_id = ?", id, f.owner.Id).Take(&task).Error)
+	assert.Equal(t, model.TaskStatusWaiting, task.Status)
+	assert.Zero(t, task.Quota)
+	return id
+}
+
+func TestInfluencerCreationFunding(t *testing.T) {
+	f := setupInfluencerFundingAPI(t, 41, nil)
+	for _, route := range []struct {
+		name string
+		path string
+		body gin.H
+	}{
+		{"web_sheet", "/pg/influencer/sheet", gin.H{"model": influencerImageModel, "group": influencerImageGroup, "tier": "normal", "brief": "a portrait"}},
+		{"web_multiview", "/pg/influencer/multiview", gin.H{"model": influencerImageModel, "group": influencerImageGroup, "parent_task_id": influencerFundingParentID, "image_url": f.imageURL}},
+		{"web_motion", "/pg/influencer/motion", f.motionInput("motion")},
+		{"cli_character", "/api/influencer/v1/characters", gin.H{"brief": "a portrait"}},
+		{"cli_multiview", "/api/influencer/v1/characters/" + influencerFundingParentID + "/multiview", gin.H{}},
+		{"cli_video", "/api/influencer/v1/videos", f.cliVideoInput()},
+	} {
+		t.Run(route.name, func(t *testing.T) {
+			cli := strings.HasPrefix(route.path, "/api/influencer/v1/")
+			for _, quota := range []int{0, 1} {
+				t.Run(fmt.Sprintf("wallet_%d", quota), func(t *testing.T) {
+					f.setBalance(t, quota)
+					if cli {
+						route.body["request_id"] = fmt.Sprintf("issue89-%s-%d", route.name, quota)
+					}
+					deleted, objects := len(f.storage.deleted), len(f.storage.objects)
+					f.submit(t, route.path, route.body, http.StatusForbidden)
+					if route.name == "web_motion" {
+						require.Len(t, f.storage.deleted, deleted+1, "the staged reference must be discarded")
+						assert.NotContains(t, f.storage.objects, f.storage.deleted[deleted])
+						assert.Len(t, f.storage.objects, objects)
+						var rows int64
+						require.NoError(t, model.DB.Unscoped().Model(&model.File{}).Where("storage_key = ?", f.storage.deleted[deleted]).Count(&rows).Error)
+						assert.Zero(t, rows, "the staged reference record must also be deleted")
+					}
+				})
+			}
+			t.Run("funded", func(t *testing.T) {
+				f.setBalance(t, influencerFundedBalance)
+				if cli {
+					route.body["request_id"] = "issue89-accepted-" + route.name
+				}
+				id := f.submit(t, route.path, route.body, http.StatusOK)
+				if !cli {
+					return
+				}
+				require.NotEmpty(t, id)
+				f.setBalance(t, 0)
+				tasks, receipts := f.submissionCounts(t)
+				objects, discarded := len(f.storage.objects), len(f.storage.deleted)
+				recorder, response := influencerCreationAPIRequest(t, f.engine, http.MethodPost, route.path, route.body)
+				require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+				assert.Equal(t, true, response["success"])
+				data, ok := response["data"].(map[string]any)
+				require.True(t, ok)
+				assert.Equal(t, route.body["request_id"], data["request_id"])
+				assert.Equal(t, id, data["task_id"])
+				assert.Equal(t, true, data["replayed"])
+				gotTasks, gotReceipts := f.submissionCounts(t)
+				assert.Equal(t, tasks, gotTasks)
+				assert.Equal(t, receipts, gotReceipts)
+				assert.Len(t, f.storage.objects, objects)
+				assert.Len(t, f.storage.deleted, discarded, "replay must not stage media again")
+			})
+		})
+	}
+
+	t.Run("subscription_with_empty_wallet", func(t *testing.T) {
+		f.setBalance(t, 0)
+		f.owner.Setting = `{"billing_preference":"subscription_only"}`
+		require.NoError(t, model.DB.Model(f.owner).UpdateColumn("setting", f.owner.Setting).Error)
+		plan := model.SubscriptionPlan{Title: "funding fixture", TotalAmount: influencerFundedBalance}
+		require.NoError(t, model.DB.Create(&plan).Error)
+		now := common.GetTimestamp()
+		subscription := model.UserSubscription{UserId: f.owner.Id, PlanId: plan.Id, AmountTotal: plan.TotalAmount, Status: "active", StartTime: now - 60, EndTime: now + 3600}
+		require.NoError(t, model.DB.Create(&subscription).Error)
+		f.submit(t, "/pg/influencer/sheet", gin.H{"model": influencerImageModel, "group": influencerImageGroup, "tier": "normal", "brief": "a portrait"}, http.StatusOK)
+		f.submit(t, "/api/influencer/v1/characters", gin.H{"request_id": "issue89-subscription", "brief": "a portrait"}, http.StatusOK)
+		require.NoError(t, model.DB.First(&subscription, subscription.Id).Error)
+		assert.Zero(t, subscription.AmountUsed)
+		var reservations int64
+		require.NoError(t, model.DB.Model(&model.SubscriptionPreConsumeRecord{}).Count(&reservations).Error)
+		assert.Zero(t, reservations)
+	})
+}
+
+func TestInfluencerCreationFundingQuoteBoundaries(t *testing.T) {
+	f := setupInfluencerFundingAPI(t, 41, nil)
+	const motion = "/pg/influencer/motion"
+	t.Run("resolution_group_and_duration", func(t *testing.T) {
+		input := f.motionInput("motion")
+		input["resolution"] = "720p"
+		// The fixture price is 5000 raw quota, with group ratio 2, 5s and a 0.6 video-input ratio.
+		f.setBalance(t, 29_999)
+		f.submit(t, motion, input, http.StatusForbidden)
+		f.setBalance(t, 30_000)
+		f.submit(t, motion, input, http.StatusOK)
+	})
+	t.Run("free_model_with_empty_wallet", func(t *testing.T) {
+		prices := ratio_setting.ModelPrice2JSONString()
+		quotaSettings := operation_setting.GetQuotaSetting()
+		previous := quotaSettings.EnableFreeModelPreConsume
+		quotaSettings.EnableFreeModelPreConsume = false
+		t.Cleanup(func() {
+			quotaSettings.EnableFreeModelPreConsume = previous
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(prices))
+		})
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(fmt.Sprintf(`{%q:0}`, influencerMotionModel)))
+		f.setBalance(t, 0)
+		f.submit(t, motion, f.motionInput("motion"), http.StatusOK)
+	})
+	for _, tc := range []struct {
+		name, condition string
+		status          int
+	}{
+		{"declared_recreation_inputs_are_priced", `param("seconds") == "5" && param("resolution") == "480p" && param("aspect_ratio") == "9:16"`, http.StatusForbidden},
+		{"planned_prompt_price_is_deferred", `param("prompt") != ""`, http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			expression := tc.condition + ` ? tier("request", fixed(0.01)) : tier("other", fixed(0.02))`
+			withTieredBillingConfig(t, map[string]string{influencerMotionModel: "tiered_expr"}, map[string]string{influencerMotionModel: expression})
+			f.setBalance(t, 4999)
+			f.submit(t, motion, f.motionInput("recreate"), tc.status)
+		})
+	}
+	t.Run("channel_preparation_does_not_rotate_keys_or_repair_settings", func(t *testing.T) {
+		var channel model.Channel
+		require.NoError(t, model.DB.Where("type = ?", constant.ChannelTypeApiMart).First(&channel).Error)
+		require.NoError(t, model.DB.Model(&channel).Updates(map[string]any{
+			"key": "fixture-a\nfixture-b", "setting": "{", "settings": "{",
+			"channel_info": model.ChannelInfo{IsMultiKey: true, MultiKeySize: 2, MultiKeyMode: constant.MultiKeyModePolling},
+		}).Error)
+		f.setBalance(t, 0)
+		f.submit(t, motion, f.motionInput("motion"), http.StatusForbidden)
+		var stored model.Channel
+		require.NoError(t, model.DB.First(&stored, channel.Id).Error)
+		assert.Equal(t, "fixture-a\nfixture-b", stored.Key)
+		assert.Zero(t, stored.ChannelInfo.MultiKeyPollingIndex)
+		require.NotNil(t, stored.Setting)
+		assert.Equal(t, "{", *stored.Setting)
+		assert.Equal(t, "{", stored.OtherSettings)
+	})
+	t.Run("alias_projection_does_not_repair_settings", func(t *testing.T) {
+		previous := jsplugin.DefaultRegistry
+		jsplugin.DefaultRegistry = jsplugin.NewRegistry()
+		t.Cleanup(func() { jsplugin.DefaultRegistry = previous })
+		const source = `
+export const meta = {apiVersion:1,key:"quote-alias",name:"Alias fixture",version:"1.0.0",author:{name:"Test"},models:["alias-target"],fetchMode:"per_task"};
+export function buildSubmitRequest() { return {}; }
+export function parseSubmitResponse() { return {taskId:"fixture-id"}; }
+export function buildQueryRequest() { return {}; }
+export function parseTaskResult() { return {status:"SUCCESS"}; }
+`
+		// Prime the empty generation so registration forces a rebuild in the quote.
+		model.InitChannelCache()
+		_, err := jsplugin.DefaultRegistry.Register(source, jsplugin.Options{})
+		require.NoError(t, err)
+		alias := model.Channel{Status: common.ChannelStatusEnabled, Type: constant.ChannelTypeTaskPlugin,
+			Name: "fixture alias", Key: "fixture-alias-key", Models: "alias-model",
+			ModelMapping: common.GetPointer(`{"alias-model":"alias-target"}`), Setting: common.GetPointer("{")}
+		require.NoError(t, model.DB.Create(&alias).Error)
+		f.setBalance(t, 0)
+		f.submit(t, motion, f.motionInput("motion"), http.StatusForbidden)
+		var stored model.Channel
+		require.NoError(t, model.DB.First(&stored, alias.Id).Error)
+		assert.Equal(t, alias.Key, stored.Key)
+		assert.Equal(t, alias.Setting, stored.Setting)
+	})
+	t.Run("different_channel_rates_are_deferred", func(t *testing.T) {
+		var alternate model.Channel
+		require.NoError(t, model.DB.Where("type = ?", constant.ChannelTypeApiMart).First(&alternate).Error)
+		alternate.Id, alternate.Name = 0, "alternate quote test"
+		alternate.ModelMapping = common.GetPointer(fmt.Sprintf(`{%q:"fixture-video"}`, influencerMotionModel))
+		require.NoError(t, model.DB.Create(&alternate).Error)
+		binding := model.Ability{Group: influencerMotionGroups["480p"], Model: influencerMotionModel, ChannelId: alternate.Id, Enabled: true}
+		require.NoError(t, model.DB.Create(&binding).Error)
+		t.Cleanup(func() { require.NoError(t, model.DB.Model(&binding).Update("enabled", false).Error) })
+		f.setBalance(t, 0)
+		f.submit(t, motion, f.motionInput("motion"), http.StatusOK)
+	})
+	t.Run("plugin_quote_uses_mapped_usage_and_ignores_caught_fetch_fallback", func(t *testing.T) {
+		previous := jsplugin.DefaultRegistry
+		jsplugin.DefaultRegistry = jsplugin.NewRegistry()
+		t.Cleanup(func() { jsplugin.DefaultRegistry = previous })
+		source := fmt.Sprintf(`
+export const meta = {apiVersion:1,key:"sora",name:"Quote fixture",version:"1.0.0",author:{name:"Test"},models:[%q],fetchMode:"per_task",usageSchema:{units:{type:"number",unit:"count"}}};
+export function buildSubmitRequest(ctx) {
+  if (ctx.requestBody.resolution === "720p") {
+    try { utils.fetch({url: ctx.baseUrl + "/price-input"}); } catch (e) {}
+  }
+  return {url:ctx.baseUrl+"/submit",rewriteModel:"fixture-mapped-video",body:ctx.requestBody};
+}
+export function extractUsage(ctx) { return {units:ctx.upstreamModel === "fixture-mapped-video" ? 2 : 1}; }
+export function parseSubmitResponse() { return {taskId:"fixture-id"}; }
+export function buildQueryRequest() { return {}; }
+export function parseTaskResult() { return {status:"SUCCESS"}; }
+`, influencerMotionModel)
+		_, err := jsplugin.DefaultRegistry.Register(source, jsplugin.Options{})
+		require.NoError(t, err)
+		var channel model.Channel
+		require.NoError(t, model.DB.Where("type = ? AND name = ?", constant.ChannelTypeApiMart, "local video").First(&channel).Error)
+		require.NoError(t, model.DB.Model(&channel).Update("type", constant.ChannelTypeSora).Error)
+		withTieredBillingConfig(t, map[string]string{influencerMotionModel: "tiered_expr"}, map[string]string{influencerMotionModel: `u("units") * 0.01`})
+		const path = "/api/influencer/v1/videos"
+		input := gin.H{"mode": "recreate", "duration_sec": 5, "prompt": validRecreatePrompt(), "image_urls": []string{"https://example.test/subject.png"}}
+		f.setBalance(t, 9999)
+		input["request_id"] = "issue89-mapped-short"
+		f.submit(t, path, input, http.StatusForbidden)
+		f.setBalance(t, 10_000)
+		input["request_id"] = "issue89-mapped-funded"
+		f.submit(t, path, input, http.StatusOK)
+		f.setBalance(t, 0)
+		input["request_id"], input["resolution"] = "issue89-deferred-fetch", "720p"
+		f.submit(t, path, input, http.StatusOK)
+	})
+}
+
+func TestInfluencerCreationFundingRechecksConcurrentAcceptance(t *testing.T) {
+	f := setupInfluencerFundingAPI(t, 41, nil)
+	f.setBalance(t, influencerFundedBalance)
+	const path = "/api/influencer/v1/characters"
+	input := gin.H{"request_id": "issue89-concurrent-replay", "brief": "a portrait"}
+	body, err := common.Marshal(input)
+	require.NoError(t, err)
+
+	// Pause the first request on its channel read after its initial receipt miss.
+	type pausedQuote struct{}
+	arrived, proceed := make(chan struct{}), make(chan struct{})
+	var paused atomic.Bool
+	queries := model.DB.Callback().Query()
+	const callback = "test:pause_influencer_quote"
+	require.NoError(t, queries.After("gorm:query").Register(callback, func(tx *gorm.DB) {
+		if tx.Statement.Table == "channels" && tx.Statement.Context.Value(pausedQuote{}) != nil && paused.CompareAndSwap(false, true) {
+			close(arrived)
+			select {
+			case <-proceed:
+			case <-tx.Statement.Context.Done():
+			}
+		}
+	}))
+	t.Cleanup(func() { require.NoError(t, queries.Remove(callback)) })
+	ctx, cancel := context.WithTimeout(context.WithValue(t.Context(), pausedQuote{}, true), 10*time.Second)
+	request := httptest.NewRequestWithContext(ctx, http.MethodPost, path, bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	first := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		f.engine.ServeHTTP(first, request)
+	}()
+	defer func() { cancel(); <-done }()
+	select {
+	case <-arrived:
+	case <-ctx.Done():
+		require.FailNow(t, "first request did not reach the quote")
+	}
+	id := f.submit(t, path, input, http.StatusOK)
+	f.setBalance(t, 0)
+	close(proceed)
+	<-done
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	var response struct {
+		Data struct {
+			Replayed bool   `json:"replayed"`
+			TaskID   string `json:"task_id"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(first.Body.Bytes(), &response))
+	assert.True(t, response.Data.Replayed)
+	assert.Equal(t, id, response.Data.TaskID)
+	tasks, receipts := f.submissionCounts(t)
+	assert.Equal(t, int64(2), tasks, "one new task plus the fixture parent")
+	assert.Equal(t, int64(1), receipts)
+}
+
+func TestInfluencerCreationFundingRedis(t *testing.T) {
+	const redisEnv = "OMNIMUX_TEST_INFLUENCER_REDIS_ADDR"
+	const childEnv = "OMNIMUX_TEST_INFLUENCER_REDIS_CHILD"
+	addr := os.Getenv(redisEnv)
+	if addr == "" {
+		t.Skip("set " + redisEnv + " to a dedicated loopback Redis fixture")
+	}
+	// The analytics collector is initialized once per process. This test runs
+	// in a fresh process so it can install its own local collector and site ID.
+	if os.Getenv(childEnv) != "1" {
+		binary, err := os.Executable()
+		require.NoError(t, err)
+		child := exec.CommandContext(t.Context(), binary, "-test.run=^TestInfluencerCreationFundingRedis$", "-test.v")
+		child.Env = append(os.Environ(), childEnv+"=1")
+		out, err := child.CombinedOutput()
+		t.Log(string(out))
+		require.NoError(t, err)
+		return
+	}
+	host, port, err := net.SplitHostPort(addr)
+	require.True(t, err == nil && net.ParseIP(host).IsLoopback(), "Redis fixture address must be a numeric loopback address")
+	portNumber, err := strconv.Atoi(port)
+	require.True(t, err == nil && portNumber >= 49152 && portNumber <= 65535, "Redis fixture must use a dedicated high port")
+	client := redis.NewClient(&redis.Options{Addr: addr})
+	t.Cleanup(func() { assert.NoError(t, client.Close()) })
+	require.NoError(t, client.Ping(t.Context()).Err())
+
+	type videoStart struct {
+		Website string `json:"website"`
+		Name    string `json:"name"`
+		Data    struct {
+			Entry  string `json:"entry"`
+			TaskID string `json:"task_id"`
+		} `json:"data"`
+	}
+	events := make(chan videoStart, 8)
+	collector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var event struct {
+			Payload videoStart `json:"payload"`
+		}
+		if assert.NoError(t, common.DecodeJson(r.Body, &event)) {
+			select {
+			case events <- event.Payload:
+			default:
+				t.Error("unexpected analytics events")
+			}
+		}
+		_, _ = io.WriteString(w, `{"cache":"local-fixture"}`)
+	}))
+	t.Cleanup(collector.Close)
+	site := uuid.NewString()
+	t.Setenv("ANALYTICS_ENDPOINT", collector.URL)
+	t.Setenv("UMAMI_WEBSITE_ID", site)
+	t.Setenv("ANALYTICS_SITE_URL", "")
+	t.Setenv("ANALYTICS_USER_KEY_SECRET", "issue89-local-analytics-fixture")
+	t.Setenv("INFLUENCER_RECREATE_DAILY_ANALYSES", "1")
+
+	for i, tc := range []struct {
+		name, entry, mode string
+		quota, code       int
+	}{
+		{"accepted_web", "workbench", "motion", influencerFundedBalance, http.StatusOK},
+		{"accepted_cli", "cli", "motion", influencerFundedBalance, http.StatusOK},
+		{"rejected_web", "workbench", "motion", 0, http.StatusForbidden},
+		{"rejected_cli", "cli", "motion", 0, http.StatusForbidden},
+		{"rejected_cached_wallet", "cli", "motion", influencerFundedBalance, http.StatusForbidden},
+		{"accepted_recreation", "workbench", "recreate", influencerFundedBalance, http.StatusOK},
+		{"rejected_recreation", "workbench", "recreate", 0, http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Isolate both the site-scoped milestone and Redis keys keyed only
+			// by account (the daily budget and user cache).
+			userID := 1_000_000 + 100*os.Getpid() + i
+			key := fmt.Sprintf("analytics:e03:%s:%s:%d", site, analytics.EventFirstVideoStart, userID)
+			day := time.Now()
+			budgetKeys := []string{
+				fmt.Sprintf("influencer:recreate:analysis:%d:%s", userID, day.Format("20060102")),
+				fmt.Sprintf("influencer:recreate:analysis:%d:%s", userID, day.AddDate(0, 0, 1).Format("20060102")),
+			}
+			keys := append([]string{
+				key,
+				fmt.Sprintf("user:%d", userID),
+				fmt.Sprintf("auth:user:version:%d", userID),
+				fmt.Sprintf("auth:user:fence:%d", userID),
+			}, budgetKeys...)
+			count, err := client.Exists(t.Context(), keys...).Result()
+			require.NoError(t, err)
+			require.Zero(t, count, "Redis account must be isolated")
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				assert.NoError(t, client.Del(ctx, keys...).Err())
+			})
+			f := setupInfluencerFundingAPI(t, userID, client)
+			f.setBalance(t, tc.quota)
+			cacheKey := fmt.Sprintf("user:%d", userID)
+			if tc.name == "rejected_cached_wallet" {
+				_, err := model.GetUserCache(userID)
+				require.NoError(t, err)
+				require.NoError(t, client.HSet(t.Context(), cacheKey, "Quota", 0).Err())
+			}
+			path, input := "/pg/influencer/motion", f.motionInput(tc.mode)
+			if tc.entry == "cli" {
+				path, input = "/api/influencer/v1/videos", f.cliVideoInput()
+				input["request_id"] = "issue89-redis-" + tc.name
+			}
+			id := f.submit(t, path, input, tc.code)
+			if tc.name == "rejected_cached_wallet" {
+				quota, err := client.HGet(t.Context(), cacheKey, "Quota").Result()
+				require.NoError(t, err)
+				assert.Equal(t, "0", quota)
+			} else {
+				count, err := client.Exists(t.Context(), cacheKey).Result()
+				require.NoError(t, err)
+				assert.Zero(t, count, "a cache miss must stay read-only")
+			}
+			drainInfluencerFundingAnalytics(t)
+			received := make([]videoStart, 0, len(events))
+			for range len(events) {
+				received = append(received, <-events)
+			}
+			claim, err := client.Get(t.Context(), key).Result()
+			if tc.mode == "recreate" {
+				balances, err := client.MGet(t.Context(), budgetKeys...).Result()
+				require.NoError(t, err)
+				if tc.code == http.StatusOK {
+					assert.ElementsMatch(t, []any{"1", nil}, balances, "accepted recreation consumes one unit of analysis budget")
+				} else {
+					assert.Equal(t, []any{nil, nil}, balances, "a funding rejection must not consume the recreation analysis budget")
+				}
+			}
+			if tc.code == http.StatusOK {
+				require.NoError(t, err)
+				assert.Equal(t, "1", claim)
+				require.Len(t, received, 1)
+				assert.Equal(t, site, received[0].Website)
+				assert.Equal(t, analytics.EventFirstVideoStart, received[0].Name)
+				assert.Equal(t, tc.entry, received[0].Data.Entry)
+				assert.Equal(t, id, received[0].Data.TaskID)
+			} else {
+				assert.ErrorIs(t, err, redis.Nil, "a 403 must not leave a video milestone claim")
+				assert.Empty(t, received, "a 403 must not send an analytics event")
+			}
+		})
+	}
+}
+
+// Place a FIFO barrier on both analytics workers after the handler returns.
+// Once both arrive, all earlier milestone attempts and sends have finished.
+func drainInfluencerFundingAnalytics(t *testing.T) {
+	t.Helper()
+	arrived := make(chan struct{}, 2)
+	release := make(chan struct{})
+	defer close(release)
+	for range cap(arrived) {
+		analytics.Enqueue(func(context.Context) (analytics.Event, bool) {
+			arrived <- struct{}{}
+			<-release
+			return analytics.Event{}, false
+		})
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	for range cap(arrived) {
+		select {
+		case <-arrived:
+		case <-ctx.Done():
+			require.FailNow(t, "analytics workers did not drain before the Redis check")
+		}
+	}
 }

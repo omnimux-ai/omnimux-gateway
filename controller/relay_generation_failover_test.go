@@ -386,6 +386,169 @@ func TestNativeGenerationQuotaRejectionKeepsTerminalReason(t *testing.T) {
 	}
 }
 
+func TestTaskFundingAvailability(t *testing.T) {
+	db, dialect := openTaskDialectDatabase(t, &model.User{}, &model.SubscriptionPlan{}, &model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{})
+	oldDB := model.DB
+	oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+	oldRedis, oldBatch := common.RedisEnabled, common.BatchUpdateEnabled
+	model.DB = db
+	common.SetDatabaseTypes(dialect, dialect)
+	common.RedisEnabled, common.BatchUpdateEnabled = false, false
+	t.Cleanup(func() {
+		model.DB = oldDB
+		common.SetDatabaseTypes(oldMain, oldLog)
+		common.RedisEnabled, common.BatchUpdateEnabled = oldRedis, oldBatch
+	})
+	require.NoError(t, i18n.Init())
+
+	const charge = 100
+	const resetPeriod = 3600
+	now := model.GetDBTimestamp()
+	funded := model.UserSubscription{
+		Status: "active", StartTime: now - 2*resetPeriod, EndTime: now + 2*resetPeriod,
+		AmountTotal: 2 * charge, AmountUsed: charge, AllowanceEpoch: 2, AllowWalletOverflow: true,
+	}
+	expired := funded
+	expired.EndTime, expired.AllowWalletOverflow = now-resetPeriod, false
+	exhausted := funded
+	exhausted.AmountUsed = exhausted.AmountTotal
+	strict := exhausted
+	strict.AllowWalletOverflow = false
+	partial := funded
+	partial.AmountUsed = partial.AmountTotal - 60
+	unlimited := funded
+	unlimited.AmountTotal = 0
+	due := exhausted
+	due.StartTime = now - resetPeriod - resetPeriod/2
+	due.LastResetTime, due.NextResetTime = due.StartTime, due.StartTime+resetPeriod
+	pending := due
+	pending.LastResetTime, pending.NextResetTime = now-resetPeriod/2, now+resetPeriod/2
+
+	type rejection struct {
+		code   types.ErrorCode
+		status int
+	}
+	insufficient := rejection{types.ErrorCodeInsufficientUserQuota, http.StatusForbidden}
+	badPrice := rejection{types.ErrorCodeModelPriceError, http.StatusBadRequest}
+	for i, tc := range []struct {
+		name, preference string
+		wallet           int
+		subs             []model.UserSubscription
+		free, zeroQuote  bool
+		saturated        bool
+		want             rejection
+	}{
+		{name: "wallet_only_zero_ignores_funded_subscription", preference: "wallet_only", subs: []model.UserSubscription{funded}, want: insufficient},
+		{name: "wallet_only_short", preference: "wallet_only", wallet: charge - 1, want: insufficient},
+		{name: "wallet_only_at_exact_charge", preference: "wallet_only", wallet: charge},
+		{name: "wallet_first_falls_back_to_subscription", preference: "wallet_first", wallet: charge - 1, subs: []model.UserSubscription{funded}},
+		{name: "subscription_only_expired", preference: "subscription_only", wallet: charge, subs: []model.UserSubscription{expired}, want: insufficient},
+		{name: "subscription_only_exhausted_until_reset", preference: "subscription_only", wallet: charge, subs: []model.UserSubscription{pending}, want: insufficient},
+		{name: "subscription_only_at_exact_allowance", preference: "subscription_only", subs: []model.UserSubscription{funded}},
+		{name: "subscription_only_unlimited", preference: "subscription_only", subs: []model.UserSubscription{unlimited}},
+		{name: "subscription_only_due_reset", preference: "subscription_only", subs: []model.UserSubscription{due}},
+		{name: "subscription_first_expired_allows_wallet", preference: "subscription_first", wallet: charge, subs: []model.UserSubscription{expired}},
+		{name: "subscription_first_strict_subscription_blocks_wallet", preference: "subscription_first", wallet: charge, subs: []model.UserSubscription{exhausted, strict}, want: insufficient},
+		{name: "subscription_first_exhausted_allows_wallet", preference: "subscription_first", wallet: charge, subs: []model.UserSubscription{exhausted, exhausted}},
+		{name: "subscription_first_does_not_pool_sources", preference: "subscription_first", wallet: 60, subs: []model.UserSubscription{partial, partial}, want: insufficient},
+		{name: "zero_quota_paid_quote_still_needs_funding", preference: "subscription_only", zeroQuote: true, want: insufficient},
+		{name: "free_model_without_funds", preference: "subscription_only", free: true},
+		{name: "wallet_debt_blocks_free_model", preference: "subscription_only", wallet: -1, free: true, want: insufficient},
+		{name: "wallet_debt_blocks_funded_subscription", preference: "subscription_only", wallet: -1, subs: []model.UserSubscription{funded}, want: insufficient},
+		{name: "saturated_quote_rejected_with_sufficient_wallet", preference: "wallet_only", wallet: common.MaxQuota, saturated: true, want: badPrice},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			name := fmt.Sprintf("task_funding_%d", i)
+			user := model.User{Username: name, AffCode: name, Quota: tc.wallet}
+			require.NoError(t, db.Create(&user).Error)
+			for i := range tc.subs {
+				sub := &tc.subs[i]
+				plan := model.SubscriptionPlan{Title: name, TotalAmount: sub.AmountTotal}
+				if sub.NextResetTime != 0 {
+					plan.QuotaResetPeriod, plan.QuotaResetCustomSeconds = model.SubscriptionResetCustom, resetPeriod
+				}
+				require.NoError(t, db.Create(&plan).Error)
+				model.InvalidateSubscriptionPlanCache(plan.Id)
+				t.Cleanup(func() { model.InvalidateSubscriptionPlanCache(plan.Id) })
+				sub.UserId, sub.PlanId = user.Id, plan.Id
+				require.NoError(t, db.Create(sub).Error)
+			}
+			var records []model.SubscriptionPreConsumeRecord
+			if len(tc.subs) != 0 {
+				sub := tc.subs[0]
+				prior := model.SubscriptionPreConsumeRecord{
+					RequestId: name + "_previous", UserId: user.Id, UserSubscriptionId: sub.Id,
+					PreConsumed: charge, Status: "consumed", AllowanceEpoch: sub.AllowanceEpoch,
+				}
+				require.NoError(t, db.Create(&prior).Error)
+				records = append(records, prior)
+			}
+
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/pg/images/generations", nil)
+			info := &relaycommon.RelayInfo{UserId: user.Id, RequestId: name, IsPlayground: true, ForcePreConsume: true}
+			info.UserSetting.BillingPreference = tc.preference
+			info.PriceData.Quota, info.PriceData.FreeModel = charge, tc.free
+			if tc.free || tc.zeroQuote {
+				info.PriceData.Quota = 0
+			}
+			if tc.saturated {
+				info.PriceData.Quota, info.QuotaClamp = common.QuotaFromFloatChecked(float64(common.MaxQuota) + 1)
+			}
+			apiErr := service.CheckTaskFundingAvailability(c, info)
+			if tc.want.code == "" {
+				assert.Nil(t, apiErr)
+			} else if assert.NotNil(t, apiErr) {
+				assert.Equal(t, tc.want.code, apiErr.GetErrorCode())
+				assert.Equal(t, tc.want.status, apiErr.StatusCode)
+			}
+			assert.Nil(t, info.Billing)
+			assert.Zero(t, info.FinalPreConsumedQuota)
+
+			var storedUser model.User
+			require.NoError(t, db.First(&storedUser, user.Id).Error)
+			assert.Equal(t, tc.wallet, storedUser.Quota)
+			var storedSubs []model.UserSubscription
+			require.NoError(t, db.Where("user_id = ?", user.Id).Find(&storedSubs).Error)
+			assert.ElementsMatch(t, tc.subs, storedSubs)
+			var storedRecords []model.SubscriptionPreConsumeRecord
+			require.NoError(t, db.Where("user_id = ?", user.Id).Find(&storedRecords).Error)
+			assert.ElementsMatch(t, records, storedRecords)
+		})
+	}
+
+	t.Run("subscription_query_error_preserves_server_failure", func(t *testing.T) {
+		// Keep subscriptions unmigrated on this fixture so the real SQL read fails.
+		faultDB, _ := openTaskDialectDatabase(t, &model.User{}, &model.SubscriptionPreConsumeRecord{})
+		model.DB = faultDB
+		t.Cleanup(func() { model.DB = db })
+		user := model.User{Username: "funding_query_error", AffCode: "funding_query_error", Quota: charge}
+		require.NoError(t, faultDB.Create(&user).Error)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/pg/images/generations", nil)
+		info := &relaycommon.RelayInfo{UserId: user.Id, RequestId: "funding_query_error", IsPlayground: true, ForcePreConsume: true}
+		info.PriceData.Quota = charge
+
+		for _, preference := range []string{"subscription_only", "subscription_first"} {
+			info.UserSetting.BillingPreference = preference
+			apiErr := service.CheckTaskFundingAvailability(c, info)
+			if assert.NotNil(t, apiErr, preference) {
+				assert.Equal(t, types.ErrorCodeQueryDataError, apiErr.GetErrorCode(), preference)
+				assert.Equal(t, http.StatusInternalServerError, apiErr.StatusCode, preference)
+			}
+		}
+		info.UserSetting.BillingPreference = "wallet_first"
+		assert.Nil(t, service.CheckTaskFundingAvailability(c, info), "a fully funded wallet-first request need not query subscriptions")
+		assert.Nil(t, info.Billing)
+		var storedUser model.User
+		require.NoError(t, faultDB.First(&storedUser, user.Id).Error)
+		assert.Equal(t, charge, storedUser.Quota)
+		var records int64
+		require.NoError(t, faultDB.Model(&model.SubscriptionPreConsumeRecord{}).Count(&records).Error)
+		assert.Zero(t, records)
+	})
+}
+
 func TestGenerationQuoteChecksComputedChargeAndNativeBasis(t *testing.T) {
 	base := &model.TaskBillingContext{ModelPrice: 0.01, GroupRatio: 1, PerCallBilling: true, OtherRatios: map[string]float64{"n": 1}}
 	quote := &generationSubmissionQuote{Quota: 5000, Billing: base}

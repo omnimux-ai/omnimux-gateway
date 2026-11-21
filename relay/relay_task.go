@@ -17,6 +17,11 @@ import (
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/task/apimart"
+	"github.com/QuantumNous/new-api/relay/channel/task/fal"
+	"github.com/QuantumNous/new-api/relay/channel/task/goeasy"
+	"github.com/QuantumNous/new-api/relay/channel/task/gxgenai"
+	jspluginadaptor "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel/task/sora"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -25,6 +30,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/expr-lang/expr/ast"
 	"github.com/gin-gonic/gin"
 )
 
@@ -192,15 +198,14 @@ func ApplyOriginTaskAffinity(c *gin.Context, info *relaycommon.RelayInfo) *dto.T
 	return ApplyChannelPin(c, info)
 }
 
-// RelayTaskSubmit 完成 task 提交的全部流程（每次尝试调用一次）：
-// 刷新渠道元数据 → 确定 platform/adaptor → 验证请求 →
-// 估算计费(EstimateBilling) → 计算价格 → 预扣费（仅首次）→
-// 构建/发送/解析上游请求 → 提交后计费调整(AdjustBillingOnSubmit)。
-// 共享控制器编排负责未落库退款、最终额度预留、落库和结算。
-func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitResult, *dto.TaskError) {
-	if apiErr := service.CheckGenerationDebt(info); apiErr != nil {
-		return nil, service.TaskErrorFromAPIError(c, apiErr)
-	}
+// EstimateTaskSubmissionPrice runs native validation and pricing on prepared
+// queue input. An unfinished video plan can supply only stable pricing fields.
+func EstimateTaskSubmissionPrice(c *gin.Context, info *relaycommon.RelayInfo, planPending bool) *dto.TaskError {
+	_, _, taskErr := prepareTaskSubmissionPrice(c, info, true, planPending)
+	return taskErr
+}
+
+func prepareTaskSubmissionPrice(c *gin.Context, info *relaycommon.RelayInfo, estimateOnly, planPending bool) (constant.TaskPlatform, channel.TaskAdaptor, *dto.TaskError) {
 	info.InitChannelMeta(c)
 	// Freeze the fully prepared request before any provider can replace its
 	// parsed cache. Motion planning already updated it and removed internal
@@ -215,23 +220,23 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 			canonical, complete := prepared.(map[string]any)
 			if !preparedExists || !complete {
 				if err := common.UnmarshalBodyReusable(c, &canonical); err != nil {
-					return nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+					return "", nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 				}
 			}
 			encoded, err := common.Marshal(canonical)
 			if err != nil {
-				return nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+				return "", nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 			}
 			frozen = encoded
 			c.Set(canonicalRequestKey, frozen)
 		}
 		encoded, valid := frozen.([]byte)
 		if !valid {
-			return nil, service.TaskErrorWrapperLocal(errors.New("prepared generation request is invalid"), "invalid_request", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(errors.New("prepared generation request is invalid"), "invalid_request", http.StatusBadRequest)
 		}
 		var original map[string]any
 		if err := common.Unmarshal(encoded, &original); err != nil {
-			return nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 		}
 		c.Set("task_request", original)
 		delete(c.Keys, "task_quality")
@@ -245,12 +250,35 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	platform, adaptor := getTaskAdaptorForRequest(c, platform)
 	if adaptor == nil {
 		code, message := TaskPlatformUnavailableError(platform)
-		return nil, service.TaskErrorWrapperLocal(errors.New(message), code, http.StatusBadRequest)
+		return "", nil, service.TaskErrorWrapperLocal(errors.New(message), code, http.StatusBadRequest)
 	}
 	// buildSubmitRequest runs during validation and the unreleased plugin
 	// contract exposes this host-generated id to that hook.
 	if info.PublicTaskID == "" {
 		info.PublicTaskID = model.GenerateTaskID()
+	}
+	var quotePlugin *jspluginadaptor.TaskAdaptor
+	if estimateOnly {
+		switch typed := adaptor.(type) {
+		case *jspluginadaptor.TaskAdaptor:
+			if planPending {
+				return "", nil, service.TaskErrorWrapperLocal(errors.New("plugin quote requires the planned video request"), "generation_quote_unavailable", http.StatusServiceUnavailable)
+			}
+			quotePlugin = typed
+		case *sora.TaskAdaptor:
+			if info.OriginModelName == "gpt-image-2.5-sunburst" {
+				value, _ := c.Get("influencer_image_inputs")
+				inputs, _ := value.(*model.GenerationImageInputs)
+				if inputs == nil || info.ChannelOtherSettings.ImageTaskContract == nil ||
+					(inputs.Mode != "text" && inputs.Source == nil) || (inputs.Mode == "masked_edit" && inputs.Mask == nil) {
+					return "", nil, service.TaskErrorWrapperLocal(errors.New("image quote requires frozen product inputs"), "generation_quote_unavailable", http.StatusServiceUnavailable)
+				}
+			}
+		case *apimart.TaskAdaptor, *goeasy.TaskAdaptor, *gxgenai.TaskAdaptor, *fal.TaskAdaptor:
+			// These adaptors validate and estimate from the request and channel metadata.
+		default:
+			return "", nil, service.TaskErrorWrapperLocal(errors.New("task adaptor requires dispatch preparation"), "generation_quote_unavailable", http.StatusServiceUnavailable)
+		}
 	}
 	adaptor.Init(info)
 	// Plugin submit hooks run during ValidateRequestAndSetAction and cache the
@@ -266,21 +294,27 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if mappedBeforeValidate {
 		info.UpstreamModelName = info.OriginModelName
 		if err := helper.ModelMappedHelper(c, info, nil); err != nil {
-			return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
 		}
 	}
 	// fork: the reviewed standard quote rejects unsupported input before a
 	// plugin can cache a supplier request and before native funding is reserved.
 	if helper.IsGPTImageStandardRoute(c, info) && sora.IsEvoLinkGPTImageModel(info.GetUpstreamModelName()) {
 		if err := helper.ValidateGPTImageStandardRequest(c, info); err != nil {
-			return nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 		}
 		if _, native := adaptor.(*sora.TaskAdaptor); !native {
-			return nil, service.TaskErrorWrapperLocal(errors.New("standard image group requires the reviewed native image adaptor"), "invalid_request", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(errors.New("standard image group requires the reviewed native image adaptor"), "invalid_request", http.StatusBadRequest)
 		}
 	}
-	if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
-		return nil, taskErr
+	var taskErr *dto.TaskError
+	if quotePlugin != nil {
+		taskErr = quotePlugin.ValidateRequestForQuote(c, info)
+	} else {
+		taskErr = adaptor.ValidateRequestAndSetAction(c, info)
+	}
+	if taskErr != nil {
+		return "", nil, taskErr
 	}
 
 	// 2. 确定模型名称
@@ -293,7 +327,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		info.OriginModelName = modelName
 		info.UpstreamModelName = modelName
 		if err := helper.ModelMappedHelper(c, info, nil); err != nil {
-			return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
 		}
 	}
 
@@ -315,10 +349,10 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	if helper.IsGPTImageStandardRoute(c, info) && sora.IsEvoLinkGPTImageModel(info.GetUpstreamModelName()) {
 		if err := helper.ValidateGPTImageStandardRequest(c, info); err != nil {
-			return nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 		}
 		if _, native := adaptor.(*sora.TaskAdaptor); !native {
-			return nil, service.TaskErrorWrapperLocal(errors.New("standard image group requires the reviewed native image adaptor"), "invalid_request", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapperLocal(errors.New("standard image group requires the reviewed native image adaptor"), "invalid_request", http.StatusBadRequest)
 		}
 	}
 
@@ -333,6 +367,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		pluginKey = pinnedPlugin.Plugin.Meta.Key
 	}
 	exprStr, exists := billing_setting.ResolveTaskBillingExpr(pluginKey, modelName, info.UpstreamModelName)
+	if planPending && taskPricingNeedsVideoPlan(exprStr) {
+		return "", nil, service.TaskErrorWrapperLocal(errors.New("task pricing requires the planned video request"), "generation_quote_unavailable", http.StatusServiceUnavailable)
+	}
 	useTiered := exists || billing_setting.GetBillingMode(modelName) == billing_setting.BillingModeTieredExpr
 	if useTiered {
 		provider, supported := adaptor.(channel.TaskUsageFactsProvider)
@@ -341,16 +378,16 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		// 那种表达式会让同一次执行同时产生按次与按量两种语义。
 		requestScopedFixed := billingexpr.IsRequestScopedFixedPricing(exprStr)
 		if billingexpr.UsesFixedPricing(exprStr) && !requestScopedFixed {
-			return nil, service.TaskErrorWrapper(fmt.Errorf("fixed pricing is not supported for task usage expressions"), "model_price_error", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapper(fmt.Errorf("fixed pricing is not supported for task usage expressions"), "model_price_error", http.StatusBadRequest)
 		}
 		if !exists || (!requestScopedFixed && !supported) {
-			return nil, service.TaskErrorWrapper(fmt.Errorf("task model %s has no usage expression or meter", modelName), "model_price_error", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapper(fmt.Errorf("task model %s has no usage expression or meter", modelName), "model_price_error", http.StatusBadRequest)
 		}
 		sharedModel := pinnedPlugin.Generation.SharedModel(modelName) || pinnedPlugin.Generation.SharedModel(info.UpstreamModelName)
 		if sharedModel && pinnedPlugin.Plugin != nil {
 			schema, _ := pinnedPlugin.Plugin.Meta.UsageForModels(info.UpstreamModelName, modelName)
 			if !billing_setting.TaskExprCompatible(exprStr, schema) {
-				return nil, service.TaskErrorWrapper(fmt.Errorf("task model %s pricing is not configured for plugin %s", modelName, pluginKey), "model_price_error", http.StatusBadRequest)
+				return "", nil, service.TaskErrorWrapper(fmt.Errorf("task model %s pricing is not configured for plugin %s", modelName, pluginKey), "model_price_error", http.StatusBadRequest)
 			}
 		}
 		var facts map[string]any
@@ -358,13 +395,13 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		if requestScopedFixed {
 			requestInput, err = helper.ResolveTaskBillingRequestInput(c, info, exprStr)
 			if err != nil {
-				return nil, service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
+				return "", nil, service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
 			}
 		} else {
 			if validatedProvider, ok := adaptor.(channel.TaskValidatedUsageFactsProvider); ok {
 				facts, err = validatedProvider.ExtractUsageFactsValidated(c, info)
 				if err != nil {
-					return nil, service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
+					return "", nil, service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
 				}
 			} else {
 				facts = provider.ExtractUsageFacts(c, info)
@@ -376,7 +413,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 			if runErr == nil {
 				runErr = fmt.Errorf("negative task expression result")
 			}
-			return nil, service.TaskErrorWrapper(runErr, "model_price_error", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapper(runErr, "model_price_error", http.StatusBadRequest)
 		}
 		groupRatioInfo := helper.HandleGroupRatio(c, info)
 		beforeGroup := cost * common.QuotaPerUnit
@@ -408,7 +445,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	} else {
 		priceData, err = helper.ModelPriceHelperPerCall(c, info)
 		if err != nil {
-			return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+			return "", nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
 		}
 	}
 	info.PriceData = priceData
@@ -421,7 +458,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		if validatedProvider, ok := adaptor.(channel.TaskValidatedBillingProvider); ok {
 			estimatedRatios, err = validatedProvider.EstimateBillingValidated(c, info)
 			if err != nil {
-				return nil, service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
+				return "", nil, service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
 			}
 		} else {
 			estimatedRatios = adaptor.EstimateBilling(c, info)
@@ -439,6 +476,58 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		quota, clamp := common.QuotaFromFloatChecked(quotaWithRatios)
 		info.PriceData.Quota = quota
 		noteTaskQuotaClamp(info, clamp)
+	}
+
+	return platform, adaptor, nil
+}
+
+// An unfinished video can be priced from the validated duration and framing.
+// Require literal probes of those fields so dynamic paths cannot inspect the
+// temporary prompt or media that the planner will remove or replace.
+func taskPricingNeedsVideoPlan(expression string) bool {
+	if !billingexpr.UsedVars(expression)["param"] {
+		return false
+	}
+	program, err := billingexpr.CompileFromCache(expression)
+	if err != nil {
+		return true
+	}
+	var references, stableCalls int
+	ast.Find(program.Node(), func(node ast.Node) bool {
+		switch n := node.(type) {
+		case *ast.IdentifierNode:
+			if n.Value == "param" {
+				references++
+			}
+		case *ast.CallNode:
+			callee, ok := n.Callee.(*ast.IdentifierNode)
+			if !ok || callee.Value != "param" || len(n.Arguments) != 1 {
+				break
+			}
+			if field, ok := n.Arguments[0].(*ast.StringNode); ok {
+				switch field.Value {
+				case "seconds", "resolution", "aspect_ratio":
+					stableCalls++
+				}
+			}
+		}
+		return false
+	})
+	return references != stableCalls
+}
+
+// RelayTaskSubmit 完成 task 提交的全部流程（每次尝试调用一次）：
+// 刷新渠道元数据 → 确定 platform/adaptor → 验证请求 →
+// 估算计费(EstimateBilling) → 计算价格 → 预扣费（仅首次）→
+// 构建/发送/解析上游请求 → 提交后计费调整(AdjustBillingOnSubmit)。
+// 共享控制器编排负责未落库退款、最终额度预留、落库和结算。
+func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitResult, *dto.TaskError) {
+	if apiErr := service.CheckGenerationDebt(info); apiErr != nil {
+		return nil, service.TaskErrorFromAPIError(c, apiErr)
+	}
+	platform, adaptor, taskErr := prepareTaskSubmissionPrice(c, info, false, false)
+	if taskErr != nil {
+		return nil, taskErr
 	}
 
 	// 7. 预扣费（仅首次 — 重试时 info.Billing 已存在，跳过）

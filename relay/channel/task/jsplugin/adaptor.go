@@ -123,6 +123,24 @@ func New(plugin *pluginruntime.LoadedPlugin) *TaskAdaptor { return &TaskAdaptor{
 func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo)   { a.info = info }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
+	return a.validateRequest(c, info, false)
+}
+
+// ValidateRequestForQuote prepares only requests that can be priced without
+// loading media or calling the channel. It uses the same decoder and model
+// mapping as a normal submit.
+func (a *TaskAdaptor) ValidateRequestForQuote(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
+	return a.validateRequest(c, info, true)
+}
+
+func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInfo, estimateOnly bool) *dto.TaskError {
+	if estimateOnly && info.ChannelType != constant.ChannelTypeNewAPI {
+		switch strings.TrimSpace(a.plugin.Meta.Auth.Type) {
+		case "", "none", "api_key":
+		default:
+			return service.TaskErrorWrapperLocal(errors.New("task quote requires upstream credentials"), "generation_quote_unavailable", http.StatusServiceUnavailable)
+		}
+	}
 	if pinnedValue, exists := c.Get(pluginruntime.ContextKeyPinnedEndpoint); exists {
 		if pinned, ok := pinnedValue.(pluginruntime.PinnedEndpoint); ok && pinned.Plugin == a.plugin {
 			if protocolValue, present := c.Get(pluginruntime.ContextKeyProtocolRequest); present {
@@ -165,6 +183,9 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 			contract, _ = modelcontracts.For(info.GetUpstreamModelName())
 		}
 		if contract.GatewayProtocol == "openai_video" {
+			if estimateOnly {
+				return service.TaskErrorWrapperLocal(errors.New("task quote requires prepared video images"), "generation_quote_unavailable", http.StatusServiceUnavailable)
+			}
 			body, _ := request.(map[string]any)
 			if err := prepareOrderedVideoImages(c, body, contract.ReferenceImages); err != nil {
 				return service.TaskErrorWrapperLocal(err, "plugin_request_invalid", http.StatusBadRequest)
@@ -177,7 +198,10 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 			return service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
 		}
 	}
-	if _, err := a.buildSubmit(c, info); err != nil {
+	if _, err := a.buildSubmit(c, info, estimateOnly); err != nil {
+		if estimateOnly {
+			return service.TaskErrorWrapperLocal(err, "generation_quote_unavailable", http.StatusServiceUnavailable)
+		}
 		return service.TaskErrorWrapperLocal(err, "plugin_request_invalid", http.StatusBadRequest)
 	}
 	// The descriptor may rewrite the model. Validate profiled requests against
@@ -326,7 +350,7 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, _ *r
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
-	descriptor, err := a.buildSubmit(c, info)
+	descriptor, err := a.buildSubmit(c, info, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1393,7 +1417,7 @@ func (a *TaskAdaptor) requestDescriptor(ctx context.Context, hook string, args .
 	return descriptor, nil
 }
 
-func (a *TaskAdaptor) buildSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*requestDescriptor, error) {
+func (a *TaskAdaptor) buildSubmit(c *gin.Context, info *relaycommon.RelayInfo, estimateOnly bool) (*requestDescriptor, error) {
 	if a.submit != nil {
 		return a.submit, nil
 	}
@@ -1401,10 +1425,20 @@ func (a *TaskAdaptor) buildSubmit(c *gin.Context, info *relaycommon.RelayInfo) (
 	// buildSubmitRequest runs before quota is reserved, so a failed fetch
 	// costs nothing; requests that start vendor work stay the descriptor.
 	fetchContext := c.Request.Context()
-	if info.HasChannelMeta() {
+	var needsFetch bool
+	if estimateOnly {
+		fetchContext = pluginruntime.WithFetcher(fetchContext, func(context.Context, pluginruntime.FetchRequest) (pluginruntime.FetchResponse, error) {
+			needsFetch = true
+			return pluginruntime.FetchResponse{}, errors.New("fetch is unavailable during a task quote")
+		})
+	} else if info.HasChannelMeta() {
 		fetchContext = pluginruntime.WithFetcher(fetchContext, a.hookFetcher(info.ChannelBaseUrl, info.ChannelSetting.Proxy))
 	}
 	descriptor, err := a.requestDescriptor(fetchContext, "buildSubmitRequest", a.submitContext(c, info))
+	if needsFetch {
+		// A caught fetch error can change the descriptor and its billing model.
+		return nil, errors.New("task quote requires upstream data")
+	}
 	if err != nil {
 		reason := "hook_failed"
 		var invalid *pluginruntime.ResultError

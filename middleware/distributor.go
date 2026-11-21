@@ -34,8 +34,17 @@ type ModelRequest struct {
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
+		queueEntry := c.Request.Method == http.MethodPost && slices.Contains([]string{
+			"/pg/influencer/sheet", "/pg/influencer/multiview", "/pg/influencer/motion",
+		}, c.Request.URL.Path)
+		if queueEntry {
+			// These requests only prepare and accept work. The worker selects
+			// credentials when it is ready to send.
+			c.Set(service.GenerationQuoteRoutingKey, true)
+		}
+		estimateOnly := c.GetBool(service.GenerationQuoteRoutingKey)
 		defer func() {
-			if c.Writer.Status() >= 400 {
+			if (queueEntry || !estimateOnly) && c.Writer.Status() >= 400 {
 				service.RecordRequestPolicyTermination(c, types.NewErrorWithStatusCode(errors.New("request rejected"), types.ErrorCodeInvalidRequest, c.Writer.Status(), types.ErrOptionWithSkipRetry()))
 			}
 		}()
@@ -61,7 +70,9 @@ func Distribute() func(c *gin.Context) {
 		if !applyPerRequestModelGroup(c, modelRequest) {
 			return
 		}
-		if modelRequest != nil {
+		// On the real Web entry the ordinary durable-image guard still runs.
+		// A quote-only relay context inherits filters from validated product input.
+		if modelRequest != nil && (queueEntry || !estimateOnly) {
 			if err := relayhelper.AppendImageTaskModeFilter(c, modelRequest.Model); err != nil {
 				status := http.StatusBadRequest
 				if errors.Is(err, relayhelper.ErrImageTaskDurableEntryRequired) {
@@ -114,7 +125,7 @@ func Distribute() func(c *gin.Context) {
 			if value, exists := c.Get(contextKeyTaskPluginEndpointChannel); exists {
 				channel, _ = value.(*model.Channel)
 			}
-			if channel != nil {
+			if channel != nil && !estimateOnly {
 				fresh, err := model.CacheGetChannel(channel.Id)
 				if err != nil || fresh == nil || fresh.Status != common.ChannelStatusEnabled {
 					channel = nil
@@ -173,7 +184,7 @@ func Distribute() func(c *gin.Context) {
 			}
 		}
 		c.Next()
-		if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
+		if !estimateOnly && channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
 			service.RecordChannelAffinity(c, channel.Id)
 		}
 	}
@@ -772,8 +783,11 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	logTaskPluginChannelDecision(c, channel, modelName, "channel_selected", "")
 	paramOverride := channel.GetParamOverride()
 	headerOverride := channel.GetHeaderOverride()
-	if mergedParam, applied := service.ApplyChannelAffinityOverrideTemplate(c, paramOverride); applied {
-		paramOverride = mergedParam
+	estimateOnly := c.GetBool(service.GenerationQuoteRoutingKey)
+	if !estimateOnly {
+		if mergedParam, applied := service.ApplyChannelAffinityOverrideTemplate(c, paramOverride); applied {
+			paramOverride = mergedParam
+		}
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelParamOverride, paramOverride)
 	common.SetContextKey(c, constant.ContextKeyChannelHeaderOverride, headerOverride)
@@ -784,19 +798,17 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
 
-	key, index, newAPIError := channel.GetNextEnabledKey()
-	if newAPIError != nil {
-		return newAPIError
+	if !estimateOnly {
+		key, index, newAPIError := channel.GetNextEnabledKey()
+		if newAPIError != nil {
+			return newAPIError
+		}
+		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, channel.ChannelInfo.IsMultiKey)
+		if channel.ChannelInfo.IsMultiKey {
+			common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
+		}
+		common.SetContextKey(c, constant.ContextKeyChannelKey, key)
 	}
-	if channel.ChannelInfo.IsMultiKey {
-		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)
-		common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
-	} else {
-		// 必须设置为 false，否则在重试到单个 key 的时候会导致日志显示错误
-		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, false)
-	}
-	// c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
-	common.SetContextKey(c, constant.ContextKeyChannelKey, key)
 	common.SetContextKey(c, constant.ContextKeyChannelBaseUrl, channel.GetBaseURL())
 
 	common.SetContextKey(c, constant.ContextKeySystemPromptOverride, false)

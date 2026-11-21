@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -1307,11 +1308,20 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 	if tx == nil || sub == nil || plan == nil {
 		return errors.New("invalid reset args")
 	}
+	if advanceSubscriptionAllowance(sub, plan, now) {
+		return tx.Save(sub).Error
+	}
+	return nil
+}
+
+// advanceSubscriptionAllowance applies the current cycle to the supplied snapshot.
+// Only the reservation and periodic reset paths persist the resulting fields.
+func advanceSubscriptionAllowance(sub *UserSubscription, plan *SubscriptionPlan, now int64) bool {
 	if sub.NextResetTime > 0 && sub.NextResetTime > now {
-		return nil
+		return false
 	}
 	if NormalizeResetPeriod(plan.QuotaResetPeriod) == SubscriptionResetNever {
-		return nil
+		return false
 	}
 	baseUnix := sub.LastResetTime
 	if baseUnix <= 0 {
@@ -1325,19 +1335,68 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 		base = time.Unix(next, 0)
 		next = calcNextResetTime(base, plan, sub.EndTime)
 	}
-	if !advanced {
-		if sub.NextResetTime == 0 && next > 0 {
-			sub.NextResetTime = next
-			sub.LastResetTime = base.Unix()
-			return tx.Save(sub).Error
-		}
-		return nil
+	if !advanced && (sub.NextResetTime != 0 || next <= 0) {
+		return false
 	}
-	sub.AmountUsed = 0
-	sub.AllowanceEpoch = nextAllowanceEpoch(sub.AllowanceEpoch)
+	if advanced {
+		sub.AmountUsed = 0
+		sub.AllowanceEpoch = nextAllowanceEpoch(sub.AllowanceEpoch)
+	}
 	sub.LastResetTime = base.Unix()
 	sub.NextResetTime = next
-	return tx.Save(sub).Error
+	return true
+}
+
+func subscriptionCanReserve(sub UserSubscription, amount int64) (bool, error) {
+	if sub.AmountUsed < 0 || sub.AmountUsed > math.MaxInt64-amount {
+		return false, errors.New("subscription used amount overflow")
+	}
+	return sub.AmountTotal <= 0 || sub.AmountTotal-sub.AmountUsed >= amount, nil
+}
+
+func activeSubscriptionsForReservation(query *gorm.DB, userID int, now int64) *gorm.DB {
+	return query.Where("user_id = ? AND status = ? AND end_time > ?", userID, "active", now).
+		Order("end_time asc, id asc")
+}
+
+// UserSubscriptionCanCover reads the same active subscriptions as pre-consume.
+// A single subscription must cover the charge. Resets apply to local copies.
+func UserSubscriptionCanCover(ctx context.Context, userID int, amount int64) (bool, error) {
+	if userID <= 0 || amount <= 0 {
+		return false, errors.New("invalid subscription funding check")
+	}
+	now := GetDBTimestamp()
+	db := DB.WithContext(ctx)
+	var subs []UserSubscription
+	if err := activeSubscriptionsForReservation(db, userID, now).Find(&subs).Error; err != nil {
+		return false, err
+	}
+	for _, sub := range subs {
+		var plan SubscriptionPlan
+		if err := db.First(&plan, sub.PlanId).Error; err != nil {
+			return false, err
+		}
+		plan.NormalizeDefaults()
+		advanceSubscriptionAllowance(&sub, &plan, now)
+		fits, err := subscriptionCanReserve(sub, amount)
+		if fits || err != nil {
+			return fits, err
+		}
+	}
+	return false, nil
+}
+
+// ReadWalletFundingQuota reads live reservations in Redis when available. The
+// SQL fallback does not hydrate the cache or write wallet accounting state.
+func ReadWalletFundingQuota(userID int) (int, error) {
+	cached, err := cacheGetUserBase(userID)
+	if err == nil {
+		return cached.Quota, nil
+	}
+	if errors.Is(err, ErrUserAuthCachePending) {
+		return 0, err
+	}
+	return GetUserQuota(userID, true)
 }
 
 // nextAllowanceEpoch advances a subscription's allowance generation. Rows written
@@ -1401,10 +1460,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 		}
 
 		var subs []UserSubscription
-		if err := lockForUpdate(tx).
-			Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
-			Order("end_time asc, id asc").
-			Find(&subs).Error; err != nil {
+		if err := activeSubscriptionsForReservation(lockForUpdate(tx), userId, now).Find(&subs).Error; err != nil {
 			return errors.New("no active subscription")
 		}
 		if len(subs) == 0 {
@@ -1419,16 +1475,14 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
 				return err
 			}
+			fits, err := subscriptionCanReserve(sub, amount)
+			if err != nil {
+				return err
+			}
+			if !fits {
+				continue
+			}
 			usedBefore := sub.AmountUsed
-			if usedBefore < 0 || usedBefore > math.MaxInt64-amount {
-				return errors.New("subscription used amount overflow")
-			}
-			if sub.AmountTotal > 0 {
-				remain := sub.AmountTotal - usedBefore
-				if remain < amount {
-					continue
-				}
-			}
 			record := &SubscriptionPreConsumeRecord{
 				RequestId:          requestId,
 				UserId:             userId,

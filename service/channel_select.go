@@ -61,6 +61,13 @@ func ExcludeAttemptedChannel(c *gin.Context, channelID int) {
 	constraints.AddFilter(dto.ChannelFilter{Kind: dto.FilterExcludeChannels, ExcludeChannelIDs: []int{channelID}})
 }
 
+const (
+	// GenerationQuoteRoutingKey selects channels without mutating routing state.
+	GenerationQuoteRoutingKey = "generation_quote_routing"
+	// GenerationQuoteAmbiguousKey marks requests with materially different candidates.
+	GenerationQuoteAmbiguousKey = "generation_quote_ambiguous"
+)
+
 type RetryParam struct {
 	Ctx         *gin.Context
 	TokenGroup  string
@@ -141,6 +148,16 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 	constraints := GetChannelConstraints(param.Ctx)
 	filters := constraints.Filters
+	lookup := model.GetRandomSatisfiedChannel
+	if param.Ctx.GetBool(GenerationQuoteRoutingKey) {
+		lookup = func(group, modelName string, _ int, filters []dto.ChannelFilter) (*model.Channel, error) {
+			channel, consistent, err := model.GetChannelForGenerationQuote(param.Ctx.Request.Context(), group, modelName, filters)
+			if channel != nil && !consistent {
+				param.Ctx.Set(GenerationQuoteAmbiguousKey, true)
+			}
+			return channel, err
+		}
+	}
 
 	if param.TokenGroup == "auto" {
 		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
@@ -177,7 +194,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, err = model.GetRandomSatisfiedChannel(
+			channel, err = lookup(
 				autoGroup,
 				param.ModelName,
 				priorityRetry,
@@ -242,7 +259,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		if param.PreserveRetryBudget {
 			priorityRetry = 0
 		}
-		channel, err = model.GetRandomSatisfiedChannel(
+		channel, err = lookup(
 			param.TokenGroup,
 			param.ModelName,
 			priorityRetry,
@@ -334,6 +351,7 @@ type ChannelSelectError struct {
 // callers. The caller still applies SetupContextForSelectedChannel.
 func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam) (*model.Channel, string, *ChannelSelectError) {
 	constraints := GetChannelConstraints(c)
+	estimateOnly := c.GetBool(GenerationQuoteRoutingKey)
 	if pin, found, overridden := constraints.ResolvedPin(); found {
 		for _, lost := range overridden {
 			logger.LogWarn(c, common.LogText(
@@ -341,12 +359,21 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 				pin.Source, pin.ChannelId, lost.Source, lost.ChannelId,
 			))
 		}
-		channel, err := model.CacheGetChannel(pin.ChannelId)
+		var channel *model.Channel
+		var err error
+		if estimateOnly {
+			channel, err = model.GetChannelById(pin.ChannelId, false)
+		} else {
+			channel, err = model.CacheGetChannel(pin.ChannelId)
+		}
 		if err != nil {
 			return nil, "", pinnedChannelUnavailable(pin, http.StatusBadRequest, i18n.MsgDistributorInvalidChannelId)
 		}
 		if channel.Status != common.ChannelStatusEnabled {
 			return nil, "", pinnedChannelUnavailable(pin, http.StatusForbidden, i18n.MsgDistributorChannelDisabled)
+		}
+		if estimateOnly {
+			channel = channel.ForGenerationQuote()
 		}
 		if ok, kind := model.ChannelSatisfiesFilters(channel, modelName, constraints.Filters); !ok {
 			if kind == dto.FilterVideoCapability {
@@ -382,7 +409,7 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 	usingGroup := retry.TokenGroup
 	var channel *model.Channel
 	var selectGroup string
-	if retry.GetRetry() == 0 {
+	if !estimateOnly && retry.GetRetry() == 0 {
 		if preferredChannelID, found := GetPreferredChannelByAffinity(c, modelName, usingGroup); found {
 			affinityUsable := false
 			preferred, err := model.CacheGetChannel(preferredChannelID)
