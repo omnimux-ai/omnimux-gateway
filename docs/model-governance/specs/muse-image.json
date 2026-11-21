@@ -3,9 +3,10 @@
  "family": "image",
  "vendor": "Muse",
  "vendor_model_id": "muse-image",
- "capability": "图像生成（文生图）",
+ "capability": "图像生成（文生图 / 参考图生图）",
  "operations": [
-  "text_to_image"
+  "text_to_image",
+  "image_to_image"
  ],
  "parameters": [
   {
@@ -15,7 +16,8 @@
    "maximum": 4,
    "default": 1,
    "applies_to": [
-    "text_to_image"
+    "text_to_image",
+    "image_to_image"
    ],
    "limit_source": {
     "kind": "policy_conservative",
@@ -35,7 +37,8 @@
    ],
    "default": "1:1",
    "applies_to": [
-    "text_to_image"
+    "text_to_image",
+    "image_to_image"
    ],
    "limit_source": {
     "kind": "policy_conservative",
@@ -45,13 +48,31 @@
  ],
  "status": "partial",
  "basis": "line_restricted",
- "checked_at": "2026-11-15",
+ "checked_at": "2026-11-21",
  "sources": [
   {
    "claim": "muse2api 的 ImageGenerationRequest 限制 n 为 1–4，并以 size 字段接收画幅",
    "url": "https://github.com/www222fff/muse2api/blob/main/src/muse2api/api/schemas.py",
    "quote": "n: int = Field(default=1, ge=1, le=4)",
    "retrieved_at": "2026-11-15"
+  },
+  {
+   "claim": "Muse2API v1.6.10 的图像接口支持文生图与参考图编辑，生图接口也接受参考图",
+   "url": "https://github.com/czg86389-hub/muse2api/blob/v1.6.10/README.md",
+   "quote": "完全兼容 `/v1/images/generations`（文生图）与 `/v1/images/edits`（图生图/参考图编辑）接口。",
+   "retrieved_at": "2026-11-21"
+  },
+  {
+   "claim": "Muse2API 参考素材每次最多 10 个，单个不超过 40 MiB，合计不超过 100 MiB",
+   "url": "https://github.com/czg86389-hub/muse2api/blob/v1.6.10/README.md",
+   "quote": "多图参考使用 `images` 数组（最多 10 个素材；单个不超过 40 MiB、合计不超过 100 MiB",
+   "retrieved_at": "2026-11-21"
+  },
+  {
+   "claim": "Muse2API 接受的图片参考格式为 jpg / png / gif / webp / heic / heif / avif",
+   "url": "https://github.com/czg86389-hub/muse2api/blob/v1.6.10/README.md",
+   "quote": "| 图片 | jpg / png / gif / webp / heic / heif / avif |",
+   "retrieved_at": "2026-11-21"
   }
  ],
  "unknowns": [
@@ -59,7 +80,7 @@
   "上游未公布图片格式与质量参数，未声明 output_formats 与 quality",
   "提示词长度上限未公布"
  ],
- "notes": "本档案描述本服务 muse2api 的图像线路实际接受的信封（basis: line_restricted），不是 muse.ai 厂商全量能力。该线路仅实现 /v1/images/generations 文生图，/v1/images/edits 仍为 501，故 operations 只登记 text_to_image。",
+ "notes": "本档案描述本服务 muse2api 的图像线路实际接受的信封（basis: line_restricted），不是 muse.ai 厂商全量能力。该线路实现 /v1/images/generations 文生图与 /v1/images/edits 图生图/参考图编辑；生图接口也接受 images/reference_image 参考图。",
  "billing": {
   "unit": "per_image",
   "unit_label": {
@@ -72,5 +93,20 @@
    "zh": "按生成图片张数计费；实际费用受分组和会员倍率影响，以平台提交前报价为准。",
    "en": "Charged per generated image; the final quote includes group and membership multipliers; use the platform quote before submission."
   }
+ },
+ "reference_images": {
+  "max": 10,
+  "min": 0,
+  "formats": [
+   "image/jpeg",
+   "image/png",
+   "image/gif",
+   "image/webp",
+   "image/heic",
+   "image/heif",
+   "image/avif"
+  ],
+  "max_bytes_each": 41943040,
+  "source_claim": "Muse2API 参考素材：每次最多 10 个，单个不超过 40 MiB，合计不超过 100 MiB；图片格式 jpg/png/gif/webp/heic/heif/avif"
  }
 }
