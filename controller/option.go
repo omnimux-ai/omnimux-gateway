@@ -86,7 +86,7 @@ func GetOptions(c *gin.Context) {
 		config, issues, err := model.CheckPricingGroupConfig(c.Request.Context())
 		if err != nil {
 			common.SysError(common.LogText("Could not check pricing group configuration: %v", err))
-			common.ApiErrorStatus(c, http.StatusServiceUnavailable, common.NewMessage("Could not check pricing group configuration"))
+			common.ApiErrorStatus(c, http.StatusServiceUnavailable, common.NewMessage("Failed to load settings"))
 			return
 		}
 		encoded, err := common.Marshal(config)
@@ -439,7 +439,7 @@ func UpdateOption(c *gin.Context) {
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {
 		if errors.Is(err, model.ErrPricingGroupConfigConflict) {
-			common.ApiErrorStatus(c, http.StatusConflict, common.NewMessage(err.Error()))
+			common.ApiErrorStatus(c, http.StatusConflict, common.NewMessage("Refresh the list and try again."))
 		} else if errors.Is(err, system_setting.ErrPasskeyRPIDInvalid) {
 			writeSecurityOperationError(c, err)
 		} else {

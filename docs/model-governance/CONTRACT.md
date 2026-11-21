@@ -489,9 +489,11 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 下方命令以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令输出缺失或失配的模型，存在缺项或无法检查时以非零状态退出。发布前应得到 `[]`。
 
 ```sh
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer ${GATEWAY_ROOT_ACCESS_TOKEN:?}" \
-  "${GATEWAY_URL:?}/api/option/?key=ModelPricingGroups" |
+pricing_group_check_response=$(
+  curl --fail --silent --show-error \
+    --header "Authorization: Bearer ${GATEWAY_ROOT_ACCESS_TOKEN:?}" \
+    "${GATEWAY_URL:?}/api/option/?key=ModelPricingGroups"
+) && printf '%s\n' "$pricing_group_check_response" |
   jq -e 'if .success != true or (.pricing_group_config_issues | type) != "array" then
     error("cannot check pricing group configuration")
   else
