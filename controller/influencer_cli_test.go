@@ -774,6 +774,28 @@ func setupInfluencerFundingAPI(t *testing.T, ownerID int, cache *redis.Client) i
 	return influencerFundingFixture{engine: engine, owner: owner, storage: driver, imageURL: imageURL, videoURL: videoURL, metadata: metadata}
 }
 
+func addInfluencerFundingCandidate(t *testing.T, modelName, group, mappedModel string, priority int64) {
+	t.Helper()
+	previousRetries := common.RetryTimes
+	common.RetryTimes = 1 // Keep the second candidate within the dispatch budget.
+	t.Cleanup(func() { common.RetryTimes = previousRetries })
+	db := model.DB
+	var alternate model.Channel
+	require.NoError(t, db.Where("models = ?", modelName).First(&alternate).Error)
+	alternate.Id, alternate.Name, alternate.Group = 0, "alternate "+modelName, group
+	// Reuse the fixture listener so either candidate fails the test if it sends anything.
+	alternate.BaseURL = common.GetPointer(alternate.GetBaseURL() + "/alternate")
+	alternate.Setting = common.GetPointer(`{"http_protocol":"http1"}`)
+	alternate.Priority = common.GetPointer(priority)
+	if mappedModel != "" {
+		alternate.ModelMapping = common.GetPointer(fmt.Sprintf(`{%q:%q}`, modelName, mappedModel))
+	}
+	require.NoError(t, db.Create(&alternate).Error)
+	binding := model.Ability{Group: group, Model: modelName, ChannelId: alternate.Id, Enabled: true, Priority: alternate.Priority}
+	require.NoError(t, db.Create(&binding).Error)
+	t.Cleanup(func() { require.NoError(t, db.Model(&binding).UpdateColumn("enabled", false).Error) })
+}
+
 func (f influencerFundingFixture) setBalance(t *testing.T, quota int) {
 	t.Helper()
 	require.NoError(t, model.DB.Model(f.owner).UpdateColumn("quota", quota).Error)
@@ -850,7 +872,7 @@ func (f influencerFundingFixture) submit(t *testing.T, path string, input gin.H,
 
 func TestInfluencerCreationFunding(t *testing.T) {
 	f := setupInfluencerFundingAPI(t, 41, nil)
-	for _, route := range []struct {
+	routes := []struct {
 		name string
 		path string
 		body gin.H
@@ -861,7 +883,8 @@ func TestInfluencerCreationFunding(t *testing.T) {
 		{"cli_character", "/api/influencer/v1/characters", gin.H{"brief": "a portrait"}},
 		{"cli_multiview", "/api/influencer/v1/characters/" + influencerFundingParentID + "/multiview", gin.H{}},
 		{"cli_video", "/api/influencer/v1/videos", f.cliVideoInput()},
-	} {
+	}
+	for _, route := range routes {
 		t.Run(route.name, func(t *testing.T) {
 			cli := strings.HasPrefix(route.path, "/api/influencer/v1/")
 			for _, quota := range []int{0, 1} {
@@ -911,6 +934,20 @@ func TestInfluencerCreationFunding(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("same_price_candidates", func(t *testing.T) {
+		addInfluencerFundingCandidate(t, influencerImageModel, "gpt-image-2.5-sunburst-test", "", 0)
+		addInfluencerFundingCandidate(t, influencerMotionModel, influencerMotionGroups["480p"], "", 0)
+		f.setBalance(t, 0)
+		for _, route := range routes {
+			t.Run(route.name, func(t *testing.T) {
+				if strings.HasPrefix(route.path, "/api/influencer/v1/") {
+					route.body["request_id"] = "issue92-same-price-" + route.name
+				}
+				f.submit(t, route.path, route.body, http.StatusForbidden)
+			})
+		}
+	})
 
 	t.Run("subscription_with_empty_wallet", func(t *testing.T) {
 		f.setBalance(t, 0)
@@ -1013,17 +1050,53 @@ export function parseTaskResult() { return {status:"SUCCESS"}; }
 		assert.Equal(t, alias.Key, stored.Key)
 		assert.Equal(t, alias.Setting, stored.Setting)
 	})
-	t.Run("different_channel_rates_are_deferred", func(t *testing.T) {
-		var alternate model.Channel
-		require.NoError(t, model.DB.Where("type = ?", constant.ChannelTypeApiMart).First(&alternate).Error)
-		alternate.Id, alternate.Name = 0, "alternate quote test"
-		alternate.ModelMapping = common.GetPointer(fmt.Sprintf(`{%q:"fixture-video"}`, influencerMotionModel))
-		require.NoError(t, model.DB.Create(&alternate).Error)
-		binding := model.Ability{Group: influencerMotionGroups["480p"], Model: influencerMotionModel, ChannelId: alternate.Id, Enabled: true}
-		require.NoError(t, model.DB.Create(&binding).Error)
-		t.Cleanup(func() { require.NoError(t, model.DB.Model(&binding).Update("enabled", false).Error) })
-		f.setBalance(t, 0)
-		f.submit(t, motion, f.motionInput("motion"), http.StatusOK)
+	t.Run("different_channel_rates_use_cheapest_quote", func(t *testing.T) {
+		const cheaper, expensive = "fixture-cheaper-video", "fixture-expensive-video"
+		group := influencerMotionGroups["480p"]
+		withTieredBillingConfig(t, map[string]string{influencerMotionModel: "ratio", cheaper: "tiered_expr", expensive: "tiered_expr"},
+			map[string]string{cheaper: `tier("fixture", fixed(0.01))`, expensive: `tier("fixture", fixed(0.02))`})
+		var primary model.Channel
+		require.NoError(t, model.DB.Where("name = ?", "local video").First(&primary).Error)
+		channel := model.DB.Model(&model.Channel{}).Where("id = ?", primary.Id)
+		require.NoError(t, channel.UpdateColumn("model_mapping", fmt.Sprintf(`{%q:%q}`, influencerMotionModel, cheaper)).Error)
+		t.Cleanup(func() { require.NoError(t, channel.UpdateColumn("model_mapping", primary.ModelMapping).Error) })
+		// The expensive candidate sorts first in both the channel and ability lists.
+		addInfluencerFundingCandidate(t, influencerMotionModel, group, expensive, 10)
+		t.Run("neither_candidate_funded", func(t *testing.T) {
+			f.setBalance(t, 4_999)
+			f.submit(t, motion, f.motionInput("motion"), http.StatusForbidden)
+		})
+		t.Run("only_cheaper_candidate_funded", func(t *testing.T) {
+			f.setBalance(t, 5_000)
+			f.submit(t, motion, f.motionInput("motion"), http.StatusOK)
+		})
+		t.Run("expensive_candidate_alone", func(t *testing.T) {
+			binding := model.Ability{Group: group, Model: influencerMotionModel, ChannelId: primary.Id}
+			require.NoError(t, model.DB.Model(&binding).UpdateColumn("enabled", false).Error)
+			t.Cleanup(func() { require.NoError(t, model.DB.Model(&binding).UpdateColumn("enabled", true).Error) })
+			f.setBalance(t, 5_000)
+			f.submit(t, motion, f.motionInput("motion"), http.StatusForbidden)
+			f.setBalance(t, 10_000)
+			f.submit(t, motion, f.motionInput("motion"), http.StatusOK)
+		})
+	})
+	t.Run("auto_quotes_stay_within_the_frozen_groups", func(t *testing.T) {
+		const mapped = "gpt-image-2.5-sunburst-1k"
+		withTieredBillingConfig(t, map[string]string{influencerImageModel: "ratio", mapped: "tiered_expr"},
+			map[string]string{mapped: `tier("fixture", fixed(0.01))`})
+		prices := ratio_setting.ModelPrice2JSONString()
+		t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(prices)) })
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(fmt.Sprintf(`{%q:0.02}`, influencerImageModel)))
+		addInfluencerFundingCandidate(t, influencerImageModel, influencerImageGroup, mapped, 0)
+
+		f.setBalance(t, 5_000)
+		const path = "/api/influencer/v1/characters"
+		f.submit(t, path, gin.H{"request_id": "issue92-auto-affordable", "brief": "a portrait"}, http.StatusOK)
+
+		groups := setting.AutoGroups2JsonString()
+		t.Cleanup(func() { require.NoError(t, setting.UpdateAutoGroupsByJsonString(groups)) })
+		require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["gpt-image-2.5-sunburst-test"]`))
+		f.submit(t, path, gin.H{"request_id": "issue92-auto-restricted", "brief": "a portrait"}, http.StatusForbidden)
 	})
 	t.Run("plugin_quote_uses_mapped_usage_and_ignores_caught_fetch_fallback", func(t *testing.T) {
 		previous := jsplugin.DefaultRegistry
@@ -1032,7 +1105,7 @@ export function parseTaskResult() { return {status:"SUCCESS"}; }
 		source := fmt.Sprintf(`
 export const meta = {apiVersion:1,key:"sora",name:"Quote fixture",version:"1.0.0",author:{name:"Test"},models:[%q],fetchMode:"per_task",usageSchema:{units:{type:"number",unit:"count"}}};
 export function buildSubmitRequest(ctx) {
-  if (ctx.requestBody.resolution === "720p") {
+  if (ctx.requestBody.resolution === "720p" && !ctx.baseUrl.endsWith("/alternate")) {
     try { utils.fetch({url: ctx.baseUrl + "/price-input"}); } catch (e) {}
   }
   return {url:ctx.baseUrl+"/submit",rewriteModel:"fixture-mapped-video",body:ctx.requestBody};
@@ -1059,6 +1132,20 @@ export function parseTaskResult() { return {status:"SUCCESS"}; }
 		f.setBalance(t, 0)
 		input["request_id"], input["resolution"] = "issue89-deferred-fetch", "720p"
 		f.submit(t, path, input, http.StatusOK)
+
+		group := influencerMotionGroups["720p"]
+		addInfluencerFundingCandidate(t, influencerMotionModel, group, "", 10)
+		t.Run("known_unaffordable_and_unknown", func(t *testing.T) {
+			input["request_id"] = "issue92-known-and-unknown"
+			f.submit(t, path, input, http.StatusOK)
+		})
+		t.Run("known_unaffordable_alone", func(t *testing.T) {
+			binding := model.Ability{Group: group, Model: influencerMotionModel, ChannelId: channel.Id}
+			require.NoError(t, model.DB.Model(&binding).UpdateColumn("enabled", false).Error)
+			t.Cleanup(func() { require.NoError(t, model.DB.Model(&binding).UpdateColumn("enabled", true).Error) })
+			input["request_id"] = "issue92-known-alone"
+			f.submit(t, path, input, http.StatusForbidden)
+		})
 	})
 }
 
@@ -1180,14 +1267,18 @@ func TestInfluencerCreationFundingRedis(t *testing.T) {
 	for i, tc := range []struct {
 		name, entry, mode string
 		quota, code       int
+		samePrice         bool
 	}{
-		{"accepted_web", "workbench", "motion", influencerFundedBalance, http.StatusOK},
-		{"accepted_cli", "cli", "motion", influencerFundedBalance, http.StatusOK},
-		{"rejected_web", "workbench", "motion", 0, http.StatusForbidden},
-		{"rejected_cli", "cli", "motion", 0, http.StatusForbidden},
-		{"rejected_cached_wallet", "cli", "motion", influencerFundedBalance, http.StatusForbidden},
-		{"accepted_recreation", "workbench", "recreate", influencerFundedBalance, http.StatusOK},
-		{"rejected_recreation", "workbench", "recreate", 0, http.StatusForbidden},
+		{"accepted_web", "workbench", "motion", influencerFundedBalance, http.StatusOK, false},
+		{"accepted_cli", "cli", "motion", influencerFundedBalance, http.StatusOK, false},
+		{"rejected_web", "workbench", "motion", 0, http.StatusForbidden, false},
+		{"rejected_cli", "cli", "motion", 0, http.StatusForbidden, false},
+		{"rejected_cached_wallet", "cli", "motion", influencerFundedBalance, http.StatusForbidden, false},
+		{"accepted_recreation", "workbench", "recreate", influencerFundedBalance, http.StatusOK, false},
+		{"rejected_recreation", "workbench", "recreate", 0, http.StatusForbidden, false},
+		{"same_price_accepted_recreation", "workbench", "recreate", influencerFundedBalance, http.StatusOK, true},
+		{"same_price_rejected_recreation", "workbench", "recreate", 0, http.StatusForbidden, true},
+		{"same_price_rejected_cli", "cli", "motion", 0, http.StatusForbidden, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Isolate both the site-scoped milestone and Redis keys keyed only
@@ -1214,6 +1305,9 @@ func TestInfluencerCreationFundingRedis(t *testing.T) {
 				assert.NoError(t, client.Del(ctx, keys...).Err())
 			})
 			f := setupInfluencerFundingAPI(t, userID, client)
+			if tc.samePrice {
+				addInfluencerFundingCandidate(t, influencerMotionModel, influencerMotionGroups["480p"], "", 0)
+			}
 			f.setBalance(t, tc.quota)
 			cacheKey := fmt.Sprintf("user:%d", userID)
 			if tc.name == "rejected_cached_wallet" {
@@ -1262,6 +1356,11 @@ func TestInfluencerCreationFundingRedis(t *testing.T) {
 			} else {
 				assert.ErrorIs(t, err, redis.Nil, "a 403 must not leave a video milestone claim")
 				assert.Empty(t, received, "a 403 must not send an analytics event")
+				if tc.samePrice {
+					remaining, err := client.Exists(t.Context(), keys...).Result()
+					require.NoError(t, err)
+					assert.Zero(t, remaining, "a funding rejection must leave the account and milestone keys absent")
+				}
 			}
 		})
 	}

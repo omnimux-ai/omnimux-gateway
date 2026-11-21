@@ -40,9 +40,10 @@ func Distribute() func(c *gin.Context) {
 		if queueEntry {
 			// These requests only prepare and accept work. The worker selects
 			// credentials when it is ready to send.
-			c.Set(service.GenerationQuoteRoutingKey, true)
+			c.Set(service.GenerationQuoteRoutingKey, &service.GenerationQuoteRouting{})
 		}
-		estimateOnly := c.GetBool(service.GenerationQuoteRoutingKey)
+		quote := service.GetGenerationQuoteRouting(c)
+		estimateOnly := quote != nil
 		defer func() {
 			if (queueEntry || !estimateOnly) && c.Writer.Status() >= 400 {
 				service.RecordRequestPolicyTermination(c, types.NewErrorWithStatusCode(errors.New("request rejected"), types.ErrorCodeInvalidRequest, c.Writer.Status(), types.ErrOptionWithSkipRetry()))
@@ -162,6 +163,13 @@ func Distribute() func(c *gin.Context) {
 				})
 			}
 			if selectErr != nil {
+				if quote != nil {
+					// A preselected endpoint can restrict later routing to one
+					// decoder. Failure there does not exhaust the whole group.
+					_, preselected := c.Get(contextKeyTaskPluginEndpointChannel)
+					quote.NoEligibleChannel = !preselected && selectErr.Channel == nil &&
+						(selectErr.NoAvailableChannel || selectErr.FilterKind == taskdto.FilterVideoCapability)
+				}
 				if selectErr.FilterKind == taskdto.FilterTaskPluginIdentity {
 					logTaskPluginChannelDecision(c, selectErr.Channel, modelRequest.Model, "channel_rejected", "identity_mismatch")
 				}
@@ -783,7 +791,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	logTaskPluginChannelDecision(c, channel, modelName, "channel_selected", "")
 	paramOverride := channel.GetParamOverride()
 	headerOverride := channel.GetHeaderOverride()
-	estimateOnly := c.GetBool(service.GenerationQuoteRoutingKey)
+	estimateOnly := service.GetGenerationQuoteRouting(c) != nil
 	if !estimateOnly {
 		if mergedParam, applied := service.ApplyChannelAffinityOverrideTemplate(c, paramOverride); applied {
 			paramOverride = mergedParam

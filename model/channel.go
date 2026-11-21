@@ -66,52 +66,52 @@ type Channel struct {
 	quoteOnly bool
 }
 
-// GetChannelForGenerationQuote reads eligible routing configuration without
-// advancing channel state. It reports whether the candidates agree on inputs
-// that can affect the price, including when the worker selects another channel.
-func GetChannelForGenerationQuote(ctx context.Context, group, modelName string, filters []filterdto.ChannelFilter) (*Channel, bool, error) {
-	db := DB.WithContext(ctx)
+// GenerationQuoteChannels holds credentialless channel snapshots for one
+// request. Reusing a snapshot lets each candidate run through fresh routing
+// preparation without rereading the channels for the same group and binding.
+type GenerationQuoteChannels map[[2]string][]Channel
+
+// Select returns the first eligible channel and whether another one remains
+// after it. A normalized model binding can become eligible after exclusions.
+func (snapshots GenerationQuoteChannels) Select(ctx context.Context, group, modelName string, filters []filterdto.ChannelFilter) (*Channel, bool, error) {
 	models := []string{modelName}
 	if normalized := ratio_setting.RoutingMatchModelName(modelName); common.MemoryCacheEnabled && normalized != modelName {
 		models = append(models, normalized)
 	}
+	var selected *Channel
 	mismatch := false
 	for _, bindingModel := range models {
-		binding := db.Model(&Ability{}).Select("channel_id").Where(&Ability{Group: group, Model: bindingModel, Enabled: true})
-		var channels []Channel
-		if err := db.Omit("key").Where("id IN (?) AND status = ?", binding, common.ChannelStatusEnabled).
-			Order("priority DESC, id ASC").Find(&channels).Error; err != nil {
-			return nil, false, err
+		key := [2]string{group, bindingModel}
+		channels, loaded := snapshots[key]
+		if !loaded {
+			db := DB.WithContext(ctx)
+			binding := db.Model(&Ability{}).Select("channel_id").Where(&Ability{Group: group, Model: bindingModel, Enabled: true})
+			if err := db.Omit("key").Where("id IN (?) AND status = ?", binding, common.ChannelStatusEnabled).
+				Order("priority DESC, id ASC").Find(&channels).Error; err != nil {
+				return nil, false, err
+			}
+			for i := range channels {
+				channels[i].quoteOnly = true
+			}
+			snapshots[key] = channels
 		}
-		var selected *Channel
 		for i := range channels {
 			channel := &channels[i]
-			channel.quoteOnly = true
 			if ok, rejected := ChannelSatisfiesFilters(channel, modelName, filters); !ok {
 				mismatch = mismatch || rejected == filterdto.FilterVideoCapability
 				continue
 			}
 			if selected == nil {
 				selected = channel
-			} else if !selected.agreesOnGenerationQuote(channel) {
-				return selected, false, nil
+			} else if selected.Id != channel.Id {
+				return selected, true, nil
 			}
 		}
-		if selected != nil {
-			return selected, true, nil
-		}
 	}
-	if mismatch {
+	if selected == nil && mismatch {
 		return nil, false, ErrVideoCapabilityMismatch
 	}
-	return nil, false, nil
-}
-
-func (channel *Channel) agreesOnGenerationQuote(other *Channel) bool {
-	return channel.Type == other.Type && channel.GetModelMapping() == other.GetModelMapping() &&
-		channel.GetBaseURL() == other.GetBaseURL() && lo.FromPtr(channel.Setting) == lo.FromPtr(other.Setting) &&
-		channel.OtherSettings == other.OtherSettings && lo.FromPtr(channel.ParamOverride) == lo.FromPtr(other.ParamOverride) &&
-		lo.FromPtr(channel.HeaderOverride) == lo.FromPtr(other.HeaderOverride) && channel.Other == other.Other
+	return selected, false, nil
 }
 
 // ForGenerationQuote strips credentials and makes any later setting reads

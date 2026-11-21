@@ -61,12 +61,22 @@ func ExcludeAttemptedChannel(c *gin.Context, channelID int) {
 	constraints.AddFilter(dto.ChannelFilter{Kind: dto.FilterExcludeChannels, ExcludeChannelIDs: []int{channelID}})
 }
 
-const (
-	// GenerationQuoteRoutingKey selects channels without mutating routing state.
-	GenerationQuoteRoutingKey = "generation_quote_routing"
-	// GenerationQuoteAmbiguousKey marks requests with materially different candidates.
-	GenerationQuoteAmbiguousKey = "generation_quote_ambiguous"
-)
+const GenerationQuoteRoutingKey = "generation_quote_routing"
+
+// GenerationQuoteRouting selects channels without mutating routing state. The
+// caller can reuse the channel snapshots while resetting each probe's results.
+type GenerationQuoteRouting struct {
+	channels          model.GenerationQuoteChannels
+	HasAlternative    bool
+	NoEligibleChannel bool
+	LookupFailed      bool
+}
+
+func GetGenerationQuoteRouting(c *gin.Context) *GenerationQuoteRouting {
+	value, _ := c.Get(GenerationQuoteRoutingKey)
+	routing, _ := value.(*GenerationQuoteRouting)
+	return routing
+}
 
 type RetryParam struct {
 	Ctx         *gin.Context
@@ -149,11 +159,16 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	constraints := GetChannelConstraints(param.Ctx)
 	filters := constraints.Filters
 	lookup := model.GetRandomSatisfiedChannel
-	if param.Ctx.GetBool(GenerationQuoteRoutingKey) {
+	quote := GetGenerationQuoteRouting(param.Ctx)
+	if quote != nil {
+		if quote.channels == nil {
+			quote.channels = make(model.GenerationQuoteChannels)
+		}
 		lookup = func(group, modelName string, _ int, filters []dto.ChannelFilter) (*model.Channel, error) {
-			channel, consistent, err := model.GetChannelForGenerationQuote(param.Ctx.Request.Context(), group, modelName, filters)
-			if channel != nil && !consistent {
-				param.Ctx.Set(GenerationQuoteAmbiguousKey, true)
+			channel, hasAlternative, err := quote.channels.Select(param.Ctx.Request.Context(), group, modelName, filters)
+			quote.HasAlternative = quote.HasAlternative || hasAlternative
+			if err != nil && !errors.Is(err, model.ErrVideoCapabilityMismatch) {
+				quote.LookupFailed = true
 			}
 			return channel, err
 		}
@@ -200,7 +215,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				priorityRetry,
 				filters,
 			)
-			if videoFiltered && err != nil {
+			if (videoFiltered || quote != nil) && err != nil {
 				channel = nil
 				if errors.Is(err, model.ErrVideoCapabilityMismatch) {
 					mismatch = true
@@ -246,7 +261,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			break
 		}
-		if channel == nil && videoFiltered {
+		if channel == nil && (videoFiltered || quote != nil) {
 			if lookupErr != nil {
 				return nil, selectGroup, lookupErr
 			}
@@ -351,7 +366,7 @@ type ChannelSelectError struct {
 // callers. The caller still applies SetupContextForSelectedChannel.
 func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam) (*model.Channel, string, *ChannelSelectError) {
 	constraints := GetChannelConstraints(c)
-	estimateOnly := c.GetBool(GenerationQuoteRoutingKey)
+	estimateOnly := GetGenerationQuoteRouting(c) != nil
 	if pin, found, overridden := constraints.ResolvedPin(); found {
 		for _, lost := range overridden {
 			logger.LogWarn(c, common.LogText(

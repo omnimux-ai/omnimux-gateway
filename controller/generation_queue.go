@@ -81,9 +81,9 @@ func enqueueInfluencerGeneration(c *gin.Context, path, action string, out, meta 
 	return true
 }
 
-// checkInfluencerGenerationFunding prices the accepted product input with the
-// dispatch middleware on an isolated request. If a route needs facts that are
-// only available at dispatch, leave its funding decision to the worker.
+// checkInfluencerGenerationFunding prices the product input on each eligible
+// route. If a route needs facts that are only available at dispatch, leave the
+// funding decision to the worker.
 func checkInfluencerGenerationFunding(c *gin.Context, task *model.Task, out, meta map[string]any) *types.NewAPIError {
 	request := task.PrivateData.GenerationQueue
 	user, err := model.GetUserById(task.UserId, false)
@@ -112,7 +112,16 @@ func checkInfluencerGenerationFunding(c *gin.Context, task *model.Task, out, met
 	}
 
 	canonicalPath := "/v1" + strings.TrimPrefix(request.Path, "/pg")
-	var fundingErr *types.NewAPIError
+	auto := request.Routing.Mode == model.GenerationRoutingAuto
+	groups := request.Routing.Groups
+	if auto {
+		groups = service.FilterUserTokenAutoGroups(user.Group, groups)
+	}
+	filters := service.GetChannelConstraints(c).Filters
+	var group string
+	var visited []int
+	var candidate *relaycommon.RelayInfo
+	var routing service.GenerationQuoteRouting
 	var needsFetch bool
 	quoteContext := jsplugin.WithFetcher(c.Request.Context(), func(context.Context, jsplugin.FetchRequest) (jsplugin.FetchResponse, error) {
 		needsFetch = true
@@ -125,7 +134,7 @@ func checkInfluencerGenerationFunding(c *gin.Context, task *model.Task, out, met
 		quote.Set("group", user.Group)
 		user.ToBaseUser().WriteContext(quote)
 		quote.Set("relay_mode", relayconstant.RelayModeVideoSubmit)
-		quote.Set(service.GenerationQuoteRoutingKey, true)
+		quote.Set(service.GenerationQuoteRoutingKey, &routing)
 		quote.Set("generation_queue_native_routing", true)
 		if request.ImageInputs != nil {
 			quote.Set(ctxInfluencerImageInputs, request.ImageInputs)
@@ -134,16 +143,23 @@ func checkInfluencerGenerationFunding(c *gin.Context, task *model.Task, out, met
 		if request.ReferencePreflight != "" {
 			quote.Set("influencer_reference_preflight", request.ReferencePreflight)
 		}
-		for _, filter := range service.GetChannelConstraints(c).Filters {
+		constraints := service.GetChannelConstraints(quote)
+		for _, filter := range filters {
 			if filter.Kind == dto.FilterExcludeChannels {
-				service.GetChannelConstraints(quote).AddFilter(filter)
+				constraints.AddFilter(filter)
 			}
 		}
+		if len(visited) > 0 {
+			constraints.AddFilter(dto.ChannelFilter{Kind: dto.FilterExcludeChannels, ExcludeChannelIDs: visited})
+		}
 		applyInfluencerRoutingContext(quote, request.Routing)
+		if auto {
+			common.SetContextKey(quote, constant.ContextKeyTokenAutoGroups, []string{group})
+		}
 		quote.Next()
 	})
 	engine.POST(canonicalPath, middleware.PinTaskPluginEndpoint(), middleware.PrepareTaskPluginEndpoint(), middleware.Distribute(), func(quote *gin.Context) {
-		if common.GetContextKeyInt(quote, constant.ContextKeyChannelId) <= 0 || quote.GetBool(service.GenerationQuoteAmbiguousKey) {
+		if common.GetContextKeyInt(quote, constant.ContextKeyChannelId) <= 0 {
 			return
 		}
 		info, err := relaycommon.GenRelayInfo(quote, types.RelayFormatTask, nil, nil)
@@ -164,16 +180,55 @@ func checkInfluencerGenerationFunding(c *gin.Context, task *model.Task, out, met
 			logger.LogDebug(c, "generation quote deferred to dispatch: code=%s", taskErr.Code)
 			return
 		}
-		// A decoder or usage hook can catch a failed fetch and return a fallback.
-		// Such results cannot establish insufficient funds.
-		if !needsFetch {
-			fundingErr = service.CheckTaskFundingAvailability(quote, info)
-		}
+		candidate = info
 	})
-	probe := httptest.NewRequestWithContext(quoteContext, http.MethodPost, canonicalPath, bytes.NewReader(body))
-	probe.Header.Set("Content-Type", "application/json")
-	engine.ServeHTTP(httptest.NewRecorder(), probe)
-	return fundingErr
+
+	var cheapest, invalidQuote *relaycommon.RelayInfo
+	for _, quoteGroup := range groups {
+		group, visited = quoteGroup, nil
+		for {
+			routing.HasAlternative, routing.NoEligibleChannel, routing.LookupFailed = false, false, false
+			candidate, needsFetch = nil, false
+			// A fresh context preserves per-channel plugin ownership and
+			// decoding when the next channel uses a different adaptor.
+			probe := httptest.NewRequestWithContext(quoteContext, http.MethodPost, canonicalPath, bytes.NewReader(body))
+			probe.Header.Set("Content-Type", "application/json")
+			engine.ServeHTTP(httptest.NewRecorder(), probe)
+			// A decoder or usage hook may catch a blocked fetch. Its fallback
+			// cannot establish the cost of this route.
+			if needsFetch || routing.LookupFailed {
+				return nil
+			}
+			if routing.NoEligibleChannel {
+				break
+			}
+			if candidate == nil {
+				return nil
+			}
+			price := candidate.PriceData
+			if price.FreeModel {
+				return service.CheckTaskFundingAvailability(c, candidate)
+			}
+			if candidate.QuotaClamp != nil || price.Quota < 0 {
+				invalidQuote = candidate
+			} else if cheapest == nil || price.Quota < cheapest.PriceData.Quota {
+				cheapest = candidate
+			}
+			if !routing.HasAlternative {
+				break
+			}
+			visited = append(visited, candidate.ChannelId)
+		}
+	}
+	// The same account and funding preference apply to every candidate. If
+	// the cheapest valid paid quote cannot be covered, no higher one can be.
+	if cheapest == nil {
+		cheapest = invalidQuote
+	}
+	if cheapest == nil {
+		return nil
+	}
+	return service.CheckTaskFundingAvailability(c, cheapest)
 }
 
 func writeInfluencerFundingError(c *gin.Context, apiErr *types.NewAPIError) {
