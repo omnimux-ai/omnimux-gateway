@@ -5145,7 +5145,7 @@
       "get": {
         "summary": "获取系统选项",
         "deprecated": false,
-        "description": "👑 需要超级管理员权限（Root）。已退役的 theme.frontend 不在列表中返回。定价分组配置通过 key=ModelPricingGroups 单独读取，响应附完整目录的 pricing_group_config_issues 及本实例的 pricing_group_fallback_rows、pricing_group_read_failures 计数。",
+        "description": "👑 需要超级管理员权限（Root）。已退役的 theme.frontend 不在列表中返回。定价分组配置通过 key=ModelPricingGroups 单独读取。此检查只读，直接从数据库读取当前目录所需数据。响应附完整目录的 pricing_group_config_issues 及本实例的 pricing_group_fallback_rows、pricing_group_read_failures 计数。",
         "tags": [
           "系统设置"
         ],

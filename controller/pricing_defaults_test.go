@@ -497,6 +497,45 @@ func testPricingGroups(t *testing.T, kind, dsn string) {
 	}
 	assert.Equal(t, bronze, readPricing(member, true)[seedance].DefaultGroup)
 
+	// The release check must not repair malformed channel settings on read.
+	const malformedSettings = `{"advanced_custom":`
+	advanced := model.Channel{
+		Type: constant.ChannelTypeAdvancedCustom, Status: common.ChannelStatusEnabled,
+		Group: lime, Key: "fixture", Models: image, OtherSettings: malformedSettings,
+	}
+	require.NoError(t, db.Create(&advanced).Error)
+	require.NoError(t, advanced.AddAbilities(nil))
+	response := call(http.MethodGet, checkPath, root, nil)
+	assert.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
+	put(afterAliases, http.StatusOK, false)
+	var channel model.Channel
+	require.NoError(t, db.First(&channel, advanced.Id).Error)
+	assert.Equal(t, malformedSettings, channel.OtherSettings)
+	require.NoError(t, db.Model(&advanced).Update("settings", "{}").Error)
+
+	rules, err := modelcontracts.ReadVideoCapabilities(strings.NewReader(`{"models":{"seedance-2-5":[]}}`))
+	require.NoError(t, err)
+	oldRules := modelcontracts.SetVideoCapabilities(rules)
+	t.Cleanup(func() { modelcontracts.SetVideoCapabilities(oldRules) })
+	checked, stillSaved := check()
+	assert.Empty(t, checked.Issues)
+	assert.Equal(t, afterAliases, stillSaved)
+	if kind == "sqlite" {
+		// Even a warm channel cache must not hide a failed video projection read.
+		for _, useCache := range []bool{false, true} {
+			common.MemoryCacheEnabled = useCache
+			model.InitChannelCache()
+			model.InvalidatePricingCache()
+			require.Len(t, readPricing(member, false), len(expectedOrders))
+			require.NoError(t, db.Migrator().RenameColumn(&model.Channel{}, "setting", "fixture_unavailable_setting"))
+			response := call(http.MethodGet, checkPath, root, nil)
+			assert.Equal(t, http.StatusServiceUnavailable, response.Code, "memory cache %t: %s", useCache, response.Body.String())
+			assert.Len(t, readPricing(member, false), len(expectedOrders))
+			require.NoError(t, db.Migrator().RenameColumn(&model.Channel{}, "fixture_unavailable_setting", "setting"))
+		}
+		common.MemoryCacheEnabled = false
+	}
+
 	// A fresh catalog snapshot must preserve the configured fields regardless of
 	// the iteration order of the legacy enabled-group set.
 	model.InvalidatePricingCache()
@@ -529,7 +568,7 @@ func testPricingGroups(t *testing.T, kind, dsn string) {
 	if kind == "sqlite" {
 		// A cached public catalog must not turn unavailable source tables
 		// into a passing release check, with or without a warmed cache.
-		for _, table := range []string{"abilities", "models"} {
+		for _, table := range []string{"abilities", "models", "vendors", "options", "channels"} {
 			temporary := "fixture_unavailable_" + table
 			require.NoError(t, db.Migrator().RenameTable(table, temporary))
 			assert.Equal(t, http.StatusServiceUnavailable, call(http.MethodGet, checkPath, root, nil).Code)

@@ -298,7 +298,7 @@ func getPricingEndpointTypesForAbility(ability AbilityWithChannel, advancedCusto
 // The returned configs are pointers shared with the channel cache; they are
 // replaced wholesale on update and never mutated in place, so reading them after
 // RUnlock is safe.
-func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[int]*dto.AdvancedCustomConfig {
+func loadPricingAdvancedCustomConfigs(db *gorm.DB, enableAbilities []AbilityWithChannel, requireComplete bool) (map[int]*dto.AdvancedCustomConfig, error) {
 	channelIDs := make([]int, 0)
 	seen := make(map[int]struct{})
 	for _, ability := range enableAbilities {
@@ -312,10 +312,31 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 		channelIDs = append(channelIDs, ability.ChannelId)
 	}
 	if len(channelIDs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	configs := make(map[int]*dto.AdvancedCustomConfig, len(channelIDs))
+	if requireComplete {
+		// Read the stored settings directly. The legacy getter can repair
+		// malformed settings in the database as a side effect of reading.
+		var channels []Channel
+		if err := db.Select("id", "settings").Where("id IN ? AND type = ?", channelIDs, constant.ChannelTypeAdvancedCustom).Find(&channels).Error; err != nil {
+			return nil, fmt.Errorf("load advanced custom channel settings: %w", err)
+		}
+		for _, channel := range channels {
+			if channel.OtherSettings == "" {
+				continue
+			}
+			var settings dto.ChannelOtherSettings
+			if err := common.UnmarshalJsonStr(channel.OtherSettings, &settings); err != nil {
+				return nil, fmt.Errorf("decode advanced custom channel %d settings: %w", channel.Id, err)
+			}
+			if settings.AdvancedCustom != nil {
+				configs[channel.Id] = settings.AdvancedCustom
+			}
+		}
+		return configs, nil
+	}
 	if common.MemoryCacheEnabled {
 		channelSyncLock.RLock()
 		defer channelSyncLock.RUnlock()
@@ -324,7 +345,7 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 				configs[channelID] = config
 			}
 		}
-		return configs
+		return configs, nil
 	}
 
 	for _, channelID := range channelIDs {
@@ -340,15 +361,15 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 			configs[channelID] = config
 		}
 	}
-	return configs
+	return configs, nil
 }
 
 // loadPricingVideoOperations uses the same model/group membership and channel
 // rules as selection. The lock order matches loadPricingAdvancedCustomConfigs.
-func loadPricingVideoOperations(enableAbilities []AbilityWithChannel, generation *jsplugin.RoutingGeneration) map[string]map[string][]modelcontracts.Operation {
+func loadPricingVideoOperations(db *gorm.DB, enableAbilities []AbilityWithChannel, generation *jsplugin.RoutingGeneration, useCache bool) (map[string]map[string][]modelcontracts.Operation, error) {
 	rules := modelcontracts.ActiveVideoCapabilities()
 	if rules == nil {
-		return nil
+		return nil, nil
 	}
 	var managedAbilities []AbilityWithChannel
 	channelIDs := make(map[int]struct{})
@@ -359,20 +380,18 @@ func loadPricingVideoOperations(enableAbilities []AbilityWithChannel, generation
 		}
 	}
 	if len(managedAbilities) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	useCache := common.MemoryCacheEnabled
 	var channelsByID map[int]*Channel
 	if useCache {
 		channelSyncLock.RLock()
 		channelsByID = channelsIDM
 	} else {
 		var channels []*Channel
-		if err := DB.Select("id", "type", "status", "base_url", "model_mapping", "param_override", "settings", "setting").
+		if err := db.Select("id", "type", "status", "base_url", "model_mapping", "param_override", "settings", "setting").
 			Where("id IN ? AND status = ?", slices.Collect(maps.Keys(channelIDs)), common.ChannelStatusEnabled).Find(&channels).Error; err != nil {
-			common.SysLog(common.LogText("Could not load channels for video capabilities: %v", err))
-			return nil
+			return nil, err
 		}
 		channelsByID = make(map[int]*Channel, len(channels))
 		for _, channel := range channels {
@@ -419,7 +438,7 @@ func loadPricingVideoOperations(enableAbilities []AbilityWithChannel, generation
 			groups[group] = ordered
 		}
 	}
-	return operationsByModel
+	return operationsByModel, nil
 }
 
 func appendPricingEndpoint(endpoints []string, endpoint string) []string {
@@ -490,9 +509,18 @@ func readPricingSnapshot(db *gorm.DB, requireComplete bool) (pricingSnapshot, er
 
 	//这里使用切片而不是Set，因为一个模型可能支持多个端点类型，并且第一个端点是优先使用端点
 	modelSupportEndpointsStr := make(map[string][]string)
-	advancedCustomConfigs := loadPricingAdvancedCustomConfigs(enableAbilities)
+	advancedCustomConfigs, err := loadPricingAdvancedCustomConfigs(db, enableAbilities, requireComplete)
+	if err != nil {
+		return pricingSnapshot{}, err
+	}
 	pluginGeneration := jsplugin.DefaultRegistry.Generation()
-	videoOperationsByModel := loadPricingVideoOperations(enableAbilities, pluginGeneration)
+	videoOperationsByModel, err := loadPricingVideoOperations(db, enableAbilities, pluginGeneration, common.MemoryCacheEnabled && !requireComplete)
+	if err != nil {
+		if requireComplete {
+			return pricingSnapshot{}, fmt.Errorf("load channels for video capabilities: %w", err)
+		}
+		common.SysLog(common.LogText("Could not load channels for video capabilities: %v", err))
+	}
 
 	// 先根据已有能力填充原生端点
 	for _, ability := range enableAbilities {
@@ -632,25 +660,32 @@ func readPricingSnapshot(db *gorm.DB, requireComplete bool) (pricingSnapshot, er
 			audioCompletionRatio := ratio_setting.GetAudioCompletionRatio(model)
 			pricing.AudioCompletionRatio = &audioCompletionRatio
 		}
-		if billingMode := billing_setting.GetBillingMode(model); billingMode == "tiered_expr" {
+		billingMode := billing_setting.GetBillingMode(model)
+		if billingMode == billing_setting.BillingModeTieredExpr {
 			if expr, ok := billing_setting.GetBillingExpr(model); ok && strings.TrimSpace(expr) != "" {
 				pricing.BillingMode = billingMode
 				pricing.BillingExpr = expr
 			}
-		} else if target, resolved := ResolveTaskModelAlias(pluginGeneration, model); resolved && target.Declared != "" {
-			if tailMode := billing_setting.GetBillingMode(target.Declared); tailMode == "tiered_expr" {
-				if expr, ok := billing_setting.GetBillingExpr(target.Declared); ok && strings.TrimSpace(expr) != "" {
-					pricing.BillingMode = tailMode
-					pricing.BillingExpr = expr
+			// fork: OmniMux — expose the native image service expression as a read-only
+			// legacy-field projection. A broken service expression has no public quote.
+			if model == "gpt-image-2.5-sunburst" && !projectSunburstImagePrice(&pricing) {
+				continue
+			}
+		} else if !requireComplete {
+			if target, resolved := ResolveTaskModelAlias(pluginGeneration, model); resolved && target.Declared != "" {
+				if tailMode := billing_setting.GetBillingMode(target.Declared); tailMode == billing_setting.BillingModeTieredExpr {
+					if expr, ok := billing_setting.GetBillingExpr(target.Declared); ok && strings.TrimSpace(expr) != "" {
+						pricing.BillingMode = tailMode
+						pricing.BillingExpr = expr
+					}
 				}
 			}
 		}
-		// fork: OmniMux — expose the native image service expression as a read-only
-		// legacy-field projection. A broken service expression has no public quote.
-		if model == "gpt-image-2.5-sunburst" && billing_setting.GetBillingMode(model) == billing_setting.BillingModeTieredExpr {
-			if !projectSunburstImagePrice(&pricing) {
-				continue
-			}
+		if requireComplete {
+			// Alias and plugin price metadata only enrich the public response.
+			// Resolving aliases can rebuild a cache via repairing channel getters.
+			rows = append(rows, pricing)
+			continue
 		}
 		usageModel := model
 		plugin, ok := pluginGeneration.GetByModel(model)
