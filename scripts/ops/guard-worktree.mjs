@@ -3,7 +3,7 @@
  * scripts/ops/guard-worktree.mjs
  * dsh-hooks-plugin PreToolUse Guard for the OmniMux fork.
  *
- * Implements AGENTS.md "Hard bounds (fork & git)": the primary checkout on main
+ * Implements AGENTS.md "Hard bounds (git)": the primary checkout on main
  * stays clean. Every tracked-file edit must happen inside a linked worktree,
  * which is created and entered with ./scripts/ops/worktree.sh new <task>.
  *
@@ -411,8 +411,8 @@ const WRITE_LAST_ARG = new Set(['cp', 'mv', 'install', 'ln', 'link', 'rsync'])
  * Deliberately pattern-based rather than a shell interpreter: it covers the
  * write forms an agent actually reaches for (redirects, tee, cp/mv/ln/mkdir/
  * touch/install/rsync, `dd of=`, `sed -i`). Work that hides the target behind a
- * variable, a subshell or a script file is out of reach here and is reported as
- * such in docs/ops/worktree-hook-guard-zh.md instead of being silently claimed.
+ * variable, a subshell or a script file is out of reach here and is treated as
+ * an explicit coverage limit rather than being silently claimed.
  *
  * @param {string} command
  * @returns {string[]}
