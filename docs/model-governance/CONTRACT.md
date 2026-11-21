@@ -486,19 +486,24 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 
 保存前读取当前文档，使用精确的 `ModelPricingGroups` 键，提交完整 `models` 和读到的 `version`。保存会校验当前目录中的模型和分组并推进版本，遇到 HTTP `409` 时重新读取后再编辑。每次 `GET /api/pricing` 在现有定价缓存之外按主键读取一个 option。共享同一主库的实例在保存后的下一次成功读取生效，无配置缓存同步等待。
 
-下方命令以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令输出缺失或失配的模型，存在缺项或无法检查时以非零状态退出。发布前应得到 `[]`。
+下方命令以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令同时校验 HTTP `200` 和正文中的唯一 JSON 对象。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
 
 ```sh
 pricing_group_check_response=$(
   curl --fail --silent --show-error \
     --header "Authorization: Bearer ${GATEWAY_ROOT_ACCESS_TOKEN:?}" \
+    --write-out '\n%{http_code}\n' \
     "${GATEWAY_URL:?}/api/option/?key=ModelPricingGroups"
 ) && printf '%s\n' "$pricing_group_check_response" |
-  jq -e 'if .success != true or (.pricing_group_config_issues | type) != "array" then
-    error("cannot check pricing group configuration")
-  else
-    .pricing_group_config_issues | if length == 0 then . else halt_error(1) end
-  end'
+  jq -s -e '
+    # The second value is the HTTP status appended by curl.
+    if length != 2 or .[1] != 200 or (.[0] | type) != "object" then
+      error("expected an HTTP 200 response with one JSON object")
+    elif .[0].success != true or (.[0].pricing_group_config_issues | type) != "array" then
+      error("cannot check pricing group configuration")
+    else
+      .[0].pricing_group_config_issues | if length == 0 then . else halt_error(1) end
+    end'
 ```
 
 同一超管响应提供本实例自启动以来的 `pricing_group_fallback_rows` 和 `pricing_group_read_failures`。前者按触发防御行为的模型响应行计数，后者按读取或解码配置失败的请求计数。
