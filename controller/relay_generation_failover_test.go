@@ -18,11 +18,14 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relay"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -304,11 +307,83 @@ func TestNativeGenerationFailoverAllPreSendRejectionsReleaseOnce(t *testing.T) {
 	var stored model.Task
 	require.NoError(t, f.db.First(&stored, f.task.ID).Error)
 	assert.Equal(t, model.TaskStatus(model.TaskStatusFailure), stored.Status)
+	assert.Equal(t, "生成未被接受，预留已释放", stored.FailReason)
 	assert.Zero(t, stored.Quota)
 	var user model.User
 	require.NoError(t, f.db.First(&user, f.user.Id).Error)
 	assert.Equal(t, 100000, user.Quota)
 	assert.True(t, f.c.GetBool("generation_queue_safe_failure"))
+}
+
+func TestNativeGenerationQuotaRejectionKeepsTerminalReason(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	for _, tc := range []struct {
+		name string
+		code types.ErrorCode
+	}{
+		{"wallet_depleted", types.ErrorCodeInsufficientUserQuota},
+		{"wallet_debt", types.ErrorCodeInsufficientUserQuota},
+		{"token_quota", types.ErrorCodePreConsumeTokenQuotaFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
+			defer upstream.Close()
+			f := newNativeFailoverFixture(t, upstream.URL, upstream.URL, true)
+			f.task.Status = model.TaskStatusWaiting
+			scannerID := f.task.PrivateData.GenerationQueue.ClaimOwner
+			f.task.PrivateData.GenerationQueue.ClaimOwner = ""
+			require.NoError(t, f.task.Update())
+			ctx := f.c.Request.Context()
+			remaining := f.user.Quota
+			switch tc.name {
+			case "wallet_depleted":
+				// Another request reserves the wallet balance after acceptance.
+				reserved, err := model.TryReserveUserQuota(f.user.Id, remaining)
+				require.NoError(t, err)
+				require.True(t, reserved)
+				remaining = 0
+			case "wallet_debt":
+				remaining = -1
+				require.NoError(t, f.db.Model(&f.user).UpdateColumn("quota", remaining).Error)
+			}
+			claimed, err := model.ClaimGenerationTasks(ctx, f.user.Id, scannerID)
+			require.NoError(t, err)
+			require.Len(t, claimed, 1)
+			f.c.Set("generation_queue_reserved_task", claimed[0])
+
+			attempts := 0
+			outcome, taskErr := executeTaskSubmissionWith(f.c, f.info, func(c *gin.Context, info *relaycommon.RelayInfo) (*relay.TaskSubmitResult, *dto.TaskError) {
+				attempts++
+				if tc.code == types.ErrorCodePreConsumeTokenQuotaFailed {
+					// Queued playground requests skip token billing. Exercise the
+					// shared quota-error mapping at the task submission boundary.
+					return nil, service.TaskErrorFromAPIError(c, types.NewErrorWithStatusCode(
+						errors.New("token quota is insufficient"), tc.code, http.StatusForbidden,
+						types.ErrOptionWithSkipRetry(),
+					))
+				}
+				return relay.RelayTaskSubmit(c, info)
+			})
+			require.Nil(t, outcome)
+			require.NotNil(t, taskErr)
+			assert.Equal(t, string(tc.code), taskErr.Code)
+			assert.Equal(t, http.StatusForbidden, taskErr.StatusCode)
+			assert.Equal(t, 1, attempts)
+			assert.Zero(t, calls.Load())
+			require.True(t, f.c.GetBool("generation_queue_safe_failure"))
+			// The worker's final rejection pass must preserve the reason.
+			failGenerationBeforeDispatch(ctx, claimed[0], "generation could not start; check account, balance and available route")
+			var stored model.Task
+			require.NoError(t, f.db.First(&stored, f.task.ID).Error)
+			assert.Equal(t, model.TaskStatus(model.TaskStatusFailure), stored.Status)
+			assert.Equal(t, "Insufficient user quota", stored.FailReason)
+			assert.Zero(t, stored.Quota)
+			balance, err := model.GetUserQuota(f.user.Id, true)
+			require.NoError(t, err)
+			assert.Equal(t, remaining, balance)
+		})
+	}
 }
 
 func TestGenerationQuoteChecksComputedChargeAndNativeBasis(t *testing.T) {
