@@ -25,12 +25,12 @@ export function CnFaq() {
     <section className='sec' id='faq'>
       <div className='wrap'>
         <div className='sec-head'>
-          <p className='home-section-label'>{copy.kicker}</p>
           <h2 className='h2'>{copy.h2}</h2>
+          <p className='lead'>{copy.lead}</p>
         </div>
         <div className='faq-list'>
-          {copy.items.map((item, index) => (
-            <details key={item.q} open={index === 0}>
+          {copy.items.map((item) => (
+            <details key={item.q}>
               <summary>
                 {item.q}
                 <span className='pm'>

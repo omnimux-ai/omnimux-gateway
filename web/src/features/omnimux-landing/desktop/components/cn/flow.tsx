@@ -71,7 +71,7 @@ function Secondary(props: {
   if (!props.label) return null
   if (props.index === 0) {
     return (
-      <a className='btn btn-text' href='#capabilities'>
+      <a className='btn btn-text' href='#ext'>
         {props.label}
       </a>
     )
@@ -138,13 +138,10 @@ export function CnFlow() {
   )
 
   return (
-    <section className='sec' id='workflow' ref={rootRef}>
-      <span className='legacy-home-anchor' id='flow' aria-hidden='true' />
+    <section className='sec' id='flow' ref={rootRef}>
       <div className='wrap'>
         <div className='sec-head'>
-          <p className='home-section-label'>{copy.kicker}</p>
           <h2 className='h2'>{copy.h2}</h2>
-          <p className='lead'>{copy.lead}</p>
           <div className='flow-line' aria-label={copy.lineAria}>
             {STEPS.map((step, index) => (
               <Fragment key={step.kind}>

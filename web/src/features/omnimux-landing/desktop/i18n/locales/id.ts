@@ -27,11 +27,6 @@ export const id: LandingCopy = {
   skip: 'Lewati ke konten',
 
   nav: {
-    capabilities: 'Fitur',
-    workflow: 'Alur kerja',
-    inspiration: 'Inspirasi',
-    downloadDesktop: 'Unduh aplikasi desktop',
-    menuClose: 'Tutup menu',
     brand: 'Desktop',
     home: 'Beranda',
     models: 'Model',
@@ -39,7 +34,7 @@ export const id: LandingCopy = {
     ext: 'Ekstensi',
     pricing: 'Harga',
     resources: 'Sumber daya',
-    download: 'Gunakan gratis',
+    download: 'Unduh beta',
     login: 'Masuk',
     menuOpen: 'Buka menu',
     langTitle: 'Bahasa halaman',
@@ -82,62 +77,24 @@ export const id: LandingCopy = {
   },
 
   hero: {
-    eyebrow: 'Untuk penjual lintas negara dan penjual yang mengandalkan konten',
-    secondaryCta: 'Lihat cara membuat satu video',
-    mobileCopyLabel: 'Salin tautan unduhan',
-    mobileCopiedLabel: 'Tautan disalin · Buka di komputer',
-    mobileHint:
-      'Aplikasi desktop dapat dipasang di macOS atau Windows. Salin tautan ini dan buka di browser komputer Anda.',
-    microTrust:
-      'macOS 12+ / Windows 10 / 11 · Unduhan gratis · Bayar sesuai pemakaian tanpa langganan',
-    trustAria: 'Informasi produk dan platform',
-    trustStrip: ['Kode sumber terbuka · AGPL-3.0', 'macOS + Windows'],
-    mockAria: 'Pratinjau antarmuka OmniMux Desktop',
-    mockBadge: 'Pratinjau antarmuka',
-    mockTitle: 'OmniMux Desktop · Chat baru',
-    mockSide: [
-      'Chat baru',
-      'Aplikasi',
-      'Produk',
-      'Aset',
-      'Inspirasi',
-      'Publikasi',
-      'Kanvas',
-      'Editor',
-    ],
-    mockSidebarGroup: 'Ruang kerja',
-    mockUserAvatar: 'L',
-    mockPrompt:
-      'Pakai referensi viral ini untuk membuat 3 video berdurasi 15 detik untuk @Serum. Awali dengan hasil saat dipakai di kulit.',
-    mockLinkCard:
-      'tiktok.com/@pet.diary/video/73421 · Sehari bersama kucing, buka paket makanan',
-    mockSteps: [
-      'Video referensi dianalisis: pembuka, keunggulan produk, dan ajakan membeli',
-      'Keunggulan produk dirangkum: cepat meresap, tidak menggumpal, dan cocok untuk kulit kering',
-      'Naskah dan storyboard untuk 3 video selesai',
-    ],
-    mockTags: [
-      'Pembuka · Sebelum dan sesudah dalam 2 detik pertama',
-      'Keunggulan · Sorotan saat produk dioleskan',
-      'Ajakan membeli · Tautan produk di akhir',
-    ],
-    mockTileBadge: 'Selesai dibuat',
-    mockNote:
-      'Pratinjau antarmuka · Contoh statis · Contoh aset dari ruang kerja',
     titleA: 'Temukan, buat ulang & gandakan',
     titleB: 'video jualan viral',
     subPre:
       'Satu sistem content commerce yang membawa keunggulan produk Anda ke setiap video. Gunakan ',
     subHighlight: 'Agent yang sudah Anda kenal',
     subPost:
-      ' untuk membuat video iklan, jualan, dan ulasan produk dalam satu aplikasi, dari analisis referensi hingga penjadwalan publikasi.',
+      ' untuk membuat video iklan, jualan, dan ulasan produk di satu tempat.',
     tabsAria: 'Cara membuat',
     tabs: { agent: 'Agent', video: 'Video', image: 'Gambar' },
     inputLabel: 'Deskripsikan konten yang ingin dibuat',
     attachAria: 'Tambahkan video atau gambar referensi',
     sendAria: 'Mulai di desktop',
-    dlMac: 'Gunakan gratis',
-    dlWin: 'Gunakan gratis',
+    mobileCopyLabel: 'Salin tautan unduhan',
+    mobileCopiedLabel: 'Tautan disalin · Buka di komputer',
+    mobileHint:
+      'Aplikasi desktop dapat dipasang di macOS atau Windows. Salin tautan ini dan buka di browser komputer Anda.',
+    dlMac: 'Unduh beta untuk macOS',
+    dlWin: 'Unduh beta untuk Windows',
     dlMenuAria: 'Pilih versi unduhan',
     ghStar: 'Beri bintang di GitHub',
     dlMacArm: 'macOS (Apple Silicon)',
@@ -263,45 +220,43 @@ export const id: LandingCopy = {
   },
 
   flow: {
-    kicker: 'Alur kerja',
-    lead: 'Temukan referensi, analisis, buat, publikasikan, dan evaluasi dalam satu ruang kerja desktop. Lihat masukan, hasil, dan langkah berikutnya di setiap tahap.',
-    h2: 'Dari ide produk ke video jualan dalam 5 langkah',
+    h2: 'Dari ide produk menjadi video jualan',
     lineAria: 'Temukan · Analisis · Buat · Publikasi · Evaluasi',
     steps: [
       {
         kind: 'Temukan',
-        title: 'Cari referensi di kategori produk Anda',
-        desc: 'Kumpulkan video referensi yang Anda temukan dan pelajari struktur video populer di kategori yang sama.',
+        title: 'Temukan video jualan viral di kategorimu',
+        desc: 'Kumpulkan video referensi dari mana pun kamu menemukannya, lalu bedah hook dan selling point-nya.',
         chips: ['Video jualan & postingan viral'],
         primary: 'Bedah satu video referensi',
         secondary: 'Kumpulkan inspirasi lewat ekstensi browser',
       },
       {
         kind: 'Analisis',
-        title: 'Susun kerangka naskah yang bisa dipakai ulang',
-        desc: 'Bedah pembuka, keunggulan produk, dan ajakan membeli. Susun hasilnya menjadi kerangka naskah yang bisa dipakai ulang.',
+        title: 'Lihat kenapa video itu laku',
+        desc: 'Bedah hook, selling point, dan alur pembelian video viral jadi struktur yang bisa dipakai ulang. Bisa juga menganalisis akun kompetitor.',
         chips: ['Bedah naskah', 'Akun kompetitor', 'Tren kategori'],
         primary: 'Bedah satu video viral',
       },
       {
         kind: 'Buat',
-        title: 'Buat video dengan produk atau karakter',
-        desc: 'Buat atau buat ulang video jualan dengan gambar produk atau aset karakter, lalu selesaikan di kanvas dan editor.',
+        title: 'Ubah produkmu jadi video jualan',
+        desc: 'Buat video orisinal dari foto atau tautan produk, atau buat ulang video viral dengan produkmu sendiri.',
         primary: 'Buat video',
         secondary: 'Buat ulang video viral',
       },
       {
         kind: 'Publikasi',
-        title: 'Hubungkan akun dan jadwalkan posting',
-        desc: 'Hubungkan akun untuk menjadwalkan posting ke TikTok, Instagram, Facebook, dan YouTube.',
+        title: 'Publikasikan ke TikTok, Instagram, Facebook & YouTube',
+        desc: 'Hubungkan akunmu, lalu publikasikan video dan postingan gambar jualan secara langsung atau terjadwal.',
         chips: ['TikTok', 'Instagram', 'Facebook', 'YouTube'],
         primary: 'Publikasikan video',
         secondary: 'Postingan video · Postingan gambar',
       },
       {
         kind: 'Evaluasi',
-        title: 'Gunakan data untuk video berikutnya',
-        desc: 'Bawa data publikasi kembali ke ruang kerja untuk memandu analisis dan memperbaiki video berikutnya.',
+        title: 'Ubah feedback nyata jadi video berikutnya',
+        desc: 'Setelah akun terhubung, views, like, dan komentar tersinkron otomatis — Agent memberi tahu apa yang harus dibuat selanjutnya.',
         primary: 'Analisis akun',
       },
     ],
@@ -741,32 +696,9 @@ export const id: LandingCopy = {
     ],
   },
 
-  capabilities: {
-    kicker: 'Fitur',
-    h2: 'Tonjolkan keunggulan produk di setiap video',
-    lead: 'Kelola aset, karakter, dan alat dalam satu alur, dari pustaka produk hingga pusat publikasi.',
-    cards: [
-      {
-        title: 'Pustaka produk',
-        body: 'Simpan foto produk, keunggulan, target audiens, dan aset di satu tempat. Agent dapat langsung menggunakannya saat membuat video.',
-      },
-      {
-        title: 'Analisis referensi dan pembuatan ulang',
-        body: 'Bedah pembuka, keunggulan produk, dan ajakan membeli. Buat ulang strukturnya dengan produk atau karakter Anda.',
-      },
-      {
-        title: 'Karakter yang konsisten dari berbagai sudut',
-        body: 'Pakai ulang karakter AI dan referensi dari beberapa sudut di berbagai video. Konsistensi visual bergantung pada masukan dan pengaturan pembuatan.',
-      },
-    ],
-  },
-
   proof: {
-    kicker: 'Untuk penjual lintas negara',
-    source:
-      'Kode sumber terbuka · AGPL-3.0 · Desktop beserta plugin dan gateway diterbitkan di repositori GitHub terpisah',
-    h2: 'Cari referensi, analisis, buat, dan publikasikan dari satu aplikasi desktop',
-    lead: 'Siapkan konten dengan skill bawaan dan templat video, lalu jadwalkan di pusat publikasi.',
+    h2: 'Dibuat untuk penjual lintas negara',
+    lead: 'Temukan hits, bedah, buat, dan publikasikan — semua di satu aplikasi desktop.',
     facts: [
       { value: '17', label: 'skill bawaan' },
       { value: '7', label: 'templat video jadi' },
@@ -775,51 +707,50 @@ export const id: LandingCopy = {
     platformsAria: 'Platform publikasi yang didukung',
     platforms: ['TikTok', 'Instagram', 'Facebook', 'YouTube'],
     badges: [
-      'Konfirmasi parameter dan kredit sebelum membuat konten',
-      'Pengembalian kredit mengikuti catatan tugas yang gagal',
+      'Konfirmasi parameter & kredit sebelum membuat',
+      'Kredit otomatis dikembalikan untuk tugas yang gagal',
     ],
   },
 
-  pricingTeaser: {
-    kicker: 'Harga',
-    h2: 'Bayar sesuai pemakaian tanpa langganan',
-    lead: 'Isi kredit untuk membuat konten. Mulai dengan isi ulang kecil untuk video pertama, lalu tambah sesuai kebutuhan. Lihat halaman harga dan dompet untuk nominal, jumlah kredit, dan diskon yang berlaku.',
-    ctaPrimary: 'Lihat semua harga',
-    ctaSecondary: 'Unduh sebelum isi ulang',
-    cardSubtitle: 'Bayar per pembuatan · Kredit berlaku untuk semua model',
-    cardPriceTitle: '{credits} kredit',
-    cardPriceSub: 'Pilihan isi ulang mulai dari {amount}',
-    tierCredits: '{credits} kredit',
-    tierSave: 'Hemat {percent}%',
-    cardCta: 'Lihat semua pilihan isi ulang',
-    cardFootnote:
-      '1 kredit = {price} · Diskon berlaku untuk nominal isi ulang yang tersedia',
-  },
-
   faq: {
-    kicker: 'Pertanyaan yang sering diajukan',
-    h2: 'Yang paling sering ditanyakan penjual e-commerce',
-    lead: 'Cakupan kode terbuka, platform publikasi, dan biaya pembuatan konten.',
+    h2: 'Pertanyaan yang sering diajukan',
+    lead: 'Yang paling sering ditanyakan penjual e-commerce',
     items: [
       {
-        q: 'Apakah kode sumber OmniMux terbuka?',
-        a: 'Ya. Kode sumber aplikasi desktop dan plugin tersedia di github.com/omnimux-ai/omnimux-client. Kode sumber gateway tersedia di github.com/omnimux-ai/omnimux-gateway. Keduanya berlisensi AGPL-3.0. Publikasi kode sumber tidak mencakup kredensial kanal, catatan harga, operasional, dan data pengguna layanan terkelola.',
+        q: 'Apakah OmniMux open source?',
+        a: 'Ya. Klien desktop dan plugin diterbitkan di github.com/omnimux-ai/omnimux-client, dan kode gateway di github.com/omnimux-ai/omnimux-gateway, dengan lisensi AGPL-3.0. Layanan terkelola tidak termasuk kredensial kanal, buku harga, operasional, dan data pengguna.',
       },
       {
-        q: 'Bisakah langsung membuat konten setelah mengunduh?',
-        a: 'Unduh, instal, dan masuk untuk membuka ruang kerja. Pembuatan konten menggunakan kredit sesuai saldo dompet dan catatan tugas. Konfirmasikan parameter dan penggunaan kredit sebelum membuat konten.',
+        q: 'Apa yang bisa dilakukan OmniMux Agent?',
+        a: 'OmniMux Agent menganalisis video referensi, menulis naskah, membuat video dan gambar, serta membantu mempublikasikan konten ke platform yang sudah kamu hubungkan. Jelaskan produk dan tujuanmu dengan bahasa sehari-hari, dan ia memilih alat yang tepat untuk tiap langkah.',
       },
       {
-        q: 'Platform mana saja yang didukung untuk publikasi?',
-        a: 'Jadwalkan posting ke TikTok, Instagram, Facebook, dan YouTube dari pusat publikasi. Integrasi langsung TikTok nonaktif secara bawaan. Setelan privasi bawaannya adalah SELF_ONLY. Saat ini Douyin, Xiaohongshu, WeChat Channels, Kuaishou, dan Bilibili belum didukung.',
+        q: 'Apakah Agent akan membuat atau mempublikasikan tanpa persetujuan saya?',
+        a: 'Tidak. Sebelum membuat video atau gambar — dan sebelum mempublikasikan — Agent menampilkan parameter dan estimasi biaya kredit lalu menunggu konfirmasimu. Kamu bisa menyesuaikan parameter dulu. Jika tugas gagal karena masalah sistem, kredit yang terpotong dikembalikan.',
       },
       {
-        q: 'Bisakah mengetahui biaya pasti sebelum membuat video?',
-        a: 'Studio gambar menampilkan perkiraan sebagai acuan. Biaya video mengikuti catatan tugas dan tagihan aktual. Parameter dan penggunaan kredit dikonfirmasi sebelum pembuatan. Tarif pasti mengikuti setelan dompet.',
+        q: 'Bagaimana cara membuat video jualan dengan AI?',
+        a: 'Tempel tautan produk atau pilih referensi viral, buat video orisinal atau hasil buat ulang, lalu publikasikan ke platform yang sudah kamu hubungkan. Tanpa syuting atau editing.',
       },
       {
-        q: 'Apakah hasilnya dijamin viral?',
-        a: 'Ruang kerja OmniMux menyediakan alat untuk menganalisis referensi, membuat ulang struktur, dan membuat video. Penayangan, penjualan, dan hasil viral berada di luar cakupan jaminan. Keamanan akun juga bergantung pada konten dan cara Anda menggunakan akun.',
+        q: 'Bisakah video yang dibuat langsung dipublikasikan?',
+        a: 'Bisa. Hubungkan akunmu sekali di aplikasi desktop lalu publikasikan langsung — tanpa upload manual. Kamu bisa menambahkan deklarasi konten AI yang diwajibkan tiap platform saat publikasi.',
+      },
+      {
+        q: 'Apakah video buatan AI bisa membuat akun saya diblokir?',
+        a: 'OmniMux tidak bisa menjamin bebas blokir — keamanan akun tergantung konten dan perilaku akunmu. Saat publikasi kamu bisa menambahkan deklarasi konten hasil AI ke video; mohon patuhi kebijakan masing-masing platform.',
+      },
+      {
+        q: 'Bisakah mengubah gambar produk menjadi video?',
+        a: 'Bisa. Unggah gambar produk atau tempel tautan produk, dan AI membuat video showcase yang siap dipublikasikan — tanpa syuting.',
+      },
+      {
+        q: 'Bagaimana cara membuat ulang video viral kompetitor?',
+        a: 'AI mempelajari cara mereka berkarya — ritme, framing, tone — lalu membuat video baru dengan produk dan footage orisinalmu. Yang kamu tiru adalah pendekatannya, bukan klip aslinya.',
+      },
+      {
+        q: 'Bisakah video yang dibuat dipakai secara komersial?',
+        a: 'Penggunaan komersial mengikuti Ketentuan Layanan. Untuk foto orang, gambar produk, dan video referensi yang diunggah, kamu mengonfirmasi memiliki hak penggunaan dan mematuhi aturan tiap platform.',
       },
     ],
   },
@@ -827,8 +758,8 @@ export const id: LandingCopy = {
   finalCta: {
     h2: 'Video viral berikutnya, serahkan ke OmniMux',
     lead: 'Bedah hits, buat video, publikasikan, lalu evaluasi — satu Agent menjalankan seluruh siklus.',
-    dlMac: 'Unduh untuk macOS',
-    dlWin: 'Unduh untuk Windows',
+    dlMac: 'Unduh beta untuk macOS',
+    dlWin: 'Unduh beta untuk Windows',
     note: 'macOS 12+ (universal Apple silicon & Intel) · Windows 10 / 11 x64',
   },
 
@@ -875,24 +806,24 @@ export const id: LandingCopy = {
             label: 'Pengunduh Foto TikTok',
             href: '/tools/tiktok-photo-downloader',
           },
-          { label: 'Produk ke video', href: '#capabilities' },
-          { label: 'Buat ulang viral', href: '#capabilities' },
-          { label: 'Video ke prompt', href: '#capabilities' },
-          { label: 'Set gambar produk', href: '#capabilities' },
-          { label: 'Gambar halaman detail', href: '#capabilities' },
-          { label: 'Carousel gambar', href: '#capabilities' },
-          { label: 'Digital human', href: '#capabilities' },
-          { label: 'Burn-in subtitle', href: '#capabilities' },
+          { label: 'Produk ke video', href: '#tools' },
+          { label: 'Buat ulang viral', href: '#tools' },
+          { label: 'Video ke prompt', href: '#tools' },
+          { label: 'Set gambar produk', href: '#tools' },
+          { label: 'Gambar halaman detail', href: '#tools' },
+          { label: 'Carousel gambar', href: '#tools' },
+          { label: 'Digital human', href: '#tools' },
+          { label: 'Burn-in subtitle', href: '#tools' },
         ],
       },
       {
         title: 'Model',
         links: [
-          { label: 'Seedance 2.5', href: '/pricing' },
-          { label: 'Seedance 2.0', href: '/pricing' },
-          { label: 'GPT Image 2.5', href: '/pricing' },
-          { label: 'Nano Banana', href: '/pricing' },
-          { label: 'Suno', href: '/pricing' },
+          { label: 'Seedance 2.5', href: '#models' },
+          { label: 'Seedance 2.0', href: '#models' },
+          { label: 'GPT Image 2.5', href: '#models' },
+          { label: 'Nano Banana', href: '#models' },
+          { label: 'Suno', href: '#models' },
         ],
       },
       {
