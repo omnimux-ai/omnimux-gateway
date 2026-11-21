@@ -486,7 +486,7 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 
 保存前读取当前文档，使用精确的 `ModelPricingGroups` 键，提交完整 `models` 和读到的 `version`。保存会校验当前目录中的模型和分组并推进版本，遇到 HTTP `409` 时重新读取后再编辑。每次 `GET /api/pricing` 在现有定价缓存之外按主键读取一个 option。共享同一主库的实例在保存后的下一次成功读取生效，无配置缓存同步等待。
 
-下方命令需要 `curl` 7.55 或更新版本和 Python 3。设置 `GATEWAY_URL` 和 `GATEWAY_ROOT_ACCESS_TOKEN` 环境变量后，以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令只检查一个 URL，请求未压缩的正文，并要求完整的 HTTP `200` 响应。HTTP/1.x 响应使用单一且匹配正文长度的 `Content-Length`，或使用 `chunked`。正文须为一个字段名无重复的有效 UTF-8 JSON 对象。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
+下方命令需要 `curl` 7.55 或更新版本和 Python 3。设置 `GATEWAY_URL` 和 `GATEWAY_ROOT_ACCESS_TOKEN` 环境变量后，以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令只检查一个 URL，请求未压缩的正文，并要求完整的 HTTP `200` 响应。HTTP/1.x 响应使用单一且匹配正文长度的 `Content-Length`，或使用 `chunked`。分块响应先校验原始块大小、换行和终止块，再解析正文。正文须为一个字段名无重复的有效 UTF-8 JSON 对象。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
 
 ```sh
 python3 - <<'PY'
@@ -499,18 +499,60 @@ import sys
 from tempfile import TemporaryDirectory
 
 
+HTTP_TOKEN = rb"[!#$%&'*+.^_`|~0-9A-Za-z-]+"
+# RFC 9112 §7.1.1 permits token and quoted-string chunk extension values.
+QUOTED_VALUE = rb'"(?:[\t !#-\[\]-~\x80-\xff]|\\[\t -~\x80-\xff])*"'
+CHUNK_EXTENSION = (
+    rb"[ \t]*;[ \t]*" + HTTP_TOKEN
+    + rb"(?:[ \t]*=[ \t]*(?:" + HTTP_TOKEN + rb"|" + QUOTED_VALUE + rb"))?"
+)
+CHUNK_SIZE_LINE = re.compile(rb"([0-9A-Fa-f]+)(?:" + CHUNK_EXTENSION + rb")*")
+
+
 def parse_http_fields(lines):
     fields = {}
     for line in lines:
         name, separator, value = line.partition(b":")
-        if (not separator or not re.fullmatch(rb"[!#$%&'*+.^_`|~0-9A-Za-z-]+", name)
+        if (not separator or not re.fullmatch(HTTP_TOKEN, name)
                 or re.search(rb"[\x00-\x08\x0a-\x1f\x7f]", value)):
             raise ValueError("invalid HTTP header field")
         fields.setdefault(name.lower(), []).append(value.strip(b" \t"))
     return fields
 
 
-def check_http_headers(raw_headers, body_size):
+def check_trailers(lines):
+    trailers = parse_http_fields(lines)
+    if {b"content-length", b"transfer-encoding", b"content-encoding"} & trailers.keys():
+        raise ValueError("unexpected framing or encoding field in HTTP trailers")
+
+
+def decode_chunked(wire):
+    body = bytearray()
+    offset = 0
+    while True:
+        line_end = wire.find(b"\r\n", offset)
+        match = CHUNK_SIZE_LINE.fullmatch(wire, offset, line_end) if line_end >= 0 else None
+        if not match:
+            raise ValueError("invalid HTTP chunk size line")
+        size = int(match[1], 16)
+        offset = line_end + 2
+        if size == 0:
+            tail = wire[offset:]
+            if tail == b"\r\n":
+                return body
+            trailer_block, separator, extra = tail.partition(b"\r\n\r\n")
+            if not separator or extra or not trailer_block:
+                raise ValueError("invalid HTTP last chunk or trailer terminator")
+            check_trailers(trailer_block.split(b"\r\n"))
+            return body
+        data_end = offset + size
+        if wire[data_end:data_end + 2] != b"\r\n":
+            raise ValueError("invalid HTTP chunk data terminator")
+        body.extend(wire[offset:data_end])
+        offset = data_end + 2
+
+
+def read_http_body(raw_headers, wire):
     while True:
         block, separator, raw_headers = raw_headers.partition(b"\r\n\r\n")
         status_line, *lines = block.split(b"\r\n")
@@ -524,19 +566,18 @@ def check_http_headers(raw_headers, body_size):
         raise ValueError(f"expected HTTP 200, received {status.decode('ascii')}")
 
     headers = parse_http_fields(lines)
-    trailers = parse_http_fields(line for line in raw_headers.split(b"\r\n") if line)
-    if {b"content-length", b"transfer-encoding", b"content-encoding"} & trailers.keys():
-        raise ValueError("unexpected framing or encoding field in HTTP trailers")
+    check_trailers(line for line in raw_headers.split(b"\r\n") if line)
     lengths = headers.get(b"content-length", [])
     transfer = [value.lower() for value in headers.get(b"transfer-encoding", [])]
     if transfer and (lengths or protocol != b"1.1" or transfer != [b"chunked"]):
         raise ValueError("ambiguous or unsupported Transfer-Encoding")
-    if lengths and (len(lengths) != 1 or not lengths[0].isdigit() or int(lengths[0]) != body_size):
+    if lengths and (len(lengths) != 1 or not lengths[0].isdigit() or int(lengths[0]) != len(wire)):
         raise ValueError("invalid or conflicting Content-Length")
     if protocol.startswith(b"1.") and not (lengths or transfer):
         raise ValueError("missing Content-Length or chunked framing")
     if any(value.lower() != b"identity" for value in headers.get(b"content-encoding", [])):
         raise ValueError("expected an uncompressed HTTP response")
+    return decode_chunked(wire) if transfer else wire
 
 
 def reject_constant(value):
@@ -561,7 +602,7 @@ with TemporaryDirectory() as directory:
         [
             "curl", "--disable", "--globoff", "--proto", "=http,https",
             "--fail", "--silent", "--show-error", "--suppress-connect-headers",
-            "--dump-header", str(headers), "--header", "@-",
+            "--raw", "--dump-header", str(headers), "--header", "@-",
             "--header", "Accept-Encoding: identity",
             "--url", f"{gateway.rstrip('/')}/api/option/?key=ModelPricingGroups",
         ],
@@ -573,9 +614,9 @@ with TemporaryDirectory() as directory:
     raw_headers = headers.read_bytes()
 
 try:
-    check_http_headers(raw_headers, len(response.stdout))
+    body = read_http_body(raw_headers, response.stdout)
     payload = json.loads(
-        response.stdout.decode("utf-8"),
+        body.decode("utf-8"),
         parse_constant=reject_constant,
         object_pairs_hook=unique_object,
     )
