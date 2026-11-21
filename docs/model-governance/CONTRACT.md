@@ -486,14 +486,57 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 
 保存前读取当前文档，使用精确的 `ModelPricingGroups` 键，提交完整 `models` 和读到的 `version`。保存会校验当前目录中的模型和分组并推进版本，遇到 HTTP `409` 时重新读取后再编辑。每次 `GET /api/pricing` 在现有定价缓存之外按主键读取一个 option。共享同一主库的实例在保存后的下一次成功读取生效，无配置缓存同步等待。
 
-下方命令需要 `curl` 7.55 或更新版本和 Python 3。设置 `GATEWAY_URL` 和 `GATEWAY_ROOT_ACCESS_TOKEN` 环境变量后，以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令要求下载完整、HTTP `200`，且正文仅含一个有效的 UTF-8 JSON 对象，字段名无重复。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
+下方命令需要 `curl` 7.55 或更新版本和 Python 3。设置 `GATEWAY_URL` 和 `GATEWAY_ROOT_ACCESS_TOKEN` 环境变量后，以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令只检查一个 URL，请求未压缩的正文，并要求完整的 HTTP `200` 响应。HTTP/1.x 响应使用单一且匹配正文长度的 `Content-Length`，或使用 `chunked`。正文须为一个字段名无重复的有效 UTF-8 JSON 对象。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
 
 ```sh
 python3 - <<'PY'
 import json
 import os
+from pathlib import Path
+import re
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
+
+
+def parse_http_fields(lines):
+    fields = {}
+    for line in lines:
+        name, separator, value = line.partition(b":")
+        if (not separator or not re.fullmatch(rb"[!#$%&'*+.^_`|~0-9A-Za-z-]+", name)
+                or re.search(rb"[\x00-\x08\x0a-\x1f\x7f]", value)):
+            raise ValueError("invalid HTTP header field")
+        fields.setdefault(name.lower(), []).append(value.strip(b" \t"))
+    return fields
+
+
+def check_http_headers(raw_headers, body_size):
+    while True:
+        block, separator, raw_headers = raw_headers.partition(b"\r\n\r\n")
+        status_line, *lines = block.split(b"\r\n")
+        match = re.fullmatch(rb"HTTP/(1\.[01]|[23]) ([1-5][0-9]{2})(?: .*)?", status_line)
+        if not separator or not match:
+            raise ValueError("missing or invalid HTTP response headers")
+        protocol, status = match.groups()
+        if status == b"101" or not status.startswith(b"1"):
+            break
+    if status != b"200":
+        raise ValueError(f"expected HTTP 200, received {status.decode('ascii')}")
+
+    headers = parse_http_fields(lines)
+    trailers = parse_http_fields(line for line in raw_headers.split(b"\r\n") if line)
+    if {b"content-length", b"transfer-encoding", b"content-encoding"} & trailers.keys():
+        raise ValueError("unexpected framing or encoding field in HTTP trailers")
+    lengths = headers.get(b"content-length", [])
+    transfer = [value.lower() for value in headers.get(b"transfer-encoding", [])]
+    if transfer and (lengths or protocol != b"1.1" or transfer != [b"chunked"]):
+        raise ValueError("ambiguous or unsupported Transfer-Encoding")
+    if lengths and (len(lengths) != 1 or not lengths[0].isdigit() or int(lengths[0]) != body_size):
+        raise ValueError("invalid or conflicting Content-Length")
+    if protocol.startswith(b"1.") and not (lengths or transfer):
+        raise ValueError("missing Content-Length or chunked framing")
+    if any(value.lower() != b"identity" for value in headers.get(b"content-encoding", [])):
+        raise ValueError("expected an uncompressed HTTP response")
 
 
 def reject_constant(value):
@@ -512,25 +555,27 @@ token = os.environ.get("GATEWAY_ROOT_ACCESS_TOKEN")
 if not gateway or not token:
     sys.exit("set GATEWAY_URL and GATEWAY_ROOT_ACCESS_TOKEN")
 
-response = subprocess.run(
-    [
-        "curl", "--disable", "--fail", "--silent", "--show-error",
-        "--header", "@-", "--write-out", "%{http_code}",
-        "--url", f"{gateway.rstrip('/')}/api/option/?key=ModelPricingGroups",
-    ],
-    input=f"Authorization: Bearer {token}\n".encode("utf-8"),
-    stdout=subprocess.PIPE,
-)
-if response.returncode:
-    sys.exit(response.returncode)
+with TemporaryDirectory() as directory:
+    headers = Path(directory) / "headers"
+    response = subprocess.run(
+        [
+            "curl", "--disable", "--globoff", "--proto", "=http,https",
+            "--fail", "--silent", "--show-error", "--suppress-connect-headers",
+            "--dump-header", str(headers), "--header", "@-",
+            "--header", "Accept-Encoding: identity",
+            "--url", f"{gateway.rstrip('/')}/api/option/?key=ModelPricingGroups",
+        ],
+        input=f"Authorization: Bearer {token}\n".encode("utf-8"),
+        stdout=subprocess.PIPE,
+    )
+    if response.returncode:
+        sys.exit(response.returncode)
+    raw_headers = headers.read_bytes()
 
-# curl appends the three-digit HTTP status after the response body.
-body, status = response.stdout[:-3], response.stdout[-3:]
-if status != b"200":
-    sys.exit("expected HTTP 200 from the pricing group check")
 try:
+    check_http_headers(raw_headers, len(response.stdout))
     payload = json.loads(
-        body.decode("utf-8"),
+        response.stdout.decode("utf-8"),
         parse_constant=reject_constant,
         object_pairs_hook=unique_object,
     )
