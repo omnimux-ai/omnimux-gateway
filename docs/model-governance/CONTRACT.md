@@ -486,24 +486,65 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 
 保存前读取当前文档，使用精确的 `ModelPricingGroups` 键，提交完整 `models` 和读到的 `version`。保存会校验当前目录中的模型和分组并推进版本，遇到 HTTP `409` 时重新读取后再编辑。每次 `GET /api/pricing` 在现有定价缓存之外按主键读取一个 option。共享同一主库的实例在保存后的下一次成功读取生效，无配置缓存同步等待。
 
-下方命令以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令同时校验 HTTP `200` 和正文中的唯一 JSON 对象。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
+下方命令需要 `curl` 7.55 或更新版本和 Python 3。设置 `GATEWAY_URL` 和 `GATEWAY_ROOT_ACCESS_TOKEN` 环境变量后，以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令要求下载完整、HTTP `200`，且正文仅含一个有效的 UTF-8 JSON 对象，字段名无重复。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
 
 ```sh
-pricing_group_check_response=$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer ${GATEWAY_ROOT_ACCESS_TOKEN:?}" \
-    --write-out '\n%{http_code}\n' \
-    "${GATEWAY_URL:?}/api/option/?key=ModelPricingGroups"
-) && printf '%s\n' "$pricing_group_check_response" |
-  jq -s -e '
-    # The second value is the HTTP status appended by curl.
-    if length != 2 or .[1] != 200 or (.[0] | type) != "object" then
-      error("expected an HTTP 200 response with one JSON object")
-    elif .[0].success != true or (.[0].pricing_group_config_issues | type) != "array" then
-      error("cannot check pricing group configuration")
-    else
-      .[0].pricing_group_config_issues | if length == 0 then . else halt_error(1) end
-    end'
+python3 - <<'PY'
+import json
+import os
+import subprocess
+import sys
+
+
+def reject_constant(value):
+    raise ValueError(f"invalid JSON constant {value}")
+
+
+def unique_object(pairs):
+    fields = dict(pairs)
+    if len(fields) != len(pairs):
+        raise ValueError("duplicate JSON object key")
+    return fields
+
+
+gateway = os.environ.get("GATEWAY_URL")
+token = os.environ.get("GATEWAY_ROOT_ACCESS_TOKEN")
+if not gateway or not token:
+    sys.exit("set GATEWAY_URL and GATEWAY_ROOT_ACCESS_TOKEN")
+
+response = subprocess.run(
+    [
+        "curl", "--disable", "--fail", "--silent", "--show-error",
+        "--header", "@-", "--write-out", "%{http_code}",
+        "--url", f"{gateway.rstrip('/')}/api/option/?key=ModelPricingGroups",
+    ],
+    input=f"Authorization: Bearer {token}\n".encode("utf-8"),
+    stdout=subprocess.PIPE,
+)
+if response.returncode:
+    sys.exit(response.returncode)
+
+# curl appends the three-digit HTTP status after the response body.
+body, status = response.stdout[:-3], response.stdout[-3:]
+if status != b"200":
+    sys.exit("expected HTTP 200 from the pricing group check")
+try:
+    payload = json.loads(
+        body.decode("utf-8"),
+        parse_constant=reject_constant,
+        object_pairs_hook=unique_object,
+    )
+except (ValueError, RecursionError) as error:
+    sys.exit(f"invalid pricing group check response: {error}")
+if not isinstance(payload, dict) or payload.get("success") is not True:
+    sys.exit("pricing group check did not return a success object")
+issues = payload.get("pricing_group_config_issues")
+if not isinstance(issues, list):
+    sys.exit("expected a pricing_group_config_issues array")
+if issues:
+    sys.exit(json.dumps(issues))
+print("[]")
+PY
 ```
 
 同一超管响应提供本实例自启动以来的 `pricing_group_fallback_rows` 和 `pricing_group_read_failures`。前者按触发防御行为的模型响应行计数，后者按读取或解码配置失败的请求计数。
