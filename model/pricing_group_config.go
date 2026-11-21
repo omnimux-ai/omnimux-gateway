@@ -16,8 +16,8 @@ import (
 const PricingGroupConfigKey = "ModelPricingGroups"
 
 var (
-	ErrPricingGroupConfigConflict   = errors.New("model pricing groups changed, reload before saving")
-	errPricingGroupConfigBulkUpdate = errors.New("ModelPricingGroups requires a versioned single-option update")
+	ErrPricingGroupConfigConflict = errors.New("model pricing groups changed, reload before saving")
+	errPricingGroupConfigKey      = errors.New("ModelPricingGroups requires a versioned single-option update with the exact key")
 )
 
 const emptyPricingGroupConfig = `{"version":0,"models":{}}`
@@ -74,10 +74,19 @@ func (entry PricingGroupEntry) catalogIssue(row Pricing) PricingGroupConfigIssue
 	return issue
 }
 
-// CatalogIssues checks the full published catalog before caller permissions or fallbacks.
-func (config PricingGroupConfig) CatalogIssues() []PricingGroupConfigIssue {
+// CheckPricingGroupConfig checks persisted settings against freshly read catalog
+// inputs, before caller permissions or defensive fallbacks.
+func CheckPricingGroupConfig(ctx context.Context) (PricingGroupConfig, []PricingGroupConfigIssue, error) {
+	config, err := LoadPricingGroupConfig(ctx)
+	if err != nil {
+		return PricingGroupConfig{}, nil, err
+	}
+	rows, err := readCurrentCatalogPricing(ctx)
+	if err != nil {
+		return PricingGroupConfig{}, nil, err
+	}
 	issues := make([]PricingGroupConfigIssue, 0)
-	for _, row := range GetCatalogPricing() {
+	for _, row := range rows {
 		issue := config.Models[row.ModelName].catalogIssue(row)
 		if issue.DefaultGroup != "" || issue.GroupOrder != "" {
 			issues = append(issues, issue)
@@ -86,7 +95,7 @@ func (config PricingGroupConfig) CatalogIssues() []PricingGroupConfigIssue {
 	slices.SortFunc(issues, func(a, b PricingGroupConfigIssue) int {
 		return strings.Compare(a.ModelName, b.ModelName)
 	})
-	return issues
+	return config, issues, nil
 }
 
 // LoadPricingGroupConfig reads the primary database on each request so a
@@ -104,7 +113,31 @@ func readPricingGroupConfig(db *gorm.DB) (PricingGroupConfig, error) {
 	if result.RowsAffected == 0 {
 		return PricingGroupConfig{Models: map[string]PricingGroupEntry{}}, nil
 	}
+	if option.Key != PricingGroupConfigKey {
+		return PricingGroupConfig{}, errPricingGroupConfigKey
+	}
 	return decodePricingGroupConfig(option.Value)
+}
+
+// rejectGenericPricingGroupConfigWrites guards both existing and first writes.
+// The MySQL expression inherits the actual key column's collation even when
+// the subquery has no rows. It therefore detects aliases before any insert.
+func rejectGenericPricingGroupConfigWrites(keys []string) error {
+	if slices.Contains(keys, PricingGroupConfigKey) {
+		return errPricingGroupConfigKey
+	}
+	if len(keys) == 0 || !common.UsingMainDatabase(common.DatabaseTypeMySQL) {
+		return nil
+	}
+	var matches bool
+	query := "SELECT COALESCE((SELECT " + commonKeyCol + " FROM options WHERE 1 = 0), ?) IN ?"
+	if err := DB.Raw(query, PricingGroupConfigKey, keys).Scan(&matches).Error; err != nil {
+		return err
+	}
+	if matches {
+		return errPricingGroupConfigKey
+	}
+	return nil
 }
 
 func decodePricingGroupConfig(value string) (PricingGroupConfig, error) {
@@ -125,8 +158,12 @@ func savePricingGroupConfig(value string) error {
 	if err != nil {
 		return err
 	}
-	catalog := make(map[string]Pricing)
-	for _, row := range GetCatalogPricing() {
+	rows, err := readCurrentCatalogPricing(context.Background())
+	if err != nil {
+		return err
+	}
+	catalog := make(map[string]Pricing, len(rows))
+	for _, row := range rows {
 		catalog[row.ModelName] = row
 	}
 	for name, entry := range config.Models {

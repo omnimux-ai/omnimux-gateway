@@ -379,16 +379,35 @@ func testPricingGroups(t *testing.T, kind, dsn string) {
 		require.NoError(t, common.UnmarshalJsonStr(view.Data[0].Value, &config))
 		return view, config
 	}
-	put := func(config model.PricingGroupConfig, status int, success bool) {
+	putOption := func(key string, config model.PricingGroupConfig, status int, success bool) {
 		value, err := common.Marshal(config)
 		require.NoError(t, err)
-		body, err := common.Marshal(OptionUpdateRequest{Key: model.PricingGroupConfigKey, Value: string(value)})
+		body, err := common.Marshal(OptionUpdateRequest{Key: key, Value: string(value)})
 		require.NoError(t, err)
 		response := call(http.MethodPut, optionPath, root, strings.NewReader(string(body)))
 		require.Equal(t, status, response.Code, response.Body.String())
 		var result struct{ Success bool }
 		require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
 		require.Equal(t, success, result.Success, response.Body.String())
+	}
+	put := func(config model.PricingGroupConfig, status int, success bool) {
+		putOption(model.PricingGroupConfigKey, config, status, success)
+	}
+	verifyOptionAliases := func(config model.PricingGroupConfig) {
+		if kind != "mysql" {
+			return
+		}
+		encoded, err := common.Marshal(config)
+		require.NoError(t, err)
+		// The disposable database uses a collation where all spellings below
+		// collide with the canonical key, including before the option exists.
+		for _, alias := range []string{"modelpricinggroups", "ModelPricingGroups ", "MódelPricingGroups"} {
+			putOption(alias, config, http.StatusOK, false)
+			require.Error(t, model.UpdateOptionsBulk(map[string]string{alias: string(encoded), "FixtureOptionA": "unexpected"}))
+		}
+		var rows int64
+		require.NoError(t, db.Model(&model.Option{}).Where(&model.Option{Key: "FixtureOptionA"}).Count(&rows).Error)
+		assert.Zero(t, rows)
 	}
 	readPricing := func(role int, compareLegacy bool) map[string]pricingResponseRow {
 		response := call(http.MethodGet, "/api/pricing", role, nil)
@@ -427,6 +446,10 @@ func testPricingGroups(t *testing.T, kind, dsn string) {
 			draft.Models[name] = model.PricingGroupEntry{DefaultGroup: lime, GroupOrder: order}
 		}
 	}
+	verifyOptionAliases(draft)
+	_, stillEmpty := check()
+	assert.Zero(t, stillEmpty.Version)
+	assert.Empty(t, stillEmpty.Models)
 	put(draft, http.StatusOK, true)
 	coverage, saved := check()
 	assert.EqualValues(t, 1, saved.Version)
@@ -459,6 +482,10 @@ func testPricingGroups(t *testing.T, kind, dsn string) {
 	complete, saved := check()
 	assert.EqualValues(t, 2, saved.Version)
 	assert.Empty(t, complete.Issues)
+	verifyOptionAliases(draft)
+	_, afterAliases := check()
+	assert.Equal(t, saved, afterAliases)
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{"FixtureOptionA": "synthetic", "FixtureOptionB": "synthetic"}))
 	for _, invalid := range []model.PricingGroupEntry{
 		{DefaultGroup: "fixture-unknown", GroupOrder: expectedOrders[seedance]},
 		{DefaultGroup: bronze, GroupOrder: []string{bronze, bronze}},
@@ -498,4 +525,24 @@ func testPricingGroups(t *testing.T, kind, dsn string) {
 	require.NoError(t, optionQuery.Update("value", persisted.Value).Error)
 	observed, _ = check()
 	assert.Equal(t, stale.Failures+1, observed.Failures)
+
+	if kind == "sqlite" {
+		// A cached public catalog must not turn unavailable source tables
+		// into a passing release check, with or without a warmed cache.
+		for _, table := range []string{"abilities", "models"} {
+			temporary := "fixture_unavailable_" + table
+			require.NoError(t, db.Migrator().RenameTable(table, temporary))
+			assert.Equal(t, http.StatusServiceUnavailable, call(http.MethodGet, checkPath, root, nil).Code)
+			assert.Equal(t, http.StatusOK, call(http.MethodGet, "/api/pricing", member, nil).Code)
+			model.InvalidatePricingCache()
+			assert.Equal(t, http.StatusServiceUnavailable, call(http.MethodGet, checkPath, root, nil).Code)
+			require.NoError(t, db.Migrator().RenameTable(temporary, table))
+			readPricing(member, false)
+		}
+		// A verified empty catalog produces an empty array instead of an error.
+		require.NoError(t, db.Model(&model.Ability{}).Where("enabled = ?", true).Update("enabled", false).Error)
+		empty, _ := check()
+		assert.NotNil(t, empty.Issues)
+		assert.Empty(t, empty.Issues)
+	}
 }

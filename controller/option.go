@@ -83,9 +83,10 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 func GetOptions(c *gin.Context) {
 	if c.Request != nil && c.Query("key") == model.PricingGroupConfigKey {
 		c.Header("Cache-Control", "private, no-store")
-		config, err := model.LoadPricingGroupConfig(c.Request.Context())
+		config, issues, err := model.CheckPricingGroupConfig(c.Request.Context())
 		if err != nil {
-			common.ApiError(c, err)
+			common.SysError(common.LogText("Could not check pricing group configuration: %v", err))
+			common.ApiErrorStatus(c, http.StatusServiceUnavailable, common.NewMessage("Could not check pricing group configuration"))
 			return
 		}
 		encoded, err := common.Marshal(config)
@@ -97,7 +98,7 @@ func GetOptions(c *gin.Context) {
 			"success":                     true,
 			"message":                     "",
 			"data":                        []model.Option{{Key: model.PricingGroupConfigKey, Value: string(encoded)}},
-			"pricing_group_config_issues": config.CatalogIssues(),
+			"pricing_group_config_issues": issues,
 			"pricing_group_fallback_rows": pricingGroupFallbackRows.Load(),
 			"pricing_group_read_failures": pricingGroupReadFailures.Load(),
 		})

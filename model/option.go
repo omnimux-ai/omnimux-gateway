@@ -2,6 +2,7 @@ package model
 
 import (
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -267,6 +268,9 @@ func UpdateOption(key string, value string) error {
 	if err := validateOptionValue(key, value); err != nil {
 		return err
 	}
+	if err := rejectGenericPricingGroupConfigWrites([]string{key}); err != nil {
+		return err
+	}
 	// Save to database first
 	option := Option{
 		Key: key,
@@ -291,8 +295,8 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if len(values) == 0 {
 		return nil
 	}
-	if _, ok := values[PricingGroupConfigKey]; ok {
-		return errPricingGroupConfigBulkUpdate
+	if err := rejectGenericPricingGroupConfigWrites(slices.Collect(maps.Keys(values))); err != nil {
+		return err
 	}
 	for key := range values {
 		if IsPasskeyDomainOption(key) {

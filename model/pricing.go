@@ -1,8 +1,10 @@
 package model
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"maps"
 	"math"
 	"os"
@@ -25,6 +27,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 	"github.com/expr-lang/expr/ast"
 	"github.com/expr-lang/expr/parser"
+	"gorm.io/gorm"
 )
 
 type PricingPluginVariant struct {
@@ -174,7 +177,20 @@ func GetPricing() []Pricing {
 // legacy behavior. If the shipped contract payload is unreadable, the served
 // catalog is left intact rather than blanked.
 func GetCatalogPricing() []Pricing {
-	pricing := GetPricing()
+	return filterCatalogPricing(GetPricing())
+}
+
+// readCurrentCatalogPricing validates against current catalog inputs. It leaves
+// the shared pricing cache and its legacy group ordering untouched.
+func readCurrentCatalogPricing(ctx context.Context) ([]Pricing, error) {
+	snapshot, err := readPricingSnapshot(DB.WithContext(ctx), true)
+	if err != nil {
+		return nil, err
+	}
+	return filterCatalogPricing(snapshot.rows), nil
+}
+
+func filterCatalogPricing(pricing []Pricing) []Pricing {
 	if !catalogContractGateEnabled() {
 		return pricing
 	}
@@ -413,16 +429,24 @@ func appendPricingEndpoint(endpoints []string, endpoint string) []string {
 	return append(endpoints, endpoint)
 }
 
-func updatePricing() {
-	//modelRatios := common.GetModelRatios()
-	enableAbilities, err := GetAllEnableAbilityWithChannels()
+type pricingSnapshot struct {
+	rows          []Pricing
+	vendors       []PricingVendor
+	endpointTypes map[string][]constant.EndpointType
+	endpointMap   map[string]common.EndpointInfo
+	generation    *jsplugin.RoutingGeneration
+}
+
+func readPricingSnapshot(db *gorm.DB, requireComplete bool) (pricingSnapshot, error) {
+	enableAbilities, err := getAllEnableAbilityWithChannels(db)
 	if err != nil {
-		common.SysLog(common.LogText("GetAllEnableAbilityWithChannels error: %v", err))
-		return
+		return pricingSnapshot{}, fmt.Errorf("load enabled abilities: %w", err)
 	}
 	// 预加载模型元数据与供应商一次，避免循环查询
 	var allMeta []Model
-	_ = DB.Find(&allMeta).Error
+	if err := db.Find(&allMeta).Error; err != nil && requireComplete {
+		return pricingSnapshot{}, fmt.Errorf("load model metadata: %w", err)
+	}
 	names := make([]string, 0, len(enableAbilities))
 	for _, ability := range enableAbilities {
 		names = append(names, ability.Model)
@@ -431,7 +455,9 @@ func updatePricing() {
 
 	// 预加载供应商
 	var vendors []Vendor
-	_ = DB.Find(&vendors).Error
+	if err := db.Find(&vendors).Error; err != nil && requireComplete {
+		return pricingSnapshot{}, fmt.Errorf("load catalog vendors: %w", err)
+	}
 	vendorMap := make(map[int]*Vendor)
 	for i := range vendors {
 		vendorMap[vendors[i].Id] = &vendors[i]
@@ -441,9 +467,9 @@ func updatePricing() {
 	initDefaultVendorMapping(metaMap, vendorMap, enableAbilities)
 
 	// 构建对前端友好的供应商列表
-	vendorsList = make([]PricingVendor, 0, len(vendorMap))
+	vendorList := make([]PricingVendor, 0, len(vendorMap))
 	for _, v := range vendorMap {
-		vendorsList = append(vendorsList, PricingVendor{
+		vendorList = append(vendorList, PricingVendor{
 			ID:          v.Id,
 			Name:        v.Name,
 			Description: v.Description,
@@ -500,24 +526,24 @@ func updatePricing() {
 		}
 	}
 
-	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
+	endpointTypes := make(map[string][]constant.EndpointType)
 	for model, endpoints := range modelSupportEndpointsStr {
 		supportedEndpoints := make([]constant.EndpointType, 0)
 		for _, endpointStr := range endpoints {
 			endpointType := constant.EndpointType(endpointStr)
 			supportedEndpoints = append(supportedEndpoints, endpointType)
 		}
-		modelSupportEndpointTypes[model] = supportedEndpoints
+		endpointTypes[model] = supportedEndpoints
 	}
 
-	// 构建全局 supportedEndpointMap（默认 + 自定义覆盖）
-	supportedEndpointMap = make(map[string]common.EndpointInfo)
+	// 构建全局 endpointMap（默认 + 自定义覆盖）
+	endpointMap := make(map[string]common.EndpointInfo)
 	// 1. 默认端点
-	for _, endpoints := range modelSupportEndpointTypes {
+	for _, endpoints := range endpointTypes {
 		for _, et := range endpoints {
 			if info, ok := common.GetDefaultEndpointInfo(et); ok {
-				if _, exists := supportedEndpointMap[string(et)]; !exists {
-					supportedEndpointMap[string(et)] = info
+				if _, exists := endpointMap[string(et)]; !exists {
+					endpointMap[string(et)] = info
 				}
 			}
 		}
@@ -532,7 +558,7 @@ func updatePricing() {
 			for k, v := range raw {
 				switch val := v.(type) {
 				case string:
-					supportedEndpointMap[k] = common.EndpointInfo{Path: val, Method: "POST"}
+					endpointMap[k] = common.EndpointInfo{Path: val, Method: "POST"}
 				case map[string]any:
 					ep := common.EndpointInfo{Method: "POST"}
 					if p, ok := val["path"].(string); ok {
@@ -541,7 +567,7 @@ func updatePricing() {
 					if m, ok := val["method"].(string); ok {
 						ep.Method = strings.ToUpper(m)
 					}
-					supportedEndpointMap[k] = ep
+					endpointMap[k] = ep
 				default:
 					// ignore unsupported types
 				}
@@ -549,12 +575,12 @@ func updatePricing() {
 		}
 	}
 
-	pricingMap = make([]Pricing, 0)
+	rows := make([]Pricing, 0)
 	for model, groups := range modelGroupsMap {
 		pricing := Pricing{
 			ModelName:              model,
 			EnableGroup:            groups.Items(),
-			SupportedEndpointTypes: modelSupportEndpointTypes[model],
+			SupportedEndpointTypes: endpointTypes[model],
 			videoOperationsByGroup: videoOperationsByModel[model],
 		}
 
@@ -668,24 +694,41 @@ func updatePricing() {
 				})
 			}
 		}
-		pricingMap = append(pricingMap, pricing)
+		rows = append(rows, pricing)
 	}
 
 	// 默认按照入库更新时间倒序排序（若时间相同则按 ID 倒序）
-	sort.SliceStable(pricingMap, func(i, j int) bool {
-		if pricingMap[i].UpdatedTime != pricingMap[j].UpdatedTime {
-			return pricingMap[i].UpdatedTime > pricingMap[j].UpdatedTime
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].UpdatedTime != rows[j].UpdatedTime {
+			return rows[i].UpdatedTime > rows[j].UpdatedTime
 		}
-		if pricingMap[i].CreatedTime != pricingMap[j].CreatedTime {
-			return pricingMap[i].CreatedTime > pricingMap[j].CreatedTime
+		if rows[i].CreatedTime != rows[j].CreatedTime {
+			return rows[i].CreatedTime > rows[j].CreatedTime
 		}
-		return pricingMap[i].Id > pricingMap[j].Id
+		return rows[i].Id > rows[j].Id
 	})
 
 	// 防止大更新后数据不通用
-	if len(pricingMap) > 0 {
-		pricingMap[0].PricingVersion = "5a90f2b86c08bd983a9a2e6d66c255f4eaef9c4bc934386d2b6ae84ef0ff1f1f"
+	if len(rows) > 0 {
+		rows[0].PricingVersion = "5a90f2b86c08bd983a9a2e6d66c255f4eaef9c4bc934386d2b6ae84ef0ff1f1f"
 	}
+
+	return pricingSnapshot{
+		rows: rows, vendors: vendorList, endpointTypes: endpointTypes,
+		endpointMap: endpointMap, generation: pluginGeneration,
+	}, nil
+}
+
+func updatePricing() {
+	snapshot, err := readPricingSnapshot(DB, false)
+	if err != nil {
+		common.SysLog(common.LogText("Could not load pricing: %v", err))
+		return
+	}
+	pricingMap = snapshot.rows
+	vendorsList = snapshot.vendors
+	modelSupportEndpointTypes = snapshot.endpointTypes
+	supportedEndpointMap = snapshot.endpointMap
 
 	// 刷新缓存映射，供高并发快速查询
 	modelEnableGroupsLock.Lock()
@@ -698,7 +741,7 @@ func updatePricing() {
 	modelEnableGroupsLock.Unlock()
 
 	lastGetPricingTime = time.Now()
-	videoPricingGeneration.Store(pluginGeneration)
+	videoPricingGeneration.Store(snapshot.generation)
 }
 
 // GetSupportedEndpointMap 返回全局端点到路径的映射

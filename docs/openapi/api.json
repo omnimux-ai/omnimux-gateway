@@ -5162,6 +5162,9 @@
           "200": {
             "description": "成功",
             "headers": {}
+          },
+          "503": {
+            "description": "无法读取定价分组配置或当前发布目录。"
           }
         },
         "security": [
