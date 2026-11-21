@@ -619,6 +619,7 @@
             "reference_images.max_bytes_each"
           ]
         },
+        "default_group": "default",
         "effective_video": {
           "groups": {
             "default": [
@@ -898,6 +899,11 @@
           "fixture-hidden",
           "narrow"
         ],
+        "group_order": [
+          "default",
+          "fixture-hidden",
+          "narrow"
+        ],
         "model_name": "example-group-video",
         "model_price": 0.001,
         "model_ratio": 0,
@@ -912,7 +918,7 @@
       "default": 1,
       "narrow": 1
     },
-    "pricing_version": "a42d372ccf0b5dd13ecf71203521f9d2",
+    "pricing_version": "model-group-display-v1",
     "success": true,
     "supported_endpoint": {
       "openai": {

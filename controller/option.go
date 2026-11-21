@@ -81,6 +81,29 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 }
 
 func GetOptions(c *gin.Context) {
+	if c.Request != nil && c.Query("key") == model.PricingGroupConfigKey {
+		c.Header("Cache-Control", "private, no-store")
+		config, issues, err := model.CheckPricingGroupConfig(c.Request.Context())
+		if err != nil {
+			common.SysError(common.LogText("Could not check pricing group configuration: %v", err))
+			common.ApiErrorStatus(c, http.StatusServiceUnavailable, common.NewMessage("Failed to load settings"))
+			return
+		}
+		encoded, err := common.Marshal(config)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success":                     true,
+			"message":                     "",
+			"data":                        []model.Option{{Key: model.PricingGroupConfigKey, Value: string(encoded)}},
+			"pricing_group_config_issues": issues,
+			"pricing_group_fallback_rows": pricingGroupFallbackRows.Load(),
+			"pricing_group_read_failures": pricingGroupReadFailures.Load(),
+		})
+		return
+	}
 	var options []*model.Option
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
@@ -415,7 +438,9 @@ func UpdateOption(c *gin.Context) {
 	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {
-		if errors.Is(err, system_setting.ErrPasskeyRPIDInvalid) {
+		if errors.Is(err, model.ErrPricingGroupConfigConflict) {
+			common.ApiErrorStatus(c, http.StatusConflict, common.NewMessage("Refresh the list and try again."))
+		} else if errors.Is(err, system_setting.ErrPasskeyRPIDInvalid) {
 			writeSecurityOperationError(c, err)
 		} else {
 			common.ApiError(c, err)

@@ -328,7 +328,7 @@
       "get": {
         "summary": "获取定价信息",
         "deprecated": false,
-        "description": "🔓 无需鉴权（可选登录）",
+        "description": "🔓 默认公开（可选登录）。模型行新增 default_group 和 group_order，兼容只读取 enable_groups 的客户端。auto_groups 是账号自动路由的候选，group_order 用于模型线路展示。",
         "tags": [
           "系统"
         ],
@@ -336,7 +336,41 @@
         "responses": {
           "200": {
             "description": "成功",
-            "headers": {}
+            "headers": {},
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pricing_version": {
+                      "type": "string",
+                      "description": "定价响应的字段版本。"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["model_name", "enable_groups", "default_group", "group_order"],
+                        "properties": {
+                          "model_name": { "type": "string" },
+                          "enable_groups": { "type": "array", "items": { "type": "string" } },
+                          "default_group": {
+                            "type": "string",
+                            "description": "模型显式默认组，仅在该组同时属于 enable_groups 和 usable_group 时返回组名。显式组不可用时返回空字符串。缺配置时依次尝试调用者分组、default、group_order 中首个可用组，均不可用时返回空字符串。"
+                          },
+                          "group_order": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "uniqueItems": true,
+                            "description": "模型级展示顺序，包含 enable_groups 的全部成员。有效顺序缺失时沿用 enable_groups 的既有顺序。"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5111,15 +5145,26 @@
       "get": {
         "summary": "获取系统选项",
         "deprecated": false,
-        "description": "👑 需要超级管理员权限（Root）。已退役的 theme.frontend 不在列表中返回。",
+        "description": "👑 需要超级管理员权限（Root）。已退役的 theme.frontend 不在列表中返回。定价分组配置通过 key=ModelPricingGroups 单独读取。此检查只读，直接从数据库读取当前目录所需数据。响应附完整目录的 pricing_group_config_issues 及本实例的 pricing_group_fallback_rows、pricing_group_read_failures 计数。",
         "tags": [
           "系统设置"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "description": "填写 ModelPricingGroups 时，data 只返回该选项的当前版本和分组配置。",
+            "schema": { "type": "string", "enum": ["ModelPricingGroups"] }
+          }
+        ],
         "responses": {
           "200": {
             "description": "成功",
             "headers": {}
+          },
+          "503": {
+            "description": "无法读取定价分组配置或当前发布目录。"
           }
         },
         "security": [
@@ -5134,15 +5179,18 @@
       "put": {
         "summary": "更新系统选项",
         "deprecated": false,
-        "description": "👑 需要超级管理员权限（Root）。兼容期内 theme.frontend=default 可幂等写入，其他主题值会被拒绝。",
+        "description": "👑 需要超级管理员权限（Root）。兼容期内 theme.frontend=default 可幂等写入，其他主题值会被拒绝。更新 ModelPricingGroups 时，value 为包含当前 version 和完整 models 的 JSON 字符串。保存成功时推进配置版本，后续定价请求直接读取已提交值。",
         "tags": [
           "系统设置"
         ],
         "parameters": [],
         "responses": {
           "200": {
-            "description": "成功",
+            "description": "选项更新结果。先检查 success 字段。",
             "headers": {}
+          },
+          "409": {
+            "description": "ModelPricingGroups 版本已变化。重新读取配置后再保存。"
           }
         },
         "security": [

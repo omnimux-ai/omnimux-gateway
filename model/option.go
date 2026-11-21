@@ -2,6 +2,7 @@ package model
 
 import (
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -251,6 +252,9 @@ func validateOptionValue(key string, value string) error {
 }
 
 func UpdateOption(key string, value string) error {
+	if key == PricingGroupConfigKey {
+		return savePricingGroupConfig(value)
+	}
 	if IsRequestPolicyOption(key) {
 		return UpdateRequestPolicyOptions(map[string]string{key: value})
 	}
@@ -262,6 +266,9 @@ func UpdateOption(key string, value string) error {
 		return UpdateModelPricingOptions(map[string]string{key: value})
 	}
 	if err := validateOptionValue(key, value); err != nil {
+		return err
+	}
+	if err := rejectGenericPricingGroupConfigWrites([]string{key}); err != nil {
 		return err
 	}
 	// Save to database first
@@ -287,6 +294,9 @@ func UpdateOption(key string, value string) error {
 func UpdateOptionsBulk(values map[string]string) error {
 	if len(values) == 0 {
 		return nil
+	}
+	if err := rejectGenericPricingGroupConfigWrites(slices.Collect(maps.Keys(values))); err != nil {
+		return err
 	}
 	for key := range values {
 		if IsPasskeyDomainOption(key) {
@@ -347,7 +357,7 @@ func UpdateOptionsBulk(values map[string]string) error {
 }
 
 func updateOptionMap(key string, value string) (err error) {
-	if key == retiredThemeOptionKey || key == legacyAccessTokenRetireAtKey {
+	if key == retiredThemeOptionKey || key == legacyAccessTokenRetireAtKey || key == PricingGroupConfigKey {
 		common.OptionMapRWMutex.Lock()
 		delete(common.OptionMap, key)
 		common.OptionMapRWMutex.Unlock()

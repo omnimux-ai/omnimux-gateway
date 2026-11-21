@@ -460,6 +460,181 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 `OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED=1` 是应急开关。若契约载荷本身不可读，
 网关保持发布现有 Served 目录，不得把 `/api/pricing` 清空。
 
+#### 定价目录的模型分组
+
+`GET /api/pricing` 的每个模型行返回以下展示字段。已有 `enable_groups` 的成员和顺序照常返回。
+
+| 字段 | 含义 |
+| --- | --- |
+| `group_order` | 模型级在售分组顺序。与该行 `enable_groups` 集合相同，每组恰好出现一次。登记有效时保持跨请求和重启稳定。下线或未知的配置项不会加入目录。 |
+| `default_group` | 该模型登记的默认组。组名须同时属于该行 `enable_groups` 和调用者的 `usable_group`，否则返回空字符串。模型全局只售一组时，顺序仅含该组，该组对调用者可用且登记有效时也就是默认组。 |
+
+`auto_groups` 是当前账号用于自动路由的有序候选。`group_order` 用于模型的线路展示。旧客户端可继续读取原字段。顶层 `pricing_version` 标识接口字段版本，运营编辑展示配置时保持该字段版本。
+
+有效顺序缺失时，`group_order` 原样沿用该行 `enable_groups` 的数组顺序。只在默认组缺配置时，依次取 `user.Group`、`default`、`group_order` 中第一个可用组。每一步都检查模型启用组和调用者可用组，找不到则返回空字符串。配置读取失败按缺配置处理。已登记的默认组因权限或目录变更变得不可用时返回空字符串。
+
+**维护与发布检查**
+
+超管通过 `GET /api/option/?key=ModelPricingGroups` 读取 `data[0].value`。该值是含 `version` 与 `models` 的 JSON 字符串，`models` 以精确的目录模型 ID 为键。未登记的文档版本为 `0`。下面的 `PUT /api/option/` 示例适用于空配置的隔离测试目录。
+
+```json
+{
+  "key": "ModelPricingGroups",
+  "value": "{\"version\":0,\"models\":{\"gpt-image-2.5\":{\"default_group\":\"fixture-lime\",\"group_order\":[\"fixture-lime\"]}}}"
+}
+```
+
+保存前读取当前文档，使用精确的 `ModelPricingGroups` 键，提交完整 `models` 和读到的 `version`。保存会校验当前目录中的模型和分组并推进版本，遇到 HTTP `409` 时重新读取后再编辑。每次 `GET /api/pricing` 在现有定价缓存之外按主键读取一个 option。共享同一主库的实例在保存后的下一次成功读取生效，无配置缓存同步等待。
+
+下方命令需要 `curl` 7.55 或更新版本和 Python 3。设置 `GATEWAY_URL` 和 `GATEWAY_ROOT_ACCESS_TOKEN` 环境变量后，以只读方式检查当前完整发布目录，包含普通调用者不可见的模型。检查直接从数据库读取目录及适用的渠道设置。配置或目录读取失败时返回 HTTP `503`。命令只检查一个 URL，请求未压缩的正文，并要求完整的 HTTP `200` 响应。HTTP/1.x 响应使用单一且匹配正文长度的 `Content-Length`，或使用 `chunked`。分块响应先校验原始块大小、换行和终止块，再解析正文。正文须为一个字段名无重复的有效 UTF-8 JSON 对象。存在缺项或无法检查时以非零状态退出，缺失或失配的模型写入标准错误。全部登记时应得到 `[]`。
+
+```sh
+python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+from tempfile import TemporaryDirectory
+
+
+HTTP_TOKEN = rb"[!#$%&'*+.^_`|~0-9A-Za-z-]+"
+# RFC 9112 §7.1.1 permits token and quoted-string chunk extension values.
+QUOTED_VALUE = rb'"(?:[\t !#-\[\]-~\x80-\xff]|\\[\t -~\x80-\xff])*"'
+CHUNK_EXTENSION = (
+    rb"[ \t]*;[ \t]*" + HTTP_TOKEN
+    + rb"(?:[ \t]*=[ \t]*(?:" + HTTP_TOKEN + rb"|" + QUOTED_VALUE + rb"))?"
+)
+CHUNK_SIZE_LINE = re.compile(rb"([0-9A-Fa-f]+)(?:" + CHUNK_EXTENSION + rb")*")
+
+
+def parse_http_fields(lines):
+    fields = {}
+    for line in lines:
+        name, separator, value = line.partition(b":")
+        if (not separator or not re.fullmatch(HTTP_TOKEN, name)
+                or re.search(rb"[\x00-\x08\x0a-\x1f\x7f]", value)):
+            raise ValueError("invalid HTTP header field")
+        fields.setdefault(name.lower(), []).append(value.strip(b" \t"))
+    return fields
+
+
+def check_trailers(lines):
+    trailers = parse_http_fields(lines)
+    if {b"content-length", b"transfer-encoding", b"content-encoding"} & trailers.keys():
+        raise ValueError("unexpected framing or encoding field in HTTP trailers")
+
+
+def decode_chunked(wire):
+    body = bytearray()
+    offset = 0
+    while True:
+        line_end = wire.find(b"\r\n", offset)
+        match = CHUNK_SIZE_LINE.fullmatch(wire, offset, line_end) if line_end >= 0 else None
+        if not match:
+            raise ValueError("invalid HTTP chunk size line")
+        size = int(match[1], 16)
+        offset = line_end + 2
+        if size == 0:
+            tail = wire[offset:]
+            if tail == b"\r\n":
+                return body
+            trailer_block, separator, extra = tail.partition(b"\r\n\r\n")
+            if not separator or extra or not trailer_block:
+                raise ValueError("invalid HTTP last chunk or trailer terminator")
+            check_trailers(trailer_block.split(b"\r\n"))
+            return body
+        data_end = offset + size
+        if wire[data_end:data_end + 2] != b"\r\n":
+            raise ValueError("invalid HTTP chunk data terminator")
+        body.extend(wire[offset:data_end])
+        offset = data_end + 2
+
+
+def read_http_body(raw_headers, wire):
+    while True:
+        block, separator, raw_headers = raw_headers.partition(b"\r\n\r\n")
+        status_line, *lines = block.split(b"\r\n")
+        match = re.fullmatch(rb"HTTP/(1\.[01]|[23]) ([1-5][0-9]{2})(?: .*)?", status_line)
+        if not separator or not match:
+            raise ValueError("missing or invalid HTTP response headers")
+        protocol, status = match.groups()
+        if status == b"101" or not status.startswith(b"1"):
+            break
+    if status != b"200":
+        raise ValueError(f"expected HTTP 200, received {status.decode('ascii')}")
+
+    headers = parse_http_fields(lines)
+    check_trailers(line for line in raw_headers.split(b"\r\n") if line)
+    lengths = headers.get(b"content-length", [])
+    transfer = [value.lower() for value in headers.get(b"transfer-encoding", [])]
+    if transfer and (lengths or protocol != b"1.1" or transfer != [b"chunked"]):
+        raise ValueError("ambiguous or unsupported Transfer-Encoding")
+    if lengths and (len(lengths) != 1 or not lengths[0].isdigit() or int(lengths[0]) != len(wire)):
+        raise ValueError("invalid or conflicting Content-Length")
+    if protocol.startswith(b"1.") and not (lengths or transfer):
+        raise ValueError("missing Content-Length or chunked framing")
+    if any(value.lower() != b"identity" for value in headers.get(b"content-encoding", [])):
+        raise ValueError("expected an uncompressed HTTP response")
+    return decode_chunked(wire) if transfer else wire
+
+
+def reject_constant(value):
+    raise ValueError(f"invalid JSON constant {value}")
+
+
+def unique_object(pairs):
+    fields = dict(pairs)
+    if len(fields) != len(pairs):
+        raise ValueError("duplicate JSON object key")
+    return fields
+
+
+gateway = os.environ.get("GATEWAY_URL")
+token = os.environ.get("GATEWAY_ROOT_ACCESS_TOKEN")
+if not gateway or not token:
+    sys.exit("set GATEWAY_URL and GATEWAY_ROOT_ACCESS_TOKEN")
+
+with TemporaryDirectory() as directory:
+    headers = Path(directory) / "headers"
+    response = subprocess.run(
+        [
+            "curl", "--disable", "--globoff", "--proto", "=http,https",
+            "--fail", "--silent", "--show-error", "--suppress-connect-headers",
+            "--raw", "--dump-header", str(headers), "--header", "@-",
+            "--header", "Accept-Encoding: identity",
+            "--url", f"{gateway.rstrip('/')}/api/option/?key=ModelPricingGroups",
+        ],
+        input=f"Authorization: Bearer {token}\n".encode("utf-8"),
+        stdout=subprocess.PIPE,
+    )
+    if response.returncode:
+        sys.exit(response.returncode)
+    raw_headers = headers.read_bytes()
+
+try:
+    body = read_http_body(raw_headers, response.stdout)
+    payload = json.loads(
+        body.decode("utf-8"),
+        parse_constant=reject_constant,
+        object_pairs_hook=unique_object,
+    )
+except (ValueError, RecursionError) as error:
+    sys.exit(f"invalid pricing group check response: {error}")
+if not isinstance(payload, dict) or payload.get("success") is not True:
+    sys.exit("pricing group check did not return a success object")
+issues = payload.get("pricing_group_config_issues")
+if not isinstance(issues, list):
+    sys.exit("expected a pricing_group_config_issues array")
+if issues:
+    sys.exit(json.dumps(issues))
+print("[]")
+PY
+```
+
+同一超管响应提供本实例自启动以来的 `pricing_group_fallback_rows` 和 `pricing_group_read_failures`。前者按触发防御行为的模型响应行计数，后者按读取或解码配置失败的请求计数。
+
 ### 6.9 视频分组的有效能力
 
 `/api/pricing` 的模型行和 `/api/model_contract/:model` 的 `data` 可在 `contract` 同级返回
