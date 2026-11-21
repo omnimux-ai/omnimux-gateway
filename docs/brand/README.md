@@ -56,7 +56,7 @@
 
 ### 已交付与未交付
 
-能力有两个可能的落点，只查一处等于没查：网关行为看 `router/` + `controller/` + `service/`；桌面端行为看 `omnimux-ai/omnimux-client` 的 `app/dsh-plugin-desktop/preset/skeleton/package.json` 里 `dsh.profile.bundles` 的清单，再看 `plugins/plugins/<name>/` 的源码。2026-10-27 曾因只搜 Go 仓，把商品库、画布、发布中心误判为「未实现」——三者实际都已发布。
+能力有两个可能的落点，只查一处等于没查：网关行为看 `router/` + `controller/` + `service/`；桌面端行为看 `omnimux-ai/omnimux-client` 的 `app/dsh-plugin-desktop/preset/skeleton/package.json` 里 `dsh.profile.bundles` 的清单，再看 `plugins/plugins/<name>/` 的源码；插件目录存在但未出现在 `dsh.profile.bundles` 列表时，仅当其作为已列出 bundle 的传递 `dependencies` 才算随桌面端交付，宣称已交付前须核对依赖链。2026-10-27 曾因只搜 Go 仓，把商品库、画布、发布中心误判为「未实现」——三者实际都已发布。
 
 | 页面表述 | 实际状态 | 对外口径 |
 | --- | --- | --- |

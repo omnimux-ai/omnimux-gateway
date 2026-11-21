@@ -2,7 +2,7 @@
 
 > **版本**: 2.3.0 (Violet Budget)
 > **视觉对标**: [MiniMax Design System (design.minimax.io)](https://design.minimax.io/) × Modern AI Infrastructure
-> **同级研究**: [Pippit AI 落地页拆解](docs/research/pippit-landing-analysis-2026-09-12.md)（2026-09-12，同口径实测）
+> **同级研究**: Pippit AI 落地页拆解（2026-09-12，同口径实测）
 > **核心基准**: 图 1（深色 Studio）与 图 3（浅色 Studio）实机界面
 > **色彩基底**: **黑白中性控制台（Monochrome Ink/Paper）+ 极光电紫与皇家靛蓝（#7961f2 / #6757e7）专属 AI 能量流**
 > **消费对象**: AI Agents (Cursor, Claude Code, Google Stitch, DeepSeek Harness), 前端开发工程师, UI/UX 设计师

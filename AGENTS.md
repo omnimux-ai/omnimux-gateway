@@ -195,7 +195,7 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 
 ## Fork-specific rules (OmniMux)
 
-This repository is the maintained fork of QuantumNous/new-api shipped as OmniMux, and it is the **public development repository**: source, tests and CI live here. The hosted service is not part of it — channel credentials, the pricing ledger, deployment overlays, operations runbooks, agent evidence and user data live in a separate private operations repository and are not open source. Upstream sync: skill `fork-sync`. Everything below is fork-only and supersedes nothing upstream; it adds to the rules above.
+This repository is the maintained fork of QuantumNous/new-api shipped as OmniMux, and it is the **public development repository**: source, tests and CI live here. The hosted service is not part of it — channel credentials, the pricing ledger, deployment overlays, operations runbooks, agent evidence and user data live in a separate private operations repository and are not open source. Upstream sync: skill `fork-sync`. Everything below is fork-only. Conflict resolution: security, billing, and data-integrity rules take the stricter union of both sections; workflow, product positioning, and public brand copy follow this Fork section, with three narrow exceptions to upstream wording: (1) `docs/model-governance/specs/**` may be created per `docs/model-governance/CONTRACT.md`; (2) user-facing OmniMux copy follows `docs/brand/README.md`, while all attribution required by `LICENSE`/`NOTICE` and AGPLv3 §7(b) — including `LICENSE`, `NOTICE`, copyright headers, Go module paths, README credits, and visible UI about/legal/footer links to `QuantumNous/new-api` — MUST be preserved; (3) `electron/` is an upstream shell, not the OmniMux desktop client (`omnimux-ai/omnimux-client`).
 
 ### Public boundary (hard gate)
 
@@ -229,13 +229,7 @@ This repository is the maintained fork of QuantumNous/new-api shipped as OmniMux
 
 ### Research before design (fork)
 
-产品研发按「需求确认 → 案例、数据与真实性研究 → 方案 → 适用的人工确认 → 实现与验收」执行。先确认目标、范围和验收条件，再完成与改动规模相称的研究。
-
-- **案例**。找与本次场景可比的公开案例，记录页面或代码出处，以及哪些做法适用。涉及用户可见的前端方案时，查看 [CreatOK](https://www.creatok.ai/) 和 [Higgsfield](https://higgsfield.ai/) 最接近的公开页面。对照入口、关键操作和结果呈现，再用本仓设计与组件形成方案。找不到同类页面时，记录看过的页面和适用边界。
-- **数据**。在授权范围内使用真实反馈、现状指标或复现样本说明问题。记录来源、时间、范围和口径。缺失数据写明未知。
-- **真实性**。分别标注公开展示、源码或文档证据、测试结果和实际环境验证。涉及本产品能力时，查对应实现与可验证的实际入口。只能从展示或文档判断时，写清验证范围。影响方案选择的未知项须先补证或明确交由用户决定。
-- **工程参考**。涉及代码时，查 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 的现行规范、同类实现、测试和 CI 检查，记录适用的写法与验证做法及其出处。具体实现与验收按本仓规则、现有代码和检查入口执行。
-- **交付与复核**。方案附简短研究摘要，列出证据来源、观察结果、未知项和它们如何影响选择。PR 转入可公开的摘要，Agent 模板填 [Research](.agents/github/PR.md#research)，负责人模板写入变更描述。研究深度随影响范围调整，涉及前端或保护路径时继续执行下文的确认门禁。
+产品研发按「需求确认 → 案例、数据与真实性研究 → 方案 → 适用的人工确认 → 实现与验收」执行。详见[研究与设计前确认](.agents/rules/development-workflow.md#研究与设计前确认)（含公开案例、数据口径、真实性标注、工程参考与 PR 摘要要求）。
 
 ### Change policy (fork)
 
@@ -253,7 +247,8 @@ Protected prefixes (truth: [scripts/ops/core-change-paths.txt](scripts/ops/core-
 
 ### Backend (fork additions)
 
-- Load [.agents/rules/billing.md](.agents/rules/billing.md) before editing `relay/`, `relaykit/`, `common/`, `model/`, `service/`, `dto/`, or any billing path.
+- Billing read gate follows the behavior-based trigger list in **Billing rules (mandatory read gate)** above (no directory-wide override).
+- `tokenkit/` is a standalone estimation module: follow [tokenkit/README.md](tokenkit/README.md) calibration rules and run `GOWORK=off go build ./...` + module tests; if a change alters billable-quantity derivation in gateway callers (`service/token_counter.go`, `service/usage_helpr.go`, `service/responses_usage.go`, etc.), also read [.agents/rules/billing.md](.agents/rules/billing.md).
 - Quota paths are the billing hard gates listed above; a change that cannot satisfy them belongs in a design discussion, not in a diff.
 
 ### Surfaces (fork)
@@ -264,16 +259,9 @@ Protected prefixes (truth: [scripts/ops/core-change-paths.txt](scripts/ops/core-
 
 ### Product positioning
 
-- OmniMux = **"Your Content Commerce Team" (属于你的内容电商团队) — an AI content-commerce system and desktop Agent workbench for shoppable video breakdown, product/character asset creation, reference-video recreation, and scheduled publishing, sold to cross-border & content-commerce sellers**. Brand/copy/pricing claims follow [brand authority](docs/brand/README.md); landing contract: [docs/brand/landing-page-copy.md](docs/brand/landing-page-copy.md).
-- **The desktop landing page is the `omnimux.ai` homepage** (2026-10-27). `web/src/features/omnimux-landing/desktop/` is the default `/` route; the character landing moved to `/ai-influencer-studio` and keeps its own copy. `d.omnimux.ai` is retired as a separate surface: it 301-redirects to `omnimux.ai`. The server-side desktop-surface host split exists only for `?surface=desktop` previews.
-- **Open-source wording follows what is actually published.** Gateway source is published under AGPL-3.0 in this repository; the desktop client and product-plugin source are published under AGPL-3.0 in `omnimux-ai/omnimux-client`. A public surface MAY call a component open source only after its source is in a public repository; before that, only "will be open-sourced under AGPL-3.0". MUST NOT describe the hosted service (channel credentials, pricing ledger, operations, user data) as open source, and MUST keep the new-api / QuantumNous attribution. Wording detail: [brand authority](docs/brand/README.md).
-- Pay-per-generation credits with volume top-up discounts are the active billing model (optional subscriptions remain in code, disabled in production per `fork: plans-disabled`). MUST NOT claim fake testimonials, undetectable AI, or guaranteed virality; only verified shipped capabilities may be described as available.
-- **Landing copy is narrative, not proof of shipped capability.** The homepage describes the desktop workflow (discover → break down → create → publish → review). Before adding or extending a capability claim, never treat existing page copy or static demo data as evidence — check the surface that would actually implement it.
-- **A capability has two possible homes, and checking one is not checking.** OmniMux is a gateway plus a desktop client; the desktop client's features live in plugins, not in the Go tree.
-  - Gateway/API behaviour: `router/` + `controller/` + `service/`.
-  - Desktop-client behaviour: the shipped plugin list in `omnimux-ai/omnimux-client` (`app/dsh-plugin-desktop/preset/skeleton/package.json`, `dsh.profile.bundles`), then the plugin source under `plugins/plugins/<name>/`. A plugin that is present but absent from that bundle list ships only as a transitive dependency of one that is listed — check `dependencies` before calling it shipped.
-  - Searching only the Go tree and concluding "not implemented" is the mistake that already shipped once (2026-10-27): the product library, publishing hub and workflow canvas were reported missing while all three are real (`omnimux-publish` and `omnimux-workflow` are listed bundles; `omnimux-products` arrives through `omnimux-assets`).
-- Known gaps as of 2026-10-27, verified against both homes: publishing to Douyin / Xiaohongshu / WeChat Channels / Kuaishou / Bilibili, a trend feed, and cover generation have NO implementation. `service/social` supports TikTok official direct (off by default, `SELF_ONLY` privacy) plus a proxy for overseas platforms.
+- OmniMux = **"Your Content Commerce Team" (属于你的内容电商团队)** — AI content-commerce system & desktop Agent workbench. Positioning, homepage vs `/ai-influencer-studio`, active pay-per-generation credits (`fork: plans-disabled`), and shipped/unshipped capability lists follow [brand authority](docs/brand/README.md) and [landing-page-copy.md](docs/brand/landing-page-copy.md).
+- **Open-source & truthfulness bounds:** Only components whose source is published in `omnimux-ai/omnimux-gateway` or `omnimux-ai/omnimux-client` (AGPL-3.0) may be called open source (hosted service is not; keep `new-api`/`QuantumNous` attribution). MUST NOT claim fake testimonials, undetectable AI, or guaranteed virality.
+- **Verify shipped capabilities across both homes:** Landing copy and static demos are not proof. Check gateway (`router/` + `controller/` + `service/`) AND desktop client (`omnimux-ai/omnimux-client` `dsh.profile.bundles` + transitive `dependencies` + `plugins/plugins/<name>/`); detail in [已交付与未交付](docs/brand/README.md#已交付与未交付).
 
 ### Docs sync (fork)
 
@@ -283,16 +271,11 @@ Protected prefixes (truth: [scripts/ops/core-change-paths.txt](scripts/ops/core-
 
 ### Wait and resume (fork)
 
-- Read live state first. If PR checks or the merge already settled, act on that result now; do not start a waiter for a finished condition.
-- Any CI, merge-queue, or PR-merge wait longer than about 15 seconds MUST run as exactly one bounded background job. Never poll with a foreground `sleep` loop, `gh pr checks`, or repeated `gh pr view` calls.
-  - For PR readiness, run `node scripts/ops/pr-wait.mjs --pr <n> --until checks --required --head <reviewed-full-sha> --json` as a background job. For a merge receipt, use `--until merged --head <reviewed-full-sha>`. Keep the job id and resume on its result. One waiter per PR and head. If the revision changes, review the new diff before starting a waiter for that revision.
-  - If the harness has no background-job facility, use its native scheduling tool. If neither exists, report the wait as blocked; do not burn foreground turns.
-- While waiting, continue other authorized work. If nothing else is authorized, end the turn and resume on the completion notification.
-- The waiter reports PR check results or a merge receipt. With merge authorization, use the configured merge queue and verify its checks against the queue candidate. After merge, read back `state=MERGED`, `mergedAt` and `mergeCommit`; verify applicable acceptance before cleanup.
+- Read live state first; any CI / merge-queue / PR-merge wait > ~15s MUST use one bounded background job (`node scripts/ops/pr-wait.mjs ...`), never foreground polling. Full lifecycle, merge-queue verification, and cleanup rules: [等待与恢复](.agents/rules/development-workflow.md#等待与恢复).
 
 ### Commands / Verify
 
-Run the **narrowest rung covering what you touched**; CI owns the exhaustive matrix. Report only commands run.
+Run the **narrowest rung covering what you touched**. Report only commands run.
 
 | Touched | Run |
 | --- | --- |
@@ -305,10 +288,12 @@ Run the **narrowest rung covering what you touched**; CI owns the exhaustive mat
 | `cli/` code | `cd cli && bun test` |
 | Docs / Agent instructions only | Diff, links, command/schema consistency; no product build |
 
-**Small-change fast lane:** non-behavioral changes run only their narrowest rung. Pure display copy/style in `web/` means no data, logic, API, schema, or shared-component change; run `cd web && bun run typecheck && bun run lint` plus directly affected test files, and skip `bun run build:check`, the full frontend suite, and `make test` locally. Docs/config-only changes run only the directly affected script test or diff/link/command consistency checks. Any shared-component, data-flow, API, schema, or backend change falls back to the full row. Reuse evidence that is still valid for the same revision; do not rerun already-green checks just to commit or push — CI owns the exhaustive matrix.
+**Small-change fast lane:** non-behavioral changes run only their narrowest rung. Pure display copy/style in `web/` means no data, logic, API, schema, or shared-component change; run `cd web && bun run typecheck && bun run lint` plus directly affected test files, and skip `bun run build:check`, the full frontend suite, and `make test` locally. Docs/config-only changes run only the directly affected script test or diff/link/command consistency checks. Any shared-component, data-flow, API, schema, or backend change falls back to the full row. The fast lane NEVER bypasses `core-change-gate` (`web/src/features/auth/`, `web/src/features/wallet/`) or the frontend HTML demo approval gate. Reuse evidence that is still valid for the same revision; do not rerun already-green checks just to commit or push.
+
+**Actual CI scope ([.github/workflows/ci.yml](.github/workflows/ci.yml)):** CI runs `core-change-gate`, `cli-installer-parity`, `supplier-name-gate`, `model-contract-gate`, `backend` (Go vet/build/`make test` + `backfill`/`pr-wait`/`required-pr-checks` script tests), `frontend-static` (`typecheck`, `i18n:check`, desktop landing/tool tests), and sharded `frontend-tests` (aggregated by `frontend`). CI does **NOT** run MySQL/PostgreSQL containers, `web/` lint or production build, `cli/` tests, `guard-*.test.mjs`, OWASP security audits, or production smoke tests — keep running the local rung above for those surfaces, and for DB schema/query/migration changes without local MySQL/PostgreSQL verification, report the missing DB engines explicitly in PR `未验证项` rather than treating SQLite/CI green as three-database proof.
 
 ### Editing these instructions
 
 - Always-on entry; `CLAUDE.md` imports it when present — edit here.
 - Hard gates (public boundary, core-change, billing MUST list, protected identity, positioning, OWASP, upstream generic rules) MUST NOT be slimmed away. Relocate surrounding detail; leave a one-line link.
-- One obligation, one home. The upstream sections above are inherited verbatim and updated via `fork-sync`; fork-only content lives only in this section.
+- One obligation, one home. The upstream sections above are synced verbatim via `fork-sync`, subject to the three narrow exceptions declared at the top of this Fork section; fork-only content lives only in this section.

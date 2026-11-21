@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # worktree.sh — worktree lifecycle for the OmniMux fork contract.
 #
-# Implements root AGENTS.md "Hard bounds (fork & git)" (contract detail:
-# docs/ops/worktree-zh.md):
+# Implements root AGENTS.md "Hard bounds (git)" (AGENTS.md#hard-bounds-git):
 #   primary checkout on main stays clean; product work lives in
 #   <repo>/.worktrees/<task> on feat/<task>, based on latest origin/main;
 #   after merge or abandon the worktree MUST be removed; MUST NOT place
@@ -390,7 +389,7 @@ clean_one() {
 
 usage() {
   cat <<'EOF'
-worktree.sh — worktree lifecycle for the OmniMux fork contract (AGENTS.md "Hard bounds (fork & git)").
+worktree.sh — worktree lifecycle for the OmniMux fork contract (AGENTS.md "Hard bounds (git)").
 
 Usage:
   worktree.sh new <task> [base]           create .worktrees/<task> on feat/<task>
@@ -404,7 +403,7 @@ Usage:
   worktree.sh clean                       sweep: remove worktrees + feat branches merged into origin/main
   worktree.sh help
 
-Contract detail: docs/ops/worktree-zh.md
+Contract detail: AGENTS.md#hard-bounds-git
 EOF
 }
 
