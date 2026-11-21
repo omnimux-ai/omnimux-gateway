@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "098ba590b4bb6f32",
+  "version": "fe2de6155a91302e",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -6944,13 +6944,14 @@
     "muse-image": {
       "model_id": "muse-image",
       "schemaVersion": "2.0",
-      "contractVersion": "afba2016ce7608bc",
+      "contractVersion": "b20197a892915a81",
       "execution_status": "live",
       "family": "image",
       "status": "partial",
       "basis": "line_restricted",
       "operation_ids": [
-        "text_to_image"
+        "text_to_image",
+        "image_to_image"
       ],
       "operations": [
         {
@@ -7035,16 +7036,128 @@
           "output": {
             "type": "image"
           }
+        },
+        {
+          "id": "image_to_image",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "reference_image",
+              "type": "image",
+              "role": "reference",
+              "required": false,
+              "min": 0,
+              "max": 10,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+                "image/heic",
+                "image/heif",
+                "image/avif"
+              ],
+              "maxSizeMb": 40
+            }
+          ],
+          "parameters": [
+            {
+              "name": "seed",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647,
+              "step": 1,
+              "default": 0,
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "平台既有参数表；上游未公布取值范围"
+              }
+            },
+            {
+              "name": "n",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4,
+              "default": 1,
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "本服务 muse2api 的 ImageGenerationRequest 限制 n 为 1–4"
+              }
+            },
+            {
+              "name": "quality",
+              "type": "enum",
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "default": "medium",
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "前端既有参数表；上游未公布枚举"
+              }
+            },
+            {
+              "name": "background",
+              "type": "enum",
+              "enum": [
+                "opaque",
+                "transparent"
+              ],
+              "default": "opaque",
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "前端既有参数表；上游未公布枚举"
+              }
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "auto",
+                "1:1",
+                "16:9",
+                "9:16",
+                "4:3",
+                "3:4"
+              ],
+              "default": "1:1",
+              "limitSource": {
+                "kind": "policy_conservative",
+                "note": "本服务以 size 字段接收画幅比例；上游未公布完整枚举，采用前端既有画幅集合"
+              }
+            }
+          ],
+          "output": {
+            "type": "image"
+          }
         }
       ],
       "unknowns": [
         "prompt_max_chars",
-        "reference_images",
-        "reference_images.max",
-        "reference_images.max_bytes_each",
         "output_sizes",
         "output_formats"
       ],
+      "reference_images": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "image/heic",
+          "image/heif",
+          "image/avif"
+        ],
+        "max_bytes_each": 41943040
+      },
       "billing": {
         "unit": "per_image",
         "unit_label": {

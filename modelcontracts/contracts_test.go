@@ -672,6 +672,37 @@ func TestOpenAIVideoProfileExpandsExecutableOperations(t *testing.T) {
 	}
 }
 
+func TestMuseImagePublishesReferenceEditing(t *testing.T) {
+	shipped := All()
+	contract, ok := shipped.Models["muse-image"]
+	require.True(t, ok, "muse-image has no shipped contract")
+	assert.Equal(t, []string{"text_to_image", "image_to_image"}, contract.OperationIDs)
+	assert.Equal(t, ExecutionStatusLive, contract.ExecutionStatus)
+
+	require.NotNil(t, contract.ReferenceImages)
+	require.NotNil(t, contract.ReferenceImages.Min)
+	require.NotNil(t, contract.ReferenceImages.Max)
+	assert.Equal(t, 0, *contract.ReferenceImages.Min)
+	assert.Equal(t, 10, *contract.ReferenceImages.Max)
+
+	generation := operationByID(t, contract, "text_to_image")
+	require.Len(t, generation.Inputs, 1)
+	assert.Equal(t, "prompt", generation.Inputs[0].Slot)
+
+	editing := operationByID(t, contract, "image_to_image")
+	require.Len(t, editing.Inputs, 2)
+	reference := editing.Inputs[1]
+	assert.Equal(t, "reference_image", reference.Slot)
+	assert.Equal(t, "image", reference.Type)
+	assert.Equal(t, "reference", reference.Role)
+	require.NotNil(t, reference.Min)
+	require.NotNil(t, reference.Max)
+	require.NotNil(t, reference.MaxSizeMb)
+	assert.Equal(t, 0, *reference.Min)
+	assert.Equal(t, 10, *reference.Max)
+	assert.Equal(t, float64(40), *reference.MaxSizeMb)
+}
+
 func TestAutoDLH3VideoProfileExpandsItsOwnWorkflows(t *testing.T) {
 	doc := buildSpecDir(t, map[string]string{
 		"minimax-h3-video.json": `{
