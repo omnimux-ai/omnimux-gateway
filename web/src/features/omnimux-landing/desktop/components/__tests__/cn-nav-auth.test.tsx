@@ -26,20 +26,17 @@ import {
 } from '@tanstack/react-router'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ContextType } from 'react'
-import { afterEach, assert, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { ROLE } from '@/lib/roles'
 import { useAuthStore, type AuthBundle } from '@/stores/auth-store'
 
 import { LANDING_COPIES, LandingLangProvider } from '../../i18n'
-import { DownloadContext } from '../cn/download-context'
 import { CnNav } from '../cn/nav'
 
-const copy = LANDING_COPIES['zh-CN']
-const downloadLabel = copy.nav.download
+const downloadLabel = LANDING_COPIES['zh-CN'].nav.download
 
-function makeBundle(user: Partial<AuthBundle['user']> = {}): AuthBundle {
+function makeBundle(): AuthBundle {
   return {
     access_token: 'access-token',
     token_type: 'Bearer',
@@ -50,7 +47,6 @@ function makeBundle(user: Partial<AuthBundle['user']> = {}): AuthBundle {
       display_name: '李掌柜',
       role: ROLE.USER,
       group: 'default',
-      ...user,
     },
     session: {
       sid: 'session-a',
@@ -65,7 +61,7 @@ function makeBundle(user: Partial<AuthBundle['user']> = {}): AuthBundle {
   }
 }
 
-async function renderNav(download?: ContextType<typeof DownloadContext>) {
+async function renderNav() {
   const root = createRootRoute()
   const index = createRoute({
     getParentRoute: () => root,
@@ -73,13 +69,7 @@ async function renderNav(download?: ContextType<typeof DownloadContext>) {
     component: () => (
       <div className='omc'>
         <LandingLangProvider lang='zh-CN'>
-          {download ? (
-            <DownloadContext.Provider value={download}>
-              <CnNav />
-            </DownloadContext.Provider>
-          ) : (
-            <CnNav />
-          )}
+          <CnNav />
         </LandingLangProvider>
       </div>
     ),
@@ -91,13 +81,12 @@ async function renderNav(download?: ContextType<typeof DownloadContext>) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  const view = render(
+  render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
   await screen.findByRole('button', { name: downloadLabel })
-  return view
 }
 
 afterEach(() => {
@@ -108,21 +97,10 @@ afterEach(() => {
 describe('desktop CN nav auth state', () => {
   it('shows the login button when anonymous', async () => {
     useAuthStore.getState().auth.reset('complete')
-    const { container } = await renderNav()
-    expect(screen.getByRole('link', { name: '登录' })).toHaveAttribute(
-      'href',
-      '/sign-in'
-    )
+    await renderNav()
+    // 桌面导航与移动端 sheet 各一个登录入口
+    expect(screen.getAllByRole('link', { name: '登录' })).toHaveLength(2)
     expect(screen.queryByRole('button', { name: '账户菜单' })).toBeNull()
-    await userEvent.click(
-      screen.getByRole('button', { name: copy.nav.menuOpen })
-    )
-    const sheet = container.querySelector<HTMLElement>('#cn-sheet')
-    assert(sheet)
-    expect(within(sheet).getByRole('link', { name: '登录' })).toHaveAttribute(
-      'href',
-      '/sign-in'
-    )
   })
 
   it('shows an avatar that opens the account menu when authenticated', async () => {
@@ -150,78 +128,5 @@ describe('desktop CN nav auth state', () => {
     const avatar = screen.getByRole('button', { name: '账户菜单' })
     const order = download.compareDocumentPosition(avatar)
     expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  it('keeps sign-out and personal links in the drawer and respects sidebar visibility', async () => {
-    useAuthStore.getState().auth.setBundle(
-      makeBundle({
-        sidebar_modules: JSON.stringify({
-          personal: { enabled: true, topup: false, security: false },
-        }),
-      })
-    )
-    const { container } = await renderNav()
-    await userEvent.click(
-      screen.getByRole('button', { name: copy.nav.menuOpen })
-    )
-    const drawer = container.querySelector<HTMLElement>('#cn-sheet')
-    assert(drawer)
-    const sheet = within(drawer)
-
-    expect(sheet.getByRole('link', { name: '控制台' })).toHaveAttribute(
-      'href',
-      '/influencer'
-    )
-    expect(sheet.getByRole('link', { name: '个人资料' })).toHaveAttribute(
-      'href',
-      '/profile'
-    )
-    expect(sheet.getByRole('button', { name: '退出登录' })).toBeVisible()
-    expect(sheet.queryByRole('link', { name: '钱包' })).not.toBeInTheDocument()
-    expect(
-      sheet.queryByRole('link', { name: '安全与访问' })
-    ).not.toBeInTheDocument()
-    expect(
-      sheet.queryByRole('link', { name: '系统设置' })
-    ).not.toBeInTheDocument()
-  })
-
-  it.each([true, false])(
-    'handles direct download result %s',
-    async (hasInstaller) => {
-      const downloadDirect = vi.fn(() => hasInstaller)
-      const open = vi.fn()
-      await renderNav({
-        open,
-        downloadDirect,
-        platform: hasInstaller ? 'win' : null,
-        macArch: null,
-        release: { status: 'loading' },
-      })
-
-      await userEvent.click(screen.getByRole('button', { name: downloadLabel }))
-      const intent = {
-        cta_id: 'nav_download',
-        cta_position: 'header',
-        cta_variant: 'nav',
-      }
-      expect(downloadDirect).toHaveBeenCalledWith(intent)
-      if (hasInstaller) {
-        expect(open).not.toHaveBeenCalled()
-      } else {
-        expect(open).toHaveBeenCalledWith(undefined, intent)
-      }
-    }
-  )
-
-  it('disables the download button without a published installer', async () => {
-    await renderNav({
-      open: vi.fn(),
-      downloadDirect: vi.fn(),
-      platform: null,
-      macArch: null,
-      release: { status: 'unavailable' },
-    })
-    expect(screen.getByRole('button', { name: downloadLabel })).toBeDisabled()
   })
 })

@@ -24,7 +24,6 @@ export function CnProof() {
   return (
     <section className='sec proof' id='proof'>
       <div className='wrap'>
-        <p className='home-section-label'>{copy.kicker}</p>
         <h2 className='h2'>{copy.h2}</h2>
         <p className='lead' style={{ marginTop: 14 }}>
           {copy.lead}
@@ -52,7 +51,6 @@ export function CnProof() {
             {copy.badges[1]}
           </span>
         </div>
-        <p className='home-proof-source'>{copy.source}</p>
       </div>
     </section>
   )

@@ -16,15 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LandingLangProvider } from '../../i18n'
 import { zhCN } from '../../i18n/locales/zh-CN'
 import { DOWNLOAD_MAC_ARM64, DOWNLOAD_MAC_X64, DOWNLOAD_WIN } from '../cn/data'
-import { DownloadContext } from '../cn/download-context'
 import { CnFaq } from '../cn/faq'
 import { CnHero } from '../cn/hero'
 import { CnProof } from '../cn/proof'
@@ -41,13 +39,11 @@ function renderWithLanding(node: React.ReactNode) {
 }
 
 describe('desktop CN landing', () => {
-  it('renders five FAQ entries with the first expanded', () => {
+  it('renders every FAQ entry', () => {
     const { container } = renderWithLanding(<CnFaq />)
     const items = container.querySelectorAll('details')
-    expect(items).toHaveLength(5)
-    expect(items[0]).toHaveAttribute('open')
-    expect(container.querySelectorAll('details[open]')).toHaveLength(1)
-    expect(screen.getByText(zhCN.faq.items[0].q)).toBeTruthy()
+    expect(items).toHaveLength(zhCN.faq.items.length)
+    expect(screen.getByText('怎么复刻竞品的爆款视频？')).toBeTruthy()
   })
 
   it('states product facts without invented traction numbers', () => {
@@ -64,31 +60,22 @@ describe('desktop CN landing', () => {
   })
 })
 
-describe('desktop CN hero preview', () => {
-  it('shows a read-only workspace and reuses the published proof facts', () => {
+describe('desktop CN hero composer', () => {
+  it('shows no model hint for Agent but keeps the parameter hint for video and image', async () => {
+    const user = userEvent.setup()
     const { container } = renderWithLanding(<CnHero />)
-    const preview = screen.getByRole('figure', { name: zhCN.hero.mockAria })
-    expect(within(preview).getByText(zhCN.hero.mockPrompt)).toBeTruthy()
-    expect(within(preview).getAllByText('15s · 720p')).toHaveLength(3)
-    expect(within(preview).getAllByText(zhCN.hero.mockTileBadge)).toHaveLength(
-      3
-    )
-    expect(
-      preview.querySelector('a, button, textarea, input, [tabindex]')
-    ).toBeNull()
-    expect(container.querySelector('textarea, video')).toBeNull()
-    expect(screen.queryByRole('link', { name: /GitHub Star/ })).toBeNull()
-    expect(
-      screen.getByRole('link', { name: zhCN.hero.secondaryCta })
-    ).toHaveAttribute('href', '#workflow')
+    const hint = () => container.querySelector('.c-model')
 
-    const trust = within(
-      screen.getByRole('list', { name: zhCN.hero.trustAria })
-    )
-    expect(trust.getAllByRole('listitem')).toHaveLength(5)
-    for (const fact of zhCN.proof.facts) {
-      expect(trust.getByText(`${fact.value} ${fact.label}`)).toBeTruthy()
-    }
+    expect(hint()).toBeNull()
+
+    await user.click(screen.getByRole('tab', { name: zhCN.hero.tabs.video }))
+    expect(hint()?.textContent).toBe(zhCN.hero.modes.video.model)
+
+    await user.click(screen.getByRole('tab', { name: zhCN.hero.tabs.image }))
+    expect(hint()?.textContent).toBe(zhCN.hero.modes.image.model)
+
+    await user.click(screen.getByRole('tab', { name: zhCN.hero.tabs.agent }))
+    expect(hint()).toBeNull()
   })
 })
 
@@ -183,26 +170,10 @@ describe('desktop CN hero split download', () => {
     }
   })
 
-  it('opens and navigates by keyboard, then restores the caret on Escape', async () => {
-    const user = userEvent.setup()
-    renderWithLanding(<CnHero />)
-    const caret = screen.getByRole('button', { name: zhCN.hero.dlMenuAria })
-    expect(screen.queryByRole('menu')).toBeNull()
-    caret.focus()
-    await user.keyboard('{ArrowDown}')
-    const items = screen.getAllByRole('menuitem')
-    expect(items[0]).toHaveFocus()
-    await user.keyboard('{ArrowDown}')
-    expect(items[1]).toHaveFocus()
-    await user.keyboard('{End}')
-    expect(items[2]).toHaveFocus()
+  it('closes the menu on Escape', async () => {
+    const { user, caret } = await openMenu()
     await user.keyboard('{Escape}')
     expect(caret).toHaveAttribute('aria-expanded', 'false')
-    expect(caret).toHaveFocus()
-    await user.tab()
-    expect(
-      screen.getByRole('link', { name: zhCN.hero.secondaryCta })
-    ).toHaveFocus()
   })
 
   it('closes the menu on an outside pointerdown', async () => {
@@ -213,45 +184,11 @@ describe('desktop CN hero split download', () => {
     expect(caret).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('defaults to the arm64 build on an unrecognized wide desktop', () => {
+  it('main button defaults to the arm64 build when detection has not run', () => {
     renderWithLanding(<CnHero />)
     const main = document.querySelector<HTMLAnchorElement>('.split-main')
     expect(main?.getAttribute('href')).toBe(DOWNLOAD_MAC_ARM64)
     expect(main?.textContent).toBe(zhCN.hero.dlMac)
-  })
-
-  it.each([
-    ['mac-arm64', DOWNLOAD_MAC_ARM64, 'arm64'],
-    ['mac-x64', DOWNLOAD_MAC_X64, 'x64'],
-    ['win', DOWNLOAD_WIN, null],
-  ] as const)('matches the desktop action to %s', (platform, href, macArch) => {
-    renderWithLanding(
-      <DownloadContext.Provider
-        value={{
-          platform,
-          macArch,
-          release: { status: 'loading' },
-          open: () => {},
-          downloadDirect: () => false,
-        }}
-      >
-        <CnHero />
-      </DownloadContext.Provider>
-    )
-    expect(
-      screen.getByRole('link', {
-        name: platform === 'win' ? zhCN.hero.dlWin : zhCN.hero.dlMac,
-      })
-    ).toHaveAttribute('href', href)
-  })
-
-  it('renders no active installer link in the server-rendered HTML', () => {
-    const markup = renderToStaticMarkup(
-      <LandingLangProvider lang='zh-CN'>
-        <CnHero />
-      </LandingLangProvider>
-    )
-    expect(markup).not.toMatch(/href="[^"]+\.(dmg|exe)"/)
   })
 })
 

@@ -140,7 +140,7 @@ function ToolPageView(props: TikTokToolPageProps) {
         <a className='skip' href='#cn-main'>
           {copy.skip}
         </a>
-        <CnNav anchorBase='/' />
+        <CnNav anchorBase='/' current='tools' />
         <main id='cn-main'>
           <section className='tool'>
             <div className='hero-glow' aria-hidden='true' />
@@ -148,7 +148,7 @@ function ToolPageView(props: TikTokToolPageProps) {
               <nav className='tool-crumb' aria-label={tool.crumbAria}>
                 <Link to='/'>OmniMux</Link>
                 <span aria-hidden='true'>/</span>
-                <a href='/#capabilities'>{tool.crumbTools}</a>
+                <a href='/#tools'>{tool.crumbTools}</a>
                 <span aria-hidden='true'>/</span>
                 <span aria-current='page'>{page.h1}</span>
               </nav>
