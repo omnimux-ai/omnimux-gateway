@@ -22,6 +22,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createInstance } from 'i18next'
@@ -122,36 +123,27 @@ async function renderPaywall(overrides: Record<string, unknown> = {}) {
   return props
 }
 
-function setQuota(quota: number) {
-  useAuthStore.setState({
-    auth: {
-      ...useAuthStore.getState().auth,
-      user: { id: 1, quota } as AuthUser,
-    },
+const account: AuthUser = { id: 1, username: 'tester', role: 1, quota: 0 }
+
+function refreshWithQuota(quota: number) {
+  vi.mocked(getSelf).mockResolvedValue({
+    success: true,
+    data: { ...account, quota },
   })
 }
 
-/** Push a new quota through the mocked getSelf refresh path. */
-function refreshWithQuota(quota: number) {
-  setQuota(quota)
-  vi.mocked(getSelf).mockResolvedValue({ id: 1, quota })
-}
-
 beforeEach(() => {
-  setQuota(0)
+  useAuthStore.getState().auth.setUser(account)
   mockTopupInfo()
-  vi.mocked(getSelf).mockImplementation(async () => ({
-    id: 1,
-    quota: useAuthStore.getState().auth.user?.quota ?? 0,
-  }))
+  refreshWithQuota(0)
   vi.spyOn(window, 'open').mockReturnValue(null)
 })
 
 afterEach(() => {
   cleanup()
-  useAuthStore.setState({
-    auth: { ...useAuthStore.getState().auth, user: null },
-  })
+  vi.useRealTimers()
+  useAuthStore.getState().auth.reset()
+  vi.clearAllMocks()
   vi.restoreAllMocks()
 })
 
@@ -171,11 +163,12 @@ describe('top-up paywall', () => {
   })
 
   it('shows the current balance and the credits still needed', async () => {
-    setQuota(500_000) // $1.00 = 10 credits
+    refreshWithQuota(500_000)
     await renderPaywall({ requiredCredits: 42 })
-    expect(await screen.findByText('Balance')).toBeVisible()
-    expect(screen.getByText('Credits needed')).toBeVisible()
-    expect(screen.getByText('42')).toBeVisible()
+    expect(await screen.findByText('Balance')).toHaveTextContent('Balance10')
+    expect(screen.getByText('Credits needed')).toHaveTextContent(
+      'Credits needed42'
+    )
   })
 
   it('default-selects the smallest rung covering the required credits', async () => {
@@ -211,18 +204,21 @@ describe('top-up paywall', () => {
     ).toBeVisible()
   })
 
-  it('pays through Stripe, opens the checkout, then resumes once the balance grows', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    try {
+  it.each(['poll', 'manual'])(
+    'confirms an increased balance from getSelf via %s and resumes only once',
+    async (check) => {
       vi.mocked(requestStripePayment).mockResolvedValue({
         success: true,
         message: 'success',
         data: { pay_link: 'https://checkout.stripe.test/session' },
       })
       const props = await renderPaywall()
-      await userEvent.click(
-        await screen.findByRole('button', { name: 'Pay $10 with Stripe' })
-      )
+      const checkout = await screen.findByRole('button', {
+        name: 'Pay $10 with Stripe',
+      })
+      await waitFor(() => expect(checkout).toBeEnabled())
+      vi.useFakeTimers()
+      await act(async () => fireEvent.click(checkout))
       expect(requestStripePayment).toHaveBeenCalledWith({
         amount: 10,
         payment_method: 'stripe',
@@ -232,29 +228,33 @@ describe('top-up paywall', () => {
         '_blank',
         'noopener'
       )
-      expect(
-        await screen.findByText(
-          'Complete the payment in the new tab. This page continues automatically.'
-        )
-      ).toBeVisible()
-
-      // Stripe webhook credits the wallet; the next poll detects the growth.
-      refreshWithQuota(10 * 500_000) // +$10 → +100 credits
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(3_000)
+      const confirm = screen.getByRole('button', {
+        name: 'I have completed the payment',
       })
+      expect(useAuthStore.getState().auth.user?.quota).toBe(0)
+      refreshWithQuota(5_000_000)
+      if (check === 'poll') {
+        await act(async () => vi.advanceTimersByTimeAsync(3_000))
+      } else {
+        await act(async () => fireEvent.click(confirm))
+      }
       expect(
-        await screen.findByRole('heading', { name: 'Top up successful' })
+        screen.getByRole('heading', { name: 'Top up successful' })
       ).toBeVisible()
+      expect(useAuthStore.getState().auth.user).toEqual({
+        ...account,
+        quota: 5_000_000,
+      })
+      expect(props.onSubscribed).not.toHaveBeenCalled()
 
-      await userEvent.click(
-        screen.getByRole('button', { name: 'Continue generating' })
-      )
+      const resume = screen.getByRole('button', { name: 'Continue generating' })
+      if (check === 'manual') fireEvent.click(resume)
+      await act(async () => vi.advanceTimersByTimeAsync(1_400))
       expect(props.onSubscribed).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
+      fireEvent.click(resume)
+      expect(props.onSubscribed).toHaveBeenCalledTimes(1)
     }
-  })
+  )
 
   it('does not show success when the manual check finds no balance growth', async () => {
     vi.mocked(requestStripePayment).mockResolvedValue({
@@ -315,12 +315,11 @@ describe('top-up paywall', () => {
 
   it('closes on Escape and on the back button', async () => {
     const props = await renderPaywall()
-    await screen.findByRole('dialog')
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const back = await screen.findByRole('button', { name: 'Back to editor' })
+    back.focus()
+    await userEvent.keyboard('{Escape}')
     expect(props.onClose).toHaveBeenCalledTimes(1)
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Back to editor' })
-    )
+    await userEvent.click(back)
     expect(props.onClose).toHaveBeenCalledTimes(2)
   })
 })

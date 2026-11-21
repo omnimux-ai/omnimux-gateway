@@ -41,6 +41,7 @@ interface Props {
   regenerating: boolean
   disabledReason?: string
   onRegenerate: () => void
+  onTopUp?: () => void
   onDelete: () => void
 }
 
@@ -50,6 +51,7 @@ export function MultiViewDialog(props: Props) {
   const [imageFailed, setImageFailed] = useState(false)
   const state = multiViewState(props.task)
   const failure = describeFailReason(t, props.task?.fail_reason)
+  const insufficientCredits = state === 'failed' && failure.insufficientCredits
   const active = state !== 'ready' && state !== 'failed' && state !== 'absent'
   let activityLabel = t('Generating…')
   if (state === 'queued') {
@@ -78,6 +80,15 @@ export function MultiViewDialog(props: Props) {
       }
       actions={
         <>
+          {insufficientCredits && props.onTopUp ? (
+            <Button
+              type='button'
+              onClick={props.onTopUp}
+              className='bg-white text-zinc-950 hover:bg-white/90'
+            >
+              {t('Top up')}
+            </Button>
+          ) : null}
           <Button
             type='button'
             variant='outline'
@@ -158,9 +169,15 @@ export function MultiViewDialog(props: Props) {
               role='status'
               className={cn(panelClass, 'flex flex-col items-center gap-2')}
             >
-              <p className='text-xs text-[var(--inf-danger)]'>
+              <span
+                className={
+                  insufficientCredits
+                    ? 'text-sm font-medium text-[var(--inf-txt-2)]'
+                    : 'text-xs text-[var(--inf-danger)]'
+                }
+              >
                 {failure.message}
-              </p>
+              </span>
               <FailReasonDetail view={failure} />
             </div>
           ) : null}

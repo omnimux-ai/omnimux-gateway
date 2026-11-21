@@ -304,14 +304,9 @@ export async function submitMotion(body: MotionSubmitBody): Promise<string> {
     res = await api.post(MOTION_PATH, body, {
       skipErrorHandler: true,
     } as Record<string, unknown>)
-  } catch (e) {
-    // A rejected form answers 400 with its reason in the body; surface that
-    // reason instead of the transport's generic status text.
-    const data = (e as { response?: { data?: Record<string, unknown> } })
-      ?.response?.data
-    const err = data?.error as { message?: string } | undefined
-    const message = err?.message ?? (data?.message as string | undefined)
-    throw message ? new Error(message) : e
+  } catch (error) {
+    // Keep the gateway reason and its stable code for the workbench.
+    throw createServerError(error)
   }
   const data = res.data as {
     task_id?: string

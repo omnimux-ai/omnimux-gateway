@@ -41,6 +41,7 @@ interface Props {
   loadMoreFailed: boolean
   onLoadMore: () => void
   onView: (t: TaskRecord) => void
+  onTopUp?: (task: TaskRecord) => void
   onReloadPreview?: () => void
   onTurnToMotion?: (task: TaskRecord) => void
   turnToMotionDisabledReason?: (task: TaskRecord) => string | undefined
@@ -164,6 +165,7 @@ export function FeedGrid(props: Props) {
             props.childByParent?.get(String(task.task_id || task.id)) ?? null
           }
           onView={props.onView}
+          onTopUp={props.onTopUp}
           onReloadPreview={props.onReloadPreview}
           onTurnToMotion={props.onTurnToMotion}
           turnToMotionDisabledReason={props.turnToMotionDisabledReason}

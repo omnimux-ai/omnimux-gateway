@@ -4171,6 +4171,7 @@
     "Instances": "实例",
     "Insufficient balance": "余额不足",
     "Insufficient permission to adjust this user": "无权调整该用户的额度",
+    "Insufficient user quota": "积分余额不足",
     "Integrations": "集成",
     "Integrity check failed": "完整性校验失败",
     "Integrity hash": "完整性哈希",

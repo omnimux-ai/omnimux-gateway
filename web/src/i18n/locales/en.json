@@ -4171,6 +4171,7 @@
     "Instances": "Instances",
     "Insufficient balance": "Insufficient balance",
     "Insufficient permission to adjust this user": "Insufficient permission to adjust this user",
+    "Insufficient user quota": "Insufficient user quota",
     "Integrations": "Integrations",
     "Integrity check failed": "Integrity check failed",
     "Integrity hash": "Integrity hash",

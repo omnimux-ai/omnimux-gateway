@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import {
   formatCredits,
@@ -56,6 +57,8 @@ import type { PaywallOrigin } from '../lib/insufficient-credits'
 const POLL_MS = 3000
 const POLL_LIMIT_MS = 10 * 60 * 1000
 const RESUME_DELAY_MS = 1400
+const PAYWALL_ACTION_CLASS =
+  'w-full rounded-full bg-foreground text-background hover:bg-foreground/90'
 
 type Phase = 'choose' | 'awaiting' | 'success'
 
@@ -65,8 +68,9 @@ interface Props {
   requiredCredits: number | null
   origin: PaywallOrigin
   modelName?: string | null
+  resumeGeneration?: boolean
   onClose: () => void
-  /** Payment is confirmed: the caller refreshes the wallet and resumes. */
+  /** Payment is confirmed and the refreshed wallet is in the store. */
   onSubscribed: () => void | Promise<void>
 }
 
@@ -102,18 +106,23 @@ export function SubscribePaywall(props: Props) {
 function PaywallDialog(props: Props) {
   const { t } = useTranslation()
   const quota = useAuthStore((s) => s.auth.user?.quota ?? 0)
+  const accountId = useAuthStore((s) => s.auth.user?.id)
   const setAuthUser = useAuthStore((s) => s.auth.setUser)
   const { status } = useStatus()
   const { currency } = useSystemConfig()
   const { topupInfo, presetAmounts, loading } = useTopupInfo()
 
   const quotaRef = useRef(quota)
-  const panelRef = useRef<HTMLDivElement | null>(null)
   const baselineRef = useRef(quota)
-  const settledRef = useRef(false)
+  const checkingRef = useRef<Promise<boolean> | null>(null)
+  const stripePurchase = useRef<Rung | null>(null)
+  const confirmedRef = useRef(false)
+  const resumedRef = useRef(false)
+  const mountedRef = useRef(false)
   const subscribedRef = useRef(props.onSubscribed)
 
   const [phase, setPhase] = useState<Phase>('choose')
+  const [checkingBalance, setCheckingBalance] = useState(true)
   const [paying, setPaying] = useState(false)
   const [addedCredits, setAddedCredits] = useState<number | null>(null)
   const [selectedUsd, setSelectedUsd] = useState<number | null>(null)
@@ -187,58 +196,69 @@ function PaywallDialog(props: Props) {
 
   const refreshQuota = useCallback(async () => {
     try {
-      const res = await getSelf()
-      if (res && typeof res === 'object' && 'quota' in res) {
-        const next = Number((res as AuthUser).quota)
-        setAuthUser(res as AuthUser)
-        quotaRef.current = next
-        return next
+      const response: { success?: boolean; data?: AuthUser } = await getSelf()
+      const user = response?.data
+      if (
+        mountedRef.current &&
+        response?.success === true &&
+        typeof accountId === 'number' &&
+        user?.id === accountId &&
+        useAuthStore.getState().auth.user?.id === accountId &&
+        typeof user?.quota === 'number' &&
+        Number.isFinite(user.quota)
+      ) {
+        setAuthUser(user)
+        quotaRef.current = user.quota
+        return user.quota
       }
     } catch {
-      // polling is best-effort
+      // Polling is best-effort.
     }
     return null
-  }, [setAuthUser])
+  }, [accountId, setAuthUser])
 
-  // One-shot open: pin the quota baseline and refresh it.
   useEffect(() => {
-    baselineRef.current = quotaRef.current
+    let active = true
+    mountedRef.current = true
     void refreshQuota().then((next) => {
-      if (next !== null) baselineRef.current = next
+      if (!active) return
+      baselineRef.current = next ?? quotaRef.current
+      setCheckingBalance(false)
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      active = false
+      mountedRef.current = false
+    }
+  }, [refreshQuota])
+
+  const resume = useCallback(() => {
+    if (resumedRef.current) return
+    resumedRef.current = true
+    void subscribedRef.current()
   }, [])
 
-  // Escape / focus management.
-  const onClose = props.onClose
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    panelRef.current?.focus()
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  // After a successful top-up, resume the pending generation once.
-  useEffect(() => {
-    if (phase !== 'success' || settledRef.current) return
-    settledRef.current = true
-    const timer = window.setTimeout(
-      () => subscribedRef.current(),
-      RESUME_DELAY_MS,
-    )
+    if (phase !== 'success') return
+    const timer = window.setTimeout(resume, RESUME_DELAY_MS)
     return () => window.clearTimeout(timer)
-  }, [phase])
+  }, [phase, resume])
 
-  const detectPayment = useCallback(async () => {
-    const next = await refreshQuota()
-    if (next !== null && next > baselineRef.current) {
-      setAddedCredits(usdToCredits(rawQuotaToUsd(next - baselineRef.current)))
-      setPhase('success')
-      return true
-    }
-    return false
+  const detectPayment = useCallback(() => {
+    if (confirmedRef.current) return Promise.resolve(true)
+    if (checkingRef.current) return checkingRef.current
+    const check = refreshQuota()
+      .then((next) => {
+        if (next === null || next <= baselineRef.current) return false
+        confirmedRef.current = true
+        setAddedCredits(usdToCredits(rawQuotaToUsd(next - baselineRef.current)))
+        setPhase('success')
+        return true
+      })
+      .finally(() => {
+        checkingRef.current = null
+      })
+    checkingRef.current = check
+    return check
   }, [refreshQuota])
 
   // Poll balance growth while the Stripe tab is open.
@@ -271,18 +291,27 @@ function PaywallDialog(props: Props) {
     return stop
   }, [phase, detectPayment])
 
+  const selected = rungs.find((r) => r.preset.value === selectedUsd) ?? null
   const startPayment = useCallback(async () => {
-    if (selectedUsd === null || paying) return
+    if (!selected || paying || checkingBalance) return
     setPaying(true)
     try {
       const response = await requestStripePayment({
-        amount: Math.floor(selectedUsd),
+        amount: Math.floor(selected.preset.value),
         payment_method: 'stripe',
       })
       const payLink = isApiSuccess(response)
         ? response.data?.pay_link
         : undefined
+      if (
+        !mountedRef.current ||
+        useAuthStore.getState().auth.user?.id !== accountId
+      ) {
+        return
+      }
       if (payLink) {
+        baselineRef.current = quotaRef.current
+        stripePurchase.current = selected
         window.open(payLink, '_blank', 'noopener')
         setPhase('awaiting')
         toast.success(t('Payment page opened'))
@@ -294,20 +323,22 @@ function PaywallDialog(props: Props) {
     } finally {
       setPaying(false)
     }
-  }, [selectedUsd, paying, t])
+  }, [accountId, checkingBalance, selected, paying, t])
 
   const openWalletTopUp = useCallback(() => {
+    if (checkingBalance) return
+    if (phase === 'choose') baselineRef.current = quotaRef.current
     window.open('/wallet', '_blank', 'noopener')
     setPhase('awaiting')
-  }, [])
+  }, [checkingBalance, phase])
 
   const checkManually = useCallback(async () => {
     const paid = await detectPayment()
-    if (!paid) toast.info(t('Payment not completed yet'))
+    if (!paid && mountedRef.current) toast.info(t('Payment not completed yet'))
   }, [detectPayment, t])
 
   const showFallback = !loading && (!stripeEnabled || rungs.length === 0)
-  const selected = rungs.find((r) => r.preset.value === selectedUsd) ?? null
+  const resumeGeneration = props.resumeGeneration !== false
   const payLabel = selected
     ? t('Pay {{price}} with Stripe', {
         price: formatPayAmount(selected.pricing.actualPrice),
@@ -315,29 +346,37 @@ function PaywallDialog(props: Props) {
     : t('Pay with Stripe')
 
   return (
-    <div
-      className='fixed inset-0 z-[95] flex items-center justify-center bg-foreground/50 p-4 backdrop-blur-[2px] sm:p-6'
-      role='dialog'
-      aria-modal='true'
-      aria-labelledby='subscribe-paywall-title'
+    <Dialog
+      open
+      disablePointerDismissal
+      onOpenChange={(open) => {
+        if (!open) props.onClose()
+      }}
     >
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className='max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-card shadow-2xl outline-none'
+      <DialogContent
+        showCloseButton={false}
+        className='border-border bg-card text-foreground max-h-[92vh] gap-0 rounded-3xl border p-0 shadow-2xl ring-0 sm:max-w-3xl'
       >
-        <Header t={t} phase={phase} onClose={props.onClose} />
+        <Header
+          t={t}
+          phase={phase}
+          resumeGeneration={resumeGeneration}
+          onClose={props.onClose}
+        />
 
         {phase === 'success' ? (
           <SuccessBody
             t={t}
-            selected={selected}
+            selected={stripePurchase.current}
             addedCredits={addedCredits}
-            onDone={() => subscribedRef.current()}
+            resumeGeneration={resumeGeneration}
+            onDone={resume}
           />
         ) : (
           <ChooseBody
             t={t}
+            resumeGeneration={resumeGeneration}
+            checkingBalance={checkingBalance}
             balanceCredits={balanceCredits}
             requiredLabel={requiredLabel}
             modelName={props.modelName ?? null}
@@ -350,7 +389,7 @@ function PaywallDialog(props: Props) {
             paying={paying}
             awaiting={phase === 'awaiting'}
             payLabel={payLabel}
-            canPay={!!selected && !paying}
+            canPay={!!selected && !paying && !checkingBalance}
             onPay={() => void startPayment()}
             onWalletTopUp={openWalletTopUp}
             onCheckManually={() => void checkManually()}
@@ -358,21 +397,25 @@ function PaywallDialog(props: Props) {
           />
         )}
 
-        <div className='border-t border-border px-6 py-3.5 text-center text-[11px] text-muted-foreground'>
-          {t('Payment is processed by Stripe.')}
-        </div>
-      </div>
-    </div>
+        {!loading && !showFallback ? (
+          <div className='border-border text-muted-foreground border-t px-6 py-3.5 text-center text-[11px]'>
+            {t('Payment is processed by Stripe.')}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   )
 }
 
 function Header({
   t,
   phase,
+  resumeGeneration,
   onClose,
 }: {
   t: TFunction
   phase: Phase
+  resumeGeneration: boolean
   onClose: () => void
 }) {
   return (
@@ -389,7 +432,11 @@ function Header({
       <ol className='ml-auto hidden items-center gap-4 sm:flex'>
         <Step index={1} label={t('Choose an amount')} active={phase === 'choose'} />
         <Step index={2} label={t('Payment')} active={phase === 'awaiting'} />
-        <Step index={3} label={t('Continue generating')} active={phase === 'success'} />
+        <Step
+          index={3}
+          label={resumeGeneration ? t('Continue generating') : t('Done')}
+          active={phase === 'success'}
+        />
       </ol>
       <button
         type='button'
@@ -405,6 +452,8 @@ function Header({
 
 type PaywallBodyProps = {
   t: TFunction
+  resumeGeneration: boolean
+  checkingBalance: boolean
   balanceCredits: string
   requiredLabel: string | null
   modelName: string | null
@@ -427,16 +476,17 @@ type PaywallBodyProps = {
 function ChooseBody(props: PaywallBodyProps) {
   const { t } = props
   return (
-    <div className='px-6 pb-6 pt-6 sm:px-8'>
-      <p className='text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground'>
-        {t('Continue generating')}
-      </p>
-      <h2
-        id='subscribe-paywall-title'
-        className='mt-2 text-xl font-semibold leading-snug tracking-tight sm:text-2xl'
-      >
-        {t('Top up to continue this generation')}
-      </h2>
+    <div className='px-6 pt-6 pb-6 sm:px-8'>
+      {props.resumeGeneration ? (
+        <p className='text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase'>
+          {t('Continue generating')}
+        </p>
+      ) : null}
+      <DialogTitle className='mt-2 text-xl leading-snug font-semibold tracking-tight sm:text-2xl'>
+        {props.resumeGeneration
+          ? t('Top up to continue this generation')
+          : t('Top up')}
+      </DialogTitle>
 
       <div className='mt-4 flex flex-wrap items-center gap-2'>
         <span className='inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs'>
@@ -479,6 +529,7 @@ function renderPaywallBody(props: PaywallBodyProps, t: TFunction) {
     return (
       <FallbackBody
         t={t}
+        checkingBalance={props.checkingBalance}
         onWalletTopUp={props.onWalletTopUp}
         onCheckManually={props.onCheckManually}
         onClose={props.onClose}
@@ -504,11 +555,13 @@ function renderPaywallBody(props: PaywallBodyProps, t: TFunction) {
 
 function FallbackBody({
   t,
+  checkingBalance,
   onWalletTopUp,
   onCheckManually,
   onClose,
 }: {
   t: TFunction
+  checkingBalance: boolean
   onWalletTopUp: () => void
   onCheckManually: () => void
   onClose: () => void
@@ -521,13 +574,15 @@ function FallbackBody({
       </p>
       <Button
         type='button'
+        disabled={checkingBalance}
         onClick={onWalletTopUp}
-        className='mt-5 w-full rounded-full'
+        className={cn(PAYWALL_ACTION_CLASS, 'mt-5')}
       >
         {t('Add credits in Wallet')}
       </Button>
       <button
         type='button'
+        disabled={checkingBalance}
         onClick={onCheckManually}
         className='mt-2 w-full rounded-full px-3 py-2 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground'
       >
@@ -652,7 +707,7 @@ function LadderBody({
         disabled={!canPay || awaiting}
         aria-busy={paying}
         onClick={onPay}
-        className='mt-4 w-full rounded-full'
+        className={cn(PAYWALL_ACTION_CLASS, 'mt-4')}
       >
         {paying ? <Spinner className='mr-2 h-4 w-4' /> : null}
         {paying ? t('Opening Stripe…') : payLabel}
@@ -691,11 +746,13 @@ function SuccessBody({
   t,
   selected,
   addedCredits,
+  resumeGeneration,
   onDone,
 }: {
   t: TFunction
   selected: Rung | null
   addedCredits: number | null
+  resumeGeneration: boolean
   onDone: () => void
 }) {
   return (
@@ -703,31 +760,37 @@ function SuccessBody({
       <div className='mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-600 text-white'>
         <Check className='h-6 w-6' />
       </div>
-      <h2 className='mt-5 text-xl font-semibold tracking-tight'>
+      <DialogTitle className='mt-5 text-xl font-semibold tracking-tight'>
         {t('Top up successful')}
-      </h2>
-      <p className='mx-auto mt-2 max-w-md text-sm text-muted-foreground'>
-        {t('Your credits are ready — generation resumes automatically.')}
-      </p>
+      </DialogTitle>
+      {resumeGeneration ? (
+        <p className='text-muted-foreground mx-auto mt-2 max-w-md text-sm'>
+          {t('Your credits are ready — generation resumes automatically.')}
+        </p>
+      ) : null}
       <dl className='mx-auto mt-6 grid max-w-xs gap-2 text-left text-sm'>
-        <ReceiptRow
-          label={t('Top up')}
-          value={selected ? formatPayAmount(selected.pricing.actualPrice) : '—'}
-        />
+        {selected ? (
+          <ReceiptRow
+            label={t('Top up')}
+            value={formatPayAmount(selected.pricing.actualPrice)}
+          />
+        ) : null}
         <ReceiptRow
           label={t('Credits added')}
           value={
             addedCredits !== null ? `+${formatCredits(addedCredits)}` : '—'
           }
         />
-        <ReceiptRow label={t('Payment method')} value='Stripe' />
+        {selected ? (
+          <ReceiptRow label={t('Payment method')} value='Stripe' />
+        ) : null}
       </dl>
       <Button
         type='button'
         onClick={onDone}
-        className='mt-7 w-full max-w-xs rounded-full'
+        className={cn(PAYWALL_ACTION_CLASS, 'mt-7 max-w-xs')}
       >
-        {t('Continue generating')}
+        {resumeGeneration ? t('Continue generating') : t('Done')}
       </Button>
     </div>
   )

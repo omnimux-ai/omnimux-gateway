@@ -4171,6 +4171,7 @@
     "Instances": "Экземпляры",
     "Insufficient balance": "Недостаточно средств",
     "Insufficient permission to adjust this user": "Недостаточно прав для изменения квоты этого пользователя",
+    "Insufficient user quota": "Недостаточно кредитов",
     "Integrations": "Интеграции",
     "Integrity check failed": "Проверка целостности не пройдена",
     "Integrity hash": "Хеш целостности",

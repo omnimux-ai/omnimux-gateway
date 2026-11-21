@@ -25,10 +25,9 @@ import { toast } from 'sonner'
 
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
-import { getSelf } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
-import { useAuthStore, type AuthUser } from '@/stores/auth-store'
+import { useAuthStore } from '@/stores/auth-store'
 
 import './influencer.css'
 import {
@@ -43,6 +42,9 @@ import {
   publishInfluencerPreset,
   IMAGE_SIZE,
   SHEET_SIZE,
+  type MotionSubmitBody,
+  type MultiViewSubmitBody,
+  type SheetSubmitBody,
 } from './api'
 import { BuilderPanel } from './components/builder-panel'
 import { CharacterPickerPanel } from './components/character-picker-panel'
@@ -84,15 +86,20 @@ import {
   quoteCredits,
   resolveImageRoute,
   SUNBURST_MODEL,
+  type ImageRoute,
 } from './lib/catalog'
 import { submitFailureText, toastInfluencerError } from './lib/error-copy'
 import { readExploreTab, writeExploreTab } from './lib/explore-tab'
-import { describeFailReason } from './lib/fail-reason'
+import {
+  describeFailReason,
+  isInsufficientQuotaFailure,
+} from './lib/fail-reason'
 import { takeGuestDraft } from './lib/guest'
 import { hiddenTaskIds, hideTask } from './lib/hidden'
 import {
   getTaskTimestamp,
   isTerminalStatus,
+  parentTaskId,
   parseTaskMeta,
   taskAbsoluteImageUrl,
   resolveTaskCharacterSource,
@@ -100,7 +107,6 @@ import {
   taskKind,
 } from './lib/history'
 import {
-  creditsFromQuota,
   isInsufficientQuotaError,
   type PaywallOrigin,
 } from './lib/insufficient-credits'
@@ -163,6 +169,36 @@ interface SubmitSheet {
   selection: Selection
   seed?: string
   image_url?: string
+}
+
+type GenerationRequest =
+  | { origin: 'image'; body: SheetSubmitBody }
+  | { origin: 'video'; body: MotionSubmitBody }
+  | { origin: 'multiview'; body: MultiViewSubmitBody }
+
+interface PaywallTarget {
+  origin: PaywallOrigin
+  required: number | null
+  generation?: GenerationRequest
+}
+
+function sheetSubmitBody(
+  sheet: SubmitSheet,
+  route: ImageRoute
+): SheetSubmitBody {
+  const imageUrl = sheet.image_url?.trim() || undefined
+  const sunburst = route.model === SUNBURST_MODEL
+  const mode = imageUrl ? 'reference' : 'text'
+  return {
+    tier: sheet.tier,
+    selection: sheet.selection,
+    brief: '',
+    size: sunburst ? IMAGE_SIZE : SHEET_SIZE,
+    image_url: imageUrl,
+    image_mode: sunburst ? mode : undefined,
+    model: route.model,
+    group: route.group,
+  }
 }
 
 /** 只有真正生成成功的形象才可发布；失败或进行中的记录没有成品素材。 */
@@ -322,7 +358,7 @@ export function InfluencerWorkbench() {
     motion.characterUploading ||
     motion.videoMetadataLoading ||
     motion.videoPreparing
-  const submitInFlight = useRef(false)
+  const submitInFlight = useRef<Promise<TaskRecord | null> | null>(null)
   const pending = useMemo(
     () => [...sheetSubmit.tasks, ...motionSubmit.tasks],
     [sheetSubmit.tasks, motionSubmit.tasks]
@@ -332,7 +368,11 @@ export function InfluencerWorkbench() {
     [pending, multiView.childByParent]
   )
   useGenerationQueueNotice(submittedGenerations, historyQ.items)
-  const { submit: submitMultiViewTask, forget: forgetMultiView } = multiView
+  const {
+    submit: submitMultiViewTask,
+    forget: forgetMultiView,
+    confirmTerminal: confirmMultiViewTerminal,
+  } = multiView
   const uploadLibrary = useUploadLibrary()
   // The history preview is a stack: references open above the record that cites them.
   const [previewStack, setPreviewStack] = useState<PreviewEntry[]>([])
@@ -471,83 +511,114 @@ export function InfluencerWorkbench() {
   // from the reference clip is also the recreation's pre-submit amount.
   const videoQuote = motionQuote
 
-  // --- Subscription paywall: an empty wallet must never be a dead end -------
-  const [paywall, setPaywall] = useState<{
-    origin: PaywallOrigin
-    required: number | null
-  } | null>(null)
-  const resumingRef = useRef(false)
-  const handledSubmitErrors = useRef(new WeakSet<object>())
+  const [paywall, setPaywall] = useState<PaywallTarget | null>(null)
+  const activePaywall = useRef<PaywallTarget | null>(null)
+  const currentAccount = useRef(accountId)
+  const acceptedGenerations = useRef(new Map<string, PaywallTarget>())
   const handledFailures = useRef(new Set<string>())
-  const setAuthUser = useAuthStore((state) => state.auth.setUser)
-  /** `undefined` means the session has no quota field yet; never gate on that. */
-  const rawQuota = useAuthStore((state) => state.auth.user?.quota)
-  const quotaRef = useRef<number | undefined>(rawQuota)
+  const activeHistory = useRef(new Set<string>())
+
+  const closePaywall = useCallback(() => {
+    activePaywall.current = null
+    setPaywall(null)
+  }, [])
+
   useEffect(() => {
-    quotaRef.current = rawQuota
-  }, [rawQuota])
+    if (currentAccount.current === accountId) return
+    currentAccount.current = accountId
+    acceptedGenerations.current.clear()
+    handledFailures.current.clear()
+    activeHistory.current.clear()
+    submitInFlight.current = null
+    closePaywall()
+    setMultiViewParent(null)
+  }, [accountId, closePaywall])
 
-  const refreshQuota = useCallback(async (): Promise<number | null> => {
-    try {
-      const res = (await getSelf()) as { success?: boolean; data?: AuthUser }
-      if (res?.success && res.data) {
-        setAuthUser(res.data)
-        quotaRef.current = res.data.quota
-        return res.data.quota ?? 0
-      }
-    } catch {
-      // The caller resumes regardless; the paywall already refreshed while open.
-    }
-    return null
-  }, [setAuthUser])
+  const openPaywall = useCallback((target: PaywallTarget) => {
+    if (activePaywall.current) return
+    activePaywall.current = target
+    setPaywall(target)
+    trackInfluencerEvent(INFLUENCER_ANALYTICS_EVENTS.PAYWALL_VIEW, {
+      origin: target.origin,
+      required_credits: target.required ?? -1,
+    })
+  }, [])
 
-  const openPaywall = useCallback(
-    (origin: PaywallOrigin, required: number | null) => {
-      resumingRef.current = false
-      trackInfluencerEvent(INFLUENCER_ANALYTICS_EVENTS.PAYWALL_VIEW, {
-        origin,
-        required_credits: required ?? -1,
-      })
-      setPaywall({ origin, required })
-    },
-    []
-  )
-
-  /**
-   * A click must not become a doomed task: the generation queue accepts first
-   * and bills at dispatch, so an unfunded submit only shows up later as a
-   * generic failed task. Gate the click on the displayed balance; an unknown
-   * balance is never treated as empty.
-   */
-  const ensureFunded = useCallback(
-    (origin: PaywallOrigin, required: number | null): boolean => {
-      const current = quotaRef.current
-      if (typeof current !== 'number') return true
-      const balance = creditsFromQuota(current)
-      if (required === null) {
-        if (balance > 0) return true
-        openPaywall(origin, null)
+  const { submit: submitMotionTask } = motionSubmit
+  const submitGeneration = useCallback(
+    async (generation: GenerationRequest, required: number | null) => {
+      if (submitInFlight.current || currentAccount.current !== accountId) {
         return false
       }
-      if (balance + 1e-9 >= required) return true
-      openPaywall(origin, required)
-      return false
+      const { origin } = generation
+      const target = { origin, required, generation }
+      const onError = (error: unknown) => {
+        if (currentAccount.current !== accountId) return
+        if (isInsufficientQuotaError(error)) {
+          openPaywall(target)
+          return
+        }
+        if (origin === 'image') {
+          toastInfluencerError(t, error, 'Something went wrong!')
+        } else if (origin === 'video') {
+          toast.error(
+            submitFailureText(t, error, {
+              prefixKey: 'Video generation failed to start: {{msg}}',
+              fallbackKey:
+                'Video generation failed to start. Please try again.',
+            })
+          )
+        } else {
+          toast.error(
+            submitFailureText(t, error, {
+              prefixKey: 'Multi-view generation failed: {{msg}}',
+              fallbackKey: 'Multi-view generation failed',
+            })
+          )
+        }
+      }
+      let request: Promise<TaskRecord | null>
+      switch (generation.origin) {
+        case 'image':
+          request = submit(generation.body, onError)
+          break
+        case 'video':
+          request = submitMotionTask(generation.body, onError)
+          break
+        case 'multiview':
+          request = submitMultiViewTask(generation.body)
+          break
+      }
+      submitInFlight.current = request
+      try {
+        const record = await request
+        if (!record || currentAccount.current !== accountId) return false
+        acceptedGenerations.current.set(record.task_id, target)
+        void queryClient.invalidateQueries({
+          queryKey: ['influencer', 'history'],
+        })
+        if (origin !== 'multiview') {
+          setSource('history')
+          setMobileCreating(false)
+          writeSource('history')
+        }
+        return true
+      } catch (error) {
+        onError(error)
+        return false
+      } finally {
+        if (submitInFlight.current === request) submitInFlight.current = null
+      }
     },
-    [openPaywall]
-  )
-
-  /** Returns true when the failure was an unfunded wallet and the paywall opened. */
-  const handleSubmissionFailure = useCallback(
-    (
-      error: unknown,
-      origin: PaywallOrigin,
-      required: number | null
-    ): boolean => {
-      if (!isInsufficientQuotaError(error)) return false
-      void refreshQuota().then(() => openPaywall(origin, required))
-      return true
-    },
-    [openPaywall, refreshQuota]
+    [
+      accountId,
+      openPaywall,
+      queryClient,
+      submit,
+      submitMotionTask,
+      submitMultiViewTask,
+      t,
+    ]
   )
 
   const canGenerate = useMemo(() => {
@@ -628,9 +699,8 @@ export function InfluencerWorkbench() {
         return false
       }
       const imageUrl = next.image_url?.trim() || undefined
-      const mode = imageUrl ? 'reference' : 'text'
       if (
-        mode === 'text' &&
+        !imageUrl &&
         !isAnimalTier(next.tier) &&
         totalSelected(next.selection) === 0
       ) {
@@ -644,30 +714,10 @@ export function InfluencerWorkbench() {
         )
         return false
       }
-      if (!ensureFunded('image', quote.credits)) return false
-      submitInFlight.current = true
-      const sunburst = imageRoute.model === SUNBURST_MODEL
-      const res = await submit({
-        tier: next.tier,
-        selection: next.selection,
-        brief: '',
-        size: sunburst ? IMAGE_SIZE : SHEET_SIZE,
-        image_url: imageUrl,
-        image_mode: sunburst ? mode : undefined,
-        model: imageRoute.model,
-        group: imageGroup,
-      })
-      submitInFlight.current = false
-      if (res) {
-        void queryClient.invalidateQueries({
-          queryKey: ['influencer', 'history'],
-        })
-        // 提交成功即把用户带到刚生成的那张图：与竞品生成后自动落 History 一致。
-        setSource('history')
-        setMobileCreating(false)
-        writeSource('history')
-      }
-      return Boolean(res)
+      return submitGeneration(
+        { origin: 'image', body: sheetSubmitBody(next, imageRoute) },
+        quote.credits
+      )
     },
     [
       taxonomy,
@@ -676,14 +726,11 @@ export function InfluencerWorkbench() {
       imageRoute,
       imageGroup,
       quote,
-      submit,
-      queryClient,
-      ensureFunded,
+      submitGeneration,
       t,
     ]
   )
 
-  const { submit: submitMotionTask } = motionSubmit
   const doSubmitMotion = useCallback(async () => {
     if (
       motion.isVideoPreparing() ||
@@ -700,144 +747,36 @@ export function InfluencerWorkbench() {
       )
       return
     }
-    submitInFlight.current = true
+    let body: ReturnType<typeof buildMotionSubmitPayload>
     try {
-      let body: ReturnType<typeof buildMotionSubmitPayload>
-      try {
-        body = buildMotionSubmitPayload({
-          mode: motion.mode,
-          prompt: motion.effectivePrompt,
-          character: motion.character,
-          characters:
-            motion.mode === 'recreate'
-              ? motion.recreateImages
-              : motion.characters,
-          video: motion.video,
-          resolution: motion.resolution,
-          outputCapabilities: motion.outputCapabilities,
+      body = buildMotionSubmitPayload({
+        mode: motion.mode,
+        prompt: motion.effectivePrompt,
+        character: motion.character,
+        characters:
+          motion.mode === 'recreate'
+            ? motion.recreateImages
+            : motion.characters,
+        video: motion.video,
+        resolution: motion.resolution,
+        outputCapabilities: motion.outputCapabilities,
+      })
+    } catch (error) {
+      toast.error(
+        submitFailureText(t, error, {
+          prefixKey: 'Video generation failed to start: {{msg}}',
+          fallbackKey: 'Video generation failed to start. Please try again.',
         })
-      } catch (error) {
-        toast.error(
-          submitFailureText(t, error, {
-            prefixKey: 'Video generation failed to start: {{msg}}',
-            fallbackKey: 'Video generation failed to start. Please try again.',
-          })
-        )
-        return
-      }
-      if (!body) return
-      if (!ensureFunded('video', videoQuote?.credits ?? null)) return
-      const res = await submitMotionTask(body)
-      if (!res) return
-      void queryClient.invalidateQueries({
-        queryKey: ['influencer', 'history'],
-      })
-      setSource('history')
-      setMobileCreating(false)
-      writeSource('history')
-    } finally {
-      submitInFlight.current = false
-    }
-  }, [
-    builder,
-    generationBusy,
-    motion,
-    submitMotionTask,
-    queryClient,
-    videoQuote,
-    ensureFunded,
-    t,
-  ])
-
-  // A rejected submission stays on the form; the gateway's own reason is shown
-  // so the user knows whether to fix the inputs or simply retry.
-  const motionError = motionSubmit.error
-  useEffect(() => {
-    if (!motionError) return
-    if (handleSubmissionFailure(motionError, 'video', null)) return
-    toast.error(
-      submitFailureText(t, motionError, {
-        prefixKey: 'Video generation failed to start: {{msg}}',
-        fallbackKey: 'Video generation failed to start. Please try again.',
-      })
-    )
-  }, [motionError, handleSubmissionFailure, t])
-
-  /**
-   * The image form used to drop submit failures entirely (no toast, no exit).
-   * Every failure now surfaces: insufficient quota opens the paywall, anything
-   * else keeps the gateway's own reason.
-   */
-  const sheetError = sheetSubmit.error
-  useEffect(() => {
-    if (!sheetError) return
-    if (typeof sheetError === 'object') {
-      if (handledSubmitErrors.current.has(sheetError)) return
-      handledSubmitErrors.current.add(sheetError)
-    }
-    if (handleSubmissionFailure(sheetError, 'image', quote?.credits ?? null)) {
+      )
       return
     }
-    toastInfluencerError(t, sheetError, 'Something went wrong!')
-  }, [sheetError, handleSubmissionFailure, quote?.credits, t])
-
-  /**
-   * The queue can still reject a submission after acceptance (for example a
-   * stale displayed balance). Classify that failure against a fresh wallet:
-   * an unfunded account gets the paywall, anything else gets the real reason.
-   */
-  useEffect(() => {
-    const failed = [...sheetSubmit.tasks, ...motionSubmit.tasks].filter(
-      (task) => {
-        const status = (task.status ?? '').toUpperCase()
-        if (status !== 'FAILURE' && status !== 'FAILED') return false
-        if (!task.task_id || handledFailures.current.has(task.task_id)) {
-          return false
-        }
-        return true
-      }
-    )
-    if (failed.length === 0) return
-    for (const task of failed) handledFailures.current.add(task.task_id)
-    const failedVideo = failed.some(
-      (task) => task.action === INFLUENCER_MOTION_ACTION
-    )
-    if (failedVideo) {
-      void refreshQuota().then((fresh) => {
-        if (fresh === null) return
-        const required = videoQuote?.credits ?? null
-        const insufficient =
-          required === null
-            ? creditsFromQuota(fresh) <= 0
-            : creditsFromQuota(fresh) + 1e-9 < required
-        if (insufficient && paywall === null) openPaywall('video', required)
-      })
-      return
+    if (body) {
+      await submitGeneration(
+        { origin: 'video', body },
+        videoQuote?.credits ?? null
+      )
     }
-    void refreshQuota().then((fresh) => {
-      const required = quote?.credits ?? null
-      const insufficient =
-        fresh !== null &&
-        (required === null
-          ? creditsFromQuota(fresh) <= 0
-          : creditsFromQuota(fresh) + 1e-9 < required)
-      if (insufficient) {
-        if (paywall === null) openPaywall('image', required)
-        return
-      }
-      toast.error(describeFailReason(t, failed[0].fail_reason).message)
-    })
-  }, [
-    sheetSubmit.tasks,
-    motionSubmit.tasks,
-    handleSubmissionFailure,
-    refreshQuota,
-    openPaywall,
-    paywall,
-    quote?.credits,
-    videoQuote?.credits,
-    t,
-  ])
+  }, [builder, generationBusy, motion, submitGeneration, videoQuote, t])
 
   /** 被硬冲突修正掉的选项必须说出来，否则用户只会看到自己没点过的一项消失。 */
   const notifyRemovedPicks = useCallback(
@@ -1036,10 +975,23 @@ export function InfluencerWorkbench() {
     ]
   )
 
-  // 基于当前任务主图，生成多视角分镜设定板。
-  // 派生任务挂在主图卡片上（左下角 1:1 缩略格），因此这里不新增画廊卡片；
-  // 提交成功后由调用方关闭自己的弹窗，用户才能看见主图上的缩略格进度。
-  // 返回是否受理成功：失败时弹窗保持打开，用户可原地重试。
+  const multiViewBody = useCallback(
+    (parent: TaskRecord): MultiViewSubmitBody | null => {
+      if (!imageRoute || !canDeriveMultiView(parent)) return null
+      const imageUrl = taskAbsoluteImageUrl(parent)
+      if (!imageUrl) return null
+      return {
+        model: imageRoute.model,
+        group: imageRoute.group,
+        parentTaskId: taskKey(parent),
+        imageUrl,
+        size: MULTIVIEW_SIZE,
+      }
+    },
+    [imageRoute]
+  )
+
+  // Derived boards stay attached to the originating character card.
   const onGenerateMultiView = useCallback(
     async (task: TaskRecord): Promise<boolean> => {
       if (isGuest) {
@@ -1054,109 +1006,203 @@ export function InfluencerWorkbench() {
         return false
       }
       if (!canDeriveMultiView(task)) return false
-      if (!imageRoute || !multiViewGroup || !multiViewQuote) {
+      if (!imageRoute || !multiViewQuote) {
         toast.error(t('Style reference is not available for this model'))
         return false
       }
-      if (!ensureFunded('multiview', multiViewQuote.credits)) return false
       const parentId = taskKey(task)
-      const existingChild =
+      const child =
         multiView.childByParent[parentId] ??
         partitionTasks(historyQ.items).childByParent.get(parentId)
-      if (existingChild && !isTerminalStatus(existingChild.status)) return false
-      const imageUrl = taskAbsoluteImageUrl(task)
-      if (!imageUrl) {
+      if (child && !isTerminalStatus(child.status)) return false
+      const body = multiViewBody(task)
+      if (!body) {
         toast.error(t('No image available for multi-view generation'))
         return false
       }
-      toast.info(t('Submitting multi-view storyboard…'))
-      submitInFlight.current = true
-      try {
-        const record = await submitMultiViewTask({
-          model: imageRoute.model,
-          group: multiViewGroup,
-          parentTaskId: parentId,
-          imageUrl,
-          size: MULTIVIEW_SIZE,
-        })
-        if (record) {
-          void queryClient.invalidateQueries({
-            queryKey: ['influencer', 'history'],
-          })
-        }
-        return true
-      } catch (e) {
-        if (
-          handleSubmissionFailure(
-            e,
-            'multiview',
-            multiViewQuote?.credits ?? null
-          )
-        ) {
-          return false
-        }
-        toast.error(
-          submitFailureText(t, e, {
-            prefixKey: 'Multi-view generation failed: {{msg}}',
-            fallbackKey: 'Multi-view generation failed',
-          })
-        )
-        return false
-      } finally {
-        submitInFlight.current = false
-      }
+      return submitGeneration(
+        { origin: 'multiview', body },
+        multiViewQuote.credits
+      )
     },
     [
-      submitMultiViewTask,
       multiView.childByParent,
       historyQ.items,
       builder,
       generationBusy,
       imageRoute,
-      multiViewGroup,
       multiViewQuote,
-      queryClient,
       isGuest,
       requireLogin,
       currentDraft,
-      handleSubmissionFailure,
-      ensureFunded,
+      multiViewBody,
+      submitGeneration,
       t,
     ]
   )
 
-  /** Payment confirmed: refresh the wallet, close the takeover and resume. */
-  const handleSubscribed = useCallback(async () => {
-    if (resumingRef.current) return
-    resumingRef.current = true
-    const origin = paywall?.origin ?? null
-    const parent = multiViewParent
-    try {
-      await refreshQuota()
-    } catch {
-      // The component already refreshed; resuming must not be blocked by it.
+  const taskPaywallTarget = useCallback(
+    (task: TaskRecord, parent?: TaskRecord): PaywallTarget => {
+      const accepted = acceptedGenerations.current.get(task.task_id)
+      if (accepted) return accepted
+      const kind = parent ? 'multiview' : taskKind(task)
+      if (kind === 'motion') {
+        const body = parseStoredMotionPayload(task.properties?.input)
+        const required = body
+          ? (quoteVideoCredits(
+              pricingQ.data,
+              groupsQ.data,
+              body.resolution,
+              body.duration_sec
+            )?.credits ?? null)
+          : null
+        return {
+          origin: 'video',
+          required,
+          generation: body ? { origin: 'video', body } : undefined,
+        }
+      }
+      if (kind === 'multiview') {
+        const source =
+          parent ??
+          historyQ.items.find((item) => taskKey(item) === parentTaskId(task))
+        const body = source ? multiViewBody(source) : null
+        return {
+          origin: 'multiview',
+          required: multiViewQuote?.credits ?? null,
+          generation: body ? { origin: 'multiview', body } : undefined,
+        }
+      }
+      const meta = parseTaskMeta(task)
+      const canReplay =
+        meta &&
+        imageRoute &&
+        !meta.brief?.trim() &&
+        !meta.seed &&
+        meta.image_mode !== 'edit' &&
+        meta.image_mode !== 'masked_edit' &&
+        !conflictMessage(meta.tier, meta.selection) &&
+        (isAnimalTier(meta.tier) ||
+          totalSelected(meta.selection) > 0 ||
+          meta.image_url?.trim())
+      return {
+        origin: 'image',
+        required: quote?.credits ?? null,
+        generation: canReplay
+          ? {
+              origin: 'image',
+              body: sheetSubmitBody(
+                {
+                  tier: meta.tier,
+                  selection: meta.selection,
+                  image_url: meta.image_url,
+                },
+                imageRoute
+              ),
+            }
+          : undefined,
+      }
+    },
+    [
+      pricingQ.data,
+      groupsQ.data,
+      historyQ.items,
+      multiViewBody,
+      multiViewQuote?.credits,
+      imageRoute,
+      quote?.credits,
+    ]
+  )
+
+  const onTopUpTask = useCallback(
+    (task: TaskRecord) => {
+      openPaywall(taskPaywallTarget(task))
+    },
+    [openPaywall, taskPaywallTarget]
+  )
+
+  useEffect(() => {
+    if (isGuest) return
+    const candidates = new Map<string, TaskRecord>()
+    for (const task of submittedGenerations) {
+      if (acceptedGenerations.current.has(task.task_id)) {
+        candidates.set(task.task_id, task)
+      }
     }
-    setPaywall(null)
-    trackInfluencerEvent(INFLUENCER_ANALYTICS_EVENTS.PAYWALL_SUBSCRIBED, {
-      origin: origin ?? 'image',
-    })
-    if (origin === 'multiview' && parent) {
-      void onGenerateMultiView(parent)
-      return
+    for (const task of historyQ.items) {
+      if (!task.task_id) continue
+      if (!isTerminalStatus(task.status)) {
+        activeHistory.current.add(task.task_id)
+        continue
+      }
+      const wasActive = activeHistory.current.delete(task.task_id)
+      const submitted = candidates.get(task.task_id)
+      if (submitted && !isTerminalStatus(submitted.status)) {
+        candidates.set(task.task_id, task)
+        const generation = acceptedGenerations.current.get(
+          task.task_id
+        )?.generation
+        if (
+          generation?.origin === 'multiview' &&
+          isInsufficientQuotaFailure(task.fail_reason)
+        ) {
+          confirmMultiViewTerminal(generation.body.parentTaskId, task)
+        }
+      } else if (wasActive && isInsufficientQuotaFailure(task.fail_reason)) {
+        candidates.set(task.task_id, task)
+      }
     }
-    if (origin === 'video') {
-      void doSubmitMotion()
-      return
+    for (const [id, task] of candidates) {
+      if (!id || !isTerminalStatus(task.status)) continue
+      if (isSuccessStatus(task)) {
+        acceptedGenerations.current.delete(id)
+        continue
+      }
+      if (handledFailures.current.has(id)) continue
+      handledFailures.current.add(id)
+      if (isInsufficientQuotaFailure(task.fail_reason)) {
+        openPaywall(taskPaywallTarget(task))
+        continue
+      }
+      acceptedGenerations.current.delete(id)
+      if (taskKind(task) === 'sheet') {
+        toast.error(describeFailReason(t, task.fail_reason).message)
+      }
     }
-    void doSubmit()
   }, [
-    paywall,
-    multiViewParent,
-    refreshQuota,
-    doSubmit,
-    doSubmitMotion,
-    onGenerateMultiView,
+    submittedGenerations,
+    historyQ.items,
+    confirmMultiViewTerminal,
+    isGuest,
+    openPaywall,
+    taskPaywallTarget,
+    t,
   ])
+
+  const handleSubscribed = useCallback(async () => {
+    const target = activePaywall.current
+    if (!target) return
+    if (target.generation && submitInFlight.current) {
+      await submitInFlight.current.catch(() => null)
+    }
+    if (
+      activePaywall.current !== target ||
+      currentAccount.current !== accountId ||
+      useAuthStore.getState().auth.user?.id !== accountId
+    ) {
+      return
+    }
+    closePaywall()
+    trackInfluencerEvent(INFLUENCER_ANALYTICS_EVENTS.PAYWALL_SUBSCRIBED, {
+      origin: target.origin,
+    })
+    if (!target.generation) return
+    const accepted = await submitGeneration(target.generation, target.required)
+    if (accepted && currentAccount.current === accountId) {
+      setViewTask(null)
+      setMultiViewParent(null)
+    }
+  }, [accountId, closePaywall, setViewTask, submitGeneration])
 
   // A `?recreate=` deep link names a history record, so surface the gallery it
   // belongs to instead of leaving the user on the inspiration library.
@@ -1644,6 +1690,7 @@ export function InfluencerWorkbench() {
         onReloadPreview={() => {
           void historyQ.retry?.()
         }}
+        onTopUp={onTopUpTask}
         onTurnToMotion={onTurnToMotion}
         turnToMotionDisabledReason={turnToMotionDisabledReason}
         onOpenMultiView={(parent) => setMultiViewParent(parent)}
@@ -1908,6 +1955,7 @@ export function InfluencerWorkbench() {
               void historyQ.retry?.()
             },
             onRegenerate,
+            onTopUp: onTopUpTask,
             onTurnToMotion,
             turnToMotionDisabledReason: turnToMotionDisabledReason(viewTask),
             onDelete,
@@ -1980,6 +2028,11 @@ export function InfluencerWorkbench() {
         }
         disabledReason={multiViewDisabledReason}
         onRegenerate={onRegenerateMultiView}
+        onTopUp={() => {
+          if (multiViewChild && multiViewParent) {
+            openPaywall(taskPaywallTarget(multiViewChild, multiViewParent))
+          }
+        }}
         onDelete={onDeleteMultiView}
       />
 
@@ -1993,7 +2046,8 @@ export function InfluencerWorkbench() {
             ? (imageRoute?.model ?? null)
             : null
         }
-        onClose={() => setPaywall(null)}
+        resumeGeneration={Boolean(paywall?.generation)}
+        onClose={closePaywall}
         onSubscribed={handleSubscribed}
       />
 

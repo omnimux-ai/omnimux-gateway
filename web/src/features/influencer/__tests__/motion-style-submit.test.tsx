@@ -198,7 +198,9 @@ async function prepareMotionWithStyle(
   })
   expect(screen.queryByText('reference.mp4')).toBeNull()
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Generate video' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: /^Generate video/ })
+    ).toBeEnabled()
   )
   await user.click(screen.getByRole('button', { name: /Style preset/ }))
   const dialog = await screen.findByRole('dialog', { name: 'Choose a style' })
@@ -222,7 +224,7 @@ function pastePrompt(text: string): void {
   })
 }
 
-function mockSubmissionNetwork() {
+function mockSubmissionNetwork(motionError?: unknown) {
   return vi.spyOn(api, 'post').mockImplementation(async (url, body) => {
     if (url === '/api/v1/files/upload/presign') {
       // Keep style assertions on the real uploader's documented fallback.
@@ -241,6 +243,7 @@ function mockSubmissionNetwork() {
         },
       }
     }
+    if (url === '/pg/influencer/motion' && motionError) throw motionError
     return { data: { task_id: 'accepted-test-only' } }
   })
 }
@@ -277,19 +280,87 @@ async function prepareRecreate(
     name: 'Replace Add a reference video',
   })
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Generate video' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: /^Generate video/ })
+    ).toBeEnabled()
   )
   return container
 }
 
 describe('real motion workbench style submission', () => {
+  it('shows the submitted video quote and emits one paywall view for a quota rejection', async () => {
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 1, username: 'test', role: 1, quota: 0 })
+    const get = vi.spyOn(api, 'get')
+    const fallback = get.getMockImplementation()
+    if (!fallback) throw new Error('missing network fixture')
+    get.mockImplementation(async (...args) => {
+      if (args[0] === '/api/pricing') {
+        return {
+          data: {
+            success: true,
+            data: [
+              {
+                model_name: 'seedance-2-5',
+                model_price: 0.2,
+                enable_groups: ['seedance-2-5-480p'],
+              },
+            ],
+          },
+        }
+      }
+      if (String(args[0]).endsWith('/groups')) {
+        return {
+          data: {
+            success: true,
+            data: { 'seedance-2-5-480p': { ratio: 0.5 } },
+          },
+        }
+      }
+      return fallback(...args)
+    })
+    const track = vi.fn()
+    vi.stubGlobal('__OMNIMUX_TRACK__', track)
+    const errorToast = vi.spyOn(toast, 'error')
+    const network = mockSubmissionNetwork({
+      response: {
+        status: 403,
+        data: {
+          error: {
+            message: 'Insufficient user quota',
+            code: 'insufficient_user_quota',
+          },
+        },
+      },
+    })
+    const user = userEvent.setup()
+    await prepareMotionWithStyle(user)
+    await user.click(screen.getByRole('button', { name: /^Generate video/ }))
+
+    const paywall = await screen.findByRole('dialog', {
+      name: 'Top up to continue this generation',
+    })
+    expect(
+      network.mock.calls.filter(([url]) => url === '/pg/influencer/motion')
+    ).toHaveLength(1)
+    expect(within(paywall).getByText('Credits needed')).toHaveTextContent(
+      'Credits needed8'
+    )
+    expect(
+      track.mock.calls.filter(([event]) => event === 'influencer_paywall_view')
+    ).toEqual([
+      ['influencer_paywall_view', { origin: 'video', required_credits: 8 }],
+    ])
+    expect(errorToast).not.toHaveBeenCalled()
+  })
   it('posts the selected style plus two newlines and the conflicting user original without replacing uploaded assets or asking for conflict confirmation', async () => {
     const network = mockSubmissionNetwork()
     const user = userEvent.setup()
     await prepareMotionWithStyle(user)
     await user.click(screen.getByRole('switch', { name: 'Prompt' }))
     pastePrompt(`  ${USER_PROMPT}  `)
-    await user.click(screen.getByRole('button', { name: 'Generate video' }))
+    await user.click(screen.getByRole('button', { name: /^Generate video/ }))
     await waitFor(() =>
       expect(
         network.mock.calls.some(([url]) => url === '/pg/influencer/motion')
@@ -329,7 +400,7 @@ describe('real motion workbench style submission', () => {
     expect(
       screen.queryByRole('textbox', { name: 'Prompt' })
     ).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Generate video' }))
+    await user.click(screen.getByRole('button', { name: /^Generate video/ }))
     await waitFor(() =>
       expect(
         network.mock.calls.some(([url]) => url === '/pg/influencer/motion')
@@ -370,7 +441,7 @@ describe('real motion workbench style submission', () => {
     await user.click(screen.getByRole('switch', { name: 'Prompt' }))
     const longPrompt = '字'.repeat(3900)
     pastePrompt(longPrompt)
-    await user.click(screen.getByRole('button', { name: 'Generate video' }))
+    await user.click(screen.getByRole('button', { name: /^Generate video/ }))
     expect(
       await screen.findByText('Prompt must be 4000 characters or fewer.')
     ).toBeInTheDocument()
@@ -391,7 +462,9 @@ describe('real motion workbench style submission', () => {
       })
     ).toBeInTheDocument()
     expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'Generate video' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: /^Generate video/ })
+    ).toBeEnabled()
   })
 
   it('posts a recreation as one queued motion task with the clip, raw intent and no analysis call', async () => {
@@ -400,7 +473,7 @@ describe('real motion workbench style submission', () => {
     await prepareRecreate(user)
     await user.click(screen.getByRole('switch', { name: 'Prompt' }))
     pastePrompt('keep the turn')
-    await user.click(screen.getByRole('button', { name: 'Generate video' }))
+    await user.click(screen.getByRole('button', { name: /^Generate video/ }))
     await waitFor(() =>
       expect(
         network.mock.calls.some(([url]) => url === '/pg/influencer/motion')

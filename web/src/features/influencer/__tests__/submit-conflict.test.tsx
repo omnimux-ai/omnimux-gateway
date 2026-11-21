@@ -23,6 +23,7 @@ import { dirname, join } from 'node:path'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppQueryClient } from '@/lib/query-client'
@@ -38,7 +39,14 @@ const auth = vi.hoisted(() => ({
   setUser: vi.fn(),
 }))
 
-vi.mock('@/lib/api', () => ({ api: { get, post } }))
+vi.mock('@/lib/api', () => ({
+  api: { get, post },
+  getSelf: async () => ({
+    success: true,
+    data: { id: 1, username: 'tester', role: 1, quota: auth.quota },
+  }),
+  getStatus: async () => ({ success: true, data: {} }),
+}))
 vi.mock('@tanstack/react-router', () => ({
   useSearch: () => ({}),
   useNavigate: () => vi.fn(),
@@ -138,6 +146,7 @@ describe('applying an inspiration preset and generating', () => {
     get.mockImplementation((url: string) => Promise.resolve(routeByUrl(url)))
     post.mockResolvedValue({ data: { task_id: 'task-1' } })
     auth.quota = undefined
+    vi.mocked(toast.error).mockClear()
     localStorage.clear()
     sessionStorage.clear()
   })
@@ -292,62 +301,61 @@ describe('applying an inspiration preset and generating', () => {
     }
   )
 
-  it('opens the top-up takeover without submitting when the balance cannot cover the quote', async () => {
-    auth.quota = 10 // 0.0002 credits; the image quote is 0.0147
-    const user = userEvent.setup()
-    render(
-      <QueryClientProvider client={createAppQueryClient()}>
-        <InfluencerWorkbench />
-      </QueryClientProvider>
-    )
-    await user.click(await screen.findByRole('button', { name: /Bold/ }))
-    await user.click(screen.getByRole('button', { name: 'Randomize' }))
-    const generate = screen.getByRole('button', { name: /^Generate/ })
-    await waitFor(() => expect(generate).toBeEnabled())
-    await user.click(generate)
-    expect(
-      await screen.findByRole('dialog', {
-        name: 'Top up to continue this generation',
-      })
-    ).toBeVisible()
-    expect(post).not.toHaveBeenCalled()
-    auth.quota = undefined
-  })
-
-  it('opens the full-screen top-up takeover when the gateway rejects for quota', async () => {
-    const user = userEvent.setup()
-    post.mockImplementation((url: string) => {
-      if (url === '/pg/influencer/sheet') {
-        return Promise.reject({
+  it.each([true, false])(
+    'submits with zero wallet balance and defers the funding decision to the gateway (accepted=%s)',
+    async (accepted) => {
+      auth.quota = 0
+      if (!accepted) {
+        post.mockRejectedValueOnce({
           isAxiosError: true,
           response: {
             status: 403,
-            data: { code: 'insufficient_user_quota', message: 'quota' },
+            data: {
+              error: {
+                message: 'Insufficient user quota',
+                type: 'invalid_request_error',
+                param: null,
+                code: 'insufficient_user_quota',
+              },
+            },
           },
         })
       }
-      return Promise.resolve({ data: { success: true, data: {} } })
-    })
-    render(
-      <QueryClientProvider client={createAppQueryClient()}>
-        <InfluencerWorkbench />
-      </QueryClientProvider>
-    )
-    await user.click(await screen.findByRole('button', { name: /Bold/ }))
-    await user.click(screen.getByRole('button', { name: 'Randomize' }))
-    const generate = screen.getByRole('button', { name: /^Generate/ })
-    await waitFor(() => expect(generate).toBeEnabled())
-    await user.click(generate)
-    expect(
-      await screen.findByRole('dialog', {
-        name: 'Top up to continue this generation',
-      })
-    ).toBeVisible()
-    // The site offers no Stripe top-up in this fixture, so the takeover points to Wallet.
-    expect(
-      await screen.findByRole('heading', { name: 'Top up in Wallet' })
-    ).toBeVisible()
-  })
+      const user = userEvent.setup()
+      render(
+        <QueryClientProvider client={createAppQueryClient()}>
+          <InfluencerWorkbench />
+        </QueryClientProvider>
+      )
+      await user.click(await screen.findByRole('button', { name: /Bold/ }))
+      await user.click(screen.getByRole('button', { name: 'Randomize' }))
+      const generate = screen.getByRole('button', { name: /^Generate/ })
+      await waitFor(() => expect(generate).toBeEnabled())
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await user.click(generate)
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+      expect(post.mock.calls[0]?.[0]).toBe('/pg/influencer/sheet')
+      const paywall = { name: 'Top up to continue this generation' }
+      if (accepted) {
+        expect(await screen.findByText('Queued')).toBeVisible()
+        expect(screen.queryByRole('dialog', paywall)).not.toBeInTheDocument()
+      } else {
+        const dialog = await screen.findByRole('dialog', paywall)
+        expect(within(dialog).getByText('Balance')).toHaveTextContent(
+          'Balance0'
+        )
+        expect(within(dialog).getByText('Credits needed')).toHaveTextContent(
+          'Credits needed0.24'
+        )
+        expect(
+          await within(dialog).findByRole('heading', {
+            name: 'Top up in Wallet',
+          })
+        ).toBeVisible()
+      }
+      expect(toast.error).not.toHaveBeenCalled()
+    }
+  )
 
   it('keeps an invalid legacy sheet preview open without refilling the creation form', async () => {
     const user = userEvent.setup()

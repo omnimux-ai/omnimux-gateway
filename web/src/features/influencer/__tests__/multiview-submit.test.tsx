@@ -18,30 +18,38 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAppQueryClient } from '@/lib/query-client'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { InfluencerWorkbench } from '../index'
 import type { TaskRecord } from '../types'
 
-const { get, post, toast } = vi.hoisted(() => ({
+const { get, getSelf, post, toast } = vi.hoisted(() => ({
   get: vi.fn(),
+  getSelf: vi.fn(),
   post: vi.fn(),
   toast: { error: vi.fn(), info: vi.fn(), success: vi.fn(), warning: vi.fn() },
 }))
 
-vi.mock('@/lib/api', () => ({ api: { get, post } }))
+vi.mock('@/lib/api', () => ({
+  api: { get, post },
+  getSelf,
+  getStatus: async () => ({ success: true, data: {} }),
+}))
 vi.mock('@tanstack/react-router', () => ({
   useSearch: () => ({}),
   useNavigate: () => vi.fn(),
-}))
-vi.mock('@/stores/auth-store', () => ({
-  useAuthStore: (select: (state: unknown) => unknown) =>
-    select({
-      auth: { user: { id: 1, username: 'tester' }, accessToken: 'test-token' },
-    }),
 }))
 vi.mock('sonner', () => ({ toast }))
 
@@ -55,7 +63,7 @@ const PARENT: TaskRecord = {
   artifacts: [
     {
       key: 'image',
-      content_url: 'https://omnimux.ai/api/task/sheet_1/artifacts/image',
+      content_url: 'https://files.example/characters/sheet.png',
     },
   ],
 }
@@ -67,6 +75,20 @@ const CHILD: TaskRecord = {
   status: 'IN_PROGRESS',
   progress: '20',
 }
+
+const QUOTA_FAILURE: TaskRecord = {
+  ...CHILD,
+  status: 'FAILURE',
+  progress: '100%',
+  fail_reason: 'Insufficient user quota',
+  properties: {
+    input: JSON.stringify({
+      kind: 'multiview',
+      parent_task_id: PARENT.task_id,
+    }),
+  },
+}
+const account = { id: 1, username: 'tester', role: 1, quota: 0 }
 
 const PRICING = {
   data: {
@@ -108,17 +130,26 @@ const GROUPS = {
 }
 
 /** The board read back by the tracker, and the sheet list behind the grid. */
-function tasksResponse(params: Record<string, unknown> | undefined) {
-  const items = params?.task_id === CHILD.task_id ? [CHILD] : [PARENT]
+function tasksResponse(
+  params: Record<string, unknown> | undefined,
+  child: TaskRecord,
+  historyChild?: TaskRecord
+) {
+  const history = historyChild ? [PARENT, historyChild] : [PARENT]
+  const items = params?.task_id === CHILD.task_id ? [child] : history
   return { data: { success: true, data: { items, total: items.length } } }
 }
 
 function renderWorkbench() {
-  return render(
-    <QueryClientProvider client={createAppQueryClient()}>
-      <InfluencerWorkbench />
-    </QueryClientProvider>
-  )
+  const client = createAppQueryClient()
+  return {
+    ...render(
+      <QueryClientProvider client={client}>
+        <InfluencerWorkbench />
+      </QueryClientProvider>
+    ),
+    client,
+  }
 }
 
 /**
@@ -140,7 +171,19 @@ async function openPreview() {
 }
 
 describe('multi-view submit from the preview dialog', () => {
+  let polledChild: TaskRecord
+  let historyChild: TaskRecord | undefined
+  let track: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
+    polledChild = CHILD
+    historyChild = undefined
+    track = vi.fn()
+    vi.stubGlobal('__OMNIMUX_TRACK__', track)
+    useAuthStore.setState((state) => ({
+      auth: { ...state.auth, user: account, accessToken: 'fixture-session' },
+    }))
+    getSelf.mockResolvedValue({ success: true, data: account })
     get.mockReset()
     post.mockReset()
     toast.error.mockReset()
@@ -151,12 +194,20 @@ describe('multi-view submit from the preview dialog', () => {
         if (url.includes('/taxonomy')) return Promise.resolve(TAXONOMY)
         if (url.includes('/groups')) return Promise.resolve(GROUPS)
         if (url.includes('/task/self')) {
-          return Promise.resolve(tasksResponse(config?.params))
+          return Promise.resolve(
+            tasksResponse(config?.params, polledChild, historyChild)
+          )
         }
         return Promise.resolve({ data: { success: true, data: {} } })
       }
     )
     post.mockResolvedValue({ data: { task_id: CHILD.task_id } })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    useAuthStore.getState().auth.reset()
   })
 
   it('closes the preview dialog once the board is accepted, so the progress tile is visible', async () => {
@@ -190,5 +241,184 @@ describe('multi-view submit from the preview dialog', () => {
     expect(
       screen.getByRole('button', { name: 'Generate multi-view' })
     ).toBeInTheDocument()
+  })
+
+  it('opens the quoted MultiView paywall on HTTP 403 and resumes the same request once after payment', async () => {
+    post.mockRejectedValueOnce({
+      response: {
+        status: 403,
+        data: {
+          error: {
+            message: 'Insufficient user quota',
+            code: 'insufficient_user_quota',
+          },
+        },
+      },
+    })
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const user = userEvent.setup()
+    renderWorkbench()
+    await user.click(await openPreview())
+
+    const paywall = await screen.findByRole('dialog', {
+      name: 'Top up to continue this generation',
+    })
+    expect(within(paywall).getByText('Balance')).toHaveTextContent('Balance0')
+    expect(within(paywall).getByText('Credits needed')).toHaveTextContent(
+      'Credits needed0.4'
+    )
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post.mock.calls[0]?.[0]).toBe('/pg/influencer/multiview')
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(
+      track.mock.calls.filter(([event]) => event === 'influencer_paywall_view')
+    ).toEqual([
+      [
+        'influencer_paywall_view',
+        { origin: 'multiview', required_credits: 0.4 },
+      ],
+    ])
+
+    await user.click(
+      await within(paywall).findByRole('button', {
+        name: 'Add credits in Wallet',
+      })
+    )
+    expect(open).toHaveBeenCalledWith('/wallet', '_blank', 'noopener')
+    getSelf.mockResolvedValue({
+      success: true,
+      data: { ...account, quota: 500_000 },
+    })
+    await user.click(
+      within(paywall).getByRole('button', {
+        name: 'I have completed the payment',
+      })
+    )
+    await user.click(
+      await within(paywall).findByRole('button', {
+        name: 'Continue generating',
+      })
+    )
+    expect(
+      await screen.findByRole('button', {
+        name: 'Generating multi-view storyboard…',
+      })
+    ).toBeVisible()
+    expect(post.mock.calls).toEqual([post.mock.calls[0], post.mock.calls[0]])
+    expect(
+      track.mock.calls.filter(
+        ([event]) => event === 'influencer_paywall_subscribed'
+      )
+    ).toEqual([['influencer_paywall_subscribed', { origin: 'multiview' }]])
+  })
+
+  it('opens the MultiView paywall once for the recorded dispatch reason even when the wallet covers the quote', async () => {
+    const fundedAccount = { ...account, quota: 1_000_000 }
+    useAuthStore.getState().auth.setUser(fundedAccount)
+    getSelf.mockResolvedValue({ success: true, data: fundedAccount })
+    polledChild = QUOTA_FAILURE
+    historyChild = QUOTA_FAILURE
+    const user = userEvent.setup()
+    renderWorkbench()
+    await user.click(await openPreview())
+
+    const paywall = await screen.findByRole('dialog', {
+      name: 'Top up to continue this generation',
+    })
+    expect(within(paywall).getByText('Balance')).toHaveTextContent('Balance20')
+    await user.click(
+      within(paywall).getByRole('button', { name: 'Back to editor' })
+    )
+    await screen.findByRole('button', { name: 'Multi-view generation failed' })
+    expect(
+      screen.queryByRole('dialog', {
+        name: 'Top up to continue this generation',
+      })
+    ).not.toBeInTheDocument()
+    expect(
+      track.mock.calls.filter(([event]) => event === 'influencer_paywall_view')
+    ).toEqual([
+      [
+        'influencer_paywall_view',
+        { origin: 'multiview', required_credits: 0.4 },
+      ],
+    ])
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('resumes the board after history confirms a quota failure before the individual poll', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    post.mockResolvedValueOnce({ data: { task_id: CHILD.task_id } })
+    post.mockResolvedValueOnce({ data: { task_id: 'board-retried' } })
+    const user = userEvent.setup()
+    const { client } = renderWorkbench()
+    await user.click(await openPreview())
+    await screen.findByRole('button', {
+      name: 'Generating multi-view storyboard…',
+    })
+
+    historyChild = QUOTA_FAILURE
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['influencer', 'history'] })
+    })
+    const paywall = await screen.findByRole('dialog', {
+      name: 'Top up to continue this generation',
+    })
+    const wallet = await within(paywall).findByRole('button', {
+      name: 'Add credits in Wallet',
+    })
+    await waitFor(() => expect(wallet).toBeEnabled())
+    await user.click(wallet)
+    getSelf.mockResolvedValue({
+      success: true,
+      data: { ...account, quota: 500_000 },
+    })
+    await user.click(
+      within(paywall).getByRole('button', {
+        name: 'I have completed the payment',
+      })
+    )
+    await user.click(
+      await within(paywall).findByRole('button', {
+        name: 'Continue generating',
+      })
+    )
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2))
+    expect(post.mock.calls).toEqual([post.mock.calls[0], post.mock.calls[0]])
+    expect(
+      track.mock.calls.filter(([event]) => event === 'influencer_paywall_view')
+    ).toHaveLength(1)
+    expect(
+      track.mock.calls.filter(
+        ([event]) => event === 'influencer_paywall_subscribed'
+      )
+    ).toEqual([['influencer_paywall_subscribed', { origin: 'multiview' }]])
+  })
+
+  it('shows the quota recovery action inside the saved MultiView details', async () => {
+    historyChild = QUOTA_FAILURE
+    const user = userEvent.setup()
+    renderWorkbench()
+    await user.click(await screen.findByRole('radio', { name: 'History' }))
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Multi-view generation failed',
+      })
+    )
+    const details = await screen.findByRole('dialog', { name: 'Multi-view' })
+    expect(within(details).getByText('Insufficient user quota')).toBeVisible()
+    await user.click(within(details).getByRole('button', { name: 'Top up' }))
+    expect(
+      await screen.findByRole('dialog', {
+        name: 'Top up to continue this generation',
+      })
+    ).toBeVisible()
+    await user.keyboard('{Escape}')
+    expect(
+      await screen.findByRole('dialog', { name: 'Multi-view' })
+    ).toBeVisible()
+    expect(post).not.toHaveBeenCalled()
   })
 })

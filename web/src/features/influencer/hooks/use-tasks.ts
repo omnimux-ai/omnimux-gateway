@@ -520,7 +520,10 @@ function useTaskSubmit<Body>(
   )
 
   const submit = useCallback(
-    async (body: Body): Promise<TaskRecord | null> => {
+    async (
+      body: Body,
+      onError?: (error: unknown) => void
+    ): Promise<TaskRecord | null> => {
       if (submittingRef.current) return null
       const epoch = epochRef.current
       const isCurrent = () => mountedRef.current && epochRef.current === epoch
@@ -546,7 +549,10 @@ function useTaskSubmit<Body>(
         startPolling(taskId, epoch, true)
         return accepted
       } catch (e) {
-        if (isCurrent()) setError(e)
+        if (isCurrent()) {
+          setError(e)
+          onError?.(e)
+        }
         return null
       } finally {
         if (isCurrent() && submittingRef.current) {
