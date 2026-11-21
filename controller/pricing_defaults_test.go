@@ -2,15 +2,20 @@ package controller
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/i18n"
+	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/modelcontracts"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -250,4 +255,247 @@ func TestVideoCapabilitiesCatalogIsScopedAndMatchesModelContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPricingGroupDefaultFallback(t *testing.T) {
+	order := []string{"fixture-bronze", "default", "fixture-lime"}
+	for _, tc := range []struct {
+		name, configured, caller, want string
+		usable                         map[string]string
+	}{
+		{"caller before default", "", "fixture-lime", "fixture-lime", map[string]string{"default": "Default", "fixture-lime": "Lime"}},
+		{"default before first ordered", "", "fixture-absent", "default", map[string]string{"fixture-bronze": "Bronze", "default": "Default"}},
+		{"first usable ordered", "", "", "fixture-lime", map[string]string{"fixture-lime": "Lime"}},
+		{"no usable group", "", "", "", map[string]string{"fixture-absent": "Absent"}},
+		{"configured but not enabled", "fixture-absent", "fixture-lime", "", map[string]string{"fixture-absent": "Absent", "fixture-lime": "Lime"}},
+		{"configured but forbidden", "fixture-bronze", "fixture-lime", "", map[string]string{"fixture-lime": "Lime"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, pricingDefaultGroup(tc.configured, tc.caller, order, order, tc.usable))
+		})
+	}
+}
+
+func TestPricingGroupsDatabaseMatrix(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	withSelfUseModeDisabled(t)
+	for _, dialect := range []struct{ kind, env string }{{"sqlite", ""}, {"mysql", "TEST_MYSQL_DSN"}, {"postgres", "TEST_POSTGRES_DSN"}} {
+		t.Run(dialect.kind, func(t *testing.T) {
+			if dialect.env != "" && os.Getenv(dialect.env) == "" {
+				t.Skip("set " + dialect.env + " to run this database")
+			}
+			testPricingGroups(t, dialect.kind, os.Getenv(dialect.env))
+		})
+	}
+}
+
+func testPricingGroups(t *testing.T, kind, dsn string) {
+	t.Helper()
+	db := modelManagementDB(t, kind, dsn)
+	require.NoError(t, db.AutoMigrate(&model.UserSession{}))
+	oldUsable := setting.UserUsableGroups2JSONString()
+	oldRatios := ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(oldUsable))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(oldRatios))
+		model.InvalidatePricingCache()
+	})
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"fixture-lime":"Lime"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"fixture-lime":1.17,"fixture-bronze":2.39}`))
+
+	const seedance = "seedance-2-5"
+	const image = "gpt-image-2.5"
+	const wan = "wan-3.0"
+	const minimax = "minimax-h3-video"
+	const lime = "fixture-lime"
+	const bronze = "fixture-bronze"
+	both := []string{lime, bronze}
+	expectedOrders := map[string][]string{
+		seedance: {bronze, lime}, image: {lime}, wan: both, minimax: {bronze},
+	}
+	for _, group := range both {
+		var modelNames []string
+		for name, order := range expectedOrders {
+			if common.StringsContains(order, group) {
+				modelNames = append(modelNames, name)
+			}
+		}
+		channel := model.Channel{Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Group: group, Key: "fixture", Models: strings.Join(modelNames, ",")}
+		require.NoError(t, db.Create(&channel).Error)
+		require.NoError(t, channel.AddAbilities(nil))
+	}
+	model.InvalidatePricingCache()
+	legacyGroups := make(map[string][]string)
+	for _, row := range model.GetCatalogPricing() {
+		legacyGroups[row.ModelName] = row.EnableGroup
+	}
+	require.Len(t, legacyGroups, len(expectedOrders))
+
+	gin.SetMode(gin.TestMode)
+	api := gin.New()
+	api.GET("/api/pricing", middleware.HeaderNavModuleAuth("pricing"), GetPricing)
+	api.GET("/api/option/", middleware.RootAuth(), GetOptions)
+	api.PUT("/api/option/", middleware.RootAuth(), UpdateOption)
+	credentials := make(map[int]string)
+	for _, role := range []int{common.RoleCommonUser, common.RoleRootUser} {
+		user := model.User{Username: fmt.Sprintf("pricing-fixture-%d", role), AffCode: fmt.Sprintf("pg%d", role), Role: role, Status: common.UserStatusEnabled, Group: bronze, AuthVersion: 1}
+		require.NoError(t, db.Create(&user).Error)
+		bundle, err := service.CreateLoginSession(user.Id, "fixture", "127.0.0.1", "pricing fixture")
+		require.NoError(t, err)
+		credentials[role] = bundle.AccessToken
+	}
+	call := func(method, path string, role int, body io.Reader) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, body)
+		if bearer := credentials[role]; bearer != "" {
+			req.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		response := httptest.NewRecorder()
+		api.ServeHTTP(response, req)
+		return response
+	}
+	const optionPath = "/api/option/"
+	const checkPath = optionPath + "?key=" + model.PricingGroupConfigKey
+	root := common.RoleRootUser
+	member := common.RoleCommonUser
+	assert.Equal(t, http.StatusUnauthorized, call(http.MethodGet, checkPath, 0, nil).Code)
+	assert.Equal(t, http.StatusForbidden, call(http.MethodGet, checkPath, member, nil).Code)
+	assert.Equal(t, http.StatusForbidden, call(http.MethodPut, optionPath, member, strings.NewReader(`{}`)).Code)
+
+	type optionView struct {
+		Success   bool                            `json:"success"`
+		Data      []model.Option                  `json:"data"`
+		Issues    []model.PricingGroupConfigIssue `json:"pricing_group_config_issues"`
+		Fallbacks uint64                          `json:"pricing_group_fallback_rows"`
+		Failures  uint64                          `json:"pricing_group_read_failures"`
+	}
+	check := func() (optionView, model.PricingGroupConfig) {
+		var view optionView
+		var config model.PricingGroupConfig
+		response := call(http.MethodGet, checkPath, root, nil)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		require.NoError(t, common.Unmarshal(response.Body.Bytes(), &view))
+		require.True(t, view.Success, response.Body.String())
+		require.Len(t, view.Data, 1)
+		require.NoError(t, common.UnmarshalJsonStr(view.Data[0].Value, &config))
+		return view, config
+	}
+	put := func(config model.PricingGroupConfig, status int, success bool) {
+		value, err := common.Marshal(config)
+		require.NoError(t, err)
+		body, err := common.Marshal(OptionUpdateRequest{Key: model.PricingGroupConfigKey, Value: string(value)})
+		require.NoError(t, err)
+		response := call(http.MethodPut, optionPath, root, strings.NewReader(string(body)))
+		require.Equal(t, status, response.Code, response.Body.String())
+		var result struct{ Success bool }
+		require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
+		require.Equal(t, success, result.Success, response.Body.String())
+	}
+	readPricing := func(role int, compareLegacy bool) map[string]pricingResponseRow {
+		response := call(http.MethodGet, "/api/pricing", role, nil)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		assert.Equal(t, "private, no-store", response.Header().Get("Cache-Control"))
+		var payload struct {
+			Success        bool
+			Data           []pricingResponseRow
+			Usable         map[string]string `json:"usable_group"`
+			PricingVersion string            `json:"pricing_version"`
+		}
+		require.NoError(t, common.Unmarshal(response.Body.Bytes(), &payload))
+		require.True(t, payload.Success)
+		assert.NotEmpty(t, payload.PricingVersion)
+		assert.NotEqual(t, "a42d372ccf0b5dd13ecf71203521f9d2", payload.PricingVersion)
+		rows := make(map[string]pricingResponseRow)
+		for _, row := range payload.Data {
+			if compareLegacy {
+				assert.Equal(t, legacyGroups[row.ModelName], row.EnableGroup)
+			}
+			assert.ElementsMatch(t, row.EnableGroup, row.GroupOrder)
+			if row.DefaultGroup != "" {
+				assert.Contains(t, row.EnableGroup, row.DefaultGroup)
+				assert.Contains(t, payload.Usable, row.DefaultGroup)
+			}
+			rows[row.ModelName] = row
+		}
+		return rows
+	}
+
+	initial, draft := check()
+	require.Len(t, initial.Issues, 4)
+	assert.Zero(t, draft.Version)
+	for name, order := range expectedOrders {
+		if name != minimax {
+			draft.Models[name] = model.PricingGroupEntry{DefaultGroup: lime, GroupOrder: order}
+		}
+	}
+	put(draft, http.StatusOK, true)
+	coverage, saved := check()
+	assert.EqualValues(t, 1, saved.Version)
+	assert.Equal(t, []model.PricingGroupConfigIssue{{ModelName: minimax, DefaultGroup: "missing", GroupOrder: "missing"}}, coverage.Issues)
+	anon := readPricing(0, true)
+	assert.NotContains(t, anon, minimax)
+	assert.Equal(t, lime, anon[image].DefaultGroup)
+	assert.Equal(t, []string{lime}, anon[image].GroupOrder)
+	rows := readPricing(member, true)
+	require.Len(t, rows, 4)
+	for name, order := range expectedOrders {
+		assert.Equal(t, order, rows[name].GroupOrder, name)
+		want := draft.Models[name].DefaultGroup
+		if name == minimax {
+			want = bronze
+		}
+		assert.Equal(t, want, rows[name].DefaultGroup, name)
+	}
+	observed, _ := check()
+	assert.Equal(t, coverage.Fallbacks+1, observed.Fallbacks)
+
+	saved.Models[minimax] = model.PricingGroupEntry{DefaultGroup: bronze, GroupOrder: expectedOrders[minimax]}
+	saved.Models[seedance] = model.PricingGroupEntry{DefaultGroup: bronze, GroupOrder: expectedOrders[seedance]}
+	put(saved, http.StatusOK, true)
+	assert.Empty(t, readPricing(0, true)[seedance].DefaultGroup)
+	updated := readPricing(member, true)
+	assert.Equal(t, bronze, updated[seedance].DefaultGroup)
+	assert.Equal(t, expectedOrders[seedance], updated[seedance].GroupOrder)
+	put(saved, http.StatusConflict, false)
+	complete, saved := check()
+	assert.EqualValues(t, 2, saved.Version)
+	assert.Empty(t, complete.Issues)
+	for _, invalid := range []model.PricingGroupEntry{
+		{DefaultGroup: "fixture-unknown", GroupOrder: expectedOrders[seedance]},
+		{DefaultGroup: bronze, GroupOrder: []string{bronze, bronze}},
+		{DefaultGroup: bronze, GroupOrder: []string{bronze, "fixture-unknown"}},
+		{DefaultGroup: bronze, GroupOrder: []string{bronze}},
+	} {
+		saved.Models[seedance] = invalid
+		put(saved, http.StatusOK, false)
+	}
+	assert.Equal(t, bronze, readPricing(member, true)[seedance].DefaultGroup)
+
+	// A fresh catalog snapshot must preserve the configured fields regardless of
+	// the iteration order of the legacy enabled-group set.
+	model.InvalidatePricingCache()
+	for name, row := range readPricing(member, false) {
+		assert.Equal(t, updated[name].DefaultGroup, row.DefaultGroup, name)
+		assert.Equal(t, updated[name].GroupOrder, row.GroupOrder, name)
+	}
+
+	// Remove a group's ability after saving. A stale explicit default stays
+	// empty, and the defensive order drops the retired group with the catalog.
+	require.NoError(t, db.Model(&model.Ability{}).Where(&model.Ability{Model: seedance, Group: bronze}).Update("enabled", false).Error)
+	model.InvalidatePricingCache()
+	stale, _ := check()
+	assert.Equal(t, []model.PricingGroupConfigIssue{{ModelName: seedance, DefaultGroup: "not_enabled", GroupOrder: "group_set_mismatch"}}, stale.Issues)
+	retired := readPricing(member, false)[seedance]
+	assert.Equal(t, []string{lime}, retired.GroupOrder)
+	assert.Empty(t, retired.DefaultGroup)
+
+	var persisted model.Option
+	require.NoError(t, db.Where(&model.Option{Key: model.PricingGroupConfigKey}).Take(&persisted).Error)
+	optionQuery := db.Model(&model.Option{}).Where(&model.Option{Key: persisted.Key})
+	require.NoError(t, optionQuery.Update("value", `{"version":2}`).Error)
+	fallback := readPricing(member, false)
+	assert.Equal(t, lime, fallback[seedance].DefaultGroup)
+	assert.Equal(t, fallback[wan].EnableGroup, fallback[wan].GroupOrder)
+	require.NoError(t, optionQuery.Update("value", persisted.Value).Error)
+	observed, _ = check()
+	assert.Equal(t, stale.Failures+1, observed.Failures)
 }

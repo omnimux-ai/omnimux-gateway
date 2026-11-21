@@ -460,6 +460,47 @@ profile 的历史档案可以作为 `stub` 保留，但不得继续在售。
 `OMNIMUX_MODEL_CATALOG_ALLOW_UNCONTRACTED=1` 是应急开关。若契约载荷本身不可读，
 网关保持发布现有 Served 目录，不得把 `/api/pricing` 清空。
 
+#### 定价目录的模型分组
+
+`GET /api/pricing` 的每个模型行返回以下展示字段。已有 `enable_groups` 的成员和顺序照常返回。
+
+| 字段 | 含义 |
+| --- | --- |
+| `group_order` | 模型级在售分组顺序。与该行 `enable_groups` 集合相同，每组恰好出现一次。登记有效时保持跨请求和重启稳定。下线或未知的配置项不会加入目录。 |
+| `default_group` | 该模型登记的默认组。组名须同时属于该行 `enable_groups` 和调用者的 `usable_group`，否则返回空字符串。模型全局只售一组时，顺序仅含该组，该组对调用者可用且登记有效时也就是默认组。 |
+
+`auto_groups` 是当前账号用于自动路由的有序候选。`group_order` 用于模型的线路展示。旧客户端可继续读取原字段。顶层 `pricing_version` 标识接口字段版本，运营编辑展示配置时保持该字段版本。
+
+有效顺序缺失时，`group_order` 原样沿用该行 `enable_groups` 的数组顺序。只在默认组缺配置时，依次取 `user.Group`、`default`、`group_order` 中第一个可用组。每一步都检查模型启用组和调用者可用组，找不到则返回空字符串。配置读取失败按缺配置处理。已登记的默认组因权限或目录变更变得不可用时返回空字符串。
+
+**维护与发布检查**
+
+超管通过 `GET /api/option/?key=ModelPricingGroups` 读取 `data[0].value`。该值是含 `version` 与 `models` 的 JSON 字符串，`models` 以精确的目录模型 ID 为键。未登记的文档版本为 `0`。下面的 `PUT /api/option/` 示例适用于空配置的隔离测试目录。
+
+```json
+{
+  "key": "ModelPricingGroups",
+  "value": "{\"version\":0,\"models\":{\"gpt-image-2.5\":{\"default_group\":\"fixture-lime\",\"group_order\":[\"fixture-lime\"]}}}"
+}
+```
+
+保存前读取当前文档，提交完整 `models` 和读到的 `version`。保存会校验模型和分组并推进版本，遇到 HTTP `409` 时重新读取后再编辑。每次 `GET /api/pricing` 在现有定价缓存之外按主键读取一个 option。共享同一主库的实例在保存后的下一次成功读取生效，无配置缓存同步等待。
+
+下方命令检查完整发布目录，包含普通调用者不可见的模型。它输出缺失或失配的模型，存在缺项或无法检查时以非零状态退出。发布前应得到 `[]`。
+
+```sh
+curl --fail --silent --show-error \
+  --header "Authorization: Bearer ${GATEWAY_ROOT_ACCESS_TOKEN:?}" \
+  "${GATEWAY_URL:?}/api/option/?key=ModelPricingGroups" |
+  jq -e 'if .success != true or (.pricing_group_config_issues | type) != "array" then
+    error("cannot check pricing group configuration")
+  else
+    .pricing_group_config_issues | if length == 0 then . else halt_error(1) end
+  end'
+```
+
+同一超管响应提供本实例自启动以来的 `pricing_group_fallback_rows` 和 `pricing_group_read_failures`。前者按触发防御行为的模型响应行计数，后者按读取或解码配置失败的请求计数。
+
 ### 6.9 视频分组的有效能力
 
 `/api/pricing` 的模型行和 `/api/model_contract/:model` 的 `data` 可在 `contract` 同级返回

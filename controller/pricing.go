@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"slices"
+	"sync/atomic"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/modelcontracts"
@@ -84,26 +87,86 @@ func pricingGroupView(c *gin.Context) (string, map[string]string, map[string]flo
 	return group, usableGroup, groupRatio
 }
 
+type pricingResponseRow struct {
+	model.Pricing
+	DefaultGroup string   `json:"default_group"`
+	GroupOrder   []string `json:"group_order"`
+}
+
+var (
+	pricingGroupFallbackRows atomic.Uint64
+	pricingGroupReadFailures atomic.Uint64
+)
+
+func pricingDefaultGroup(configured, userGroup string, enabled, order []string, usable map[string]string) string {
+	if configured != "" {
+		if _, ok := usable[configured]; ok && slices.Contains(enabled, configured) {
+			return configured
+		}
+		return ""
+	}
+	for _, group := range []string{userGroup, "default"} {
+		if _, ok := usable[group]; ok && group != "" && slices.Contains(enabled, group) {
+			return group
+		}
+	}
+	// The order has already been checked against enable_groups.
+	for _, group := range order {
+		if _, ok := usable[group]; ok && group != "" {
+			return group
+		}
+	}
+	return ""
+}
+
 func GetPricing(c *gin.Context) {
 	pricing := model.GetCatalogPricing()
 	group, usableGroup, groupRatio := pricingGroupView(c)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
-	if modelcontracts.ActiveVideoCapabilities() != nil {
-		c.Header("Cache-Control", "private, no-store")
-		for i := range pricing {
-			pricing[i].EffectiveVideo = pricing[i].VideoCapabilitiesForGroups(groupRatio)
+	c.Header("Cache-Control", "private, no-store")
+	config, err := model.LoadPricingGroupConfig(c.Request.Context())
+	if err != nil {
+		pricingGroupReadFailures.Add(1)
+	}
+
+	var rows []pricingResponseRow
+	if pricing != nil {
+		rows = make([]pricingResponseRow, 0, len(pricing))
+	}
+	var fallbackRows uint64
+	videoManaged := modelcontracts.ActiveVideoCapabilities() != nil
+	for _, item := range pricing {
+		entry := config.Models[item.ModelName]
+		hasOrder := entry.HasValidOrder(item.EnableGroup)
+		order := entry.GroupOrder
+		if !hasOrder {
+			order = item.EnableGroup
 		}
+		if entry.DefaultGroup == "" || !hasOrder {
+			fallbackRows++
+		}
+		if videoManaged {
+			item.EffectiveVideo = item.VideoCapabilitiesForGroups(groupRatio)
+		}
+		rows = append(rows, pricingResponseRow{
+			Pricing:      item,
+			DefaultGroup: pricingDefaultGroup(entry.DefaultGroup, group, item.EnableGroup, order, usableGroup),
+			GroupOrder:   order,
+		})
+	}
+	if fallbackRows > 0 {
+		pricingGroupFallbackRows.Add(fallbackRows)
 	}
 
 	response := gin.H{
 		"success":            true,
-		"data":               pricing,
+		"data":               rows,
 		"vendors":            model.GetVendors(),
 		"group_ratio":        groupRatio,
 		"usable_group":       usableGroup,
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        service.GetUserAutoGroup(group),
-		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
+		"pricing_version":    "model-group-display-v1",
 	}
 	if defaults := filterPricingDefaults(pricing, modelcontracts.All().Defaults); len(defaults) > 0 {
 		response["defaults"] = defaults

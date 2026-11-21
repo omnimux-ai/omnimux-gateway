@@ -1178,9 +1178,12 @@ func (h *videoCapabilityRouteHarness) syntheticCatalogResponses(t *testing.T, mo
 			// The legacy pricing marker belongs to the first row before
 			// filtering and can land on a model outside this fixture.
 			delete(row, "pricing_version")
-			// Group ordering is independent of these capability fixtures.
+			// These capability fixtures have no display configuration. Verify
+			// the fallback before normalizing the legacy order for comparison.
 			groups := row["enable_groups"].([]any)
+			require.Equal(t, groups, row["group_order"])
 			slices.SortFunc(groups, func(a, b any) int { return strings.Compare(a.(string), b.(string)) })
+			row["group_order"] = groups
 			rows = append(rows, row)
 		}
 	}
