@@ -54,13 +54,6 @@ export const DOWNLOAD_VARIANTS = [
 ] as const
 export const DOWNLOAD_DESTINATION = new URL(DESKTOP_RELEASE_ORIGIN).hostname
 export const DOWNLOAD_CTA_NAME = 'download_cta_click'
-export const HOME_DESKTOP_COPY_CTA = {
-  page: 'home',
-  cta_id: 'hero_copy_download_link',
-  cta_position: 'hero',
-  cta_variant: 'copy_link',
-  destination: 'desktop_download_page',
-} as const
 export const DOWNLOAD_CLICK_WINDOW_MS = 10_000
 export const DEVICE_ID_STORAGE_KEY = 'omnimux.analytics.device_id'
 const LOCK_NAME = 'omnimux.analytics.downloads'
@@ -80,9 +73,7 @@ type DownloadCtaClick = DownloadCtaIntent & {
   page: DownloadCtaPage
   locale: string
 }
-type DownloadCtaEvent =
-  | (DownloadCtaClick & { destination: string })
-  | (typeof HOME_DESKTOP_COPY_CTA & { locale: string })
+type DownloadCtaEvent = DownloadCtaClick & { destination: string }
 
 const memoryClicks = new Map<string, number>()
 
@@ -93,7 +84,7 @@ function persistDownloadClick(ctaID: string, now: number): boolean {
     deviceID = window.crypto.randomUUID()
     store.setItem(DEVICE_ID_STORAGE_KEY, deviceID)
   }
-  const key = LAST_CLICK_PREFIX + ':' + ctaID
+  const key = `${LAST_CLICK_PREFIX}:${ctaID}`
   const [storedDevice, storedTime] = (store.getItem(key) ?? '').split(':')
   const age = now - Number(storedTime)
   if (
@@ -103,7 +94,7 @@ function persistDownloadClick(ctaID: string, now: number): boolean {
   ) {
     return false
   }
-  store.setItem(key, deviceID + ':' + now)
+  store.setItem(key, `${deviceID}:${now}`)
   return true
 }
 
@@ -116,27 +107,24 @@ function reportDownloadCtaClick(input: DownloadCtaEvent): void {
 
     const id = input.cta_id
     const now = Date.now()
-    for (const [key, previous] of memoryClicks) {
-      if (now - previous >= DOWNLOAD_CLICK_WINDOW_MS) memoryClicks.delete(key)
-    }
-    if (memoryClicks.has(id)) return
-    memoryClicks.set(id, now)
+    const claim = () => {
+      for (const [key, previous] of memoryClicks) {
+        if (now - previous >= DOWNLOAD_CLICK_WINDOW_MS) memoryClicks.delete(key)
+      }
+      if (memoryClicks.has(id)) return
 
-    const report = () => {
+      try {
+        if (!persistDownloadClick(id, now)) return
+      } catch {
+        // Fall back to the page-local claim if storage or UUID is restricted.
+      }
+      memoryClicks.set(id, now)
+
       try {
         tracker(DOWNLOAD_CTA_NAME, input)
       } catch {
         // A tracker failure must not affect downloading.
       }
-    }
-    const claim = () => {
-      try {
-        if (!persistDownloadClick(id, now)) return
-      } catch {
-        // Storage and UUID generation can be restricted. This page has
-        // already claimed the click in memory.
-      }
-      report()
     }
     if (typeof navigator.locks?.request === 'function') {
       void navigator.locks.request(LOCK_NAME, claim).catch(() => claim())
@@ -156,17 +144,15 @@ export function trackDownloadCtaClick(
   href: string
 ): void {
   try {
-    if (input.cta_id === HOME_DESKTOP_COPY_CTA.cta_id) return
-    if (new URL(href).origin !== DESKTOP_RELEASE_ORIGIN) return
+    const url = new URL(href)
+    if (
+      url.origin !== DESKTOP_RELEASE_ORIGIN ||
+      !/\.(?:dmg|exe)$/i.test(url.pathname)
+    ) {
+      return
+    }
     reportDownloadCtaClick({ ...input, destination: DOWNLOAD_DESTINATION })
   } catch {
     // An invalid installer URL must not affect the click.
   }
-}
-
-export function trackHomeDesktopCopy(
-  locale: (typeof DOWNLOAD_LOCALES)[number]
-): void {
-  if (!DOWNLOAD_LOCALES.includes(locale)) return
-  reportDownloadCtaClick({ ...HOME_DESKTOP_COPY_CTA, locale })
 }

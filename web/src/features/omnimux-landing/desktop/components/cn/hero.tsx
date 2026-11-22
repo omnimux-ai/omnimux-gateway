@@ -27,7 +27,6 @@ import { useLanding } from '../../i18n/context'
 import type { LandingLang } from '../../i18n/types'
 import {
   HOME_DESKTOP_DOWNLOAD_PAGE,
-  trackHomeDesktopCopy,
   trackHomeHeroCtaClick,
 } from '../../lib/home-analytics'
 import { REEL_MEDIA, SOURCE_REPO, type Mode } from './data'
@@ -293,7 +292,6 @@ export function CnHero() {
               aria-describedby={mobileHintId}
               onClick={async () => {
                 trackHomeHeroCtaClick('copy_link', 'mobile_fallback')
-                trackHomeDesktopCopy(landing.lang)
                 try {
                   await navigator.clipboard.writeText(
                     HOME_DESKTOP_DOWNLOAD_PAGE

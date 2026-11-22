@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
+import { setPublicAnalyticsIds } from '@/lib/analytics-public-ids'
 import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -435,6 +436,13 @@ export function InfluencerWorkbench() {
     () => [...published, ...presets],
     [published, presets]
   )
+
+  useEffect(() => {
+    setPublicAnalyticsIds(
+      'preset',
+      explorePresets.map((preset) => preset.id)
+    )
+  }, [explorePresets])
 
   const isExploreLoading =
     (taxonomyQ.isPending && !taxonomy) ||

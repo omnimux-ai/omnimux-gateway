@@ -24,13 +24,16 @@ For commercial licensing, please contact support@quantumnous.com
  *   snapshot of its own `utm_*` values once. Later visits and in-site CTAs
  *   never overwrite it. `utm_content` is kept only when it is the single
  *   allowed content id; `utm_source` / `utm_medium` keep their inbound value
- *   after a length/character clean-up and stay empty when absent.
+ *   after personal-value and length/character checks. Absent or rejected
+ *   values stay empty.
  * - `tool_cta_click`: in-site tool CTAs report controlled enum fields only.
  *   They never add `utm_*` to links and never carry the pasted link.
  *
  * Events go through `__OMNIMUX_TRACK__` when a global tracker exists, like
  * the influencer and pricing analytics. Without one this is a no-op.
  */
+
+import { looksLikePersonalValue } from './analytics-personal-value'
 
 export const GROWTH_CAMPAIGN = 'ai_growth_20261109'
 export const GROWTH_CONTENT_ALLOWLIST = [
@@ -52,16 +55,16 @@ export type FirstTouch = {
   content: string
 }
 
-/**
- * Keeps letters, digits and `.`, `_`, `-`; drops everything else and caps the
- * length. Never invents a value: missing or fully stripped input becomes ''.
- */
+/** Keeps bounded ASCII labels and clears values shaped like personal data. */
 export function cleanUtmValue(raw: string | null | undefined): string {
   if (typeof raw !== 'string') return ''
-  return raw
-    .trim()
+  const value = raw.trim()
+  if (looksLikePersonalValue(value)) return ''
+
+  const cleaned = value
     .replaceAll(/[^A-Za-z0-9._-]/g, '')
     .slice(0, UTM_VALUE_MAX_LENGTH)
+  return cleaned !== value && looksLikePersonalValue(cleaned) ? '' : cleaned
 }
 
 function allowedContent(raw: string | null): string {
