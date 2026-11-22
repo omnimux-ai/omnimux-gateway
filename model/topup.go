@@ -156,7 +156,10 @@ func UpdatePendingTopUpStatus(tradeNo string, expectedPaymentProvider string, ta
 	return DB.Transaction(func(tx *gorm.DB) error {
 		topUp := &TopUp{}
 		if err := lockForUpdate(tx).Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
-			return ErrTopUpNotFound
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrTopUpNotFound
+			}
+			return err
 		}
 		if expectedPaymentProvider != "" && topUp.PaymentProvider != expectedPaymentProvider {
 			return ErrPaymentMethodMismatch
@@ -165,8 +168,14 @@ func UpdatePendingTopUpStatus(tradeNo string, expectedPaymentProvider string, ta
 			return ErrTopUpStatusInvalid
 		}
 
-		topUp.Status = targetStatus
-		return tx.Save(topUp).Error
+		result := tx.Model(topUp).Where("status = ?", common.TopUpStatusPending).Update("status", targetStatus)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 && targetStatus != common.TopUpStatusPending {
+			return ErrTopUpStatusInvalid
+		}
+		return nil
 	})
 }
 

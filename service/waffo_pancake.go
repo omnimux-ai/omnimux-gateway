@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -148,6 +149,139 @@ func CreateWaffoPancakeCheckoutSession(ctx context.Context, params *WaffoPancake
 		Token:          session.Token,
 		TokenExpiresAt: session.TokenExpiresAt,
 	}, nil
+}
+
+// QueryCanceledWaffoPancakeOrder confirms a closed, unpaid one-time order for
+// either a top-up or a gateway subscription purchase. A missing or ambiguous
+// record leaves the local order pending.
+func QueryCanceledWaffoPancakeOrder(ctx context.Context, tradeNo string, userID int, subscription bool) (bool, error) {
+	storeID := strings.TrimSpace(setting.WaffoPancakeStoreID)
+	merchantID, privateKey := setting.WaffoPancakeMerchantID, setting.WaffoPancakePrivateKey
+	if storeID == "" || strings.TrimSpace(merchantID) == "" || strings.TrimSpace(privateKey) == "" {
+		return false, nil
+	}
+	// The authenticated checkout sets both the buyer identity and the merchant
+	// reference server-side. The reference embeds the same local user's ID.
+	prefix := "WAFFO_PANCAKE-"
+	if subscription {
+		prefix = "WAFFO_PANCAKE_SUB-"
+	}
+	if userID <= 0 || !strings.HasPrefix(tradeNo, fmt.Sprintf("%s%d-", prefix, userID)) {
+		return false, nil
+	}
+
+	client, err := pancake.New(pancake.Config{
+		MerchantID: merchantID,
+		PrivateKey: privateKey,
+		HTTPClient: &http.Client{
+			Transport: waffoPancakeQueryTransport{http.DefaultTransport},
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
+	})
+	if err != nil {
+		return false, fmt.Errorf("could not initialize Waffo Pancake inquiry")
+	}
+
+	type paymentsByReference struct {
+		Count    int `json:"paymentsCount"`
+		Payments []struct {
+			ID      string                `json:"id"`
+			OrderID string                `json:"orderId"`
+			TradeNo string                `json:"orderMerchantExternalId"`
+			Status  pancake.PaymentStatus `json:"status"`
+		} `json:"payments"`
+	}
+	matches, err := pancake.GraphQLQuery[paymentsByReference](ctx, client, pancake.GraphQLParams{
+		Query: `query ($reference: String!) {
+			paymentsCount(filter: { orderMerchantExternalId: { eq: $reference } })
+			payments(limit: 100, filter: { orderMerchantExternalId: { eq: $reference } }) {
+				id orderId orderMerchantExternalId status
+			}
+		}`,
+		Variables: map[string]any{"reference": tradeNo},
+	})
+	if err != nil || len(matches.Errors) != 0 {
+		return false, fmt.Errorf("Waffo Pancake payment lookup did not succeed")
+	}
+	if matches.Data.Count == 0 || matches.Data.Count != len(matches.Data.Payments) {
+		return false, nil // No attempts or the list may have been truncated.
+	}
+	orderID := matches.Data.Payments[0].OrderID
+	if orderID == "" {
+		return false, nil
+	}
+	statuses := make(map[string]pancake.PaymentStatus, len(matches.Data.Payments))
+	for _, payment := range matches.Data.Payments {
+		if payment.ID == "" || payment.OrderID != orderID || payment.TradeNo != tradeNo ||
+			(payment.Status != pancake.PaymentStatusFailed && payment.Status != pancake.PaymentStatusCanceled) {
+			return false, nil
+		}
+		statuses[payment.ID] = payment.Status
+	}
+	if len(statuses) != matches.Data.Count {
+		return false, nil
+	}
+
+	type orderDetail struct {
+		Order *struct {
+			ID       string                     `json:"id"`
+			TradeNo  string                     `json:"orderMerchantExternalId"`
+			Status   pancake.OnetimeOrderStatus `json:"status"`
+			TestMode *bool                      `json:"testMode"`
+			Store    struct {
+				ID string `json:"id"`
+			} `json:"store"`
+			Payments []struct {
+				ID           string                `json:"id"`
+				Status       pancake.PaymentStatus `json:"status"`
+				RefundStatus string                `json:"refundStatus"`
+			} `json:"payments"`
+		} `json:"onetimeOrder"`
+	}
+	detail, err := pancake.GraphQLQuery[orderDetail](ctx, client, pancake.GraphQLParams{
+		Query: `query ($id: ID!) {
+			onetimeOrder(id: $id) {
+				id orderMerchantExternalId status testMode store { id }
+				payments { id status refundStatus }
+			}
+		}`,
+		Variables: map[string]any{"id": orderID},
+	})
+	if err != nil || len(detail.Errors) != 0 {
+		return false, fmt.Errorf("Waffo Pancake order lookup did not succeed")
+	}
+	order := detail.Data.Order
+	if order == nil || order.ID != orderID || order.TradeNo != tradeNo || order.Status != pancake.OnetimeOrderStatusCanceled ||
+		order.TestMode == nil || *order.TestMode || order.Store.ID != storeID || len(order.Payments) != len(statuses) {
+		return false, nil
+	}
+	for _, payment := range order.Payments {
+		status, found := statuses[payment.ID]
+		if !found || payment.Status != status || payment.RefundStatus != "" {
+			return false, nil
+		}
+		delete(statuses, payment.ID)
+	}
+	return true, nil
+}
+
+// The SDK exposes GraphQL errors but does not surface HTTP status to callers.
+// Accept only direct successful HTTP responses for reconciliation decisions.
+type waffoPancakeQueryTransport struct{ http.RoundTripper }
+
+func (t waffoPancakeQueryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.RoundTripper.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode/100 != 2 {
+		_ = resp.Body.Close()
+		return nil, fmt.Errorf("Waffo Pancake inquiry returned HTTP %d", resp.StatusCode)
+	}
+	resp.Body = http.MaxBytesReader(nil, resp.Body, 1<<20)
+	return resp, nil
 }
 
 func optionalString(s string) *string {

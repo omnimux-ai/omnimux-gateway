@@ -24,6 +24,14 @@ import (
 )
 
 func getWaffoSDK() (*waffo.Waffo, error) {
+	cfg, err := getWaffoConfig()
+	if err != nil {
+		return nil, err
+	}
+	return waffo.New(cfg), nil
+}
+
+func getWaffoConfig() (*config.WaffoConfig, error) {
 	env := config.Sandbox
 	apiKey := setting.WaffoSandboxApiKey
 	privateKey := setting.WaffoSandboxPrivateKey
@@ -42,11 +50,7 @@ func getWaffoSDK() (*waffo.Waffo, error) {
 	if setting.WaffoMerchantId != "" {
 		builder = builder.MerchantID(setting.WaffoMerchantId)
 	}
-	cfg, err := builder.Build()
-	if err != nil {
-		return nil, err
-	}
-	return waffo.New(cfg), nil
+	return builder.Build()
 }
 
 func getWaffoUserEmail(user *model.User) string {
@@ -392,10 +396,9 @@ func WaffoWebhook(c *gin.Context) {
 
 // handleWaffoPayment 处理支付完成通知
 func handleWaffoPayment(c *gin.Context, wh *core.WebhookHandler, result *core.PaymentNotificationResult) {
-	if result.OrderStatus != "PAY_SUCCESS" {
+	if result.OrderStatus != core.OrderStatusPaySuccess {
 		logger.LogInfo(c.Request.Context(), common.LogText("Waffo order not successful, top-up skipped trade_no=%s order_status=%s client_ip=%s", result.MerchantOrderID, result.OrderStatus, c.ClientIP()))
-		// 终态失败订单标记为 failed，避免永远停在 pending
-		if result.MerchantOrderID != "" {
+		if result.OrderStatus == core.OrderStatusOrderClose && result.MerchantOrderID != "" {
 			if err := model.UpdatePendingTopUpStatus(result.MerchantOrderID, model.PaymentProviderWaffo, common.TopUpStatusFailed); err != nil &&
 				!errors.Is(err, model.ErrTopUpNotFound) &&
 				!errors.Is(err, model.ErrTopUpStatusInvalid) {

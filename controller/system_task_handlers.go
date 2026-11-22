@@ -24,6 +24,7 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
 	service.RegisterSystemTaskHandler(generationQueueHandler{})
 	service.RegisterSystemTaskHandler(imageThumbnailRecoveryHandler{})
+	service.RegisterSystemTaskHandler(paymentOrderExpiryHandler{})
 	hostedaccount.RegisterWorkers()
 }
 

@@ -6,17 +6,16 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 	"github.com/thanhpk/randstr"
@@ -25,6 +24,8 @@ import (
 const CreemSignatureHeader = "creem-signature"
 
 var creemAdaptor = &CreemAdaptor{}
+
+var errCreemCheckoutRejected = errors.New("Creem rejected checkout creation")
 
 // 生成HMAC-SHA256签名
 func generateCreemSignature(payload string, secret string) string {
@@ -77,7 +78,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 
 	// 解析产品列表
 	var products []CreemProduct
-	err := json.Unmarshal([]byte(setting.CreemProducts), &products)
+	err := common.UnmarshalJsonStr(setting.CreemProducts, &products)
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Creem failed to parse product config user_id=%d error=%q", c.GetInt("id"), err.Error()))
 		paymentError(c, common.NewMessage("Product configuration error"))
@@ -135,6 +136,12 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	checkoutUrl, err := genCreemLink(c.Request.Context(), referenceId, selectedProduct, user.Email, user.Username)
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Creem failed to create payment link user_id=%d trade_no=%s product_id=%s error=%q", id, referenceId, selectedProduct.ProductId, err.Error()))
+		if errors.Is(err, errCreemCheckoutRejected) {
+			if err := model.UpdatePendingTopUpStatus(referenceId, model.PaymentProviderCreem, common.TopUpStatusFailed); err != nil &&
+				!errors.Is(err, model.ErrTopUpStatusInvalid) {
+				logger.LogError(c.Request.Context(), common.LogText("Creem failed to mark top-up order as failed trade_no=%s error=%q", referenceId, err.Error()))
+			}
+		}
 		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}
@@ -414,13 +421,13 @@ func genCreemLink(ctx context.Context, referenceId string, product *CreemProduct
 	}
 
 	// 序列化请求数据
-	jsonData, err := json.Marshal(requestData)
+	jsonData, err := common.Marshal(requestData)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request data: %v", err)
+		return "", fmt.Errorf("failed to marshal request data: %w", err)
 	}
 
 	// 创建 HTTP 请求
-	req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiUrl, bytes.NewReader(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to create HTTP request: %v", err)
 	}
@@ -434,6 +441,9 @@ func genCreemLink(ctx context.Context, referenceId string, product *CreemProduct
 	// 发送请求
 	client := &http.Client{
 		Timeout: 30 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -447,23 +457,26 @@ func genCreemLink(ctx context.Context, referenceId string, product *CreemProduct
 		return "", fmt.Errorf("failed to read response: %v", err)
 	}
 
-	logger.LogInfo(ctx, common.LogText("Creem API response received trade_no=%s status_code=%d body=%q", referenceId, resp.StatusCode, string(body)))
+	logger.LogInfo(ctx, common.LogText("Creem API response received trade_no=%s status_code=%d", referenceId, resp.StatusCode))
 
-	// 检查响应状态
-	if resp.StatusCode/100 != 2 {
-		return "", fmt.Errorf("Creem API http status %d ", resp.StatusCode)
+	// Only definitive request rejections establish that checkout was not created.
+	// Conflicts, timeouts and upstream errors can leave a valid remote checkout.
+	switch resp.StatusCode {
+	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity:
+		return "", fmt.Errorf("%w (HTTP %d)", errCreemCheckoutRejected, resp.StatusCode)
 	}
-	// 解析响应
+	if resp.StatusCode/100 != 2 {
+		return "", fmt.Errorf("Creem API HTTP status %d", resp.StatusCode)
+	}
 	var checkoutResp CreemCheckoutResponse
-	err = json.Unmarshal(body, &checkoutResp)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse response: %v", err)
+	if err := common.Unmarshal(body, &checkoutResp); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if checkoutResp.CheckoutUrl == "" {
-		return "", fmt.Errorf("Creem API resp no checkout url ")
+		return "", errors.New("Creem API response has no checkout URL")
 	}
 
-	logger.LogInfo(ctx, common.LogText("Creem payment link created trade_no=%s response_id=%s checkout_url=%q", referenceId, checkoutResp.Id, checkoutResp.CheckoutUrl))
+	logger.LogInfo(ctx, common.LogText("Creem payment link created trade_no=%s response_id=%s", referenceId, checkoutResp.Id))
 	return checkoutResp.CheckoutUrl, nil
 }
