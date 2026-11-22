@@ -24,7 +24,11 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
 	service.RegisterSystemTaskHandler(generationQueueHandler{})
 	service.RegisterSystemTaskHandler(imageThumbnailRecoveryHandler{})
-	service.RegisterSystemTaskHandler(paymentOrderExpiryHandler{})
+	// The runner can claim every registered type, even when its schedule is disabled.
+	paymentExpiry := paymentOrderExpiryHandler{}
+	if paymentExpiry.Enabled() {
+		service.RegisterSystemTaskHandler(paymentExpiry)
+	}
 	hostedaccount.RegisterWorkers()
 }
 

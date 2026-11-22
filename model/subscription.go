@@ -695,7 +695,8 @@ func upsertSubscriptionTopUpTx(tx *gorm.DB, order *SubscriptionOrder) error {
 }
 
 func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string) error {
-	err := UpdatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, common.TopUpStatusExpired)
+	// Preserve the existing checkout expiry fallback when the subscription lookup fails.
+	err := updatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, common.TopUpStatusExpired, true)
 	if errors.Is(err, ErrSubscriptionOrderStatusInvalid) {
 		return nil // Retain the idempotent response for a previously finalized order.
 	}
@@ -704,6 +705,10 @@ func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string) err
 
 // UpdatePendingSubscriptionOrderStatus records a terminal non-payment outcome.
 func UpdatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, targetStatus string) error {
+	return updatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, targetStatus, false)
+}
+
+func updatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, targetStatus string, treatLookupErrorsAsMissing bool) error {
 	if tradeNo == "" {
 		return errors.New("tradeNo is empty")
 	}
@@ -713,7 +718,7 @@ func UpdatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, targ
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
 		if err := lockForUpdate(tx).Where("trade_no = ?", tradeNo).First(&order).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
+			if treatLookupErrorsAsMissing || errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrSubscriptionOrderNotFound
 			}
 			return err

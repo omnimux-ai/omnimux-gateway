@@ -2,12 +2,14 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -305,14 +307,18 @@ func TestEpayCallbacksVerifyBeforeSettlement(t *testing.T) {
 
 // SystemTask's existing finish path uses the real table names. These tests
 // require an empty dedicated database for either external dialect.
-func paymentOrderTestDatabase(t *testing.T) *gorm.DB {
+func openPaymentOrderTestDatabase(t *testing.T) (*gorm.DB, common.DatabaseType) {
 	t.Helper()
 	dialect := common.DatabaseType(os.Getenv("TEST_PAYMENT_ORDER_DB_DIALECT"))
 	var driver gorm.Dialector
 	switch dialect {
 	case "", common.DatabaseTypeSQLite:
 		dialect = common.DatabaseTypeSQLite
-		driver = sqlite.Open(filepath.Join(t.TempDir(), "payments.sqlite") + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+		path := os.Getenv("TEST_PAYMENT_ORDER_SQLITE_PATH")
+		if path == "" {
+			path = filepath.Join(t.TempDir(), "payments.sqlite")
+		}
+		driver = sqlite.Open(path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 	case common.DatabaseTypeMySQL:
 		dsn := os.Getenv("TEST_PAYMENT_ORDER_MYSQL_DSN")
 		require.NotEmpty(t, dsn)
@@ -330,6 +336,12 @@ func paymentOrderTestDatabase(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(4)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	return db, dialect
+}
+
+func paymentOrderTestDatabase(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, dialect := openPaymentOrderTestDatabase(t)
 	var version string
 	query := "SELECT version()"
 	if dialect == common.DatabaseTypeSQLite {
@@ -653,6 +665,120 @@ func TestPaymentOrderExpiryConfiguration(t *testing.T) {
 	assert.Equal(t, now-25*3600, paymentOrderExpiryCutoff(now))
 }
 
+func TestPaymentOrderExpiryRespectsNodeEnablement(t *testing.T) {
+	const taskEnv = "TEST_PAYMENT_ORDER_EXPIRY_RUNNER_TASK"
+	const reference = "node-enablement-order"
+	if taskID := os.Getenv(taskEnv); taskID != "" {
+		runPaymentOrderExpiryTestNode(t, taskID, reference)
+		return
+	}
+
+	t.Setenv("TEST_PAYMENT_ORDER_SQLITE_PATH", filepath.Join(t.TempDir(), "shared-payments.sqlite"))
+	db := paymentOrderTestDatabase(t)
+	topUp := model.TopUp{TradeNo: reference, PaymentProvider: model.PaymentProviderWaffo, Status: common.TopUpStatusPending, CreateTime: common.GetTimestamp() - 73*3600}
+	require.NoError(t, topUp.Insert())
+	task, created, err := service.EnqueueSystemTask(model.SystemTaskTypePaymentOrderExpiry, nil)
+	require.NoError(t, err)
+	require.True(t, created)
+
+	binary, err := os.Executable()
+	require.NoError(t, err)
+	// Each node needs its own handler registry and runner lifetime.
+	for _, enabled := range []string{"false", "true"} {
+		child := exec.CommandContext(t.Context(), binary, "-test.run=^"+t.Name()+"$", "-test.timeout=20s")
+		child.Env = append(os.Environ(), taskEnv+"="+task.TaskID, "PAYMENT_ORDER_EXPIRY_TASK_ENABLED="+enabled)
+		out, err := child.CombinedOutput()
+		require.NoError(t, err, "node enablement=%s: %s", enabled, out)
+
+		stored, err := model.GetSystemTaskByTaskID(task.TaskID)
+		require.NoError(t, err)
+		require.NotNil(t, stored)
+		status, _ := paymentTestState(t, false, reference)
+		if enabled == "false" {
+			require.Equal(t, model.SystemTaskStatusPending, stored.Status, "disabled node must leave the scheduled task pending")
+			assert.Empty(t, stored.LockedBy)
+			assert.Equal(t, common.TopUpStatusPending, status)
+			var leases int64
+			require.NoError(t, db.Model(&model.SystemTaskLock{}).Where("task_id = ?", task.TaskID).Count(&leases).Error)
+			assert.Zero(t, leases)
+			continue
+		}
+		require.Equal(t, model.SystemTaskStatusSucceeded, stored.Status, stored.Error)
+		var result paymentOrderExpiryResult
+		require.NoError(t, common.UnmarshalJsonStr(stored.Result, &result))
+		assert.Equal(t, paymentOrderExpiryCounts{Checked: 1, Expired: 1}, result.TopUps)
+		assert.Equal(t, common.TopUpStatusExpired, status)
+	}
+}
+
+type paymentOrderClaimBarrier struct{ done chan error }
+
+func (paymentOrderClaimBarrier) Type() string { return "fixture_payment_claim_barrier" }
+
+func (h paymentOrderClaimBarrier) Run(_ context.Context, task *model.SystemTask, runnerID string) {
+	h.done <- model.FinishSystemTask(task.TaskID, runnerID, model.SystemTaskStatusSucceeded, nil, "")
+}
+
+func runPaymentOrderExpiryTestNode(t *testing.T, taskID, reference string) {
+	t.Helper()
+	db, dialect := openPaymentOrderTestDatabase(t)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	model.DB, model.LOG_DB = db, db
+	common.SetDatabaseTypes(dialect, dialect)
+	common.IsMasterNode = true
+	t.Setenv("CHANNEL_UPSTREAM_MODEL_UPDATE_TASK_ENABLED", "false")
+	t.Setenv("HOSTED_WORKERS_ENABLED", "false")
+	t.Setenv("PAYMENT_ORDER_EXPIRY_MIN_AGE_HOURS", "72")
+	configureWaffoPaymentTest(t)
+	data := order.InquiryOrderData{PaymentRequestID: reference, MerchantOrderID: reference, AcquiringOrderID: "fixture-order", OrderStatus: core.OrderStatusOrderClose}
+	body, err := common.Marshal(core.ApiResponse[order.InquiryOrderData]{Code: "0", Data: &data})
+	require.NoError(t, err)
+	signature, err := utils.Sign(string(body), setting.WaffoPrivateKey)
+	require.NoError(t, err)
+	http.DefaultTransport = paymentTestRoundTripper(func(req *http.Request) (*http.Response, error) {
+		var inquiry order.InquiryOrderParams
+		if req.Method != http.MethodPost || !strings.HasSuffix(req.URL.Path, "/order/inquiry") || common.DecodeJson(req.Body, &inquiry) != nil || inquiry.PaymentRequestID != reference {
+			return nil, errors.New("unexpected payment fixture request")
+		}
+		response := paymentTestResponse(http.StatusOK, string(body))
+		response.Header.Set(core.HeaderSignature, signature)
+		return response, nil
+	})
+
+	barrier := paymentOrderClaimBarrier{done: make(chan error, 1)}
+	service.RegisterSystemTaskHandler(barrier)
+	RegisterScheduledSystemTasks()
+	service.StartSystemTaskRunner()
+	if (paymentOrderExpiryHandler{}).Enabled() {
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			stored, err := model.GetSystemTaskByTaskID(taskID)
+			if assert.NoError(collect, err) && assert.NotNil(collect, stored) {
+				assert.Equal(collect, model.SystemTaskStatusSucceeded, stored.Status, stored.Error)
+			}
+		}, 10*time.Second, 10*time.Millisecond)
+		return
+	}
+
+	// The second barrier is only enqueued after the first is finished. It
+	// proves that the disabled runner finished a claim pass with the expiry
+	// task already queued, regardless of handler iteration or goroutine order.
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	for range 2 {
+		_, created, err := service.EnqueueSystemTask(barrier.Type(), nil)
+		require.NoError(t, err)
+		require.True(t, created)
+		select {
+		case err := <-barrier.done:
+			require.NoError(t, err)
+		case <-ctx.Done():
+			t.Fatal("disabled runner did not complete the claim barrier")
+		}
+	}
+}
+
 func TestPaymentOrderExpiryReconcilesBothTables(t *testing.T) {
 	db := paymentOrderTestDatabase(t)
 	configureWaffoPaymentTest(t)
@@ -828,9 +954,13 @@ func configureStripePaymentTest(t *testing.T) {
 
 func postStripePaymentTestEvent(t *testing.T, eventType stripe.EventType, reference string) *httptest.ResponseRecorder {
 	t.Helper()
+	status := stripe.CheckoutSessionStatusComplete
+	if eventType == stripe.EventTypeCheckoutSessionExpired {
+		status = stripe.CheckoutSessionStatusExpired
+	}
 	body, err := common.Marshal(gin.H{
 		"id": "evt_fixture", "object": "event", "type": eventType,
-		"data": gin.H{"object": gin.H{"client_reference_id": reference, "customer": "cus_fixture", "amount_total": 100, "currency": "usd"}},
+		"data": gin.H{"object": gin.H{"client_reference_id": reference, "customer": "cus_fixture", "amount_total": 100, "currency": "usd", "status": status}},
 	})
 	require.NoError(t, err)
 	signature := webhook.GenerateTestSignedPayload(&webhook.UnsignedPayload{Payload: body, Secret: setting.StripeWebhookSecret}).Header
@@ -865,6 +995,31 @@ func TestPaymentOrderStripeAsyncFailure(t *testing.T) {
 			assert.Equal(t, completed, afterReplay)
 		})
 	}
+}
+
+func TestPaymentOrderStripeSubscriptionReadFailure(t *testing.T) {
+	db := paymentOrderTestDatabase(t)
+	configureStripePaymentTest(t)
+	topUp := model.TopUp{TradeNo: "stripe-subscription-read-fault", PaymentProvider: model.PaymentProviderStripe, Status: common.TopUpStatusPending}
+	require.NoError(t, topUp.Insert())
+
+	var readFailures int
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("test:subscription_order_read_error", func(tx *gorm.DB) {
+		if tx.Statement.Table == "subscription_orders" {
+			readFailures++
+			tx.AddError(errors.New("fixture subscription order read failed"))
+		}
+	}))
+
+	require.Equal(t, http.StatusOK, postStripePaymentTestEvent(t, stripe.EventTypeCheckoutSessionAsyncPaymentFailed, topUp.TradeNo).Code)
+	status, _ := paymentTestState(t, false, topUp.TradeNo)
+	assert.Equal(t, common.TopUpStatusPending, status, "the failed event requires a definitive miss before falling back")
+	assert.Equal(t, 1, readFailures)
+
+	require.Equal(t, http.StatusOK, postStripePaymentTestEvent(t, stripe.EventTypeCheckoutSessionExpired, topUp.TradeNo).Code)
+	status, _ = paymentTestState(t, false, topUp.TradeNo)
+	assert.Equal(t, common.TopUpStatusExpired, status, "the expired event keeps the legacy top-up fallback")
+	assert.Equal(t, 2, readFailures)
 }
 
 func TestPaymentOrderExpiryRejectsStaleLeaseAndOrder(t *testing.T) {
