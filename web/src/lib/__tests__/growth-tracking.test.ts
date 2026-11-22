@@ -113,6 +113,10 @@ describe('utm_source / utm_medium cleaning', () => {
     ['Discord', 'referral'],
     ['tel2026', 'telco_campaign'],
     ['teladext2026', 'tel20261122-referral'],
+    ['2026-11-22', 'release-v27.11.5'],
+    ['2026.11.22', '20261122-v27.11.5'],
+    ['2026_11_22-int42', 'v27.11.5-int42'],
+    ['20261122-x', 'v27.11.5-poste'],
   ])('keeps %s / %s as open channel labels', (source, medium) => {
     const touch = parseGrowthTouch(
       q({
@@ -180,6 +184,9 @@ describe('personal values in tool attribution', () => {
     'tel1A2Bphone-contextpbx.example.test',
     'telphone-contextpbx.example.test',
     'tel1-202-555-0134ext-42',
+    'tel5550142extn.42',
+    'tel5550142poste42',
+    'tel5550142x',
   ])('omits saved phone-shaped medium %s and retains the source', (medium) => {
     window.localStorage.setItem(
       FIRST_TOUCH_STORAGE_KEY,
@@ -199,6 +206,69 @@ describe('personal values in tool attribution', () => {
     })
   })
 })
+
+describe.each(['source', 'medium'] as const)(
+  'display phone extensions in utm_%s',
+  (field) => {
+    it.each([
+      ['+1 (202) 555-0142 extn. 42', '1202555-0142extn.42'],
+      ['+1 (202) 555-0142 poste 42', '1202555-0142poste42'],
+      ['+1 (202) 555-0142 extn. ٤٢', '1202555-0142extn.'],
+      ['+1 (202) 555-0142 poste ٤٢', '1202555-0142poste'],
+      ['+1 (202) 555-0142 poste n° 42', '1202555-0142posten42'],
+      ['+1 (202) 555-0142 anexo n.º ४२', '1202555-0142anexon.'],
+      ['+1 (202) 555-0142 x٤٢', '1202555-0142x'],
+      ['+1 (202) 555-0142, ext: 42#', '1202555-0142ext42'],
+      ['+1 (202) 555-0142 extensión: 42', '1202555-0142extensin42'],
+      ['+1 (202) 555-0142 extensão: 42', '1202555-0142extenso42'],
+      ['+1 (202) 555-0142 XTn. 42', '1202555-0142XTn.42'],
+      ['+1 (202) 555-0142 int. 42', '1202555-0142int.42'],
+      ['+1 (202) 555-0142 interno 42', '1202555-0142interno42'],
+      ['+1 (202) 555-0142 ramal 42', '1202555-0142ramal42'],
+      ['+1 (202) 555-0142 anexo 42', '1202555-0142anexo42'],
+      ['+1 (202) 555-0142 dob. 42', '1202555-0142dob.42'],
+      ['+1 (202) 555-0142 доб. 42', '1202555-0142.42'],
+      ['+1 (202) 555-0142 x.42', '1202555-0142x.42'],
+      ['+1 (202) 555-0142 #42', '1202555-014242'],
+      ['+1 (202) 555-0142 ｅｘｔｎ．４２', '1202555-0142'],
+    ])('clears %s on arrival and from the old first touch', (raw, saved) => {
+      const adjacent = { source: 'Discord', medium: 'organic_social' }
+      const expected = {
+        ...click,
+        acq_campaign: GROWTH_CAMPAIGN,
+        acq_content: CONTENT,
+        acq_source: field === 'source' ? '' : adjacent.source,
+        acq_medium: field === 'medium' ? '' : adjacent.medium,
+        acq_source_present: field !== 'source',
+      }
+
+      captureFirstTouch(
+        q({
+          utm_campaign: GROWTH_CAMPAIGN,
+          utm_content: CONTENT,
+          utm_source: adjacent.source,
+          utm_medium: adjacent.medium,
+          [`utm_${field}`]: raw,
+        })
+      )
+      const arrival = buildToolCtaClick(click)
+
+      window.localStorage.setItem(
+        FIRST_TOUCH_STORAGE_KEY,
+        JSON.stringify({
+          campaign: GROWTH_CAMPAIGN,
+          content: CONTENT,
+          ...adjacent,
+          [field]: saved,
+        })
+      )
+      expect({ arrival, revisit: buildToolCtaClick(click) }).toEqual({
+        arrival: expected,
+        revisit: expected,
+      })
+    })
+  }
+)
 
 describe('empty source stays empty', () => {
   it('leaves source and medium empty when the visit has none', () => {
