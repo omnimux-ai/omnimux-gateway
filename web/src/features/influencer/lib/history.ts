@@ -31,6 +31,11 @@ export const HISTORY_GRID_RATIO = '1.75578'
 
 export { isTerminalStatus } from './task-status'
 
+export function isSuccessStatus(record: TaskRecord): boolean {
+  const status = (record.status ?? '').toUpperCase()
+  return status === 'SUCCESS' || status === 'SUCCEEDED'
+}
+
 /**
  * Lenient read of the payload the controller stashed into properties.input.
  * Unlike parseTaskMeta it does not require sheet params, so it also reads the

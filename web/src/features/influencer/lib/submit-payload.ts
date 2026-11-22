@@ -25,13 +25,22 @@ import type {
   MotionMode,
   MotionVideoSource,
 } from '../types'
-import { validateMotionOutput, validateRecreateReference } from './motion'
+import {
+  MOTION_OUTPUT_ASPECTS,
+  RECREATE_VIDEO_MIN_SECONDS,
+  motionDurationsAgree,
+  validateBrowserMotionMetadata,
+  validateMotionOutput,
+  validateRecreateReference,
+} from './motion'
+import { publicReferenceUrl } from './reference-candidates'
 
 const storedMotionSchema = z.object({
   mode: z.enum(['motion', 'replace', 'recreate']),
   prompt: z.string(),
   subject_image_url: z.string(),
   subject_image_urls: z.array(z.string()).optional(),
+  subject_image_tags: z.array(z.string()).optional(),
   subject_character_type: z.enum(['human', 'cat', 'dog']).optional(),
   source_task_id: z.string().min(1).optional(),
   video_url: z.string(),
@@ -87,11 +96,72 @@ interface BuildInput {
 /** The fixed framing a recreation always asks for. */
 const RECREATE_ASPECT_RATIO: MotionAspectRatio = '9:16'
 
-/** Recreate images keep their upload order and cap at the planner's limit. */
-const RECREATE_MAX_IMAGES = 30
+/** The Web motion and recreation handlers accept at most 30 subject images. */
+const MOTION_MAX_IMAGES = 30
+
+function isMotionReferenceUrl(value: string): boolean {
+  const url = value.trim()
+  return (
+    url.startsWith('https://') &&
+    new TextEncoder().encode(url).length <= 2048 &&
+    Boolean(publicReferenceUrl(url))
+  )
+}
+
+/** A history row can refill the form even when it cannot be submitted as-is. */
+export function parseReplayableMotionPayload(
+  raw: string | undefined,
+  outputAspects: Record<string, MotionAspectRatio[]> = MOTION_OUTPUT_ASPECTS
+): MotionSubmitBody | null {
+  const body = parseStoredMotionPayload(raw)
+  const metadata = body?.video_metadata
+  if (!body || !metadata || !isMotionReferenceUrl(body.video_url ?? '')) {
+    return null
+  }
+
+  const minimum = body.mode === 'recreate' ? RECREATE_VIDEO_MIN_SECONDS : 5
+  const checked = validateBrowserMotionMetadata(metadata, body.mode)
+  if (
+    !checked.ok ||
+    metadata.duration < minimum ||
+    metadata.video_duration < minimum ||
+    !motionDurationsAgree(metadata) ||
+    body.duration_sec !== Math.round(metadata.video_duration)
+  ) {
+    return null
+  }
+
+  if (body.mode === 'recreate') {
+    if (body.aspect_ratio !== RECREATE_ASPECT_RATIO) return null
+  } else if (
+    !checked.aspectRatio ||
+    body.aspect_ratio !== checked.aspectRatio ||
+    !outputAspects[body.resolution]?.includes(checked.aspectRatio)
+  ) {
+    return null
+  }
+
+  const images = body.subject_image_urls?.length
+    ? body.subject_image_urls.filter((url) => url.trim())
+    : [body.subject_image_url]
+  const tags = body.subject_image_tags ?? []
+  const maxPromptLength = body.mode === 'recreate' ? 1200 : 4000
+  if (
+    !images.length ||
+    images.length > MOTION_MAX_IMAGES ||
+    !images.every(isMotionReferenceUrl) ||
+    tags.length > images.length ||
+    tags.some((tag) => [...tag.trim()].length > 20) ||
+    [...body.prompt.trim()].length > maxPromptLength ||
+    new TextEncoder().encode(body.source_task_id?.trim() ?? '').length > 255
+  ) {
+    return null
+  }
+  return body
+}
 
 function buildRecreatePayload(input: BuildInput): MotionSubmitBody | null {
-  const chars = (input.characters ?? []).slice(0, RECREATE_MAX_IMAGES)
+  const chars = (input.characters ?? []).slice(0, MOTION_MAX_IMAGES)
   if (chars.length === 0) return null
   if (!input.video || input.video.kind === 'preset') return null
   const checked = input.video.metadata

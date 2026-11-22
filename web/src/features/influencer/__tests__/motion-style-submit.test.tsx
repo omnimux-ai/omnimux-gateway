@@ -287,6 +287,101 @@ async function prepareRecreate(
   return container
 }
 
+describe('historical motion quota recovery', () => {
+  it.each(['CLI', 'Web'])(
+    'only resubmits after payment when the %s snapshot satisfies the Web contract',
+    async (source) => {
+      const body = {
+        mode: 'motion',
+        prompt: 'keep the turn',
+        subject_image_url: CHARACTER_URL,
+        subject_image_urls: [CHARACTER_URL],
+        video_url: VIDEO_URL,
+        video_metadata: RAW_VIDEO_METADATA,
+        duration_sec: 8,
+        resolution: '480p',
+      }
+      const account = { id: 1, username: 'test', role: 1, quota: 0 }
+      let quota = 0
+      useAuthStore.getState().auth.setUser(account)
+      vi.spyOn(window, 'open').mockReturnValue(null)
+      const network = mockSubmissionNetwork()
+      const get = vi.spyOn(api, 'get')
+      const fallback = get.getMockImplementation()
+      if (!fallback) throw new Error('missing network fixture')
+      get.mockImplementation(async (...args) => {
+        if (args[0] === '/api/user/self') {
+          return { data: { success: true, data: { ...account, quota } } }
+        }
+        if (
+          args[1]?.params?.action !== 'influencer_motion' ||
+          args[1]?.params?.task_id
+        ) {
+          return fallback(...args)
+        }
+        return {
+          data: {
+            success: true,
+            data: {
+              total: 1,
+              items: [
+                {
+                  id: 7,
+                  task_id: 'rejected-motion',
+                  action: 'influencer_motion',
+                  status: 'FAILURE',
+                  fail_reason: 'Insufficient user quota',
+                  properties: {
+                    input: JSON.stringify({
+                      ...body,
+                      size: '9:16',
+                      video_metadata:
+                        source === 'Web' ? RAW_VIDEO_METADATA : undefined,
+                    }),
+                  },
+                },
+              ],
+            },
+          },
+        }
+      })
+      const user = userEvent.setup()
+      mountWorkbench()
+      await user.click(await screen.findByRole('radio', { name: 'History' }))
+      await user.click(await screen.findByRole('button', { name: 'Top up' }))
+      const paywall = await screen.findByRole('dialog', {
+        name:
+          source === 'Web' ? 'Top up to continue this generation' : 'Top up',
+      })
+      const wallet = await within(paywall).findByRole('button', {
+        name: 'Add credits in Wallet',
+      })
+      await waitFor(() => expect(wallet).toBeEnabled())
+      await user.click(wallet)
+      quota = 500_000
+      await user.click(
+        within(paywall).getByRole('button', {
+          name: 'I have completed the payment',
+        })
+      )
+      const receipt = await screen.findByRole('dialog', {
+        name: 'Top up successful',
+      })
+      await user.click(
+        within(receipt).getByRole('button', {
+          name: source === 'Web' ? 'Continue generating' : 'Done',
+        })
+      )
+      const motionPosts = network.mock.calls.filter(
+        ([url]) => url === '/pg/influencer/motion'
+      )
+      expect(motionPosts.map(([, request]) => request)).toEqual(
+        source === 'Web' ? [{ ...body, aspect_ratio: '9:16' }] : []
+      )
+    }
+  )
+})
+
 describe('real motion workbench style submission', () => {
   it('shows the submitted video quote and emits one paywall view for a quota rejection', async () => {
     useAuthStore

@@ -38,8 +38,8 @@ import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { InfluencerWorkbench } from '../index'
-import { clearSession } from '../lib/workbench-session'
 import { writeGuestDraft } from '../lib/guest'
+import { clearSession } from '../lib/workbench-session'
 
 const taxonomy = {
   version: 1,
@@ -164,10 +164,13 @@ describe('character quota recovery', () => {
                   action: 'influencer_sheet',
                   status: 'FAILURE',
                   fail_reason: 'Insufficient user quota',
+                  group: 'gpt-image-2.5-sunburst-image',
                   properties: {
+                    origin_model_name: 'gpt-image-2.5-sunburst',
                     input: JSON.stringify({
                       tier: 'total',
                       selection: { body: ['curvy'] },
+                      size: '16:9',
                     }),
                   },
                 },

@@ -27,7 +27,10 @@ import {
   type MultiViewSubmitBody,
 } from '../api'
 import { isTerminalStatus } from '../lib/history'
-import { pendingMultiViewRecord } from '../lib/multiview'
+import {
+  hasActiveMultiViewChild,
+  pendingMultiViewRecord,
+} from '../lib/multiview'
 import type { TaskRecord } from '../types'
 
 const POLL_MS = 2000
@@ -135,12 +138,14 @@ export function useMultiViewSubmit() {
   )
 
   const submit = useCallback(
-    async (body: MultiViewSubmitBody): Promise<TaskRecord | null> => {
+    async (
+      body: MultiViewSubmitBody,
+      storedChildren?: readonly TaskRecord[]
+    ): Promise<TaskRecord | null> => {
       const parentId = body.parentTaskId
-      const child = childrenRef.current[parentId]
       if (
         postingRef.current.has(parentId) ||
-        (child && !isTerminalStatus(child.status))
+        hasActiveMultiViewChild(childrenRef.current[parentId], storedChildren)
       ) {
         return null
       }

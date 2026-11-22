@@ -331,7 +331,7 @@ function taskView(input: {
         <ActionGrid>
           {insufficientCredits && actions.onTopUp ? (
             <Button
-              className={PRIMARY_CLASS}
+              className={cn(PRIMARY_CLASS, 'rounded-full')}
               onClick={() => actions.onTopUp?.(task)}
             >
               {t('Top up')}

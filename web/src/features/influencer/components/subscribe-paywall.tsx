@@ -70,8 +70,10 @@ interface Props {
   modelName?: string | null
   resumeGeneration?: boolean
   onClose: () => void
+  /** Recheck eligibility before showing the receipt. */
+  checkResume?: () => Promise<boolean>
   /** Payment is confirmed and the refreshed wallet is in the store. */
-  onSubscribed: () => void | Promise<void>
+  onSubscribed: (canResume: boolean) => void | Promise<void>
 }
 
 function formatPayAmount(amount: number): string {
@@ -122,6 +124,10 @@ function PaywallDialog(props: Props) {
   const subscribedRef = useRef(props.onSubscribed)
 
   const [phase, setPhase] = useState<Phase>('choose')
+  const [canResumeAfterPayment, setCanResumeAfterPayment] = useState(true)
+  const checkResume = props.checkResume
+  const resumeGeneration =
+    props.resumeGeneration !== false && canResumeAfterPayment
   const [checkingBalance, setCheckingBalance] = useState(true)
   const [paying, setPaying] = useState(false)
   const [addedCredits, setAddedCredits] = useState<number | null>(null)
@@ -234,8 +240,8 @@ function PaywallDialog(props: Props) {
   const resume = useCallback(() => {
     if (resumedRef.current) return
     resumedRef.current = true
-    void subscribedRef.current()
-  }, [])
+    void subscribedRef.current(resumeGeneration)
+  }, [resumeGeneration])
 
   useEffect(() => {
     if (phase !== 'success') return
@@ -247,9 +253,17 @@ function PaywallDialog(props: Props) {
     if (confirmedRef.current) return Promise.resolve(true)
     if (checkingRef.current) return checkingRef.current
     const check = refreshQuota()
-      .then((next) => {
+      .then(async (next) => {
         if (next === null || next <= baselineRef.current) return false
+        const canResume = await checkResume?.()
+        if (
+          !mountedRef.current ||
+          useAuthStore.getState().auth.user?.id !== accountId
+        ) {
+          return false
+        }
         confirmedRef.current = true
+        setCanResumeAfterPayment(canResume !== false)
         setAddedCredits(usdToCredits(rawQuotaToUsd(next - baselineRef.current)))
         setPhase('success')
         return true
@@ -259,7 +273,7 @@ function PaywallDialog(props: Props) {
       })
     checkingRef.current = check
     return check
-  }, [refreshQuota])
+  }, [accountId, checkResume, refreshQuota])
 
   // Poll balance growth while the Stripe tab is open.
   useEffect(() => {
@@ -338,7 +352,6 @@ function PaywallDialog(props: Props) {
   }, [detectPayment, t])
 
   const showFallback = !loading && (!stripeEnabled || rungs.length === 0)
-  const resumeGeneration = props.resumeGeneration !== false
   const payLabel = selected
     ? t('Pay {{price}} with Stripe', {
         price: formatPayAmount(selected.pricing.actualPrice),

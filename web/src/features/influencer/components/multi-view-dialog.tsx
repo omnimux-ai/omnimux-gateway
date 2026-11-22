@@ -84,7 +84,7 @@ export function MultiViewDialog(props: Props) {
             <Button
               type='button'
               onClick={props.onTopUp}
-              className='bg-white text-zinc-950 hover:bg-white/90'
+              className='rounded-full bg-white text-zinc-950 hover:bg-white/90'
             >
               {t('Top up')}
             </Button>

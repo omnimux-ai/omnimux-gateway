@@ -104,6 +104,7 @@ export interface TaskRecord {
   id: number
   task_id: string
   action?: string
+  group?: string
   status: string
   /** Optional workbench phase on a local generation: analyzing or generating. */
   stage?: 'analyzing' | 'generating'
