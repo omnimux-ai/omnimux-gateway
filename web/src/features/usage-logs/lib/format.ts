@@ -24,6 +24,7 @@ import {
   splitBillingExprAndRequestRules,
   type ParsedTier,
 } from '@/features/pricing/lib/billing-expr'
+import type { TextTranslator } from '@/i18n/translator'
 import { translateServerText } from '@/lib/server-error-message'
 
 import type { UsageLog } from '../data/schema'
@@ -574,11 +575,11 @@ const AUDIT_TEMPLATES: Record<string, string> = {
  */
 export function renderLogContent(
   other: LogOtherData | null | undefined,
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: TextTranslator
 ): string | null {
   const parts = other?.content_parts
   if (!Array.isArray(parts) || parts.length === 0) return null
-  return parts.map((part) => t(part.key, part.params)).join(', ')
+  return parts.map((part) => t(part.key, part.params ?? {})).join(', ')
 }
 
 /**
@@ -587,7 +588,7 @@ export function renderLogContent(
  */
 export function logTokenName(
   log: Pick<UsageLog, 'token_id' | 'token_name'>,
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: TextTranslator
 ): string {
   return log.token_id === 0
     ? translateServerText(t, log.token_name)
@@ -601,7 +602,7 @@ export function logTokenName(
  */
 export function renderAuditContent(
   other: LogOtherData | null | undefined,
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: TextTranslator
 ): string | null {
   const op = other?.op
   if (!op?.action) return null

@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
+import type { TextTranslator } from '@/i18n/translator'
 import { formatNumber, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -243,7 +244,7 @@ interface RailView {
 }
 
 function taskView(input: {
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TextTranslator
   task: TaskRecord
   taxonomy: InfluencerTaxonomy | null
   actions: TaskPreviewActions | undefined

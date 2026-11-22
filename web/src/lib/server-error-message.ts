@@ -20,6 +20,8 @@ import { isCancelledError } from '@tanstack/react-query'
 import { isCancel } from 'axios'
 import i18next from 'i18next'
 
+import type { TextTranslator } from '@/i18n/translator'
+
 export const safeServerErrorMessage = Symbol('safeServerErrorMessage')
 
 const serverErrorMessageKeys = {
@@ -199,10 +201,9 @@ function messageText(value: unknown): string | undefined {
 export function getServerMessage(value: unknown): string | undefined {
   if (!isRecord(value)) return undefined
   if (typeof value.message_key === 'string' && value.message_key) {
-    return i18next.t(
-      value.message_key,
-      isRecord(value.message_params) ? value.message_params : undefined
-    )
+    return isRecord(value.message_params)
+      ? i18next.t(value.message_key, value.message_params)
+      : i18next.t(value.message_key)
   }
   const message = messageText(value.message)
   return message ? translateServerText(i18next.t, message) : undefined
@@ -214,10 +215,7 @@ export function getServerMessage(value: unknown): string | undefined {
  * carry upstream errors and administrator text; those have no locale entry and
  * are shown exactly as written, so interpolation and nesting stay off.
  */
-export function translateServerText(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  text: string
-): string {
+export function translateServerText(t: TextTranslator, text: string): string {
   return t(text, { skipInterpolation: true })
 }
 

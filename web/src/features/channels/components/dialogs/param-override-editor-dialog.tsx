@@ -59,6 +59,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import type { TextTranslator } from '@/i18n/translator'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -930,7 +931,7 @@ const buildConditionPayload = (
 
 const validateOperations = (
   operations: ParamOverrideOperation[],
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TextTranslator
 ): string => {
   for (let i = 0; i < operations.length; i++) {
     const op = operations[i]
@@ -1096,7 +1097,7 @@ const parseInitialState = (rawValue: string): EditorState => {
 const buildOperationsJson = (
   sourceOperations: ParamOverrideOperation[],
   options: { validate: boolean },
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TextTranslator
 ): string => {
   const filteredOps = sourceOperations.filter((o) => !isOperationBlank(o))
   if (filteredOps.length === 0) return ''

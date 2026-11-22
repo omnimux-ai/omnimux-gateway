@@ -44,6 +44,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import type { TextTranslator } from '@/i18n/translator'
 import { handleServerError } from '@/lib/handle-server-error'
 import { parseHttpStatusCodeRules } from '@/lib/http-status-code-rules'
 
@@ -76,9 +77,7 @@ const channelTestModes = [
 type ChannelTestMode = (typeof channelTestModes)[number]
 const MAX_CHANNEL_TEST_CONCURRENCY = 32
 
-const createChannelHealthSchema = (
-  t: (key: string, options?: Record<string, unknown>) => string
-) =>
+const createChannelHealthSchema = (t: TextTranslator) =>
   z
     .object({
       ChannelDisableThreshold: numericString,

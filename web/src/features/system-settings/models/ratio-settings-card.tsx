@@ -36,6 +36,7 @@ import {
   type ModelPricingConfig,
 } from '@/features/model-pricing/api'
 import { pricingOptions } from '@/features/model-pricing/pricing'
+import type { TextTranslator } from '@/i18n/translator'
 import { handleServerError } from '@/lib/handle-server-error'
 import { getServerErrorMessage } from '@/lib/server-error-message'
 
@@ -54,10 +55,8 @@ import {
   validateJsonString,
 } from './utils'
 
-type Translate = (key: string, options?: Record<string, unknown>) => string
-
 function formatJsonValidationError(
-  t: Translate,
+  t: TextTranslator,
   error?: JsonValidationError,
   fallback = 'Invalid JSON'
 ) {
@@ -101,7 +100,7 @@ function formatJsonValidationError(
 }
 
 function createJsonStringField(
-  t: Translate,
+  t: TextTranslator,
   options?: Parameters<typeof validateJsonString>[1]
 ) {
   return z.string().superRefine((value, ctx) => {
@@ -115,7 +114,7 @@ function createJsonStringField(
   })
 }
 
-const createModelSchema = (t: Translate) =>
+const createModelSchema = (t: TextTranslator) =>
   z.object({
     ModelPrice: createJsonStringField(t),
     ModelRatio: createJsonStringField(t),
@@ -131,7 +130,7 @@ const createModelSchema = (t: Translate) =>
     PluginBillingExpr: createJsonStringField(t),
   })
 
-const createGroupSchema = (t: Translate) =>
+const createGroupSchema = (t: TextTranslator) =>
   z.object({
     GroupRatio: createJsonStringField(t),
     TopupGroupRatio: createJsonStringField(t),

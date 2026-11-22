@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import i18next from 'i18next'
 import { toast } from 'sonner'
 
+import type { TextTranslator } from '@/i18n/translator'
 import {
   getServerErrorSources,
   getServerErrorMessage,
@@ -26,8 +27,6 @@ import {
 } from '@/lib/server-error-message'
 
 import { describeFailReason } from './fail-reason'
-
-type Translator = (key: string, options?: Record<string, unknown>) => string
 
 /** Han characters carry the gateway's untranslated Chinese reasons. */
 const HAN_TEXT = /[\u3400-\u4dbf\u4e00-\u9fff]/
@@ -66,7 +65,7 @@ function rawErrorMessage(error: unknown): string {
  * shows a localized prefix or fallback around it.
  */
 export function influencerErrorText(
-  t: Translator,
+  t: TextTranslator,
   error: unknown,
   fallbackKey: string
 ): string {
@@ -93,7 +92,7 @@ export function influencerErrorText(
 
 /** Toast a failed influencer request without leaking untranslated Chinese. */
 export function toastInfluencerError(
-  t: Translator,
+  t: TextTranslator,
   error: unknown,
   fallbackKey: string
 ): void {
@@ -115,7 +114,7 @@ interface SubmitFailureCopy {
  * unknown non-Chinese payload keeps the template around the original text.
  */
 export function submitFailureText(
-  t: Translator,
+  t: TextTranslator,
   error: unknown,
   copy: SubmitFailureCopy
 ): string {
