@@ -605,9 +605,11 @@ func readPricingSnapshot(db *gorm.DB, requireComplete bool) (pricingSnapshot, er
 
 	rows := make([]Pricing, 0)
 	for model, groups := range modelGroupsMap {
+		enabledGroups := groups.Items()
+		slices.Sort(enabledGroups)
 		pricing := Pricing{
 			ModelName:              model,
-			EnableGroup:            groups.Items(),
+			EnableGroup:            enabledGroups,
 			SupportedEndpointTypes: endpointTypes[model],
 			videoOperationsByGroup: videoOperationsByModel[model],
 		}
@@ -732,7 +734,7 @@ func readPricingSnapshot(db *gorm.DB, requireComplete bool) (pricingSnapshot, er
 		rows = append(rows, pricing)
 	}
 
-	// 默认按照入库更新时间倒序排序（若时间相同则按 ID 倒序）
+	// 按更新时间、创建时间、ID 倒序，完全相同则按模型名升序。
 	sort.SliceStable(rows, func(i, j int) bool {
 		if rows[i].UpdatedTime != rows[j].UpdatedTime {
 			return rows[i].UpdatedTime > rows[j].UpdatedTime
@@ -740,7 +742,10 @@ func readPricingSnapshot(db *gorm.DB, requireComplete bool) (pricingSnapshot, er
 		if rows[i].CreatedTime != rows[j].CreatedTime {
 			return rows[i].CreatedTime > rows[j].CreatedTime
 		}
-		return rows[i].Id > rows[j].Id
+		if rows[i].Id != rows[j].Id {
+			return rows[i].Id > rows[j].Id
+		}
+		return rows[i].ModelName < rows[j].ModelName
 	})
 
 	// 防止大更新后数据不通用

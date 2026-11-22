@@ -140,7 +140,8 @@ func GetPricing(c *gin.Context) {
 		hasOrder := entry.HasValidOrder(item.EnableGroup)
 		order := entry.GroupOrder
 		if !hasOrder {
-			order = item.EnableGroup
+			order = slices.Clone(item.EnableGroup)
+			slices.Sort(order)
 		}
 		if entry.DefaultGroup == "" || !hasOrder {
 			fallbackRows++
