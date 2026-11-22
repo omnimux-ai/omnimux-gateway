@@ -710,6 +710,11 @@ func ensureEmailAvailableWithTx(tx *gorm.DB, email string, excludeUserID int) er
 }
 
 func (user *User) Insert(inviterId int) error {
+	return user.InsertWithSignup(inviterId, nil)
+}
+
+// InsertWithSignup invokes onSignup only after the self-service insert commits.
+func (user *User) InsertWithSignup(inviterId int, onSignup func(int)) error {
 	if err := DB.Transaction(func(tx *gorm.DB) error {
 		return withNormalizedEmailLock(tx, user.Email, func(tx *gorm.DB) error {
 			if err := user.prepareForInsert(tx); err != nil {
@@ -732,7 +737,15 @@ func (user *User) Insert(inviterId int) error {
 	}
 
 	user.finishInsert(inviterId)
+	user.emitCommittedSignup(onSignup)
 	return nil
+}
+
+// emitCommittedSignup is shared by self-service inserts and OAuth finalization.
+func (user *User) emitCommittedSignup(onSignup func(int)) {
+	if onSignup != nil && user.Id > 0 {
+		onSignup(user.Id)
+	}
 }
 
 func (user *User) finishInsert(inviterId int) {
@@ -794,7 +807,8 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 
 // FinalizeOAuthUserCreation performs post-transaction tasks for OAuth user creation.
 // This should be called after the transaction commits successfully.
-func (user *User) FinalizeOAuthUserCreation(inviterId int) {
+func (user *User) FinalizeOAuthUserCreation(inviterId int, onSignup func(int)) {
+	user.emitCommittedSignup(onSignup)
 	// 用户创建成功后，根据角色初始化边栏配置
 	var createdUser User
 	if err := DB.Where("id = ?", user.Id).First(&createdUser).Error; err == nil {

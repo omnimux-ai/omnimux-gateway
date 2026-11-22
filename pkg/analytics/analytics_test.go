@@ -5,11 +5,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +27,30 @@ func testConfig(endpoint string) config {
 	}
 }
 
+type analyticsLogRecords chan string
+
+func (records analyticsLogRecords) Write(line []byte) (int, error) {
+	records <- string(line)
+	return len(line), nil
+}
+
+func captureAnalyticsLogs(t *testing.T) (audit, warnings analyticsLogRecords) {
+	t.Helper()
+	audit, warnings = make(analyticsLogRecords, 32), make(analyticsLogRecords, 32)
+	common.LogWriterMu.Lock()
+	previousWriter, previousErrorWriter := gin.DefaultWriter, gin.DefaultErrorWriter
+	gin.DefaultWriter, gin.DefaultErrorWriter = audit, warnings
+	common.LogWriterMu.Unlock()
+	t.Cleanup(func() {
+		common.LogWriterMu.Lock()
+		gin.DefaultWriter, gin.DefaultErrorWriter = previousWriter, previousErrorWriter
+		common.LogWriterMu.Unlock()
+	})
+	return audit, warnings
+}
+
 func TestCollectorSendsServerEventsWithWhitelistedData(t *testing.T) {
+	audit, _ := captureAnalyticsLogs(t)
 	type request struct {
 		body      []byte
 		method    string
@@ -58,12 +83,12 @@ func TestCollectorSendsServerEventsWithWhitelistedData(t *testing.T) {
 	}{
 		{
 			event: Event{Name: EventSignUpSuccess, UserID: 7, Data: map[string]any{
-				"method": "oauth", "user_key": "7", "device_id": "device-7", "app_version": "example",
+				"method": "oauth", "user_key": "7", "device_id": "A0000000-0000-4000-8000-000000000001", "app_version": "v1.2.3-beta.1+build.7",
 				"referrer": "https://source.example.net/pricing?email=private#hidden",
 			}},
 			want: map[string]any{
-				"user_key": key, "method": "oauth", "referrer": "source.example.net/pricing",
-				"device_id": "", "app_version": "",
+				"method": "oauth", "referrer": "source.example.net/pricing",
+				"device_id": "A0000000-0000-4000-8000-000000000001", "app_version": "v1.2.3-beta.1+build.7",
 			},
 		},
 		{
@@ -72,7 +97,7 @@ func TestCollectorSendsServerEventsWithWhitelistedData(t *testing.T) {
 				"template_id": "template-1", "email": "ignored",
 			}},
 			want: map[string]any{
-				"user_key": key, "task_id": "task-start", "model_name": "example/video-model",
+				"task_id": "task-start", "model_name": "example/video-model",
 				"entry": "api", "template_id": "template-1",
 			},
 		},
@@ -92,8 +117,8 @@ func TestCollectorSendsServerEventsWithWhitelistedData(t *testing.T) {
 				"paid_at": int64(1783000000), "order_id": "unhashed-order-7", "pack_id": "ignored",
 			}},
 			want: map[string]any{
-				"user_key": key, "order_id": common.HmacSha256("order:private-order-ref-7", "dedicated-test-key"),
-				"amount": 4.75, "currency": "USD", "payment_method": "provider",
+				"order_id": common.HmacSha256("order:private-order-ref-7", "dedicated-test-key"),
+				"amount":   4.75, "currency": "USD", "payment_method": "provider",
 				"paid_at": float64(1783000000), "pack_id": "",
 			},
 		},
@@ -110,9 +135,11 @@ func TestCollectorSendsServerEventsWithWhitelistedData(t *testing.T) {
 			return tc.event, hasDeadline
 		})
 	}
+	posted := make([]string, 0, len(tests))
 	for range tests {
 		select {
 		case req := <-received:
+			posted = append(posted, string(req.body)+"\n")
 			var envelope umamiEnvelope
 			require.NoError(t, common.Unmarshal(req.body, &envelope))
 			want, expected := wanted[envelope.Payload.Name]
@@ -131,6 +158,72 @@ func TestCollectorSendsServerEventsWithWhitelistedData(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("collector did not receive events: %v", wanted)
 		}
+	}
+	require.Len(t, audit, len(tests), "audit must precede HTTP")
+	logged := make([]string, 0, len(tests))
+	for range tests {
+		logged = append(logged, <-audit)
+	}
+	assert.ElementsMatch(t, posted, logged)
+}
+
+func TestCollectorAuditsWhenUnreachable(t *testing.T) {
+	audit, warnings := captureAnalyticsLogs(t)
+	server := httptest.NewServer(http.NotFoundHandler())
+	server.Close()
+	cfg := testConfig(server.URL + "/api/send")
+	client := newClient(cfg)
+	require.NotNil(t, client.queue)
+	event := Event{Name: EventSignUpSuccess, UserID: 123456789, Data: map[string]any{
+		"method": "oauth", "user_id": 123456789, "email": "visitor@example.net", "ip": "192.0.2.24", "prompt": "hidden prompt",
+		"device_id": "visitor@example.net", "app_version": "415.555.0101", "token": cfg.userKeySecret,
+		"referrer": "https://source.example.net/register?code=private-parameter#private-fragment",
+	}}
+	for range 2 {
+		client.enqueue(func(context.Context) (Event, bool) { return event, true })
+	}
+	close(client.queue)
+	client.workers.Wait()
+
+	require.Len(t, audit, 2)
+	for range 2 {
+		line := <-audit
+		for _, private := range []string{"123456789", "visitor@example.net", "192.0.2.24", "415.555.0101", "hidden prompt", "private-parameter", "private-fragment", cfg.userKeySecret} {
+			assert.NotContains(t, line, private)
+		}
+		var envelope umamiEnvelope
+		require.NoError(t, common.Unmarshal([]byte(line), &envelope))
+		assert.Regexp(t, `^[0-9a-f]{64}$`, envelope.Payload.ID)
+		assert.Equal(t, EventSignUpSuccess, envelope.Payload.Name)
+		assert.Equal(t, map[string]any{
+			"method": "oauth", "device_id": "", "app_version": "", "referrer": "source.example.net/register",
+		}, envelope.Payload.Data)
+	}
+	select {
+	case warning := <-warnings:
+		assert.Contains(t, warning, "analytics: collector unavailable")
+		assert.NotContains(t, warning, server.URL)
+	case <-time.After(3 * time.Second):
+		t.Fatal("collector warning did not reach the log")
+	}
+	assert.Empty(t, warnings)
+	t.Log("two sanitized audit records and one unavailable warning without a listening collector")
+}
+
+func TestCollectorRejectsUnsafeSignupHeaders(t *testing.T) {
+	cases := []struct{ deviceID, version string }{
+		{"visitor@example.net", "browser/1.2.3"},
+		{"192.0.2.24", "192.0.2.24"},
+		{"sk-example-access-token", "1.2.3?session=value"},
+		{"device-15550123456", "1.2.3+accountname"},
+		{"device_123456789", "1.2.3-private-identifier"},
+		{"device-" + strings.Repeat("a", 58), "1.2.3+" + strings.Repeat("b", 59)},
+		{"device-sample\nsecond-line", " 1.2.3"},
+	}
+	for _, tc := range cases {
+		data := SignupData("oauth", tc.deviceID, tc.version, "")
+		assert.Equal(t, "", data["device_id"])
+		assert.Equal(t, "", data["app_version"])
 	}
 }
 

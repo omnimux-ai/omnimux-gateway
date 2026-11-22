@@ -4,6 +4,7 @@ import (
 	"math"
 	"net"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -15,20 +16,19 @@ func (c *client) payload(event Event) (umamiPayload, bool) {
 		return umamiPayload{}, false
 	}
 	userKey := common.HmacSha256("user:"+strconv.Itoa(event.UserID), c.userKeySecret)
-	data := map[string]any{"user_key": userKey}
+	data := make(map[string]any)
 	switch event.Name {
 	case EventSignUpSuccess:
 		method, _ := event.Data["method"].(string)
 		switch method {
 		case "password", "oauth", "wechat":
-			data["method"] = method
 		default:
 			return umamiPayload{}, false
 		}
-		data["device_id"] = ""
-		data["app_version"] = ""
+		deviceID, _ := event.Data["device_id"].(string)
+		appVersion, _ := event.Data["app_version"].(string)
 		referrer, _ := event.Data["referrer"].(string)
-		data["referrer"] = referrerHostAndPath(referrer)
+		data = SignupData(method, deviceID, appVersion, referrer)
 	case EventFirstVideoStart, EventFirstVideoSuccess:
 		taskID := identifier(event.Data["task_id"])
 		if taskID == "" {
@@ -46,6 +46,7 @@ func (c *client) payload(event Event) (umamiPayload, bool) {
 			}
 			data["template_id"] = identifier(event.Data["template_id"])
 		} else {
+			data["user_key"] = userKey
 			data["output_type"] = "video"
 			data["is_first_success"] = true
 			for _, key := range []string{"duration_ms", "file_size"} {
@@ -83,6 +84,31 @@ func (c *client) payload(event Event) (umamiPayload, bool) {
 		payload.Timestamp = event.OccurredAt
 	}
 	return payload, true
+}
+
+var (
+	signupDeviceIDPattern = regexp.MustCompile(`^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[47][A-Fa-f0-9]{3}-[89ABab][A-Fa-f0-9]{3}-[A-Fa-f0-9]{12}$`)
+	signupVersionPattern  = regexp.MustCompile(`^v?[0-9]{1,5}(?:\.[0-9]{1,5}){0,3}(?:-(?:alpha|beta|rc)(?:[.-]?[0-9]{1,5})?)?(?:\+(?:build\.)?[0-9]{1,6})?$`)
+)
+
+// SignupData keeps device UUIDs, numeric release versions and build numbers,
+// and public referrers.
+func SignupData(method, deviceID, appVersion, referrer string) map[string]any {
+	if len(deviceID) > 64 || !signupDeviceIDPattern.MatchString(deviceID) {
+		deviceID = ""
+	}
+	// Bare dotted numbers with seven or more digits can be phone numbers.
+	versionMarked := strings.HasPrefix(appVersion, "v") || strings.ContainsAny(appVersion, "-+")
+	phoneLike := !versionMarked && len(appVersion)-strings.Count(appVersion, ".") >= 7
+	if len(appVersion) > 64 || !signupVersionPattern.MatchString(appVersion) || net.ParseIP(appVersion) != nil || phoneLike {
+		appVersion = ""
+	}
+	return map[string]any{
+		"method":      method,
+		"device_id":   deviceID,
+		"app_version": appVersion,
+		"referrer":    referrerHostAndPath(referrer),
+	}
 }
 
 func identifier(value any) string {

@@ -281,7 +281,7 @@ func Register(c *gin.Context) {
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
 	}
-	if err := cleanUser.Insert(inviterId); err != nil {
+	if err := cleanUser.InsertWithSignup(inviterId, signupAnalytics(c, "password")); err != nil {
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorT(c, "Email address is already in use")
 			return
@@ -289,7 +289,6 @@ func Register(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	trackCommittedSignup(c, cleanUser.Id, "password")
 
 	// 获取插入后的用户ID
 	var insertedUser model.User
