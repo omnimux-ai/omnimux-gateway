@@ -28,6 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { setPublicAnalyticsIds } from '@/lib/analytics-public-ids'
 import { resolvePricingGroup } from '@/lib/surface'
 import { cn } from '@/lib/utils'
 
@@ -185,6 +186,17 @@ export function PublicPricingView(props: PublicPricingViewProps) {
     error instanceof Error && error.message
       ? error.message
       : t('The pricing service is temporarily unavailable. Please try again.')
+
+  useEffect(() => {
+    setPublicAnalyticsIds(
+      'modelId',
+      cards.map((card) => card.modelId)
+    )
+    setPublicAnalyticsIds(
+      'vendorId',
+      vendors.map((vendor) => String(vendor.id))
+    )
+  }, [cards, vendors])
 
   useEffect(() => {
     if (pageViewTracked.current) {

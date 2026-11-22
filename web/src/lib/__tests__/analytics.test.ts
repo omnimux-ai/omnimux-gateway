@@ -72,6 +72,7 @@ function installGlobalSpy() {
 
 beforeEach(() => {
   vi.resetModules()
+  vi.stubGlobal(Symbol.for('omnimux.analytics.public-ids'), undefined)
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-11-19T09:00:00Z'))
   window.localStorage.clear()
@@ -149,17 +150,13 @@ describe('Umami adapter', () => {
   it('delivers the home CTA events to Umami through the installed tracker', async () => {
     const { installAnalytics } = await import('../analytics-bootstrap')
     const adapter = await import('../analytics')
-    const {
-      trackHomeDesktopCopy,
-      trackHomeHeroCtaClick,
-      trackHomePricingTeaserClick,
-    } = await import('@/features/omnimux-landing/desktop/lib/home-analytics')
+    const { trackHomeHeroCtaClick, trackHomePricingTeaserClick } =
+      await import('@/features/omnimux-landing/desktop/lib/home-analytics')
     const sent = captureUmami()
     installAnalytics(async () => adapter)
 
     trackHomeHeroCtaClick('download', 'mac-x64')
     trackHomeHeroCtaClick('copy_link', 'mobile_fallback')
-    trackHomeDesktopCopy('zh-TW')
     trackHomeHeroCtaClick('scroll_workflow', 'win')
     trackHomePricingTeaserClick('full_pricing')
     trackHomePricingTeaserClick('download_first')
@@ -174,7 +171,6 @@ describe('Umami adapter', () => {
         name: 'home_hero_cta_click',
         data: { cta_type: 'copy_link', platform: 'mobile_fallback' },
       },
-      { name: 'download_cta_click', data: desktopCopy },
       {
         name: 'home_hero_cta_click',
         data: { cta_type: 'scroll_workflow', platform: 'win' },
@@ -197,20 +193,21 @@ describe('Umami adapter', () => {
     const track = createAnalyticsTracker()
     const privateUrl = 'https://app.example/?token=secret'
 
+    const installer = { ...downloadClick, destination: DOWNLOAD_DESTINATION }
     for (const overrides of [
       { locale: privateUrl },
-      { page: 'pricing' },
-      { cta_position: 'header' },
-      { cta_id: 'other' },
-      { cta_variant: 'primary' },
-      { cta_variant: 'primary', destination: DOWNLOAD_DESTINATION },
-      { destination: DOWNLOAD_DESTINATION },
+      { page: 'other' },
+      { cta_position: 'other' },
+      { cta_id: privateUrl },
+      { cta_variant: 'copy_link' },
+      { destination: undefined },
       { destination: privateUrl },
     ]) {
       track(
-        analyticsEvent('download_cta_click', { ...desktopCopy, ...overrides })
+        analyticsEvent('download_cta_click', { ...installer, ...overrides })
       )
     }
+    track(analyticsEvent('download_cta_click', desktopCopy))
     track(analyticsEvent('home_hero_cta_click', { cta_type: 'download' }))
     track(
       analyticsEvent('home_hero_cta_click', {
@@ -229,7 +226,7 @@ describe('Umami adapter', () => {
     expect(sent).toEqual([])
 
     track(
-      analyticsEvent('download_cta_click', { ...desktopCopy, url: privateUrl })
+      analyticsEvent('download_cta_click', { ...installer, url: privateUrl })
     )
     track(
       analyticsEvent('home_hero_cta_click', {
@@ -246,7 +243,7 @@ describe('Umami adapter', () => {
     )
 
     expect(sent.map(({ name, data }) => ({ name, data }))).toEqual([
-      { name: 'download_cta_click', data: desktopCopy },
+      { name: 'download_cta_click', data: installer },
       {
         name: 'home_hero_cta_click',
         data: { cta_type: 'download', platform: 'mac-arm64' },
@@ -259,13 +256,9 @@ describe('Umami adapter', () => {
   })
 
   it('keeps home analytics best effort with missing and failing trackers', async () => {
-    const {
-      trackHomeDesktopCopy,
-      trackHomeHeroCtaClick,
-      trackHomePricingTeaserClick,
-    } = await import('@/features/omnimux-landing/desktop/lib/home-analytics')
+    const { trackHomeHeroCtaClick, trackHomePricingTeaserClick } =
+      await import('@/features/omnimux-landing/desktop/lib/home-analytics')
     const report = () => {
-      trackHomeDesktopCopy('en')
       trackHomeHeroCtaClick('scroll_workflow', 'mobile_fallback')
       trackHomePricingTeaserClick('full_pricing')
     }
@@ -276,7 +269,7 @@ describe('Umami adapter', () => {
       throw new Error('tracker failure')
     })
     expect(report).not.toThrow()
-    expect(tracker).toHaveBeenCalledTimes(3)
+    expect(tracker).toHaveBeenCalledTimes(2)
   })
 
   it('sends the four pricing interactions through the pricing bridge and sanitizes their fields', async () => {
@@ -401,6 +394,115 @@ describe('Umami adapter', () => {
     }
   )
 
+  it('preserves all twelve public CLI and Skills paths on navigation downloads', async () => {
+    const { createAnalyticsTracker } = await import('../analytics')
+    const { DOWNLOAD_DESTINATION } = await import('../download-cta')
+    const { AGENT_PATHS } =
+      await import('@/features/omnimux-landing/desktop/agent/content')
+    const sent = captureUmami()
+    const track = createAnalyticsTracker()
+    const expected = Object.entries(AGENT_PATHS).flatMap(([locale, paths]) =>
+      Object.values(paths).map((url) => ({
+        url,
+        name: 'download_cta_click',
+        data: {
+          page: 'tool',
+          cta_id: 'nav_download',
+          cta_position: 'header',
+          cta_variant: 'nav',
+          locale,
+          destination: DOWNLOAD_DESTINATION,
+        },
+      }))
+    )
+
+    for (const { url, name, data } of expected) {
+      track({ ...analyticsEvent(name, data), pathname: url })
+    }
+
+    expect(expected).toHaveLength(12)
+    expect(sent).toMatchObject(expected)
+  })
+
+  it.each([
+    ['pricing_model_id_copy', 'modelId', '2001:db8::55'],
+    ['pricing_vendor_filter', 'vendorId', '202-555-0147'],
+    ['influencer_preset_apply_guest', 'preset', 'fixture-account-id-55'],
+    [
+      'influencer_preset_apply_guest',
+      'preset',
+      '12345678-1234-4123-8123-123456789013',
+    ],
+  ])(
+    'omits an unverified %s identifier without dropping the event',
+    async (name, key, value) => {
+      const { createAnalyticsTracker } = await import('../analytics')
+      const sent = captureUmami()
+
+      createAnalyticsTracker()(analyticsEvent(name, { [key]: value }))
+
+      expect(sent).toMatchObject([{ name, data: {} }])
+      expect(sent[0].data).toEqual({})
+    }
+  )
+
+  it('keeps valid public IDs across separate entry caches and filters personal or refreshed IDs', async () => {
+    const { setPublicAnalyticsIds } = await import('../analytics-public-ids')
+    const publicIds = [
+      ['pricing_model_id_copy', 'modelId', 'public/text-v2', '192.0.2.44'],
+      ['pricing_vendor_filter', 'vendorId', '42', '202-555-0147'],
+      [
+        'influencer_preset_apply_guest',
+        'preset',
+        '12345678-1234-4123-8123-123456789012',
+        'sample@example.test',
+      ],
+    ] as const
+
+    for (const [, key, id, personalValue] of publicIds) {
+      setPublicAnalyticsIds(key, [id, personalValue, '2001:db8::55'])
+    }
+    vi.resetModules()
+    const { createAnalyticsTracker } = await import('../analytics')
+    const sent = captureUmami()
+    const track = createAnalyticsTracker()
+
+    for (const [name, key, id, personalValue] of publicIds) {
+      track(analyticsEvent(name, { [key]: id }))
+      track(analyticsEvent(name, { [key]: personalValue }))
+      track(analyticsEvent(name, { [key]: '2001:db8::55' }))
+      setPublicAnalyticsIds(key, ['next-id'])
+      track(analyticsEvent(name, { [key]: id }))
+    }
+
+    expect(sent.map(({ name, data }) => ({ name, data }))).toEqual(
+      publicIds.flatMap(([name, key, id]) => [
+        { name, data: { [key]: id } },
+        { name, data: {} },
+        { name, data: {} },
+        { name, data: {} },
+      ])
+    )
+  })
+
+  it('omits an ID removed from the catalog while an event waits for Umami', async () => {
+    const { createAnalyticsTracker } = await import('../analytics')
+    const { setPublicAnalyticsIds } = await import('../analytics-public-ids')
+    const track = createAnalyticsTracker()
+    setPublicAnalyticsIds('modelId', ['removed-model', 'stays-public'])
+    track(analyticsEvent('pricing_model_id_copy', { modelId: 'removed-model' }))
+    track(analyticsEvent('pricing_model_id_copy', { modelId: 'stays-public' }))
+
+    setPublicAnalyticsIds('modelId', ['stays-public'])
+    const sent = captureUmami()
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(sent.map(({ name, data }) => ({ name, data }))).toEqual([
+      { name: 'pricing_model_id_copy', data: {} },
+      { name: 'pricing_model_id_copy', data: { modelId: 'stays-public' } },
+    ])
+  })
+
   it('preserves the tracked route and flushes only the bounded queue when Umami loads', async () => {
     const { createAnalyticsTracker } = await import('../analytics')
     const track = createAnalyticsTracker()
@@ -524,11 +626,27 @@ describe('Umami adapter', () => {
 })
 
 describe('desktop download click', () => {
-  it('uses one local device across tabs, ignores another destination, and resets after ten seconds', async () => {
+  it('ignores a link that does not activate an installer on the download origin', async () => {
+    const track = installGlobalSpy()
+    const { DOWNLOAD_DESTINATION, trackDownloadCtaClick } =
+      await import('../download-cta')
+    const { HOME_DESKTOP_DOWNLOAD_PAGE } =
+      await import('@/features/omnimux-landing/desktop/lib/home-analytics')
+
+    trackDownloadCtaClick(downloadClick, HOME_DESKTOP_DOWNLOAD_PAGE)
+    trackDownloadCtaClick(
+      downloadClick,
+      `https://${DOWNLOAD_DESTINATION}/releases/latest/`
+    )
+    trackDownloadCtaClick(downloadClick, 'https://example.com/installer.dmg')
+
+    expect(track).not.toHaveBeenCalled()
+  })
+
+  it('counts at ten seconds across tabs even after a rejected click just before the boundary', async () => {
     const track = installGlobalSpy()
     const firstTab = await import('../download-cta')
-    const href =
-      'https://' + firstTab.DOWNLOAD_DESTINATION + '/installer?token=secret'
+    const href = `https://${firstTab.DOWNLOAD_DESTINATION}/installer.dmg?token=secret`
     const request = vi.fn(async (_name: string, callback: () => void) =>
       callback()
     )
@@ -537,13 +655,10 @@ describe('desktop download click', () => {
       value: { request },
     })
 
-    firstTab.trackDownloadCtaClick(
-      downloadClick,
-      'https://example.com/download'
-    )
     firstTab.trackDownloadCtaClick(downloadClick, href)
     vi.resetModules()
     const secondTab = await import('../download-cta')
+    vi.advanceTimersByTime(9_999)
     secondTab.trackDownloadCtaClick(downloadClick, href)
     expect(track).toHaveBeenCalledExactlyOnceWith('download_cta_click', {
       ...downloadClick,
@@ -554,7 +669,7 @@ describe('desktop download click', () => {
       /^[0-9a-f-]{36}$/i
     )
 
-    vi.advanceTimersByTime(10_000)
+    vi.advanceTimersByTime(1)
     secondTab.trackDownloadCtaClick(downloadClick, href)
     expect(track).toHaveBeenCalledTimes(2)
   })
@@ -566,7 +681,7 @@ describe('desktop download click', () => {
     vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError')
     })
-    const href = 'https://' + DOWNLOAD_DESTINATION + '/installer'
+    const href = `https://${DOWNLOAD_DESTINATION}/installer.exe`
     expect(() => trackDownloadCtaClick(downloadClick, href)).not.toThrow()
     trackDownloadCtaClick(downloadClick, href)
     trackDownloadCtaClick(
@@ -574,42 +689,5 @@ describe('desktop download click', () => {
       href
     )
     expect(track).toHaveBeenCalledTimes(2)
-  })
-
-  it('deduplicates mobile link copies across tabs and keeps installer activation separate', async () => {
-    const track = installGlobalSpy()
-    const firstTab =
-      await import('@/features/omnimux-landing/desktop/lib/home-analytics')
-    const { DOWNLOAD_DESTINATION, trackDownloadCtaClick } =
-      await import('../download-cta')
-
-    const installerHref = `https://${DOWNLOAD_DESTINATION}/installer`
-    trackDownloadCtaClick(downloadClick, firstTab.HOME_DESKTOP_DOWNLOAD_PAGE)
-    trackDownloadCtaClick(
-      { ...downloadClick, cta_id: desktopCopy.cta_id },
-      installerHref
-    )
-    firstTab.trackHomeDesktopCopy('zh-TW')
-    trackDownloadCtaClick(downloadClick, installerHref)
-    vi.resetModules()
-    const secondTab =
-      await import('@/features/omnimux-landing/desktop/lib/home-analytics')
-    secondTab.trackHomeDesktopCopy('en')
-
-    expect(track.mock.calls).toEqual([
-      ['download_cta_click', desktopCopy],
-      [
-        'download_cta_click',
-        { ...downloadClick, destination: DOWNLOAD_DESTINATION },
-      ],
-    ])
-
-    vi.advanceTimersByTime(10_000)
-    secondTab.trackHomeDesktopCopy('en')
-    expect(track).toHaveBeenLastCalledWith('download_cta_click', {
-      ...desktopCopy,
-      locale: 'en',
-    })
-    expect(track).toHaveBeenCalledTimes(3)
   })
 })

@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import { AGENT_PATHS } from '@/features/omnimux-landing/desktop/agent/content'
 import {
   HOME_HERO_CTA_EVENT,
   HOME_HERO_CTA_PLATFORMS,
@@ -32,6 +33,12 @@ import {
   warnAnalytics,
   type AnalyticsEvent,
 } from './analytics-bootstrap'
+import { looksLikePersonalValue } from './analytics-personal-value'
+import {
+  hasPublicAnalyticsId,
+  PUBLIC_ANALYTICS_ID_FIELDS,
+  type PublicAnalyticsId,
+} from './analytics-public-ids'
 import {
   DOWNLOAD_CTA_NAME,
   DOWNLOAD_DESTINATION,
@@ -39,7 +46,6 @@ import {
   DOWNLOAD_PAGES,
   DOWNLOAD_POSITIONS,
   DOWNLOAD_VARIANTS,
-  HOME_DESKTOP_COPY_CTA,
 } from './download-cta'
 import {
   buildToolCtaClick,
@@ -98,14 +104,17 @@ const boundedInteger = (min: number, max: number): Field => {
       : undefined
 }
 const required = (validate: Field): EventField => ({ required: validate })
-const identifier = (value: unknown) =>
-  typeof value === 'string' &&
-  /^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,119}$/.test(value) &&
-  !value.includes('://') &&
-  !value.includes('..') &&
-  !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(value)
-    ? value
-    : undefined
+const publicIdentifier =
+  (field: PublicAnalyticsId): Field =>
+  (value) =>
+    typeof value === 'string' &&
+    /^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,119}$/.test(value) &&
+    !value.includes('://') &&
+    !value.includes('..') &&
+    !looksLikePersonalValue(value) &&
+    hasPublicAnalyticsId(field, value)
+      ? value
+      : undefined
 const boolean: Field = (value) =>
   typeof value === 'boolean' ? value : undefined
 const timestamp: Field = (value) => {
@@ -117,15 +126,6 @@ const timestamp: Field = (value) => {
     return value
   }
   return boundedNumber(0, Number.MAX_SAFE_INTEGER)(value)
-}
-
-const homeDesktopCopyFields = {
-  page: allowed([HOME_DESKTOP_COPY_CTA.page]),
-  cta_id: allowed([HOME_DESKTOP_COPY_CTA.cta_id]),
-  cta_position: allowed([HOME_DESKTOP_COPY_CTA.cta_position]),
-  cta_variant: allowed([HOME_DESKTOP_COPY_CTA.cta_variant]),
-  locale: allowed(DOWNLOAD_LOCALES),
-  destination: allowed([HOME_DESKTOP_COPY_CTA.destination]),
 }
 
 const eventFields: Record<string, Record<string, EventField>> = {
@@ -154,9 +154,9 @@ const eventFields: Record<string, Record<string, EventField>> = {
   pricing_modality_switch: {
     modality: allowed(['all', 'text', 'image', 'video', 'audio', 'social']),
   },
-  pricing_vendor_filter: { vendorId: identifier },
+  pricing_vendor_filter: { vendorId: publicIdentifier('vendorId') },
   pricing_search_used: { queryLength: boundedNumber(0, 500) },
-  pricing_model_id_copy: { modelId: identifier },
+  pricing_model_id_copy: { modelId: publicIdentifier('modelId') },
   pricing_cta_view_models: {},
   pricing_cta_enterprise: {},
   pricing_force_refetch: {},
@@ -193,7 +193,7 @@ const eventFields: Record<string, Record<string, EventField>> = {
       'header',
     ]),
   },
-  influencer_preset_apply_guest: { preset: identifier },
+  influencer_preset_apply_guest: { preset: publicIdentifier('preset') },
   influencer_paywall_view: {
     origin: allowed(['image', 'video', 'multiview']),
     required_credits: boundedNumber(-1, 1_000_000_000),
@@ -218,6 +218,7 @@ const staticPaths = new Set([
   '/tools/tiktok-video-downloader',
   '/zh/tools/tiktok-photo-downloader',
   '/zh/tools/tiktok-video-downloader',
+  ...Object.values(AGENT_PATHS).flatMap(({ cli, skills }) => [cli, skills]),
 ])
 
 function staticPath(pathname: string): string {
@@ -249,11 +250,7 @@ function sanitizeProperties(event: AnalyticsEvent): AnalyticsProps | null {
   if (!Object.hasOwn(eventFields, event.name)) return null
 
   const input = (event.props ?? {}) as Record<string, unknown>
-  const fields =
-    event.name === DOWNLOAD_CTA_NAME &&
-    input.cta_id === HOME_DESKTOP_COPY_CTA.cta_id
-      ? homeDesktopCopyFields
-      : eventFields[event.name]
+  const fields = eventFields[event.name]
   const data: AnalyticsProps = {}
   for (const [key, field] of Object.entries(fields)) {
     const isRequired = typeof field !== 'function'
@@ -296,6 +293,13 @@ export function createAnalyticsTracker(): (event: AnalyticsEvent) => void {
     }
     for (const event of pending.splice(0)) {
       try {
+        // A public catalog can refresh while an event waits for the SDK.
+        for (const field of PUBLIC_ANALYTICS_ID_FIELDS) {
+          const id = event.data[field]
+          if (typeof id === 'string' && !hasPublicAnalyticsId(field, id)) {
+            delete event.data[field]
+          }
+        }
         // The object callback overrides Umami's default URL, referrer and
         // title, which can carry query strings and user-entered values.
         const sent = tracker.track(

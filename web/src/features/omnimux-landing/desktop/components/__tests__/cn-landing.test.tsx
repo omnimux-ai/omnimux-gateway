@@ -27,7 +27,10 @@ import { CnFaq } from '../cn/faq'
 import { CnHero } from '../cn/hero'
 import { CnProof } from '../cn/proof'
 
-beforeEach(() => vi.stubGlobal('innerWidth', 1440))
+beforeEach(() => {
+  window.localStorage.clear()
+  vi.stubGlobal('innerWidth', 1440)
+})
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -193,7 +196,7 @@ describe('desktop CN hero split download', () => {
 })
 
 describe('desktop CN hero mobile copy', () => {
-  it('copies the homepage download section on a narrow screen without exposing an installer', async () => {
+  it('copies the homepage download section and reports only the hero copy event', async () => {
     vi.stubGlobal('innerWidth', 820)
     const user = userEvent.setup()
     const writeText = vi.spyOn(navigator.clipboard, 'writeText')
@@ -216,7 +219,7 @@ describe('desktop CN hero mobile copy', () => {
     expect(
       screen.getByRole('button', { name: zhCN.hero.mobileCopiedLabel })
     ).toBeTruthy()
-    expect(tracker).toHaveBeenCalledWith('home_hero_cta_click', {
+    expect(tracker).toHaveBeenCalledExactlyOnceWith('home_hero_cta_click', {
       cta_type: 'copy_link',
       platform: 'mobile_fallback',
     })
@@ -231,6 +234,8 @@ describe('desktop CN hero mobile copy', () => {
       new Error('Denied')
     )
     const prompt = vi.spyOn(window, 'prompt').mockReturnValue(null)
+    const tracker = vi.fn()
+    vi.stubGlobal('__OMNIMUX_TRACK__', tracker)
     renderWithLanding(<CnHero />)
 
     await user.click(
@@ -243,5 +248,9 @@ describe('desktop CN hero mobile copy', () => {
     expect(
       screen.queryByRole('button', { name: zhCN.hero.mobileCopiedLabel })
     ).toBeNull()
+    expect(tracker).toHaveBeenCalledExactlyOnceWith('home_hero_cta_click', {
+      cta_type: 'copy_link',
+      platform: 'mobile_fallback',
+    })
   })
 })

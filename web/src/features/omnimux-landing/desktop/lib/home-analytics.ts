@@ -19,8 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 
 import { TRACKER_NAME, type AnalyticsTracker } from '@/lib/analytics-bootstrap'
 
-export { trackHomeDesktopCopy } from '@/lib/download-cta'
-
 export const HOME_DESKTOP_DOWNLOAD_PAGE = 'https://omnimux.ai/#download'
 export const HOME_HERO_CTA_EVENT = 'home_hero_cta_click'
 export const HOME_PRICING_TEASER_EVENT = 'home_pricing_teaser_click'

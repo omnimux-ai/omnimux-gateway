@@ -109,16 +109,19 @@ describe('utm_content allowlist', () => {
 })
 
 describe('utm_source / utm_medium cleaning', () => {
-  it('keeps inbound values as-is when already clean (no enum mapping)', () => {
+  it.each([
+    ['Discord', 'referral'],
+    ['tel2026', 'telco_campaign'],
+    ['teladext2026', 'tel20261122-referral'],
+  ])('keeps %s / %s as open channel labels', (source, medium) => {
     const touch = parseGrowthTouch(
       q({
         utm_campaign: GROWTH_CAMPAIGN,
-        utm_source: 'Discord',
-        utm_medium: 'referral',
+        utm_source: source,
+        utm_medium: medium,
       })
     )
-    expect(touch?.source).toBe('Discord')
-    expect(touch?.medium).toBe('referral')
+    expect(touch).toMatchObject({ source, medium })
   })
 
   it('strips unsafe characters and caps the length', () => {
@@ -129,6 +132,71 @@ describe('utm_source / utm_medium cleaning', () => {
     expect(cleanUtmValue('小红书 xhs')).toBe('xhs')
     expect(cleanUtmValue('a'.repeat(200))).toHaveLength(UTM_VALUE_MAX_LENGTH)
     expect(cleanUtmValue('https://t.co/a?b=c')).toBe('httpst.coabc')
+  })
+})
+
+describe('personal values in tool attribution', () => {
+  it.each([
+    '192.0.2.44',
+    '2001:db8::55',
+    '[::ffff:192.0.2.44]:443',
+    '202-555-0134',
+    '+1 (202) 555-0134',
+    '+1 (202) 555-0138 ext. (4-2)',
+    'tel:+1-202-555-0134;ext=42',
+    'tel:55501;phone-context=pbx.example.test',
+    '202–555–0134',
+    'sample@example.test',
+  ])('omits %s without losing the event or an adjacent label', (value) => {
+    captureFirstTouch(
+      q({
+        utm_campaign: GROWTH_CAMPAIGN,
+        utm_source: value,
+        utm_medium: 'paid-social_2026',
+      })
+    )
+
+    expect(buildToolCtaClick(click)).toMatchObject({
+      ...click,
+      acq_campaign: GROWTH_CAMPAIGN,
+      acq_source: '',
+      acq_medium: 'paid-social_2026',
+      acq_source_present: false,
+    })
+  })
+
+  it.each([
+    '202.555.0134',
+    '1202555-0138ext.4-2',
+    'tel12025550134',
+    'tel1-202-555-0134ext42',
+    'tel1-202-555-0134isub42',
+    'tel1-202-555-0138npdi',
+    'tel12025550138rn12025550100npdi',
+    'tel1-202-555-0138foobar',
+    'tel12025550138foobar',
+    'tel1-202-555-0138ext-.',
+    'tel55501phone-contextpbx.example.test',
+    'tel1A2Bphone-contextpbx.example.test',
+    'telphone-contextpbx.example.test',
+    'tel1-202-555-0134ext-42',
+  ])('omits saved phone-shaped medium %s and retains the source', (medium) => {
+    window.localStorage.setItem(
+      FIRST_TOUCH_STORAGE_KEY,
+      JSON.stringify({
+        campaign: GROWTH_CAMPAIGN,
+        source: 'Discord',
+        medium,
+        content: CONTENT,
+      })
+    )
+
+    expect(buildToolCtaClick(click)).toMatchObject({
+      acq_source: 'Discord',
+      acq_medium: '',
+      acq_content: CONTENT,
+      acq_source_present: true,
+    })
   })
 })
 
