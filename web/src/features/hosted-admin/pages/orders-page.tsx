@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import type { TextTranslator } from '@/i18n/translator'
 
 import { getAdminOrders, HOSTED_ADMIN_KEYS } from '../api'
 import { HostedDemoBanner } from '../components/demo-banner'
@@ -55,7 +56,7 @@ function orderTone(status: HostedOrderStatus) {
 
 function formatCountdown(
   countdown: AssignCountdown,
-  t: (key: string, options?: Record<string, unknown>) => string
+  t: TextTranslator
 ): string {
   if (countdown.kind === 'delivered') {
     return t('Assigned')

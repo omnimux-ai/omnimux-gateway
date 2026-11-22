@@ -47,6 +47,7 @@ import {
 import { pluginUsageSchema } from '@/features/pricing/lib/plugin-pricing'
 import { taskUsageUnitLabel } from '@/features/pricing/lib/task-price-display'
 import type { BillingUsageSchema } from '@/features/pricing/types'
+import type { TextTranslator } from '@/i18n/translator'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota, formatTimestampToDate } from '@/lib/format'
@@ -113,7 +114,7 @@ function getGroupRatio(other: LogOtherData | null): number | null {
 function buildDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TextTranslator,
   isAdmin: boolean,
   language: string,
   usageSchema?: BillingUsageSchema
@@ -133,7 +134,7 @@ function buildDetailSegments(
 function buildTypeDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TextTranslator,
   language: string,
   usageSchema?: BillingUsageSchema
 ): DetailSegment[] {

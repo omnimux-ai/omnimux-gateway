@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { TextTranslator } from '@/i18n/translator'
 
 /**
  * The gateway stores `task.fail_reason` as free text: a few fixed English
@@ -25,8 +26,6 @@ For commercial licensing, please contact support@quantumnous.com
  * resolve it through this table first and keep the original only as a support
  * detail.
  */
-
-type Translator = (key: string, options?: Record<string, unknown>) => string
 
 export interface FailReasonView {
   /** Localized sentence that may be shown as the primary failure copy. */
@@ -202,7 +201,7 @@ function stripWrappers(text: string): { base: string; detail: string } {
  * without becoming the primary message in a language it was not written in.
  */
 export function describeFailReason(
-  t: Translator,
+  t: TextTranslator,
   raw?: string | null
 ): FailReasonView {
   if (isInsufficientQuotaFailure(raw)) {

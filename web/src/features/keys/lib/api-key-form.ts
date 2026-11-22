@@ -16,9 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { TFunction } from 'i18next'
 import { z } from 'zod'
 
+import type { TextTranslator } from '@/i18n/translator'
 import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 
 import { DEFAULT_GROUP } from '../constants'
@@ -28,7 +28,7 @@ import type { ApiKey, ApiKeyFormData } from '../types'
 // Form Schema
 // ============================================================================
 
-export function getApiKeyFormSchema(t: TFunction, maxAutoGroups = 5) {
+export function getApiKeyFormSchema(t: TextTranslator, maxAutoGroups = 5) {
   const autoGroupLimit =
     Number.isInteger(maxAutoGroups) && maxAutoGroups > 0 ? maxAutoGroups : 5
 
