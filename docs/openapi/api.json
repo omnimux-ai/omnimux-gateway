@@ -353,7 +353,7 @@
                         "required": ["model_name", "enable_groups", "default_group", "group_order"],
                         "properties": {
                           "model_name": { "type": "string" },
-                          "enable_groups": { "type": "array", "items": { "type": "string" } },
+                          "enable_groups": { "type": "array", "items": { "type": "string" }, "description": "模型启用的分组，按组名升序排列。" },
                           "default_group": {
                             "type": "string",
                             "description": "模型显式默认组，仅在该组同时属于 enable_groups 和 usable_group 时返回组名。显式组不可用时返回空字符串。缺配置时依次尝试调用者分组、default、group_order 中首个可用组，均不可用时返回空字符串。"
@@ -362,7 +362,7 @@
                             "type": "array",
                             "items": { "type": "string" },
                             "uniqueItems": true,
-                            "description": "模型级展示顺序，包含 enable_groups 的全部成员。有效顺序缺失时沿用 enable_groups 的既有顺序。"
+                            "description": "模型级展示顺序，包含 enable_groups 的全部成员。配置顺序有效时按配置返回，缺失或失效时沿用 enable_groups 的组名升序。"
                           }
                         }
                       }

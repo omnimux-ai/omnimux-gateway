@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -274,6 +275,123 @@ func TestPricingGroupDefaultFallback(t *testing.T) {
 			assert.Equal(t, tc.want, pricingDefaultGroup(tc.configured, tc.caller, order, order, tc.usable))
 		})
 	}
+}
+
+func TestPricingFallbackOrderAcrossCacheRefresh(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	withSelfUseModeEnabled(t)
+	db := modelManagementDB(t, "sqlite", "")
+	require.NoError(t, db.AutoMigrate(&model.UserSession{}))
+	previousUsable := setting.UserUsableGroups2JSONString()
+	previousRatios := ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(previousUsable))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(previousRatios))
+		model.InvalidatePricingCache()
+	})
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"basic":"Basic","default":"Default","zeta":"Zeta"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"aaa-private":1,"basic":1,"default":1,"member":1,"zeta":1}`))
+
+	const prefix = "fixture-pricing-"
+	const withDefault = prefix + "alpha"
+	const withoutDefault = prefix + "zeta"
+	vendor := model.Vendor{Name: "Fixture vendor"}
+	require.NoError(t, db.Create(&vendor).Error)
+	// Both models resolve to the same metadata, including its timestamps and ID.
+	require.NoError(t, db.Create(&model.Model{
+		ModelName: prefix, NameRule: model.NameRulePrefix, Status: 1,
+		Description: "Pricing order fixture", Tags: "Text", VendorID: vendor.Id,
+		CreatedTime: 100, UpdatedTime: 200,
+	}).Error)
+	for _, route := range []struct{ group, models string }{
+		{"zeta", withoutDefault},
+		{"member", withDefault},
+		{"default", withDefault},
+		{"basic", withoutDefault + "," + withDefault},
+		{"aaa-private", withoutDefault},
+	} {
+		channel := model.Channel{
+			Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled,
+			Group: route.group, Models: route.models, Key: "fixture",
+		}
+		require.NoError(t, db.Create(&channel).Error)
+		require.NoError(t, channel.AddAbilities(nil))
+	}
+	user := model.User{
+		Username: "pricing-order-fixture", AffCode: "pgorder", Group: "member",
+		Role: common.RoleCommonUser, Status: common.UserStatusEnabled, AuthVersion: 1,
+	}
+	require.NoError(t, db.Create(&user).Error)
+	session, err := service.CreateLoginSession(user.Id, "fixture", "127.0.0.1", "pricing fixture")
+	require.NoError(t, err)
+
+	gin.SetMode(gin.TestMode)
+	api := gin.New()
+	api.GET("/api/pricing", middleware.HeaderNavModuleAuth("pricing"), GetPricing)
+	type groupRow struct {
+		ModelName    string   `json:"model_name"`
+		EnableGroups []string `json:"enable_groups"`
+		GroupOrder   []string `json:"group_order"`
+		DefaultGroup string   `json:"default_group"`
+	}
+	read := func(t *testing.T, bearer string) ([]groupRow, string) {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodGet, "/api/pricing", nil)
+		if bearer != "" {
+			request.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		recorder := httptest.NewRecorder()
+		api.ServeHTTP(recorder, request)
+		require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+		var payload struct {
+			Success bool       `json:"success"`
+			Data    []groupRow `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+		require.True(t, payload.Success)
+		return payload.Data, recorder.Body.String()
+	}
+
+	groupsWithDefault := []string{"basic", "default", "member"}
+	groupsWithoutDefault := []string{"aaa-private", "basic", "zeta"}
+	for _, caller := range []struct{ name, bearer, defaultWithGroup string }{
+		{"anonymous", "", "default"},
+		{"signed_in", session.AccessToken, "member"},
+	} {
+		t.Run(caller.name, func(t *testing.T) {
+			want := []groupRow{
+				{withDefault, groupsWithDefault, groupsWithDefault, caller.defaultWithGroup},
+				{withoutDefault, groupsWithoutDefault, groupsWithoutDefault, "basic"},
+			}
+			var firstBody string
+			for refresh := range 20 {
+				model.InvalidatePricingCache()
+				rows, body := read(t, caller.bearer)
+				assert.Equal(t, want, rows, "refresh %d", refresh+1)
+				if refresh == 0 {
+					firstBody = body
+				} else {
+					assert.Equal(t, firstBody, body, "response bytes after refresh %d", refresh+1)
+				}
+			}
+		})
+	}
+
+	t.Run("unsorted_cached_groups", func(t *testing.T) {
+		cached := model.GetPricing()
+		idx := slices.IndexFunc(cached, func(row model.Pricing) bool { return row.ModelName == withoutDefault })
+		require.NotEqual(t, -1, idx)
+		original := cached[idx].EnableGroup
+		t.Cleanup(func() { cached[idx].EnableGroup = original })
+		cached[idx].EnableGroup = []string{"zeta", "basic", "aaa-private"}
+
+		rows, _ := read(t, "")
+		idxInResponse := slices.IndexFunc(rows, func(row groupRow) bool { return row.ModelName == withoutDefault })
+		require.NotEqual(t, -1, idxInResponse)
+		assert.Equal(t, groupsWithoutDefault, rows[idxInResponse].GroupOrder)
+		assert.Equal(t, "basic", rows[idxInResponse].DefaultGroup)
+		assert.Equal(t, []string{"zeta", "basic", "aaa-private"}, cached[idx].EnableGroup)
+	})
 }
 
 func TestPricingGroupsDatabaseMatrix(t *testing.T) {
