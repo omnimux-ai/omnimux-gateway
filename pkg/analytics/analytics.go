@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -201,6 +202,14 @@ type umamiPayload struct {
 	Data      map[string]any `json:"data"`
 }
 
+// writeAudit records the same sanitized JSON sent to the collector.
+func writeAudit(body []byte) error {
+	common.LogWriterMu.RLock()
+	defer common.LogWriterMu.RUnlock()
+	_, err := gin.DefaultWriter.Write(append(body, '\n'))
+	return err
+}
+
 // send returns only fixed diagnostic categories. The collector may acknowledge
 // a rejected event with a 2xx response, so require its documented cache token.
 func (c *client) send(event Event) string {
@@ -211,6 +220,9 @@ func (c *client) send(event Event) string {
 	body, err := common.Marshal(umamiEnvelope{Type: "event", Payload: payload})
 	if err != nil {
 		return "invalid event"
+	}
+	if err := writeAudit(body); err != nil {
+		c.warnOnce("audit log unavailable")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()

@@ -23,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/oauth"
 	"github.com/QuantumNous/new-api/pkg/analytics"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/gin-gonic/gin"
@@ -165,6 +166,7 @@ func TestSecurityLoginPasskeyDoesNotRequireAdditionalTwoFA(t *testing.T) {
 	for _, direct := range []bool{false, true} {
 		t.Run(fmt.Sprintf("direct=%t", direct), func(t *testing.T) {
 			user, _ := setupSecurityEnrollmentTest(t)
+			events := captureSignupAnalytics(t)
 			key := newSecurityLoginPasskey(t, user.Id)
 			require.NoError(t, model.DB.Create(&model.TwoFA{UserId: user.Id, Secret: "JBSWY3DPEHPK3PXP", IsEnabled: true}).Error)
 			for _, verified := range []bool{false, true} {
@@ -221,6 +223,7 @@ func TestSecurityLoginPasskeyDoesNotRequireAdditionalTwoFA(t *testing.T) {
 					assert.Empty(t, response.Header().Values("Set-Cookie"))
 				}
 			}
+			assert.Empty(t, *events)
 		})
 	}
 }
@@ -338,7 +341,10 @@ func captureSignupAnalytics(t *testing.T) *[]analytics.Event {
 	t.Helper()
 	previous := trackSignupEvent
 	events := []analytics.Event{}
-	trackSignupEvent = func(event analytics.Event) { events = append(events, event) }
+	trackSignupEvent = func(event analytics.Event) {
+		require.NoError(t, model.DB.First(&model.User{}, event.UserID).Error, "signup must see a committed user")
+		events = append(events, event)
+	}
 	t.Cleanup(func() { trackSignupEvent = previous })
 	return &events
 }
@@ -374,7 +380,15 @@ func TestSelfServiceSignupAnalytics(t *testing.T) {
 				t.Cleanup(func() { common.WeChatAuthEnabled, common.WeChatServerAddress = enabled, address })
 			}
 			request := func() *httptest.ResponseRecorder {
-				return securityEnrollmentRequest(tt.verb, tt.path, tt.body, "", service.AuthIdentity{}, tt.handler)
+				return securityEnrollmentRequest(tt.verb, tt.path, tt.body, "", service.AuthIdentity{}, func(c *gin.Context) {
+					c.Request.Header.Set("User-Agent", "ignored-browser")
+					c.Request.Header.Set("Referer", "https://source.example.net/register?code=private#private")
+					if tt.method != "wechat" {
+						c.Request.Header.Set("X-OmniMux-Device-Id", "A0000000-0000-4000-8000-000000000001")
+						c.Request.Header.Set("X-OmniMux-App-Version", "v1.2.3-beta.1+build.7")
+					}
+					tt.handler(c)
+				})
 			}
 
 			require.NoError(t, model.DB.Callback().Create().After("gorm:create").Register("analytics_signup_rollback", func(tx *gorm.DB) {
@@ -396,10 +410,61 @@ func TestSelfServiceSignupAnalytics(t *testing.T) {
 			require.NoError(t, model.DB.First(&model.User{}, event.UserID).Error)
 			assert.Equal(t, analytics.EventSignUpSuccess, event.Name)
 			assert.Equal(t, tt.method, event.Data["method"])
+			assert.Equal(t, "source.example.net/register", event.Data["referrer"])
+			if tt.method == "wechat" {
+				assert.Equal(t, "", event.Data["device_id"])
+				assert.Equal(t, "", event.Data["app_version"])
+			} else {
+				assert.Equal(t, "A0000000-0000-4000-8000-000000000001", event.Data["device_id"])
+				assert.Equal(t, "v1.2.3-beta.1+build.7", event.Data["app_version"])
+			}
 			request()
 			assert.Len(t, *events, 1)
 		})
 	}
+}
+
+func TestSignupAnalyticsIgnoresPrivilegedCreation(t *testing.T) {
+	t.Run("admin-created account", func(t *testing.T) {
+		_, identity, _ := setupAdminUserTest(t)
+		events := captureSignupAnalytics(t)
+		body, err := common.Marshal(model.User{Username: "managed-creation", Password: "Synthetic-auth-fixture-2026", Role: common.RoleCommonUser})
+		require.NoError(t, err)
+		response := adminUserRequest(http.MethodPost, "/api/user/", string(body), "", identity, common.RoleAdminUser, nil, CreateUser)
+		var result securityEnrollmentResponse
+		require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
+		require.True(t, result.Success, response.Body.String())
+		require.NoError(t, model.DB.Where("username = ?", "managed-creation").First(&model.User{}).Error)
+		assert.Empty(t, *events)
+	})
+	t.Run("instance root", func(t *testing.T) {
+		user, _ := setupSecurityEnrollmentTest(t)
+		require.NoError(t, model.DB.Model(user).Update("aff_code", "fixture-existing-code").Error)
+		require.NoError(t, model.DB.AutoMigrate(&model.Setup{}))
+		previousSetup := constant.Setup
+		previousSelfUse, previousDemo := operation_setting.SelfUseModeEnabled, operation_setting.DemoSiteEnabled
+		common.OptionMapRWMutex.Lock()
+		previousOptions := common.OptionMap
+		common.OptionMap = make(map[string]string)
+		common.OptionMapRWMutex.Unlock()
+		constant.Setup = false
+		t.Cleanup(func() {
+			constant.Setup = previousSetup
+			operation_setting.SelfUseModeEnabled, operation_setting.DemoSiteEnabled = previousSelfUse, previousDemo
+			common.OptionMapRWMutex.Lock()
+			common.OptionMap = previousOptions
+			common.OptionMapRWMutex.Unlock()
+		})
+		events := captureSignupAnalytics(t)
+		body, err := common.Marshal(SetupRequest{Username: "fixture-root", Password: "Synthetic-auth-fixture-2026", ConfirmPassword: "Synthetic-auth-fixture-2026"})
+		require.NoError(t, err)
+		response := securityEnrollmentRequest(http.MethodPost, "/api/setup", string(body), "", service.AuthIdentity{}, PostSetup)
+		// Setup updates other options after creating the root account. Check the
+		// committed account at the signup boundary in every database fixture.
+		err = model.DB.Where("username = ? AND role = ?", "fixture-root", common.RoleRootUser).First(&model.User{}).Error
+		require.NoError(t, err, response.Body.String())
+		assert.Empty(t, *events)
+	})
 }
 
 func TestSecurityLoginAllPrimaryTransportsRequireAdditionalVerification(t *testing.T) {
@@ -413,6 +478,7 @@ func TestSecurityLoginAllPrimaryTransportsRequireAdditionalVerification(t *testi
 			} else {
 				user, _ = setupSecurityEnrollmentTest(t)
 			}
+			events := captureSignupAnalytics(t)
 			newSecurityLoginPasskey(t, user.Id)
 			var response *httptest.ResponseRecorder
 			switch transport {
@@ -480,6 +546,7 @@ func TestSecurityLoginAllPrimaryTransportsRequireAdditionalVerification(t *testi
 			count, err := model.CountActiveUserSessions(user.Id, time.Now().Unix())
 			require.NoError(t, err)
 			assert.EqualValues(t, 1, count)
+			assert.Empty(t, *events)
 		})
 	}
 }

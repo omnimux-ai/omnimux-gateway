@@ -626,8 +626,7 @@ func findOrCreateOAuthUser(c *gin.Context, providerName string, provider oauth.P
 		}
 	}
 
-	trackCommittedSignup(c, user.Id, "oauth")
-	user.FinalizeOAuthUserCreation(inviterId)
+	user.FinalizeOAuthUserCreation(inviterId, signupAnalytics(c, "oauth"))
 	return user, nil
 }
 

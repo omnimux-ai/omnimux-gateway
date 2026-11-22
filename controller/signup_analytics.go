@@ -7,18 +7,11 @@ import (
 
 var trackSignupEvent = analytics.Track
 
-// trackCommittedSignup is called only by self-service flows after the new account commits.
-func trackCommittedSignup(c *gin.Context, userID int, method string) {
-	referrer := c.GetHeader("Referer")
-	if len(referrer) > 2048 {
-		referrer = ""
+// signupAnalytics captures only the allowed metadata for the post-commit callback.
+func signupAnalytics(c *gin.Context, method string) func(int) {
+	data := analytics.SignupData(method, c.GetHeader("X-OmniMux-Device-Id"),
+		c.GetHeader("X-OmniMux-App-Version"), c.GetHeader("Referer"))
+	return func(userID int) {
+		trackSignupEvent(analytics.Event{Name: analytics.EventSignUpSuccess, UserID: userID, Data: data})
 	}
-	trackSignupEvent(analytics.Event{
-		Name:   analytics.EventSignUpSuccess,
-		UserID: userID,
-		Data: map[string]any{
-			"method":   method,
-			"referrer": referrer, // The collector strips private URL components before sending.
-		},
-	})
 }

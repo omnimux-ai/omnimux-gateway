@@ -86,11 +86,10 @@ func WeChatAuth(c *gin.Context) {
 			user.Role = common.RoleCommonUser
 			user.Status = common.UserStatusEnabled
 
-			if err := user.Insert(0); err != nil {
+			if err := user.InsertWithSignup(0, signupAnalytics(c, "wechat")); err != nil {
 				common.ApiError(c, err)
 				return
 			}
-			trackCommittedSignup(c, user.Id, "wechat")
 		} else {
 			common.ApiErrorT(c, "New user registration has been disabled by administrator")
 			return
