@@ -137,7 +137,8 @@ func TestFirstVideoMilestoneRecognizesVideoSubmissions(t *testing.T) {
 
 type analyticsArtifactFixture struct {
 	TaskPollingAdaptor
-	plugin *jsplugin.LoadedPlugin
+	plugin           *jsplugin.LoadedPlugin
+	cancelProjection context.CancelFunc
 }
 
 func (a analyticsArtifactFixture) ListArtifactsWithContext(ctx context.Context, task *model.Task) ([]types.TaskArtifact, error) {
@@ -149,6 +150,9 @@ func (a analyticsArtifactFixture) ListArtifactsWithContext(ctx context.Context, 
 	err := a.plugin.Engine.CallInto(ctx, &artifacts, "listArtifacts", map[string]any{
 		"taskId": task.TaskID, "status": string(task.Status), "action": task.Action, "data": snapshot,
 	})
+	if a.cancelProjection != nil {
+		a.cancelProjection()
+	}
 	return artifacts, err
 }
 
@@ -392,6 +396,8 @@ export function parseSubmitResponse() { return {}; }
 export function buildQueryRequest() { return {}; }
 export function parseTaskResult() { return {}; }
 export function listArtifacts(task) {
+  if (task.data.projection_error) throw new Error("fixture snapshot is unsupported");
+  if (task.data.artifacts) return task.data.artifacts;
   if (!task.data.asset_id) return [];
   const artifact = {key: "video", type: "video"};
   if (task.data.mime !== null) artifact.mimeType = task.data.mime ?? "video/mp4";
@@ -402,15 +408,25 @@ export function buildContentRequest() { throw new Error("fixture has no media se
 	require.NoError(t, err)
 
 	const mp4 = "https://assets.example.test/output.mp4"
+	const poster = "https://assets.example.test/thumbnail.jpg"
+	const posterOnly = `{"status":"SUCCESS","artifacts":[{"key":"poster","type":"image","mimeType":"image/jpeg"}]}`
+	const projectionError = `{"status":"SUCCESS","projection_error":true}`
+	const errorWithMP4 = "projection error with mp4 URL"
 	tests := []struct {
 		name, resultURL, snapshot string
 		withPlugin, withoutPlugin bool
 	}{
 		{"video MIME behind a proxy", "", `{"status":"SUCCESS","asset_id":"fixture-file"}`, true, false},
 		{"video type without MIME behind a proxy", "", `{"status":"SUCCESS","asset_id":"fixture-file","mime":null}`, true, false},
-		{"video artifact alongside a thumbnail URL", "https://assets.example.test/thumbnail.jpg", `{"status":"SUCCESS","asset_id":"fixture-file"}`, true, false},
+		{"video artifact alongside a thumbnail URL", poster, `{"status":"SUCCESS","asset_id":"fixture-file"}`, true, false},
 		{"audio MIME despite mp4 URL", mp4, `{"status":"SUCCESS","asset_id":"fixture-file","mime":"audio/flac"}`, false, true},
 		{"empty projection behind a proxy", "", `{"status":"SUCCESS"}`, false, false},
+		{"poster projection with mp4 URL", mp4, posterOnly, true, true},
+		{"poster projection behind a proxy", "", posterOnly, false, false},
+		{"poster projection with image URL", poster, posterOnly, false, false},
+		{errorWithMP4, mp4, projectionError, true, true},
+		{"projection error behind a proxy", "", projectionError, false, false},
+		{"first video artifact MIME takes precedence", mp4, `{"status":"SUCCESS","artifacts":[{"key":"poster","type":"image","mimeType":"image/jpeg"},{"key":"primary","type":"video","mimeType":"audio/flac"},{"key":"alternate","type":"video","mimeType":"video/mp4"}]}`, false, true},
 	}
 	originals := make([]model.Task, len(tests))
 	for i, tc := range tests {
@@ -450,6 +466,20 @@ export function buildContentRequest() { throw new Error("fixture has no media se
 			for i, tc := range tests {
 				t.Run(tc.name, func(t *testing.T) {
 					original := originals[i]
+					if state.installed && tc.name == errorWithMP4 {
+						t.Run("context canceled during projection", func(t *testing.T) {
+							ctx, cancel := context.WithCancel(t.Context())
+							defer cancel()
+							previous := GetTaskAdaptorFunc
+							GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor {
+								return analyticsArtifactFixture{plugin: plugin, cancelProjection: cancel}
+							}
+							t.Cleanup(func() { GetTaskAdaptorFunc = previous })
+							result, err := earliestVideoMilestoneTask(ctx, db, original.UserId, true)
+							require.ErrorIs(t, err, context.Canceled)
+							assert.Nil(t, result)
+						})
+					}
 					result, err := earliestVideoMilestoneTask(t.Context(), db, original.UserId, true)
 					require.NoError(t, err)
 					require.NotNil(t, result)

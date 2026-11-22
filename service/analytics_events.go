@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -345,19 +344,23 @@ func analyticsVideoTaskQualifies(ctx context.Context, db *gorm.DB, task *model.T
 		projectionTask := *task
 		projectionTask.Data = snapshot.Data
 		artifacts, err := provider.ListArtifactsWithContext(ctx, &projectionTask)
-		if err != nil {
-			return false, err
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
 		}
-		if len(artifacts) == 0 {
+		if err != nil {
+			analytics.WarnOnce("video milestone artifact projection failed")
 			return urlVideo, nil
 		}
-		return slices.ContainsFunc(artifacts, func(artifact types.TaskArtifact) bool {
+		// The content proxy uses the first video artifact, then the stored URL
+		// when the plugin only projects auxiliary artifacts.
+		for _, artifact := range artifacts {
 			if artifact.Key == "" || artifact.Type != "video" {
-				return false
+				continue
 			}
 			videoMIME, typed := analyticsVideoMIME(artifact.MimeType)
-			return !typed || videoMIME
-		}), nil
+			return !typed || videoMIME, nil
+		}
+		return urlVideo, nil
 	}
 	if strings.TrimSpace(delivery) != "" {
 		return analyticsVideoDeliveryLink(delivery, task), nil
