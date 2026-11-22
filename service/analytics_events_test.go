@@ -213,6 +213,11 @@ func checkAnalyticsVideoArtifacts(t *testing.T, db *gorm.DB) {
 		{"fal mismatched URL cannot override flac suffix", "", "https://assets.example.test/output.flac", `{"video":{"url":"` + delivery + `","content_type":"video/mp4"}}`, constant.ChannelTypeFalAI, false},
 		{"fal without MIME cannot override flac suffix", "", "https://assets.example.test/output.flac", `{"video":{"url":"https://assets.example.test/output.flac"}}`, constant.ChannelTypeFalAI, false},
 		{"fal without MIME excludes ogg", "", "https://assets.example.test/audio.ogg", `{"video":{"url":"https://assets.example.test/audio.ogg"}}`, constant.ChannelTypeFalAI, false},
+		{"fal application octet-stream with mp4 suffix", "", mislabeledMP4, `{"video":{"url":"` + mislabeledMP4 + `","content_type":"application/octet-stream"}}`, constant.ChannelTypeFalAI, true},
+		{"fal binary octet-stream with mp4 suffix", "", mislabeledMP4, `{"video":{"url":"` + mislabeledMP4 + `","content_type":"Binary/Octet-Stream; name=sample"}}`, constant.ChannelTypeFalAI, true},
+		{"fal octet-stream with no suffix", "", delivery, `{"video":{"url":"` + delivery + `","content_type":"application/octet-stream"}}`, constant.ChannelTypeFalAI, false},
+		{"fal octet-stream with unknown suffix", "", binaryDelivery, `{"video":{"url":"` + binaryDelivery + `","content_type":"binary/octet-stream"}}`, constant.ChannelTypeFalAI, false},
+		{"fal no MIME with no suffix", "", delivery, `{"video":{"url":"` + delivery + `"}}`, constant.ChannelTypeFalAI, false},
 		{"native videos array", "", delivery, `{"data":{"status":"completed","result":{"videos":[{"url":["` + delivery + `"]}]}}}`, constant.ChannelTypeApiMart, true},
 		{"native video bin delivery", "", binaryDelivery, `{"data":{"status":"completed","result":{"videos":[{"url":"` + binaryDelivery + `"}]}}}`, constant.ChannelTypeApiMart, true},
 		{"native images array", "", binaryDelivery, `{"data":{"status":"completed","result":{"images":[{"url":["` + binaryDelivery + `"]}]}}}`, constant.ChannelTypeApiMart, false},
@@ -236,16 +241,20 @@ func checkAnalyticsVideoArtifacts(t *testing.T, db *gorm.DB) {
 			} else {
 				task.PrivateData.Execution.TaskPlugin = &model.TaskPluginSnapshot{Key: tc.plugin, APIVersion: 1}
 			}
-			require.NoError(t, db.Create(&task).Error)
+			later := model.Task{
+				TaskID: "task_later_" + strconv.Itoa(i), UserId: task.UserId,
+				Action: constant.TaskActionInfluencerMotion, Status: model.TaskStatusSuccess, FinishTime: 2,
+				PrivateData: model.TaskPrivateData{ResultURL: "https://assets.example.test/later.mp4"},
+			}
+			require.NoError(t, db.Create(&[]model.Task{task, later}).Error)
 			result, err := earliestVideoMilestoneTask(t.Context(), db, task.UserId, true)
 			require.NoError(t, err)
+			require.NotNil(t, result)
+			wantID := later.TaskID
 			if tc.wantVideo {
-				require.NotNil(t, result)
-				assert.Equal(t, task.TaskID, result.TaskID)
-			} else {
-				assert.Nil(t, result)
+				wantID = task.TaskID
 			}
-
+			assert.Equal(t, wantID, result.TaskID)
 		})
 	}
 
@@ -362,6 +371,95 @@ func checkAnalyticsPluginHistory(t *testing.T, db *gorm.DB) {
 			require.NotNil(t, after)
 			assert.Equal(t, wantID, after.TaskID, "with disabled plugin")
 			assert.Equal(t, before.TaskID, after.TaskID, "plugin changes must preserve the earliest video")
+		})
+	}
+
+	t.Run("custom plugin projection", func(t *testing.T) {
+		checkAnalyticsCustomPluginArtifacts(t, db, registry)
+	})
+}
+
+func checkAnalyticsCustomPluginArtifacts(t *testing.T, db *gorm.DB, registry *jsplugin.Registry) {
+	t.Helper()
+	const pluginKey = "review-video"
+	plugin, err := registry.Register(`
+export const meta = {
+  apiVersion: 1, key: "review-video", name: "Review Video", version: "1.0.0",
+  author: {name: "Test"}, models: ["review-video-model"], fetchMode: "per_task",
+};
+export function buildSubmitRequest() { return {}; }
+export function parseSubmitResponse() { return {}; }
+export function buildQueryRequest() { return {}; }
+export function parseTaskResult() { return {}; }
+export function listArtifacts(task) {
+  if (!task.data.asset_id) return [];
+  const artifact = {key: "video", type: "video"};
+  if (task.data.mime !== null) artifact.mimeType = task.data.mime ?? "video/mp4";
+  return [artifact];
+}
+export function buildContentRequest() { throw new Error("fixture has no media server"); }
+`, jsplugin.Options{Key: pluginKey})
+	require.NoError(t, err)
+
+	const mp4 = "https://assets.example.test/output.mp4"
+	tests := []struct {
+		name, resultURL, snapshot string
+		withPlugin, withoutPlugin bool
+	}{
+		{"video MIME behind a proxy", "", `{"status":"SUCCESS","asset_id":"fixture-file"}`, true, false},
+		{"video type without MIME behind a proxy", "", `{"status":"SUCCESS","asset_id":"fixture-file","mime":null}`, true, false},
+		{"video artifact alongside a thumbnail URL", "https://assets.example.test/thumbnail.jpg", `{"status":"SUCCESS","asset_id":"fixture-file"}`, true, false},
+		{"audio MIME despite mp4 URL", mp4, `{"status":"SUCCESS","asset_id":"fixture-file","mime":"audio/flac"}`, false, true},
+		{"empty projection behind a proxy", "", `{"status":"SUCCESS"}`, false, false},
+	}
+	originals := make([]model.Task, len(tests))
+	for i, tc := range tests {
+		original := model.Task{
+			TaskID: "task_custom_original_" + strconv.Itoa(i), UserId: 400 + i,
+			Platform: constant.TaskPlatform(pluginKey), Action: constant.TaskActionTextToVideo,
+			Status: model.TaskStatusSuccess, FinishTime: 1, Data: []byte(tc.snapshot),
+			PrivateData: model.TaskPrivateData{
+				ResultURL: tc.resultURL,
+				Execution: &model.TaskExecutionSnapshot{
+					RequestPath: "/v1/videos",
+					TaskPlugin:  &model.TaskPluginSnapshot{Key: pluginKey, APIVersion: 1, Version: plugin.Meta.Version},
+				},
+			},
+		}
+		if original.PrivateData.ResultURL == "" {
+			original.PrivateData.ResultURL = "https://gateway.example.test/v1/videos/" + original.TaskID + "/content"
+		}
+		later := model.Task{
+			TaskID: "task_custom_later_" + strconv.Itoa(i), UserId: original.UserId,
+			Action: constant.TaskActionInfluencerMotion, Status: model.TaskStatusSuccess, FinishTime: 2,
+			PrivateData: model.TaskPrivateData{ResultURL: mp4},
+		}
+		require.NoError(t, db.Create(&[]model.Task{original, later}).Error)
+		originals[i] = original
+	}
+	for _, state := range []struct {
+		name      string
+		installed bool
+	}{{"installed", true}, {"uninstalled", false}} {
+		t.Run(state.name, func(t *testing.T) {
+			if !state.installed {
+				require.NoError(t, registry.Unregister(pluginKey))
+			}
+			_, installed := registry.Get(pluginKey)
+			require.Equal(t, state.installed, installed)
+			for i, tc := range tests {
+				t.Run(tc.name, func(t *testing.T) {
+					original := originals[i]
+					result, err := earliestVideoMilestoneTask(t.Context(), db, original.UserId, true)
+					require.NoError(t, err)
+					require.NotNil(t, result)
+					wantID := "task_custom_later_" + strconv.Itoa(i)
+					if (state.installed && tc.withPlugin) || (!state.installed && tc.withoutPlugin) {
+						wantID = original.TaskID
+					}
+					assert.Equal(t, wantID, result.TaskID)
+				})
+			}
 		})
 	}
 }

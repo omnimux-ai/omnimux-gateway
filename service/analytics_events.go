@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/QuantumNous/new-api/pkg/analytics"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/tidwall/gjson"
@@ -328,6 +330,34 @@ func analyticsVideoTaskQualifies(ctx context.Context, db *gorm.DB, task *model.T
 		}
 	case "sunoapi":
 		return false, nil
+	default:
+		if pluginKey == "" || GetTaskAdaptorFunc == nil {
+			return urlVideo, nil
+		}
+		// Custom plugins can identify artifacts from their saved response without
+		// channel credentials or a media fetch.
+		provider, ok := GetTaskAdaptorFunc(task.Platform).(interface {
+			ListArtifactsWithContext(context.Context, *model.Task) ([]types.TaskArtifact, error)
+		})
+		if !ok {
+			return urlVideo, nil
+		}
+		projectionTask := *task
+		projectionTask.Data = snapshot.Data
+		artifacts, err := provider.ListArtifactsWithContext(ctx, &projectionTask)
+		if err != nil {
+			return false, err
+		}
+		if len(artifacts) == 0 {
+			return urlVideo, nil
+		}
+		return slices.ContainsFunc(artifacts, func(artifact types.TaskArtifact) bool {
+			if artifact.Key == "" || artifact.Type != "video" {
+				return false
+			}
+			videoMIME, typed := analyticsVideoMIME(artifact.MimeType)
+			return !typed || videoMIME
+		}), nil
 	}
 	if strings.TrimSpace(delivery) != "" {
 		return analyticsVideoDeliveryLink(delivery, task), nil
@@ -383,9 +413,17 @@ func analyticsAutoDLVideoResult(data gjson.Result, task *model.Task) (video, pre
 	return false, false
 }
 
-func analyticsVideoMIME(value string) bool {
+func analyticsVideoMIME(value string) (video, typed bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false, false
+	}
 	mediaType, _, err := mime.ParseMediaType(value)
-	return err == nil && strings.HasPrefix(mediaType, "video/") && len(mediaType) > len("video/")
+	switch mediaType {
+	case "application/octet-stream", "binary/octet-stream":
+		return false, false
+	}
+	return err == nil && strings.HasPrefix(mediaType, "video/") && len(mediaType) > len("video/"), true
 }
 
 // Native polling saves the delivery URL alongside the response. An explicit
@@ -395,10 +433,7 @@ func analyticsNativeVideoResult(channelType int, data []byte, raw string, suffix
 	case constant.ChannelTypeFalAI:
 		file := gjson.GetBytes(data, "video")
 		if strings.TrimSpace(file.Get("url").Str) == raw {
-			if mediaType := strings.TrimSpace(file.Get("content_type").Str); mediaType != "" {
-				return analyticsVideoMIME(mediaType), true
-			}
-			return suffixAllowsVideo, true
+			return analyticsVideoMIME(file.Get("content_type").Str)
 		}
 	case constant.ChannelTypeApiMart:
 		result := gjson.GetBytes(data, "data.result")
@@ -500,7 +535,8 @@ func analyticsVideoResultURL(raw string, task *model.Task) (video, typed bool) {
 	if dataURI, ok := strings.CutPrefix(raw, "data:"); ok {
 		header, data, found := strings.Cut(dataURI, ",")
 		mediaType, _, _ := strings.Cut(header, ";")
-		return found && data != "" && analyticsVideoMIME(mediaType), true
+		video, _ := analyticsVideoMIME(mediaType)
+		return found && data != "" && video, true
 	}
 	parsed := analyticsDirectResultURL(raw, task)
 	if parsed == nil {
