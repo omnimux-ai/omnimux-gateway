@@ -29,6 +29,11 @@ func (c *client) payload(event Event) (umamiPayload, bool) {
 		appVersion, _ := event.Data["app_version"].(string)
 		referrer, _ := event.Data["referrer"].(string)
 		data = SignupData(method, deviceID, appVersion, referrer)
+		// A syntactically valid hostname can still contain a tenant or account ID.
+		normalizedReferrer, _ := data["referrer"].(string)
+		if host, _, _ := strings.Cut(normalizedReferrer, "/"); host != c.hostname {
+			data["referrer"] = ""
+		}
 	case EventFirstVideoStart, EventFirstVideoSuccess:
 		taskID := identifier(event.Data["task_id"])
 		if taskID == "" {

@@ -152,25 +152,13 @@ func (a analyticsArtifactFixture) ListArtifactsWithContext(ctx context.Context, 
 	return artifacts, err
 }
 
-func TestFirstVideoMilestoneUsesTaskArtifactProjection(t *testing.T) {
+func TestFirstVideoMilestoneUsesStoredArtifacts(t *testing.T) {
 	db := openAnalyticsFixture(t, sqlite.Open(filepath.Join(t.TempDir(), "artifacts.db")))
 	checkAnalyticsVideoArtifacts(t, db)
 }
 
 func checkAnalyticsVideoArtifacts(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	registry := jsplugin.NewRegistry()
-	adaptors := make(map[constant.TaskPlatform]TaskPollingAdaptor)
-	for _, key := range []string{"google", "hailuo"} {
-		source, err := plugins.Source(key)
-		require.NoError(t, err)
-		plugin, err := registry.RegisterFactory(source, jsplugin.Options{Key: key})
-		require.NoError(t, err)
-		adaptors[constant.TaskPlatform(key)] = analyticsArtifactFixture{plugin: plugin}
-	}
-	previous := GetTaskAdaptorFunc
-	GetTaskAdaptorFunc = func(platform constant.TaskPlatform) TaskPollingAdaptor { return adaptors[platform] }
-	t.Cleanup(func() { GetTaskAdaptorFunc = previous })
 	const userID = 18
 	tests := []struct {
 		id, action, plugin, resultURL, snapshot string
@@ -219,10 +207,12 @@ func checkAnalyticsVideoArtifacts(t *testing.T, db *gorm.DB) {
 		{"sora nested url", "sora", delivery, `{"data":{"status":"completed","url":"` + delivery + `"}}`, 0, true},
 		{"sora mismatched url", "sora", delivery, `{"status":"completed","url":"https://example.com/download/different"}`, 0, false},
 		{"doubao video_url", "doubao", delivery, `{"status":"succeeded","content":{"video_url":"` + delivery + `"}}`, 0, true},
-		{"google stored video uri", "google", "", `{"done":true,"response":{"generateVideoResponse":{"generatedVideos":[{"video":{"uri":"` + delivery + `"}}]}}}`, 0, true},
-		{"hailuo video file ID", "hailuo", "", `{"status":"Success","file_id":"fixture-file"}`, 0, true},
 		{"fal video url", "", delivery, `{"video":{"url":"` + delivery + `","content_type":"video/mp4"}}`, constant.ChannelTypeFalAI, true},
+		{"fal confirmed MIME overrides flac suffix", "", "https://assets.example.test/output.flac", `{"status":"COMPLETED","video":{"url":"https://assets.example.test/output.flac","content_type":"video/mp4"}}`, constant.ChannelTypeFalAI, true},
 		{"fal MIME contradicts mp4 suffix", "", mislabeledMP4, `{"video":{"url":"` + mislabeledMP4 + `","content_type":"audio/flac"}}`, constant.ChannelTypeFalAI, false},
+		{"fal mismatched URL cannot override flac suffix", "", "https://assets.example.test/output.flac", `{"video":{"url":"` + delivery + `","content_type":"video/mp4"}}`, constant.ChannelTypeFalAI, false},
+		{"fal without MIME cannot override flac suffix", "", "https://assets.example.test/output.flac", `{"video":{"url":"https://assets.example.test/output.flac"}}`, constant.ChannelTypeFalAI, false},
+		{"fal without MIME excludes ogg", "", "https://assets.example.test/audio.ogg", `{"video":{"url":"https://assets.example.test/audio.ogg"}}`, constant.ChannelTypeFalAI, false},
 		{"native videos array", "", delivery, `{"data":{"status":"completed","result":{"videos":[{"url":["` + delivery + `"]}]}}}`, constant.ChannelTypeApiMart, true},
 		{"native video bin delivery", "", binaryDelivery, `{"data":{"status":"completed","result":{"videos":[{"url":"` + binaryDelivery + `"}]}}}`, constant.ChannelTypeApiMart, true},
 		{"native images array", "", binaryDelivery, `{"data":{"status":"completed","result":{"images":[{"url":["` + binaryDelivery + `"]}]}}}`, constant.ChannelTypeApiMart, false},
@@ -239,12 +229,12 @@ func checkAnalyticsVideoArtifacts(t *testing.T, db *gorm.DB) {
 			}
 			if tc.channelType != 0 {
 				task.Platform = constant.TaskPlatform(strconv.Itoa(tc.channelType))
+				if tc.channelType == constant.ChannelTypeFalAI {
+					task.Action = constant.TaskActionTextToVideo
+					task.Properties.OriginModelName = "minimax-h3"
+				}
 			} else {
 				task.PrivateData.Execution.TaskPlugin = &model.TaskPluginSnapshot{Key: tc.plugin, APIVersion: 1}
-			}
-			if tc.plugin == "google" {
-				// Polling persists the local proxy; the actual URI stays in Data.
-				task.PrivateData.ResultURL = "https://example.com/v1/videos/" + task.TaskID + "/content"
 			}
 			require.NoError(t, db.Create(&task).Error)
 			result, err := earliestVideoMilestoneTask(t.Context(), db, task.UserId, true)
@@ -255,18 +245,7 @@ func checkAnalyticsVideoArtifacts(t *testing.T, db *gorm.DB) {
 			} else {
 				assert.Nil(t, result)
 			}
-			if tc.plugin == "google" {
-				delete(adaptors, task.Platform)
-				require.NoError(t, db.Create(&model.Task{
-					TaskID: "task_later_delivery", UserId: task.UserId, Action: constant.TaskActionInfluencerMotion,
-					Status: model.TaskStatusSuccess, FinishTime: 2,
-					PrivateData: model.TaskPrivateData{ResultURL: "https://example.com/later.mp4"},
-				}).Error)
-				result, err := earliestVideoMilestoneTask(t.Context(), db, task.UserId, true)
-				require.NoError(t, err)
-				require.NotNil(t, result)
-				assert.Equal(t, task.TaskID, result.TaskID)
-			}
+
 		})
 	}
 
@@ -282,6 +261,109 @@ func checkAnalyticsVideoArtifacts(t *testing.T, db *gorm.DB) {
 		require.NotNil(t, result)
 		assert.Equal(t, task.TaskID, result.TaskID)
 	})
+
+	t.Run("historical delivery with enabled and disabled plugins", func(t *testing.T) {
+		checkAnalyticsPluginHistory(t, db)
+	})
+}
+
+func checkAnalyticsPluginHistory(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	registry := jsplugin.NewRegistry()
+	for _, key := range []string{"google", "hailuo", "kling", "jimeng", "vidu", "alibaba", "autodl"} {
+		source, err := plugins.Source(key)
+		require.NoError(t, err)
+		_, err = registry.RegisterFactory(source, jsplugin.Options{Key: key})
+		require.NoError(t, err)
+	}
+	previous := GetTaskAdaptorFunc
+	GetTaskAdaptorFunc = func(platform constant.TaskPlatform) TaskPollingAdaptor {
+		plugin, enabled := registry.Get(string(platform))
+		if !enabled {
+			return nil
+		}
+		return analyticsArtifactFixture{plugin: plugin}
+	}
+	t.Cleanup(func() { GetTaskAdaptorFunc = previous })
+
+	const opaque = "https://assets.example.test/download/opaque?signature=sample"
+	const video = "https://assets.example.test/output.mp4"
+	const audio = "https://assets.example.test/output.flac"
+	tests := []struct {
+		name, plugin, resultURL, snapshot string
+		wantHistorical                    bool
+	}{
+		{"google URI behind proxy", "google", "", `{"done":true,"response":{"generateVideoResponse":{"generatedVideos":[{"video":{"uri":"` + opaque + `"}}]}}}`, true},
+		{"hailuo historical file", "hailuo", "", `{"status":"Success","file_id":"fixture-file"}`, true},
+		{"hailuo wrapped numeric file ID", "hailuo", "", `{"data":{"task_id":"example-task","data":{"status":"Success","file_id":9007199254740993}}}`, true},
+		{"hailuo H3 content URL", "hailuo", "", `{"task":{"status":"succeeded","content":{"url":"` + opaque + `"}}}`, true},
+		{"kling videos", "kling", opaque, `{"data":{"task_status":"succeed","task_result":{"videos":[{"url":"` + opaque + `"}]}}}`, true},
+		{"jimeng wrapped video URL", "jimeng", opaque, `{"data":{"task_id":"example-task","data":{"code":10000,"data":{"status":"done","video_url":"` + opaque + `"}}}}`, true},
+		{"vidu creations", "vidu", opaque, `{"state":"success","creations":[{"url":"` + opaque + `"}]}`, true},
+		{"alibaba video URL", "alibaba", opaque, `{"output":{"task_status":"SUCCEEDED","video_url":"` + opaque + `"}}`, true},
+		{"alibaba nested video behind proxy", "alibaba", "", `{"output":{"task_status":"SUCCEEDED","results":{"video_url":"` + opaque + `"}}}`, true},
+		{"autodl stale stored URL", "autodl", "https://assets.example.test/download/older", `{"data":{"status":"SUCCESS","results":[null,{"file_url":"` + video + `"}]}}`, true},
+		{"autodl explicitly typed video", "autodl", "", `{"status":"SUCCESS","results":{"url":"` + opaque + `","type":"video","file_type":"mp4"}}`, true},
+		{"hailuo no file ID or URL", "hailuo", "", `{"status":"Success","file_id":" "}`, false},
+		{"kling placeholder only", "kling", "", `{"data":{"task_status":"succeed","task_result":{"videos":[{}]}}}`, false},
+		{"jimeng no video URL", "jimeng", "", `{"data":{"status":"done","image_url":"` + video + `"}}`, false},
+		{"vidu audio behind proxy", "vidu", "", `{"state":"success","creations":[{"url":"` + audio + `"}]}`, false},
+		{"alibaba image URL with mp4 suffix", "alibaba", video, `{"output":{"task_status":"SUCCEEDED","results":[{"url":"` + video + `"}]}}`, false},
+		{"alibaba image in later choice", "alibaba", video, `{"output":{"choices":[{"message":{"content":[{"text":"preview"}]}},{"message":{"content":[{"image":"` + video + `"}]}}]}}`, false},
+		{"autodl audio despite stale mp4", "autodl", video, `{"status":"SUCCESS","results":{"output":"` + audio + `"}}`, false},
+		{"autodl audio type overrides mp4 suffix", "autodl", video, `{"data":{"status":"completed","results":[{"url":"` + video + `","type":"audio","file_type":"wav"}]}}`, false},
+		{"autodl image file type overrides mp4 suffix", "autodl", video, `{"status":"SUCCESS","results":{"url":"` + video + `","file_type":"png"}}`, false},
+		{"autodl ogg file type overrides mp4 suffix", "autodl", video, `{"status":"SUCCESS","results":{"url":"` + video + `","file_type":"ogg"}}`, false},
+		{"autodl query suffix only", "autodl", "", `{"data":{"status":"SUCCESS","results":["https://assets.example.test/download?format=sample.mp4"]}}`, false},
+	}
+	for i, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			id := "task_historical_" + strconv.Itoa(i)
+			if tc.name == "hailuo historical file" {
+				id = "task_historical_file"
+			}
+			task := model.Task{
+				UserId: 300 + i, TaskID: id, Platform: constant.TaskPlatform(tc.plugin),
+				Action: constant.TaskActionTextToVideo, Status: model.TaskStatusSuccess, FinishTime: 1, Data: []byte(tc.snapshot),
+				PrivateData: model.TaskPrivateData{
+					ResultURL: tc.resultURL,
+					Execution: &model.TaskExecutionSnapshot{
+						RequestPath: "/v1/videos", TaskPlugin: &model.TaskPluginSnapshot{Key: tc.plugin, APIVersion: 1},
+					},
+				},
+			}
+			if task.PrivateData.ResultURL == "" {
+				task.PrivateData.ResultURL = "https://gateway.example.test/v1/videos/" + task.TaskID + "/content"
+			}
+			require.NoError(t, db.Create(&task).Error)
+			newer := model.Task{
+				UserId: task.UserId, TaskID: "task_newer_video_" + strconv.Itoa(i), Action: constant.TaskActionInfluencerMotion,
+				Status: model.TaskStatusSuccess, FinishTime: 2,
+				PrivateData: model.TaskPrivateData{ResultURL: "https://assets.example.test/newer.mp4"},
+			}
+			require.NoError(t, db.Create(&newer).Error)
+			wantID := newer.TaskID
+			if tc.wantHistorical {
+				wantID = task.TaskID
+			}
+			_, enabled := registry.Get(tc.plugin)
+			require.True(t, enabled)
+			before, err := earliestVideoMilestoneTask(t.Context(), db, task.UserId, true)
+			require.NoError(t, err)
+			require.NotNil(t, before)
+			assert.Equal(t, wantID, before.TaskID, "with active plugin")
+
+			registry.SetDisabledFactoryKeys([]string{tc.plugin})
+			t.Cleanup(func() { registry.SetDisabledFactoryKeys(nil) })
+			_, enabled = registry.Get(tc.plugin)
+			require.False(t, enabled)
+			after, err := earliestVideoMilestoneTask(t.Context(), db, task.UserId, true)
+			require.NoError(t, err)
+			require.NotNil(t, after)
+			assert.Equal(t, wantID, after.TaskID, "with disabled plugin")
+			assert.Equal(t, before.TaskID, after.TaskID, "plugin changes must preserve the earliest video")
+		})
+	}
 }
 
 // External verification uses task-owned databases plus two independent Redis

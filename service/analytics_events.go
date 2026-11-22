@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/QuantumNous/new-api/modelcontracts"
 	"github.com/QuantumNous/new-api/pkg/analytics"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
-	"github.com/QuantumNous/new-api/types"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/tidwall/gjson"
@@ -259,14 +257,11 @@ func analyticsVideoTaskQualifies(ctx context.Context, db *gorm.DB, task *model.T
 	}
 	raw := strings.TrimSpace(task.GetRawUpstreamURL())
 	urlVideo, urlTyped := analyticsVideoResultURL(raw, task)
-	if urlTyped && !urlVideo {
-		return false, nil
-	}
 	channelType, _ := strconv.Atoi(string(task.Platform))
 	directURL := analyticsDirectResultURL(raw, task) != nil
 	nativeSnapshot := directURL && (channelType == constant.ChannelTypeFalAI || channelType == constant.ChannelTypeApiMart)
 	pluginKey := ""
-	if execution := task.PrivateData.Execution; execution != nil && execution.TaskPlugin != nil {
+	if execution := task.PrivateData.Execution; execution != nil && execution.TaskPlugin != nil && execution.TaskPlugin.APIVersion == 1 {
 		pluginKey = execution.TaskPlugin.Key
 	}
 	if !nativeSnapshot && pluginKey == "" {
@@ -276,66 +271,68 @@ func analyticsVideoTaskQualifies(ctx context.Context, db *gorm.DB, task *model.T
 	if err := db.WithContext(ctx).Select("data").Where("id = ?", task.ID).Take(&snapshot).Error; err != nil {
 		return false, err
 	}
-	task.Data = snapshot.Data
 	if nativeSnapshot {
-		if videoResult, present := analyticsNativeVideoResult(channelType, task.Data, raw); present {
+		if videoResult, present := analyticsNativeVideoResult(channelType, snapshot.Data, raw, !urlTyped || urlVideo); present {
 			return videoResult, nil
 		}
 	}
-	// Explicit result fields take precedence over a video suffix. Some plugins
-	// also persist a local proxy while their delivery URL stays in the snapshot.
+	if pluginKey == "sora" {
+		return analyticsSoraVideoResult(snapshot.Data, raw, urlVideo, video && directURL && !urlTyped), nil
+	}
+
+	// Read the delivery fields used by each built-in plugin's content hook from
+	// the saved response. The live registry can change after the task commits.
+	data := analyticsArtifactSnapshot(snapshot.Data)
+	var delivery string
 	switch pluginKey {
-	case "sora":
-		return analyticsSoraVideoResult(task.Data, raw, urlVideo, video && directURL), nil
 	case "xai":
-		data := gjson.ParseBytes(task.Data)
 		if status := data.Get("status").Str; status != "" {
 			usable := status == "done" && data.Get("video.respect_moderation").Type != gjson.False
 			return usable && analyticsVideoDeliveryLink(data.Get("video.url").Str, task), nil
 		}
-		return urlVideo, nil
 	case "google":
-		data := analyticsArtifactSnapshot(task.Data)
-		if uri := data.Get("response.generateVideoResponse.generatedVideos.0.video.uri").Str; uri != "" {
-			return analyticsVideoDeliveryLink(uri, task), nil
-		}
-		return urlVideo, nil
+		delivery = data.Get("response.generateVideoResponse.generatedVideos.0.video.uri").Str
 	case "doubao":
-		data := analyticsArtifactSnapshot(task.Data)
 		if data.Get("data").IsArray() {
 			return false, nil
 		}
 		if uri := data.Get("content.video_url").Str; uri != "" {
 			return video && analyticsVideoDeliveryLink(uri, task), nil
 		}
-		return urlVideo, nil
-	}
-	if pluginKey == "" || GetTaskAdaptorFunc == nil {
-		return urlVideo, nil
-	}
-	// Other plugins may publish artifact types through the credential-free projection.
-	provider, ok := GetTaskAdaptorFunc(task.Platform).(interface {
-		ListArtifactsWithContext(context.Context, *model.Task) ([]types.TaskArtifact, error)
-	})
-	if !ok {
-		return urlVideo, nil
-	}
-	artifacts, err := provider.ListArtifactsWithContext(ctx, task)
-	if err != nil {
-		return false, err
-	}
-	if len(artifacts) == 0 {
-		return urlVideo, nil
-	}
-	return slices.ContainsFunc(artifacts, func(artifact types.TaskArtifact) bool {
-		if artifact.Key == "" || artifact.Type != "video" {
-			return false
+	case "hailuo":
+		fileID := data.Get("file_id")
+		if strings.TrimSpace(fileID.Str) != "" || (fileID.Type == gjson.Number && fileID.Int() > 0) {
+			// The legacy video endpoint returns a file handle for later retrieval.
+			return !urlTyped || urlVideo, nil
 		}
-		if artifact.MimeType != "" {
-			return analyticsVideoMIME(artifact.MimeType)
+		delivery = data.Get("task.content.url").Str
+	case "kling":
+		delivery = data.Get("data.task_result.videos.0.url").Str
+	case "jimeng":
+		delivery = data.Get("data.video_url").Str
+	case "vidu":
+		delivery = data.Get("creations.0.url").Str
+	case "alibaba":
+		output := data.Get("output")
+		if firstAnalyticsArtifactURL(output.Get("results.#.url")) != "" ||
+			firstAnalyticsArtifactURL(output.Get("choices.#.message.content.#.image")) != "" {
+			return false, nil
 		}
-		return urlVideo || (video && directURL)
-	}), nil
+		delivery = strings.TrimSpace(output.Get("video_url").Str)
+		if delivery == "" {
+			delivery = output.Get("results.video_url").Str
+		}
+	case "autodl":
+		if video, present := analyticsAutoDLVideoResult(data, task); present {
+			return video, nil
+		}
+	case "sunoapi":
+		return false, nil
+	}
+	if strings.TrimSpace(delivery) != "" {
+		return analyticsVideoDeliveryLink(delivery, task), nil
+	}
+	return urlVideo, nil
 }
 
 // Some upstream gateways wrap the provider result in their task response.
@@ -347,32 +344,73 @@ func analyticsArtifactSnapshot(raw []byte) gjson.Result {
 	return data
 }
 
+// AutoDL uses the first nonempty result link for delivery, even if a legacy
+// ResultURL differs. Its results can carry video, audio or images.
+func analyticsAutoDLVideoResult(data gjson.Result, task *model.Task) (video, present bool) {
+	if payload := data.Get("data"); payload.IsObject() {
+		data = payload
+	}
+	for _, result := range data.Get("results").Array() {
+		link := strings.TrimSpace(result.Str)
+		if link == "" {
+			for _, field := range []string{"url", "file_url", "output"} {
+				if link = strings.TrimSpace(result.Get(field).Str); link != "" {
+					break
+				}
+			}
+		}
+		if link == "" {
+			continue
+		}
+		parsed := analyticsDirectResultURL(link, task)
+		if parsed == nil {
+			return false, true
+		}
+		mediaType := strings.ToLower(strings.TrimSpace(result.Get("type").Str))
+		if mediaType == "audio" || mediaType == "image" {
+			return false, true
+		}
+		fileType := strings.TrimSpace(result.Get("file_type").Str)
+		if video, typed := analyticsVideoFileExtension("." + strings.TrimPrefix(fileType, ".")); typed {
+			return video, true
+		}
+		if mediaType == "video" {
+			return true, true
+		}
+		video, _ := analyticsVideoFileExtension(path.Ext(parsed.Path))
+		return video, true
+	}
+	return false, false
+}
+
 func analyticsVideoMIME(value string) bool {
 	mediaType, _, err := mime.ParseMediaType(value)
 	return err == nil && strings.HasPrefix(mediaType, "video/") && len(mediaType) > len("video/")
 }
 
-// Native polling persists generic result URLs alongside the snapshot. A matched
-// result gives the media type, including an explicit non-video MIME.
-func analyticsNativeVideoResult(channelType int, data []byte, raw string) (video, present bool) {
+// Native polling saves the delivery URL alongside the response. An explicit
+// MIME on the matching file takes precedence over its URL suffix.
+func analyticsNativeVideoResult(channelType int, data []byte, raw string, suffixAllowsVideo bool) (video, present bool) {
 	switch channelType {
 	case constant.ChannelTypeFalAI:
 		file := gjson.GetBytes(data, "video")
 		if strings.TrimSpace(file.Get("url").Str) == raw {
-			mediaType := strings.TrimSpace(file.Get("content_type").Str)
-			return mediaType == "" || analyticsVideoMIME(mediaType), true
+			if mediaType := strings.TrimSpace(file.Get("content_type").Str); mediaType != "" {
+				return analyticsVideoMIME(mediaType), true
+			}
+			return suffixAllowsVideo, true
 		}
 	case constant.ChannelTypeApiMart:
 		result := gjson.GetBytes(data, "data.result")
 		if analyticsResultFieldMatches(result, raw, "videos.0", "videos.0.url", "videos.0.video_url") {
-			return true, true
+			return suffixAllowsVideo, true
 		}
 		if analyticsResultFieldMatches(result, raw, "images.0", "images.0.url", "images.0.image_url",
 			"music.0", "music.0.audio_url", "music.0.url", "music.0.video_url", "audio_url", "grid_image_url", "image_urls.0") {
 			return false, true
 		}
 		if analyticsResultFieldMatches(result, raw, "video_url") {
-			return true, true
+			return suffixAllowsVideo, true
 		}
 	}
 	return false, false
@@ -468,10 +506,14 @@ func analyticsVideoResultURL(raw string, task *model.Task) (video, typed bool) {
 	if parsed == nil {
 		return false, false
 	}
-	switch strings.ToLower(path.Ext(parsed.Path)) {
+	return analyticsVideoFileExtension(path.Ext(parsed.Path))
+}
+
+func analyticsVideoFileExtension(extension string) (video, typed bool) {
+	switch strings.ToLower(extension) {
 	case ".mp4", ".webm", ".mov", ".m4v", ".mkv", ".avi":
 		return true, true
-	case ".aac", ".aif", ".aiff", ".flac", ".m4a", ".mp3", ".oga", ".opus", ".wav", ".weba",
+	case ".aac", ".aif", ".aiff", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".opus", ".wav", ".weba",
 		".avif", ".bmp", ".gif", ".heic", ".heif", ".ico", ".jpeg", ".jpg", ".png", ".svg", ".svgz", ".tif", ".tiff", ".webp",
 		".csv", ".htm", ".html", ".json", ".pdf", ".txt", ".xml":
 		return false, true
