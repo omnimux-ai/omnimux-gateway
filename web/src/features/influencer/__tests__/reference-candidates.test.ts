@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, it } from 'vitest'
 
 import {
+  matchingImageArtifactUrl,
   referenceImageTasks,
   referenceVideoCandidate,
   referenceVideoCandidates,
@@ -54,6 +55,42 @@ function artifactTask(
 ): TaskRecord {
   return motion({ artifacts: [artifact], ...overrides })
 }
+
+describe('matching the original MultiView image', () => {
+  const path =
+    'https://media.example.com/v1/tasks/sheet-1/artifacts/image/content'
+
+  it('takes the current signature for the same parent artifact', () => {
+    const currentUrl = `${path}?access=current`
+    const parent = artifactTask(
+      { key: 'image', content_url: currentUrl },
+      { task_id: 'sheet-1', action: 'influencer_sheet' }
+    )
+    expect(matchingImageArtifactUrl(parent, `${path}?access=original`)).toBe(
+      currentUrl
+    )
+  })
+
+  it.each([
+    ['a different rendition', `${path}?access=current&variant=cropped`],
+    [
+      'a different origin',
+      'https://images.example.com/v1/tasks/sheet-1/artifacts/image/content?access=current',
+    ],
+    [
+      'a different image key',
+      'https://media.example.com/v1/tasks/sheet-1/artifacts/image-2/content?access=current',
+    ],
+  ])('cannot restore an artifact with %s', (_reason, currentUrl) => {
+    const parent = artifactTask(
+      { key: 'image', content_url: currentUrl },
+      { task_id: 'sheet-1', action: 'influencer_sheet' }
+    )
+    expect(
+      matchingImageArtifactUrl(parent, `${path}?access=original`)
+    ).toBeNull()
+  })
+})
 
 describe('referenceVideoCandidates', () => {
   it('空列表返回空候选', () => {

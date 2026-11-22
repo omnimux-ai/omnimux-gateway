@@ -61,6 +61,23 @@ func ExcludeAttemptedChannel(c *gin.Context, channelID int) {
 	constraints.AddFilter(dto.ChannelFilter{Kind: dto.FilterExcludeChannels, ExcludeChannelIDs: []int{channelID}})
 }
 
+const GenerationQuoteRoutingKey = "generation_quote_routing"
+
+// GenerationQuoteRouting selects channels without mutating routing state. The
+// caller can reuse the channel snapshots while resetting each probe's results.
+type GenerationQuoteRouting struct {
+	channels          model.GenerationQuoteChannels
+	HasAlternative    bool
+	NoEligibleChannel bool
+	LookupFailed      bool
+}
+
+func GetGenerationQuoteRouting(c *gin.Context) *GenerationQuoteRouting {
+	value, _ := c.Get(GenerationQuoteRoutingKey)
+	routing, _ := value.(*GenerationQuoteRouting)
+	return routing
+}
+
 type RetryParam struct {
 	Ctx         *gin.Context
 	TokenGroup  string
@@ -141,6 +158,21 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 	constraints := GetChannelConstraints(param.Ctx)
 	filters := constraints.Filters
+	lookup := model.GetRandomSatisfiedChannel
+	quote := GetGenerationQuoteRouting(param.Ctx)
+	if quote != nil {
+		if quote.channels == nil {
+			quote.channels = make(model.GenerationQuoteChannels)
+		}
+		lookup = func(group, modelName string, _ int, filters []dto.ChannelFilter) (*model.Channel, error) {
+			channel, hasAlternative, err := quote.channels.Select(param.Ctx.Request.Context(), group, modelName, filters)
+			quote.HasAlternative = quote.HasAlternative || hasAlternative
+			if err != nil && !errors.Is(err, model.ErrVideoCapabilityMismatch) {
+				quote.LookupFailed = true
+			}
+			return channel, err
+		}
+	}
 
 	if param.TokenGroup == "auto" {
 		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
@@ -177,13 +209,13 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, err = model.GetRandomSatisfiedChannel(
+			channel, err = lookup(
 				autoGroup,
 				param.ModelName,
 				priorityRetry,
 				filters,
 			)
-			if videoFiltered && err != nil {
+			if (videoFiltered || quote != nil) && err != nil {
 				channel = nil
 				if errors.Is(err, model.ErrVideoCapabilityMismatch) {
 					mismatch = true
@@ -229,7 +261,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			break
 		}
-		if channel == nil && videoFiltered {
+		if channel == nil && (videoFiltered || quote != nil) {
 			if lookupErr != nil {
 				return nil, selectGroup, lookupErr
 			}
@@ -242,7 +274,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		if param.PreserveRetryBudget {
 			priorityRetry = 0
 		}
-		channel, err = model.GetRandomSatisfiedChannel(
+		channel, err = lookup(
 			param.TokenGroup,
 			param.ModelName,
 			priorityRetry,
@@ -334,6 +366,7 @@ type ChannelSelectError struct {
 // callers. The caller still applies SetupContextForSelectedChannel.
 func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam) (*model.Channel, string, *ChannelSelectError) {
 	constraints := GetChannelConstraints(c)
+	estimateOnly := GetGenerationQuoteRouting(c) != nil
 	if pin, found, overridden := constraints.ResolvedPin(); found {
 		for _, lost := range overridden {
 			logger.LogWarn(c, common.LogText(
@@ -341,12 +374,21 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 				pin.Source, pin.ChannelId, lost.Source, lost.ChannelId,
 			))
 		}
-		channel, err := model.CacheGetChannel(pin.ChannelId)
+		var channel *model.Channel
+		var err error
+		if estimateOnly {
+			channel, err = model.GetChannelById(pin.ChannelId, false)
+		} else {
+			channel, err = model.CacheGetChannel(pin.ChannelId)
+		}
 		if err != nil {
 			return nil, "", pinnedChannelUnavailable(pin, http.StatusBadRequest, i18n.MsgDistributorInvalidChannelId)
 		}
 		if channel.Status != common.ChannelStatusEnabled {
 			return nil, "", pinnedChannelUnavailable(pin, http.StatusForbidden, i18n.MsgDistributorChannelDisabled)
+		}
+		if estimateOnly {
+			channel = channel.ForGenerationQuote()
 		}
 		if ok, kind := model.ChannelSatisfiesFilters(channel, modelName, constraints.Filters); !ok {
 			if kind == dto.FilterVideoCapability {
@@ -382,7 +424,7 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 	usingGroup := retry.TokenGroup
 	var channel *model.Channel
 	var selectGroup string
-	if retry.GetRetry() == 0 {
+	if !estimateOnly && retry.GetRetry() == 0 {
 		if preferredChannelID, found := GetPreferredChannelByAffinity(c, modelName, usingGroup); found {
 			affinityUsable := false
 			preferred, err := model.CacheGetChannel(preferredChannelID)

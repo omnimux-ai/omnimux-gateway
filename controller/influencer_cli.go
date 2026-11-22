@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/influencer"
 	"github.com/gin-gonic/gin"
@@ -93,7 +94,21 @@ func influencerCLIHash(c *gin.Context, requestID string, intent any) (string, bo
 
 // Existing receipts are resolved before fetching materials or checking the write switch.
 func replayInfluencerCLIRequest(c *gin.Context, requestID, payloadHash string) bool {
-	receipt, err := model.GetInfluencerGenerationRequest(c.Request.Context(), c.GetInt("id"), requestID)
+	userID := c.GetInt("id")
+	key := sha256.Sum256([]byte(requestID))
+	var match model.InfluencerGenerationRequest
+	// The full recovery path can write the terminal expiry fence. A miss,
+	// including the check just before 403, only needs an owner-scoped read.
+	lookup := model.DB.WithContext(c.Request.Context()).Select("request_id").
+		Where("user_id = ? AND request_key = ?", userID, fmt.Sprintf("%x", key)).Limit(1).Find(&match)
+	if lookup.Error != nil {
+		writeInfluencerCLIRequestError(c, lookup.Error)
+		return true
+	}
+	if lookup.RowsAffected == 0 || match.RequestID != requestID {
+		return false
+	}
+	receipt, err := model.GetInfluencerGenerationRequest(c.Request.Context(), userID, requestID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false
 	}
@@ -150,6 +165,14 @@ func acceptInfluencerCLIRequest(c *gin.Context, requestID, payloadHash, group, p
 	}
 	task.PrivateData.GenerationQueue.Routing = generationRequestRouting(c, group, path)
 	attachInfluencerImageInputs(c, task)
+	if apiErr := checkInfluencerGenerationFunding(c, task, out, meta); apiErr != nil {
+		// Another request with this ID can commit while the quote is running.
+		if apiErr.GetErrorCode() == types.ErrorCodeInsufficientUserQuota && replayInfluencerCLIRequest(c, requestID, payloadHash) {
+			return false
+		}
+		writeInfluencerFundingError(c, apiErr)
+		return false
+	}
 	task, replay, err := model.CommitInfluencerGenerationRequest(c.Request.Context(), task, requestID, payloadHash, c.GetInt("access_token_id"), influencerCLIWriteScope)
 	if err != nil {
 		writeInfluencerCLIRequestError(c, err)

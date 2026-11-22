@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { MotionVideoMetadata, TaskRecord } from '../types'
 import { taskImageUrl, taskKind, taskVideoUrl } from './history'
 import { motionAspectRatio } from './motion'
+import { artifactTaskId } from './preview-reference'
 
 export interface ReferenceVideoCandidate {
   taskId: string
@@ -133,7 +134,7 @@ function videoArtifact(artifact: ReferenceArtifact): boolean {
   )
 }
 
-function publicReferenceUrl(url: string): string | null {
+export function publicReferenceUrl(url: string): string | null {
   if (!/^https:\/\//i.test(url) || /[\s\\#]/.test(url)) return null
   try {
     const parsed = new URL(url)
@@ -166,6 +167,38 @@ function publicReferenceUrl(url: string): string | null {
   } catch {
     return null
   }
+}
+
+/** The current signed URL for the same image artifact stored in a derived request. */
+export function matchingImageArtifactUrl(
+  task: TaskRecord,
+  storedUrl: string
+): string | null {
+  const reference = publicReferenceUrl(storedUrl)
+  if (!reference) return null
+  const saved = new URL(reference)
+  for (const artifact of task.artifacts ?? []) {
+    const url = artifactUrl(artifact)
+    if (!imageArtifact(artifact) || !url || !publicReferenceUrl(url)) continue
+    const current = new URL(url)
+    if (
+      current.origin !== saved.origin ||
+      current.pathname !== saved.pathname
+    ) {
+      continue
+    }
+    if (current.search === saved.search) return url
+    // Gateway projections carry only the access signature for this task and key.
+    const signedAccess = /^\?access=[\w-]+$/
+    if (
+      artifactTaskId(url) === task.task_id &&
+      signedAccess.test(saved.search) &&
+      signedAccess.test(current.search)
+    ) {
+      return url
+    }
+  }
+  return null
 }
 
 function playableProjection(url: string): string | null {

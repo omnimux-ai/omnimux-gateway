@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildMotionSubmitPayload,
+  parseReplayableMotionPayload,
   parseStoredMotionPayload,
 } from '../lib/submit-payload'
 
@@ -89,6 +90,83 @@ describe('historical motion payload', () => {
       parseStoredMotionPayload(JSON.stringify({ ...body, size: '16:9' }))
         ?.aspect_ratio
     ).toBe('16:9')
+  })
+})
+
+describe('replaying a historical Web motion request', () => {
+  const metadata = UPLOADED.video.metadata.browserMetadata
+  const body = {
+    mode: 'motion',
+    prompt: 'keep the turn',
+    subject_image_url: UPLOADED.character.url,
+    subject_image_urls: [UPLOADED.character.url],
+    video_url: UPLOADED.video.url,
+    video_metadata: metadata,
+    duration_sec: 10,
+    aspect_ratio: '9:16',
+    resolution: '720p',
+  }
+
+  it('restores the original request with bounded, consistent video metadata', () => {
+    expect(parseReplayableMotionPayload(JSON.stringify(body))).toEqual(body)
+  })
+
+  it('accepts a complete Web recreation at its four-second minimum', () => {
+    const recreate = {
+      ...body,
+      mode: 'recreate',
+      duration_sec: 4,
+      video_metadata: { ...metadata, duration: 4.02, video_duration: 4 },
+    }
+    expect(parseReplayableMotionPayload(JSON.stringify(recreate))).toEqual(
+      recreate
+    )
+  })
+
+  it.each([
+    ['CLI metadata is missing', { video_metadata: undefined }],
+    [
+      'video metadata has a missing byte count',
+      { video_metadata: { ...metadata, size_bytes: undefined } },
+    ],
+    [
+      'picture duration falls below five seconds',
+      {
+        duration_sec: 5,
+        video_metadata: { ...metadata, duration: 5, video_duration: 4.99 },
+      },
+    ],
+    [
+      'container duration falls below five seconds',
+      {
+        duration_sec: 5,
+        video_metadata: { ...metadata, duration: 4.99, video_duration: 5 },
+      },
+    ],
+    [
+      'container and picture durations differ by more than two frames plus 2 ms',
+      {
+        video_metadata: { ...metadata, duration: 10.07 },
+      },
+    ],
+    [
+      'output duration differs from the rounded picture duration',
+      { duration_sec: 11 },
+    ],
+    ['output ratio differs from the reference ratio', { aspect_ratio: '16:9' }],
+    [
+      'there is no subject image',
+      { subject_image_url: '', subject_image_urls: [] },
+    ],
+    [
+      'a subject image is not HTTPS',
+      { subject_image_urls: ['http://files.example.com/face.png'] },
+    ],
+    ['the source video URL cannot be parsed', { video_url: 'https://' }],
+  ])('offers no Web replay when %s', (_reason, snapshot) => {
+    expect(
+      parseReplayableMotionPayload(JSON.stringify({ ...body, ...snapshot }))
+    ).toBeNull()
   })
 })
 

@@ -26,7 +26,10 @@ import vi from '@/i18n/locales/vi.json'
 import zhTW from '@/i18n/locales/zh-TW.json'
 import zh from '@/i18n/locales/zh.json'
 
-import { describeFailReason } from '../lib/fail-reason'
+import {
+  describeFailReason,
+  isInsufficientQuotaFailure,
+} from '../lib/fail-reason'
 
 type TranslationTable = Record<string, unknown>
 
@@ -237,6 +240,37 @@ describe('describeFailReason', () => {
         }
       }
     }
+  })
+
+  test.each([
+    ['en', 'Insufficient user quota'],
+    ['zh', '积分余额不足'],
+    ['zh-TW', '點數餘額不足'],
+    ['fr', 'Crédits insuffisants'],
+    ['ru', 'Недостаточно кредитов'],
+    ['ja', 'クレジットが不足しています'],
+    ['vi', 'Không đủ điểm'],
+  ])('exposes the quota recovery state in %s', (locale, message) => {
+    const reason = 'Insufficient user quota'
+    expect(isInsufficientQuotaFailure(reason)).toBe(true)
+    expect(describeFailReason(translator(locale), reason)).toMatchObject({
+      message,
+      kind: 'known',
+      showDetail: false,
+      insufficientCredits: true,
+    })
+  })
+
+  test.each([
+    'Upstream: Insufficient user quota',
+    'Insufficient user quota for this provider',
+    ' Insufficient user quota',
+    'insufficient user quota',
+  ])('keeps %s out of the wallet recovery path', (reason) => {
+    expect(isInsufficientQuotaFailure(reason)).toBe(false)
+    expect(
+      describeFailReason(translator('en'), reason).insufficientCredits
+    ).not.toBe(true)
   })
 
   test('keeps the raw text for support but never as the message', () => {

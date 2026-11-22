@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Download, Video } from 'lucide-react'
+import { ArrowUpRight, Download, Video } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -44,6 +44,7 @@ interface Props {
   /** The board derived from this card, when one has been requested. */
   child: TaskRecord | null
   onView: (t: TaskRecord) => void
+  onTopUp?: (task: TaskRecord) => void
   onReloadPreview?: () => void
   onTurnToMotion?: (task: TaskRecord) => void
   turnToMotionDisabledReason?: (task: TaskRecord) => string | undefined
@@ -247,8 +248,44 @@ export function TaskCard(props: Props) {
         </div>
       )}
 
-      {/* 失败状态：默认仅留一枚断链图标的深色渐变占位，悬停或键盘聚焦时揭示具体原因 */}
-      {st === 'f' && (
+      {st === 'f' && failReason.insufficientCredits ? (
+        <div
+          className='inf-fail-card relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden p-4 text-center'
+          style={{ aspectRatio: frameRatio }}
+        >
+          <span
+            role='status'
+            className='text-sm font-medium text-[var(--inf-txt-2)]'
+          >
+            {failReason.message}
+          </span>
+          <div className='flex flex-wrap items-center justify-center gap-1'>
+            {props.onTopUp ? (
+              <Button
+                type='button'
+                className='rounded-full bg-foreground px-3 text-xs text-background hover:bg-foreground/90'
+                onClick={() => props.onTopUp?.(task)}
+              >
+                {t('Top up')}
+              </Button>
+            ) : null}
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='rounded-full'
+              aria-label={t('Preview')}
+              title={t('Preview')}
+              onClick={() => props.onView(task)}
+            >
+              <ArrowUpRight aria-hidden='true' />
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 其余失败沿用悬停或聚焦时的详情。 */}
+      {st === 'f' && !failReason.insufficientCredits && (
         <div
           className='inf-fail-card relative flex aspect-[9/16] min-h-0 w-full flex-col items-center justify-center overflow-hidden p-4 text-center'
           style={{ aspectRatio: frameRatio }}

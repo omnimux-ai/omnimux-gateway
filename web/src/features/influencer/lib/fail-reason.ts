@@ -37,6 +37,12 @@ export interface FailReasonView {
   showDetail: boolean
   /** How the text was classified, so callers can prefer a keyed fallback. */
   kind: 'known' | 'unknown' | 'empty'
+  insufficientCredits?: true
+}
+
+/** The fixed reason written when the gateway rejects a task before dispatch. */
+export function isInsufficientQuotaFailure(raw?: string | null): boolean {
+  return raw === 'Insufficient user quota'
 }
 
 const EMPTY_KEY = 'Generation failed'
@@ -199,6 +205,16 @@ export function describeFailReason(
   t: Translator,
   raw?: string | null
 ): FailReasonView {
+  if (isInsufficientQuotaFailure(raw)) {
+    return {
+      message: t('Insufficient user quota'),
+      raw: raw ?? '',
+      showDetail: false,
+      kind: 'known',
+      insufficientCredits: true,
+    }
+  }
+
   const text = (raw ?? '').trim()
   if (!text) {
     return {

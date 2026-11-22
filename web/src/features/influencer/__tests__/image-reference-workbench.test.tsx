@@ -38,8 +38,8 @@ import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { InfluencerWorkbench } from '../index'
-import { clearSession } from '../lib/workbench-session'
 import { writeGuestDraft } from '../lib/guest'
+import { clearSession } from '../lib/workbench-session'
 
 const taxonomy = {
   version: 1,
@@ -140,6 +140,83 @@ const image = new File(['png'], 'style.png', { type: 'image/png' })
 function input(container: HTMLElement) {
   return container.querySelector('input[type=file]') as HTMLInputElement
 }
+
+describe('character quota recovery', () => {
+  it.each(['card', 'preview'])(
+    'opens quota recovery from a failed character %s in history',
+    async (entry) => {
+      const get = vi.spyOn(api, 'get')
+      const fallback = get.getMockImplementation()
+      if (!fallback) throw new Error('missing network fixture')
+      get.mockImplementation(async (...args) => {
+        if (args[1]?.params?.action !== 'influencer_sheet') {
+          return fallback(...args)
+        }
+        return {
+          data: {
+            success: true,
+            data: {
+              total: 1,
+              items: [
+                {
+                  id: 7,
+                  task_id: 'quota-rejected-sheet',
+                  action: 'influencer_sheet',
+                  status: 'FAILURE',
+                  fail_reason: 'Insufficient user quota',
+                  group: 'gpt-image-2.5-sunburst-image',
+                  properties: {
+                    origin_model_name: 'gpt-image-2.5-sunburst',
+                    input: JSON.stringify({
+                      tier: 'total',
+                      selection: { body: ['curvy'] },
+                      size: '16:9',
+                    }),
+                  },
+                },
+              ],
+            },
+          },
+        }
+      })
+      const user = userEvent.setup()
+      const network = post()
+      mount()
+      await user.click(
+        (await screen.findAllByRole('button', { name: 'History' }))[0]
+      )
+      expect(await screen.findByText('Insufficient user quota')).toBeVisible()
+      let topUp = screen.getByRole('button', { name: 'Top up' })
+      if (entry === 'preview') {
+        await user.click(screen.getByRole('button', { name: 'Preview' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Preview' })
+        expect(
+          within(dialog).getByText('Insufficient user quota')
+        ).toBeVisible()
+        topUp = within(dialog).getByRole('button', { name: 'Top up' })
+      }
+      topUp.focus()
+      await user.keyboard('{Enter}')
+      expect(
+        await screen.findByRole('dialog', {
+          name: 'Top up to continue this generation',
+        })
+      ).toBeVisible()
+      await user.keyboard('{Escape}')
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', {
+            name: 'Top up to continue this generation',
+          })
+        ).not.toBeInTheDocument()
+      )
+      if (entry === 'preview') {
+        expect(screen.getByRole('dialog', { name: 'Preview' })).toBeVisible()
+      }
+      expect(network).not.toHaveBeenCalled()
+    }
+  )
+})
 
 describe('real creation page style reference', () => {
   it('keeps selected character features when an upload becomes a style reference without a free description', async () => {

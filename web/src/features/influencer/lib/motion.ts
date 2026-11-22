@@ -468,6 +468,14 @@ export function validateMotionReference(
   return validateMotionOutput(metadata, mode, resolution, outputAspects)
 }
 
+/** The container and picture track must agree within two frames plus 2 ms. */
+export function motionDurationsAgree(raw: BrowserVideoMetadata): boolean {
+  return (
+    Math.abs(raw.duration - raw.video_duration) <=
+    2 * (1 / raw.frame_rate + 0.001)
+  )
+}
+
 /**
  * Both current generation routes preserve a whole-second output and a listed
  * frame, so the requested duration is the rounded picture duration. A fractional
@@ -487,20 +495,12 @@ export function validateMotionOutput(
   if (!checked.ok) return checked
   const raw = metadata.browserMetadata
   const seconds = Math.round(raw.video_duration)
-  const frameTolerance = 1 / raw.frame_rate + 0.001
-  // The old contract let container and picture each sit within one frame of the
-  // same whole second, so an accepted pair could differ by up to two frames.
-  // Keep that envelope: fractional durations are fine, inconsistent declarations
-  // are not. (A supported audio tail is inside this same bound.)
-  const containerTolerance = 2 * frameTolerance
-  const containerFollows =
-    Math.abs(raw.duration - raw.video_duration) <= containerTolerance
   if (
     raw.duration < 4 ||
     raw.video_duration < 4 ||
     seconds < 4 ||
     seconds > 30 ||
-    !containerFollows
+    !motionDurationsAgree(raw)
   ) {
     return { ok: false, reason: 'output-duration' }
   }

@@ -15,10 +15,16 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/pkg/storage"
+	"github.com/QuantumNous/new-api/relay"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
@@ -51,9 +57,19 @@ func enqueueInfluencerGeneration(c *gin.Context, path, action string, out, meta 
 	modelName := task.Properties.OriginModelName
 	task.PrivateData.GenerationQueue.Routing = generationRequestRouting(c, group, path)
 	attachInfluencerImageInputs(c, task)
+	if apiErr := checkInfluencerGenerationFunding(c, task, out, meta); apiErr != nil {
+		writeInfluencerFundingError(c, apiErr)
+		return true
+	}
+	if action == ActionInfluencerMotion && !influencerRecreateQueuedDailyAllow(c, meta) {
+		return true
+	}
 	if err := task.InsertWithContext(c.Request.Context()); err != nil {
 		influencerError(c, 500, "generation_queue_unavailable", "failed to save generation request")
 		return true
+	}
+	if action == ActionInfluencerMotion {
+		c.Set(ctxInfluencerMotionSubmitting, true)
 	}
 	service.TrackFirstVideoStart(task, "workbench")
 	c.Set("influencer_image_inputs_retained", true)
@@ -63,6 +79,164 @@ func enqueueInfluencerGeneration(c *gin.Context, path, action string, out, meta 
 	}
 	c.JSON(http.StatusOK, gin.H{"id": task.TaskID, "task_id": task.TaskID, "status": "queued", "queue_status": task.Status, "created_at": task.SubmitTime, "model": modelName})
 	return true
+}
+
+// checkInfluencerGenerationFunding prices the product input on each eligible
+// route. If a route needs facts that are only available at dispatch, leave the
+// funding decision to the worker.
+func checkInfluencerGenerationFunding(c *gin.Context, task *model.Task, out, meta map[string]any) *types.NewAPIError {
+	request := task.PrivateData.GenerationQueue
+	user, err := model.GetUserById(task.UserId, false)
+	if err != nil {
+		return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+	}
+	body := request.Body
+	planPending := false
+	if task.Action == ActionInfluencerMotion {
+		quoteBody := influencerMotionTaskRequestBody(out)
+		switch meta["mode"] {
+		case influencerMotionModeRecreate:
+			// Only Web still needs a prompt from the reference clip. Use a
+			// placeholder for native validation of the declared output fields.
+			planPending = !c.GetBool("influencer_creation_api")
+			if planPending {
+				quoteBody["prompt"] = "Generate the requested scene"
+			}
+		case "motion", "replace":
+			planPending = true
+		}
+		body, err = common.Marshal(quoteBody)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		}
+	}
+
+	canonicalPath := "/v1" + strings.TrimPrefix(request.Path, "/pg")
+	auto := request.Routing.Mode == model.GenerationRoutingAuto
+	groups := request.Routing.Groups
+	if auto {
+		groups = service.FilterUserTokenAutoGroups(user.Group, groups)
+	}
+	filters := service.GetChannelConstraints(c).Filters
+	var group string
+	var visited []int
+	var candidate *relaycommon.RelayInfo
+	var routing service.GenerationQuoteRouting
+	var needsFetch bool
+	quoteContext := jsplugin.WithFetcher(c.Request.Context(), func(context.Context, jsplugin.FetchRequest) (jsplugin.FetchResponse, error) {
+		needsFetch = true
+		return jsplugin.FetchResponse{}, errors.New("fetch is unavailable during a task quote")
+	})
+	engine := gin.New()
+	engine.Use(func(quote *gin.Context) {
+		defer common.CleanupBodyStorage(quote)
+		quote.Set("id", user.Id)
+		quote.Set("group", user.Group)
+		user.ToBaseUser().WriteContext(quote)
+		quote.Set("relay_mode", relayconstant.RelayModeVideoSubmit)
+		quote.Set(service.GenerationQuoteRoutingKey, &routing)
+		quote.Set("generation_queue_native_routing", true)
+		if request.ImageInputs != nil {
+			quote.Set(ctxInfluencerImageInputs, request.ImageInputs)
+			applyInfluencerImageInputs(quote, make(map[string]any), request.ImageInputs)
+		}
+		if request.ReferencePreflight != "" {
+			quote.Set("influencer_reference_preflight", request.ReferencePreflight)
+		}
+		constraints := service.GetChannelConstraints(quote)
+		for _, filter := range filters {
+			if filter.Kind == dto.FilterExcludeChannels {
+				constraints.AddFilter(filter)
+			}
+		}
+		if len(visited) > 0 {
+			constraints.AddFilter(dto.ChannelFilter{Kind: dto.FilterExcludeChannels, ExcludeChannelIDs: visited})
+		}
+		applyInfluencerRoutingContext(quote, request.Routing)
+		if auto {
+			common.SetContextKey(quote, constant.ContextKeyTokenAutoGroups, []string{group})
+		}
+		quote.Next()
+	})
+	engine.POST(canonicalPath, middleware.PinTaskPluginEndpoint(), middleware.PrepareTaskPluginEndpoint(), middleware.Distribute(), func(quote *gin.Context) {
+		if common.GetContextKeyInt(quote, constant.ContextKeyChannelId) <= 0 {
+			return
+		}
+		info, err := relaycommon.GenRelayInfo(quote, types.RelayFormatTask, nil, nil)
+		if err != nil {
+			return
+		}
+		info.Action = quote.GetString("task_action")
+		info.PublicTaskID = task.TaskID
+		info.IsPlayground = true
+		if task.Action == ActionInfluencerMotion {
+			var input map[string]any
+			if err := common.UnmarshalBodyReusable(quote, &input); err != nil {
+				return
+			}
+			setInfluencerMotionTaskRequest(quote, input)
+		}
+		if taskErr := relay.EstimateTaskSubmissionPrice(quote, info, planPending); taskErr != nil {
+			logger.LogDebug(c, "generation quote deferred to dispatch: code=%s", taskErr.Code)
+			return
+		}
+		candidate = info
+	})
+
+	var cheapest, invalidQuote *relaycommon.RelayInfo
+	for _, quoteGroup := range groups {
+		group, visited = quoteGroup, nil
+		for {
+			routing.HasAlternative, routing.NoEligibleChannel, routing.LookupFailed = false, false, false
+			candidate, needsFetch = nil, false
+			// A fresh context preserves per-channel plugin ownership and
+			// decoding when the next channel uses a different adaptor.
+			probe := httptest.NewRequestWithContext(quoteContext, http.MethodPost, canonicalPath, bytes.NewReader(body))
+			probe.Header.Set("Content-Type", "application/json")
+			engine.ServeHTTP(httptest.NewRecorder(), probe)
+			// A decoder or usage hook may catch a blocked fetch. Its fallback
+			// cannot establish the cost of this route.
+			if needsFetch || routing.LookupFailed {
+				return nil
+			}
+			if routing.NoEligibleChannel {
+				break
+			}
+			if candidate == nil {
+				return nil
+			}
+			price := candidate.PriceData
+			if price.FreeModel {
+				return service.CheckTaskFundingAvailability(c, candidate)
+			}
+			if candidate.QuotaClamp != nil || price.Quota < 0 {
+				invalidQuote = candidate
+			} else if cheapest == nil || price.Quota < cheapest.PriceData.Quota {
+				cheapest = candidate
+			}
+			if !routing.HasAlternative {
+				break
+			}
+			visited = append(visited, candidate.ChannelId)
+		}
+	}
+	// The same account and funding preference apply to every candidate. If
+	// the cheapest valid paid quote cannot be covered, no higher one can be.
+	if cheapest == nil {
+		cheapest = invalidQuote
+	}
+	if cheapest == nil {
+		return nil
+	}
+	return service.CheckTaskFundingAvailability(c, cheapest)
+}
+
+func writeInfluencerFundingError(c *gin.Context, apiErr *types.NewAPIError) {
+	if apiErr.GetErrorCode() == types.ErrorCodeInsufficientUserQuota {
+		influencerError(c, http.StatusForbidden, string(types.ErrorCodeInsufficientUserQuota), "Insufficient user quota")
+		return
+	}
+	influencerError(c, http.StatusServiceUnavailable, "generation_quote_unavailable", "The pricing service is temporarily unavailable. Please try again.")
 }
 
 // buildInfluencerGenerationTask only captures normalized business data; authorization and

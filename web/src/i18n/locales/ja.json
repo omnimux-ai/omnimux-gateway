@@ -4171,6 +4171,7 @@
     "Instances": "インスタンス",
     "Insufficient balance": "残高が不足しています",
     "Insufficient permission to adjust this user": "このユーザーのクォータを調整する権限がありません",
+    "Insufficient user quota": "クレジットが不足しています",
     "Integrations": "統合",
     "Integrity check failed": "整合性チェックに失敗しました",
     "Integrity hash": "整合性ハッシュ",

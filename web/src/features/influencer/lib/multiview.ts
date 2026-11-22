@@ -18,8 +18,56 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import type { TaskRecord } from '../types'
-import { parentTaskId, parseTaskMeta, taskKind } from './history'
+import {
+  getTaskTimestamp,
+  isTerminalStatus,
+  parentTaskId,
+  parseTaskMeta,
+  taskImageUrl,
+  taskKind,
+} from './history'
 import { hasUnverifiedResult } from './task-status'
+
+/** Pick the latest board to display, independently of the submission guard. */
+export function latestMultiViewChild(
+  tracked: TaskRecord | undefined,
+  stored: TaskRecord | undefined
+): TaskRecord | undefined {
+  if (!tracked || !stored) return tracked ?? stored
+  if (taskKey(tracked) === taskKey(stored)) {
+    if (
+      isTerminalStatus(stored.status) &&
+      (!isTerminalStatus(tracked.status) ||
+        (!taskImageUrl(tracked) && taskImageUrl(stored)))
+    ) {
+      return stored
+    }
+    return tracked
+  }
+  if (tracked.id > 0 && stored.id > 0) {
+    return stored.id > tracked.id ? stored : tracked
+  }
+  const elapsed = getTaskTimestamp(stored) - getTaskTimestamp(tracked)
+  if (elapsed !== 0) return elapsed > 0 ? stored : tracked
+  return isTerminalStatus(stored.status) ? tracked : stored
+}
+
+/** A terminal update settles only the child with the same task ID. */
+export function hasActiveMultiViewChild(
+  tracked: TaskRecord | undefined,
+  stored: readonly TaskRecord[] = []
+): boolean {
+  const children = tracked ? [...stored, tracked] : stored
+  const settled = new Set<string>()
+  for (const child of children) {
+    if (child.task_id && isTerminalStatus(child.status)) {
+      settled.add(child.task_id)
+    }
+  }
+  return children.some(
+    (child) => !isTerminalStatus(child.status) && !settled.has(child.task_id)
+  )
+}
 
 /** The panel aspect the turnaround layout is generated at. */
 export const MULTIVIEW_SIZE = '16:9'

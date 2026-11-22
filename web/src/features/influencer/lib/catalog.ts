@@ -145,6 +145,38 @@ export function resolveImageRoute(
   return null
 }
 
+/** Quote an exact historical route without the new-task fallback. */
+export function quoteHistoricalImageRoute(
+  route: ImageRoute,
+  pricing: PricingResponse | undefined,
+  groups: Record<string, { ratio: number }> | undefined,
+  reference: boolean
+): { usd: number; credits: number } | null {
+  if (
+    !route.model ||
+    !route.group ||
+    route.group === 'auto' ||
+    route.model.includes('@')
+  ) {
+    return null
+  }
+  if (
+    (reference || route.model === SUNBURST_MODEL) &&
+    !IMAGE_ROUTES.some(
+      ({ model, group }) => model === route.model && group === route.group
+    )
+  ) {
+    return null
+  }
+  const row = imageModels(pricing).find(
+    (entry) => entry.model_name === route.model
+  )
+  if (!row?.enable_groups?.includes(route.group) || !groups?.[route.group]) {
+    return null
+  }
+  return quoteCredits(row, route.group, pricing?.group_ratio)
+}
+
 export interface GroupOption {
   name: string
   ratio: number

@@ -27,7 +27,10 @@ import {
   type MultiViewSubmitBody,
 } from '../api'
 import { isTerminalStatus } from '../lib/history'
-import { pendingMultiViewRecord } from '../lib/multiview'
+import {
+  hasActiveMultiViewChild,
+  pendingMultiViewRecord,
+} from '../lib/multiview'
 import type { TaskRecord } from '../types'
 
 const POLL_MS = 2000
@@ -135,12 +138,14 @@ export function useMultiViewSubmit() {
   )
 
   const submit = useCallback(
-    async (body: MultiViewSubmitBody): Promise<TaskRecord | null> => {
+    async (
+      body: MultiViewSubmitBody,
+      storedChildren?: readonly TaskRecord[]
+    ): Promise<TaskRecord | null> => {
       const parentId = body.parentTaskId
-      const child = childrenRef.current[parentId]
       if (
         postingRef.current.has(parentId) ||
-        (child && !isTerminalStatus(child.status))
+        hasActiveMultiViewChild(childrenRef.current[parentId], storedChildren)
       ) {
         return null
       }
@@ -205,5 +210,25 @@ export function useMultiViewSubmit() {
     [clearTimer]
   )
 
-  return { childByParent, submittingParent, submit, forget }
+  /** History can confirm completion while the individual poll is still in flight. */
+  const confirmTerminal = useCallback(
+    (parentId: string, record: TaskRecord) => {
+      const current = childrenRef.current[parentId]
+      if (
+        current?.task_id !== record.task_id ||
+        isTerminalStatus(current.status) ||
+        !isTerminalStatus(record.status)
+      ) {
+        return
+      }
+      // Retire the old poll identity so a delayed read cannot restore progress.
+      const identity = { taskId: record.task_id }
+      identitiesRef.current.set(parentId, identity)
+      clearTimer(parentId)
+      track(parentId, record, identity)
+    },
+    [clearTimer, track]
+  )
+
+  return { childByParent, submittingParent, submit, forget, confirmTerminal }
 }

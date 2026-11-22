@@ -60,6 +60,7 @@ import { TaskPreviewInfo } from './task-preview-info'
 export interface TaskPreviewActions {
   onReloadPreview?: () => void
   onRegenerate: (task: TaskRecord) => void
+  onTopUp?: (task: TaskRecord) => void
   onDelete: (task: TaskRecord) => void
   /** Present while removal would hide a derived generation that still runs. */
   deleteDisabledReason?: string
@@ -264,6 +265,8 @@ function taskView(input: {
       : undefined
   const details = historicalDetails(task, input.taxonomy)
   const failure = describeFailReason(t, task.fail_reason)
+  const insufficientCredits =
+    !success && isTerminalStatus(task.status) && failure.insufficientCredits
   const failurePending =
     failure.kind === 'empty' && !isTerminalStatus(task.status)
   const unreadableMotion =
@@ -287,9 +290,16 @@ function taskView(input: {
       className='grid h-full w-full place-items-center p-3 text-center'
     >
       <div className='flex w-full flex-col items-center gap-2'>
-        <p className='text-sm text-[var(--inf-danger)]'>
+        <span
+          className={cn(
+            'text-sm',
+            insufficientCredits
+              ? 'font-medium text-[var(--inf-txt-2)]'
+              : 'text-[var(--inf-danger)]'
+          )}
+        >
           {failurePending ? t('Generating…') : failure.message}
-        </p>
+        </span>
         <FailReasonDetail view={failure} />
       </div>
     </div>
@@ -319,8 +329,20 @@ function taskView(input: {
     footer = (
       <div className='flex flex-col gap-2'>
         <ActionGrid>
+          {insufficientCredits && actions.onTopUp ? (
+            <Button
+              className={cn(PRIMARY_CLASS, 'rounded-full')}
+              onClick={() => actions.onTopUp?.(task)}
+            >
+              {t('Top up')}
+            </Button>
+          ) : null}
           <Button
-            className={PRIMARY_CLASS}
+            className={
+              insufficientCredits && actions.onTopUp
+                ? cn(SECONDARY_CLASS, 'col-span-2')
+                : PRIMARY_CLASS
+            }
             disabled={cannotReuse}
             onClick={() => actions.onRegenerate(task)}
           >

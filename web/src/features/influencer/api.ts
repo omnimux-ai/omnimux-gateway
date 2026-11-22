@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
 
-import { api } from '@/lib/api'
+import { api, type ApiRequestConfig } from '@/lib/api'
 import {
   createServerError,
   requireServerSuccess,
@@ -65,23 +65,38 @@ export async function fetchTaxonomy(): Promise<{
   return { taxonomy: body.data, etag: body.etag }
 }
 
-export async function fetchPricing(): Promise<PricingResponse> {
-  const res = await api.get(PRICING_PATH)
+type UserGroups = Record<string, { ratio: number; desc?: string }>
+
+async function readPricing(
+  config?: ApiRequestConfig
+): Promise<PricingResponse> {
+  const res = await api.get(PRICING_PATH, config)
   const body = res.data as PricingResponse
   requireServerSuccess(body as unknown as Record<string, unknown>)
   return body
 }
 
-export async function fetchUserGroups(): Promise<
-  Record<string, { ratio: number; desc?: string }>
-> {
-  const res = await api.get(GROUPS_PATH)
-  const body = res.data as {
-    success: boolean
-    data: Record<string, { ratio: number; desc?: string }>
-  }
+async function readUserGroups(config?: ApiRequestConfig): Promise<UserGroups> {
+  const res = await api.get(GROUPS_PATH, config)
+  const body = res.data as { success: boolean; data: UserGroups }
   requireServerSuccess(body as unknown as Record<string, unknown>)
   return body.data ?? {}
+}
+
+export function fetchPricing(): Promise<PricingResponse> {
+  return readPricing()
+}
+
+export function fetchUserGroups(): Promise<UserGroups> {
+  return readUserGroups()
+}
+
+/** At payment confirmation, start new reads even if page queries are still running. */
+export function fetchPaymentImageCatalog(): Promise<
+  [PricingResponse, UserGroups]
+> {
+  const config = { disableDuplicate: true, timeout: 5_000 }
+  return Promise.all([readPricing(config), readUserGroups(config)])
 }
 
 export interface SheetSubmitBody {
@@ -304,14 +319,9 @@ export async function submitMotion(body: MotionSubmitBody): Promise<string> {
     res = await api.post(MOTION_PATH, body, {
       skipErrorHandler: true,
     } as Record<string, unknown>)
-  } catch (e) {
-    // A rejected form answers 400 with its reason in the body; surface that
-    // reason instead of the transport's generic status text.
-    const data = (e as { response?: { data?: Record<string, unknown> } })
-      ?.response?.data
-    const err = data?.error as { message?: string } | undefined
-    const message = err?.message ?? (data?.message as string | undefined)
-    throw message ? new Error(message) : e
+  } catch (error) {
+    // Keep the gateway reason and its stable code for the workbench.
+    throw createServerError(error)
   }
   const data = res.data as {
     task_id?: string

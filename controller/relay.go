@@ -697,9 +697,20 @@ func executeTaskSubmissionWith(
 			}
 			if releaseAllowed {
 				if err := service.SettleBilling(c, relayInfo, 0); err == nil {
+					if relayInfo.ChannelMeta == nil {
+						// An account debt rejection can precede adaptor initialization.
+						relayInfo.InitChannelMeta(c)
+					}
 					snapshot, snapshotErr := taskFundingSnapshot(c, relayInfo, "")
 					if snapshotErr == nil {
-						if err := model.RejectGenerationDispatch(ctx, queuedTask, "生成未被接受，预留已释放", snapshot); err == nil {
+						failureReason := "生成未被接受，预留已释放"
+						if !mayHaveSent && taskErr != nil {
+							switch types.ErrorCode(taskErr.Code) {
+							case types.ErrorCodeInsufficientUserQuota, types.ErrorCodePreConsumeTokenQuotaFailed:
+								failureReason = "Insufficient user quota"
+							}
+						}
+						if err := model.RejectGenerationDispatch(ctx, queuedTask, failureReason, snapshot); err == nil {
 							c.Set("generation_queue_safe_failure", true)
 							return
 						}

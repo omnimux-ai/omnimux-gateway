@@ -442,101 +442,126 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		return nil, apiErr
 	}
 
-	pref := common.NormalizeBillingPreference(relayInfo.UserSetting.BillingPreference)
-
-	// 钱包路径需要先检查用户额度
-	tryWallet := func() (*BillingSession, *types.NewAPIError) {
+	var session *BillingSession
+	tryWallet := func() *types.NewAPIError {
 		userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
 		if err != nil {
-			return nil, types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+			return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
 		}
-		if userQuota <= 0 {
-			return nil, types.NewErrorWithStatusCode(
-				errors.New(i18n.T(c, i18n.MsgQuotaUserInsufficient, map[string]any{"Remaining": logger.FormatQuota(userQuota)})),
-				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
-				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
-		}
-		if userQuota-preConsumedQuota < 0 {
-			return nil, types.NewErrorWithStatusCode(
-				errors.New(i18n.T(c, i18n.MsgQuotaPreConsumeInsufficient, map[string]any{"Remaining": logger.FormatQuota(userQuota), "Required": logger.FormatQuota(preConsumedQuota)})),
-				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
-				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		if apiErr := checkWalletFundingQuota(c, userQuota, preConsumedQuota); apiErr != nil {
+			return apiErr
 		}
 		relayInfo.UserQuota = userQuota
-
-		session := &BillingSession{
+		session = &BillingSession{
 			relayInfo: relayInfo,
 			funding:   &WalletFunding{userId: relayInfo.UserId},
 			lang:      i18n.StatedLang(c),
 		}
-		if apiErr := session.preConsume(c, preConsumedQuota); apiErr != nil {
-			return nil, apiErr
-		}
-		return session, nil
+		return session.preConsume(c, preConsumedQuota)
 	}
 
-	trySubscription := func() (*BillingSession, *types.NewAPIError) {
-		subConsume := int64(preConsumedQuota)
-		if subConsume <= 0 {
-			subConsume = 1
-		}
-		session := &BillingSession{
+	trySubscription := func() *types.NewAPIError {
+		subConsume := max(preConsumedQuota, 1)
+		session = &BillingSession{
 			relayInfo: relayInfo,
 			lang:      i18n.StatedLang(c),
 			funding: &SubscriptionFunding{
 				requestId: relayInfo.RequestId,
 				userId:    relayInfo.UserId,
 				modelName: relayInfo.GetBillingModelName(),
-				amount:    subConsume,
+				amount:    int64(subConsume),
 			},
 		}
-		// 必须传 subConsume 而非 preConsumedQuota，保证 SubscriptionFunding.amount、
-		// preConsume 参数和 FinalPreConsumedQuota 三者一致，避免订阅多扣费。
-		if apiErr := session.preConsume(c, int(subConsume)); apiErr != nil {
-			return nil, apiErr
-		}
-		return session, nil
+		// The reservation and session both record the subscription minimum.
+		return session.preConsume(c, subConsume)
 	}
 
-	switch pref {
-	case "subscription_only":
-		return trySubscription()
-	case "wallet_only":
-		return tryWallet()
-	case "wallet_first":
-		session, err := tryWallet()
+	if apiErr := tryPreferredFunding(relayInfo, tryWallet, trySubscription); apiErr != nil {
+		return nil, apiErr
+	}
+	return session, nil
+}
+
+// CheckTaskFundingAvailability reads the funds for an estimated queue request.
+// Dispatch still reserves the charge atomically against current state.
+func CheckTaskFundingAvailability(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+	if apiErr := CheckGenerationDebt(info); apiErr != nil {
+		return apiErr
+	}
+	if info.PriceData.FreeModel {
+		return nil
+	}
+	quota := info.PriceData.Quota
+	if info.QuotaClamp != nil || quota < 0 {
+		return types.NewErrorWithStatusCode(errors.New("invalid task quote"), types.ErrorCodeModelPriceError,
+			http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
+	return tryPreferredFunding(info, func() *types.NewAPIError {
+		available, err := model.ReadWalletFundingQuota(info.UserId)
 		if err != nil {
-			if err.GetErrorCode() == types.ErrorCodeInsufficientUserQuota {
-				return trySubscription()
-			}
-			return nil, err
+			return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
 		}
-		return session, nil
-	case "subscription_first":
-		fallthrough
+		return checkWalletFundingQuota(c, available, quota)
+	}, func() *types.NewAPIError {
+		fits, err := model.UserSubscriptionCanCover(c.Request.Context(), info.UserId, int64(max(quota, 1)))
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		}
+		if !fits {
+			return types.NewErrorWithStatusCode(errors.New("subscription quota insufficient"), types.ErrorCodeInsufficientUserQuota,
+				http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
+		return nil
+	})
+}
+
+func checkWalletFundingQuota(c *gin.Context, available, required int) *types.NewAPIError {
+	if available <= 0 {
+		return types.NewErrorWithStatusCode(
+			errors.New(i18n.T(c, i18n.MsgQuotaUserInsufficient, map[string]any{"Remaining": logger.FormatQuota(available)})),
+			types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+			types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+	}
+	if available < required {
+		return types.NewErrorWithStatusCode(
+			errors.New(i18n.T(c, i18n.MsgQuotaPreConsumeInsufficient, map[string]any{"Remaining": logger.FormatQuota(available), "Required": logger.FormatQuota(required)})),
+			types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+			types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+	}
+	return nil
+}
+
+func tryPreferredFunding(info *relaycommon.RelayInfo, wallet, subscription func() *types.NewAPIError) *types.NewAPIError {
+	switch common.NormalizeBillingPreference(info.UserSetting.BillingPreference) {
+	case "subscription_only":
+		return subscription()
+	case "wallet_only":
+		return wallet()
+	case "wallet_first":
+		apiErr := wallet()
+		if apiErr != nil && apiErr.GetErrorCode() == types.ErrorCodeInsufficientUserQuota {
+			return subscription()
+		}
+		return apiErr
 	default:
-		hasSub, subCheckErr := model.HasActiveUserSubscription(relayInfo.UserId)
-		if subCheckErr != nil {
-			return nil, types.NewError(subCheckErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		active, err := model.HasActiveUserSubscription(info.UserId)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
 		}
-		if !hasSub {
-			return tryWallet()
+		if !active {
+			return wallet()
 		}
-		session, apiErr := trySubscription()
-		if apiErr != nil {
-			if apiErr.GetErrorCode() == types.ErrorCodeInsufficientUserQuota {
-				// 仅当用户的活跃订阅允许钱包回退时才回退到钱包，否则返回订阅额度不足错误
-				allowOverflow, overflowErr := model.UserActiveSubscriptionsAllowWalletOverflow(relayInfo.UserId)
-				if overflowErr != nil {
-					return nil, types.NewError(overflowErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
-				}
-				if allowOverflow {
-					return tryWallet()
-				}
-				return nil, apiErr
-			}
-			return nil, apiErr
+		apiErr := subscription()
+		if apiErr == nil || apiErr.GetErrorCode() != types.ErrorCodeInsufficientUserQuota {
+			return apiErr
 		}
-		return session, nil
+		allowOverflow, err := model.UserActiveSubscriptionsAllowWalletOverflow(info.UserId)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		}
+		if allowOverflow {
+			return wallet()
+		}
+		return apiErr
 	}
 }
