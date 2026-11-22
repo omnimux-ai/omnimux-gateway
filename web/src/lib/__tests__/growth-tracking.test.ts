@@ -124,8 +124,12 @@ describe('utm_source / utm_medium cleaning', () => {
     ['2026_11_22-int42', 'v27.11.5-int42'],
     ['20261122-x', 'v27.11.5-poste'],
     ['2028-02-29-referral', 'release-v1234.5678.90-build'],
-    ['campaign12345678901234567890', 'f47ac10b-58cc-4372-a567-000000000001'],
-    ['12345678901234567890', 'campaign-1234567890-1234567890'],
+    ['2024-02-29', '2024_02_29'],
+    [
+      '12345678-1234-4123-8123-123456789012',
+      'f47ac10b-58cc-4372-a567-000000000001',
+    ],
+    ['00000000-0000-0000-0000-000000000000', 'organic_social'],
     ['paid-social_2026', 'news.example.com'],
     ['v2026.11.22-1', 'v2026.11.22-rc.1'],
     ['catalog-4.1-2025-04-14', 'catalog-5.2-2025-12-11'],
@@ -261,6 +265,8 @@ describe.each(['source', 'medium'] as const)(
       ['Tél. 555-0142', 'Tl.555-0142'],
       ['Tél. 5555-0142 poste numéro 42', 'Tl.5555-0142postenumro42'],
       ['2026-02-31', '2026-02-31'],
+      ['20261122', '20261122'],
+      ['2026/11/22', '20261122'],
       ['2026-11-22-referral-202-555-0142', '2026-11-22-referral-202-555-0142'],
       ['release-v32.4.7-202-555-0142', 'release-v32.4.7-202-555-0142'],
       [
@@ -285,6 +291,7 @@ describe.each(['source', 'medium'] as const)(
       ['Phone-44-20-20251122', 'Phone-44-20-20251122'],
       ['Tél-44-20-20251122', 'Tl-44-20-20251122'],
       ['Fax-44-20-20251122', 'Fax-44-20-20251122'],
+      ['Tel-44-20-20251122', 'Tel-44-20-20251122'],
       ['Telephone-44-20-20251122', 'Telephone-44-20-20251122'],
       ['Téléphone-44-20-20251122', 'Tlphone-44-20-20251122'],
       ['Teléfono-44-20-20251122', 'Telfono-44-20-20251122'],
@@ -294,6 +301,18 @@ describe.each(['source', 'medium'] as const)(
       ['campaign-44-20-20251122', 'campaign-44-20-20251122'],
       ['catalog-4-20250229', 'catalog-4-20250229'],
       ['Phone 202-555-0142 _ 202-555-0187', 'Phone202-555-0142_202-555-0187'],
+      ['20251122-011-44-20-7946-0958', '20251122-011-44-20-7946-0958'],
+      ['20251122 011 44 20 7946 0958', '20251122011442079460958'],
+      ['(202) 555 0142 (415) 555 0100', '20255501424155550100'],
+      ['202-555-0142 202-555-0187', '202-555-0142202-555-0187'],
+      ['Phone 202-555-0142 202-555-0187', 'Phone202-555-0142202-555-0187'],
+      ['12345678901234567890', '12345678901234567890'],
+      ['123456789012345678901', '123456789012345678901'],
+      ['campaign12345678901234567890', 'campaign12345678901234567890'],
+      ['campaign-1234567890-1234567890', 'campaign-1234567890-1234567890'],
+      ['12345_67890', '12345_67890'],
+      ['v2026.11.22-123456789', 'v2026.11.22-123456789'],
+      ['v1.2.123456789', 'v1.2.123456789'],
       ['v2026.11.22 - 011-44-20-7946-0958', 'v2026.11.22-011-44-20-7946-0958'],
       [
         'v2026.11.22-12345 _ 011-44-20-7946-0958',
@@ -327,33 +346,36 @@ describe.each(['source', 'medium'] as const)(
           [`utm_${field}`]: raw,
         })
       )
-      const arrival = buildToolCtaClick(click)
-
-      window.localStorage.setItem(
-        FIRST_TOUCH_STORAGE_KEY,
-        JSON.stringify({
-          campaign: GROWTH_CAMPAIGN,
-          content: CONTENT,
-          ...adjacent,
-          [field]: saved,
-        })
-      )
-      expect({ arrival, revisit: buildToolCtaClick(click) }).toEqual({
-        arrival: expected,
-        revisit: expected,
+      expect(buildToolCtaClick(click)).toEqual(expected)
+      const firstSnapshot = window.localStorage.getItem(FIRST_TOUCH_STORAGE_KEY)
+      expect(JSON.parse(firstSnapshot ?? 'null')).toEqual({
+        campaign: GROWTH_CAMPAIGN,
+        source: expected.acq_source,
+        medium: expected.acq_medium,
+        content: CONTENT,
       })
+
+      const oldSnapshot = JSON.stringify({
+        campaign: GROWTH_CAMPAIGN,
+        content: CONTENT,
+        ...adjacent,
+        [field]: saved,
+      })
+      window.localStorage.setItem(FIRST_TOUCH_STORAGE_KEY, oldSnapshot)
+      const writeSnapshot = vi.spyOn(window.Storage.prototype, 'setItem')
+      try {
+        captureFirstTouch('')
+        expect(buildToolCtaClick(click)).toEqual(expected)
+        expect(window.localStorage.getItem(FIRST_TOUCH_STORAGE_KEY)).toBe(
+          oldSnapshot
+        )
+        expect(writeSnapshot).not.toHaveBeenCalled()
+      } finally {
+        writeSnapshot.mockRestore()
+      }
     })
   }
 )
-
-describe('independent phone numbers in one value', () => {
-  it.each(['202-555-0142 202-555-0187', 'Phone 202-555-0142 202-555-0187'])(
-    'clears the two numbers in %s',
-    (value) => {
-      expect(cleanUtmValue(value)).toBe('')
-    }
-  )
-})
 
 describe('public model IDs in analytics', () => {
   const repoRoot = resolve(
