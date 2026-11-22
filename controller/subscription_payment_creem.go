@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"time"
@@ -121,6 +122,12 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	checkoutUrl, err := genCreemLink(c.Request.Context(), referenceId, product, user.Email, user.Username)
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Creem failed to create subscription payment link trade_no=%s product_id=%s error=%q", referenceId, product.ProductId, err.Error()))
+		if errors.Is(err, errCreemCheckoutRejected) {
+			if err := model.UpdatePendingSubscriptionOrderStatus(referenceId, model.PaymentProviderCreem, common.TopUpStatusFailed); err != nil &&
+				!errors.Is(err, model.ErrSubscriptionOrderStatusInvalid) {
+				logger.LogError(c.Request.Context(), common.LogText("Creem failed to mark subscription order as failed trade_no=%s error=%q", referenceId, err.Error()))
+			}
+		}
 		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}

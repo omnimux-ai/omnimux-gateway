@@ -695,27 +695,51 @@ func upsertSubscriptionTopUpTx(tx *gorm.DB, order *SubscriptionOrder) error {
 }
 
 func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string) error {
+	// Preserve the existing checkout expiry fallback when the subscription lookup fails.
+	err := updatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, common.TopUpStatusExpired, true)
+	if errors.Is(err, ErrSubscriptionOrderStatusInvalid) {
+		return nil // Retain the idempotent response for a previously finalized order.
+	}
+	return err
+}
+
+// UpdatePendingSubscriptionOrderStatus records a terminal non-payment outcome.
+func UpdatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, targetStatus string) error {
+	return updatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, targetStatus, false)
+}
+
+func updatePendingSubscriptionOrderStatus(tradeNo, expectedPaymentProvider, targetStatus string, treatLookupErrorsAsMissing bool) error {
 	if tradeNo == "" {
 		return errors.New("tradeNo is empty")
 	}
-	refCol := "`trade_no`"
-	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
-		refCol = `"trade_no"`
+	if targetStatus != common.TopUpStatusExpired && targetStatus != common.TopUpStatusFailed {
+		return ErrSubscriptionOrderStatusInvalid
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
-		if err := lockForUpdate(tx).Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
-			return ErrSubscriptionOrderNotFound
+		if err := lockForUpdate(tx).Where("trade_no = ?", tradeNo).First(&order).Error; err != nil {
+			if treatLookupErrorsAsMissing || errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrSubscriptionOrderNotFound
+			}
+			return err
 		}
 		if expectedPaymentProvider != "" && order.PaymentProvider != expectedPaymentProvider {
 			return ErrPaymentMethodMismatch
 		}
 		if order.Status != common.TopUpStatusPending {
-			return nil
+			return ErrSubscriptionOrderStatusInvalid
 		}
-		order.Status = common.TopUpStatusExpired
-		order.CompleteTime = common.GetTimestamp()
-		return tx.Save(&order).Error
+		result := tx.Model(&order).Where("status = ?", common.TopUpStatusPending).Updates(map[string]any{
+			"status":        targetStatus,
+			"complete_time": common.GetTimestamp(),
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrSubscriptionOrderStatusInvalid
+		}
+		return nil
 	})
 }
 
