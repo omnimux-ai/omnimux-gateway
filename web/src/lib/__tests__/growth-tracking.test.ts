@@ -117,6 +117,12 @@ describe('utm_source / utm_medium cleaning', () => {
     ['2026.11.22', '20261122-v27.11.5'],
     ['2026_11_22-int42', 'v27.11.5-int42'],
     ['20261122-x', 'v27.11.5-poste'],
+    ['2028-02-29-referral', 'release-v1234.5678.90-build'],
+    ['campaign12345678901234567890', 'f47ac10b-58cc-4372-a567-000000000001'],
+    ['paid-social_2026', 'news.example.com'],
+    ['v2026.11.22-1', 'v2026.11.22-rc.1'],
+    ['catalog-4.1-2025-04-14', 'catalog-5.2-2025-12-11'],
+    ['catalog-5-2025-08-07', 'v2026.11.22-12345'],
   ])('keeps %s / %s as open channel labels', (source, medium) => {
     const touch = parseGrowthTouch(
       q({
@@ -208,7 +214,7 @@ describe('personal values in tool attribution', () => {
 })
 
 describe.each(['source', 'medium'] as const)(
-  'display phone extensions in utm_%s',
+  'phone-shaped values in utm_%s',
   (field) => {
     it.each([
       ['+1 (202) 555-0142 extn. 42', '1202555-0142extn.42'],
@@ -231,6 +237,42 @@ describe.each(['source', 'medium'] as const)(
       ['+1 (202) 555-0142 x.42', '1202555-0142x.42'],
       ['+1 (202) 555-0142 #42', '1202555-014242'],
       ['+1 (202) 555-0142 ｅｘｔｎ．４２', '1202555-0142'],
+      ['+1 (202) 555-0142 poste numéro 42', '1202555-0142postenumro42'],
+      ['Tél. +1 (202) 555-0142 poste 42', 'Tl.1202555-0142poste42'],
+      [
+        'Durchwahl (202) 555-0142 Anschluss 42',
+        'Durchwahl202555-0142Anschluss42',
+      ],
+      ['Móvil: 202_555_0142 extensión 42', 'Mvil202_555_0142extensin42'],
+      ['电话 202 555-0142 内线 42 callback', '202555-014242callback'],
+      ['Phone: 𝟚02-555-0142 switchboard 42', 'Phone02-555-0142switchboard42'],
+      ['Call 123-456-789', 'Call123-456-789'],
+      ['Desk 1234567890123456789', 'Desk1234567890123456789'],
+      ['555-0142 poste numéro 42', '555-0142postenumro42'],
+      ['Tél. 555-0142', 'Tl.555-0142'],
+      ['Tél. 5555-0142 poste numéro 42', 'Tl.5555-0142postenumro42'],
+      ['2026-02-31', '2026-02-31'],
+      ['2026-11-22-referral-202-555-0142', '2026-11-22-referral-202-555-0142'],
+      ['release-v32.4.7-202-555-0142', 'release-v32.4.7-202-555-0142'],
+      [
+        'release-v1234.5678.90 - 202-555-0142',
+        'release-v1234.5678.90-202-555-0142',
+      ],
+      ['2026-11-22 _ 011-44-20-7946-0958', '2026-11-22_011-44-20-7946-0958'],
+      ['011-44-20-7946-0958 - 2026-11-22', '011-44-20-7946-0958-2026-11-22'],
+      ['v2026.11.22 - 011-44-20-7946-0958', 'v2026.11.22-011-44-20-7946-0958'],
+      [
+        'v2026.11.22-12345 _ 011-44-20-7946-0958',
+        'v2026.11.22-12345_011-44-20-7946-0958',
+      ],
+      [
+        'v2026.11.22-123456 _ 011-44-20-7946-0958',
+        'v2026.11.22-123456_011-44-20-7946-0958',
+      ],
+      [
+        'catalog-4.1-2025-04-14-202-555-0142',
+        'catalog-4.1-2025-04-14-202-555-0142',
+      ],
     ])('clears %s on arrival and from the old first touch', (raw, saved) => {
       const adjacent = { source: 'Discord', medium: 'organic_social' }
       const expected = {
