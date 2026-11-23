@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
 )
 
 // Video ModelPrice is USD per second for the model base tier (APIMart after_discount / 0.7).
@@ -96,40 +97,55 @@ func estimateVideoBilling(modelName string, raw map[string]any) (map[string]floa
 	return estimateVideoBillingWithRateModel(modelName, modelName, raw)
 }
 
-// estimateVideoBillingWithRateModel keeps duration validation tied to the
-// public model while selecting the rate table from the actual upstream SKU.
-// EvoLink serves wan-3.0 through separate text/image/reference SKUs, and those
-// names carry the only reliable signal for resolution-tier billing.
 func estimateVideoBillingWithRateModel(modelName, rateModel string, raw map[string]any) (map[string]float64, error) {
+	ratios, _, err := estimateVideoBillingWithPolicy(kitdto.VideoTierBillingPolicyPreset, modelName, rateModel, raw)
+	return ratios, err
+}
+
+// estimateVideoBillingWithPolicy validates the channel tier billing policy and
+// duration bounds, then optionally applies the built-in tier table for preset
+// channels. Channels configured with video_tier_billing_policy="none" bill by
+// duration only (tier=1) so group pricing never double-discounts.
+func estimateVideoBillingWithPolicy(policy, modelName, rateModel string, raw map[string]any) (map[string]float64, bool, error) {
+	effectivePolicy, err := (&kitdto.ChannelOtherSettings{VideoTierBillingPolicy: policy}).EffectiveVideoTierBillingPolicy()
+	if err != nil {
+		return nil, false, err
+	}
+
 	sec, err := parseDurationSeconds(raw)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	autoDuration := false
 	if sec == -1 {
 		canonical, ok := canonicalPhaseOneVideoModel(modelName)
 		if !ok || (canonical != "seedance-2-5" && canonical != "wan-3.0") {
-			return nil, fmt.Errorf("duration -1 is not supported by %s", modelName)
+			return nil, false, fmt.Errorf("duration -1 is not supported by %s", modelName)
 		}
 		// Both official APIs pre-authorize their documented 30-second cap and
 		// settle to the actual output duration when the task completes.
 		sec = 30
+		autoDuration = true
 	} else if sec <= 0 {
 		sec = defaultVideoSeconds
 	}
 	if sec > relaycommon.MaxTaskDurationSeconds {
-		sec = relaycommon.MaxTaskDurationSeconds
+		return nil, false, fmt.Errorf("duration must be -1 or between 1 and %d", relaycommon.MaxTaskDurationSeconds)
+	}
+
+	out := map[string]float64{"seconds": float64(sec)}
+	if effectivePolicy == kitdto.VideoTierBillingPolicyNone {
+		return out, autoDuration, nil
 	}
 
 	tier, err := resolveTierRatio(rateModel, raw)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-
-	out := map[string]float64{"seconds": float64(sec)}
 	if tier != 1 {
 		out["tier"] = tier
 	}
-	return out, nil
+	return out, autoDuration, nil
 }
 
 func parseDurationSeconds(raw map[string]any) (int, error) {
@@ -142,7 +158,7 @@ func parseDurationSeconds(raw map[string]any) (int, error) {
 			if err != nil {
 				return 0, fmt.Errorf("%s must be a positive integer: %w", key, err)
 			}
-			if n < -1 {
+			if n < -1 || n > relaycommon.MaxTaskDurationSeconds {
 				return 0, fmt.Errorf("%s must be -1 or between 1 and %d", key, relaycommon.MaxTaskDurationSeconds)
 			}
 			return n, nil
@@ -156,10 +172,16 @@ func anyToInt(v any) (int, error) {
 	case int:
 		return t, nil
 	case int64:
+		if t < math.MinInt || t > math.MaxInt {
+			return 0, fmt.Errorf("integer out of range")
+		}
 		return int(t), nil
 	case float64:
-		if t != math.Trunc(t) {
+		if math.IsNaN(t) || math.IsInf(t, 0) || t != math.Trunc(t) {
 			return 0, fmt.Errorf("must be an integer")
+		}
+		if t < -1e15 || t > 1e15 {
+			return 0, fmt.Errorf("integer out of range")
 		}
 		return int(t), nil
 	case string:
@@ -173,22 +195,58 @@ func anyToInt(v any) (int, error) {
 	}
 }
 
+// parseBoundedPositiveSeconds parses a completion-reported duration in seconds
+// and accepts only finite values in (0, relaycommon.MaxTaskDurationSeconds].
+func parseBoundedPositiveSeconds(v any) (float64, bool) {
+	var sec float64
+	switch t := v.(type) {
+	case float64:
+		sec = t
+	case float32:
+		sec = float64(t)
+	case int:
+		sec = float64(t)
+	case int64:
+		sec = float64(t)
+	case uint:
+		sec = float64(t)
+	case uint64:
+		sec = float64(t)
+	case string:
+		s := strings.TrimSpace(t)
+		if s == "" {
+			return 0, false
+		}
+		parsed, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return 0, false
+		}
+		sec = parsed
+	default:
+		return 0, false
+	}
+	if math.IsNaN(sec) || math.IsInf(sec, 0) || sec <= 0 || sec > float64(relaycommon.MaxTaskDurationSeconds) {
+		return 0, false
+	}
+	return sec, true
+}
+
 func resolveTierRatio(modelName string, raw map[string]any) (float64, error) {
 	m := strings.ToLower(strings.TrimSpace(modelName))
 	switch {
 	case strings.Contains(m, "seedance-2-5") || strings.Contains(m, "seedance-2.5"):
-		return seedanceTierRatio(seedance25Rates, "default", raw)
+		return seedanceTierRatio(seedance25Rates, "default", raw, true)
 	case strings.Contains(m, "seedance-2-0-fast") || strings.Contains(m, "seedance-2.0-fast"):
-		return seedanceTierRatio(seedance20FastRates, "480p", raw)
+		return seedanceTierRatio(seedance20FastRates, "480p", raw, false)
 	case strings.Contains(m, "seedance-2-0-mini") || strings.Contains(m, "seedance-2.0-mini"):
-		return seedanceTierRatio(seedance20MiniRates, "480p", raw)
+		return seedanceTierRatio(seedance20MiniRates, "480p", raw, false)
 	case strings.Contains(m, "seedance-2-0") || strings.Contains(m, "seedance-2.0") || strings.Contains(m, "doubao-seedance-2.0"):
-		return seedanceTierRatio(seedance20Rates, "480p", raw)
+		return seedanceTierRatio(seedance20Rates, "480p", raw, false)
 	case strings.Contains(m, "kling-v2-6") || strings.Contains(m, "kling-v2.6"):
 		return klingTierRatio(klingV26Rates, "default", raw)
 	case strings.Contains(m, "kling-v3"):
 		return klingTierRatio(klingV3Rates, "default", raw)
-	case strings.Contains(m, "wan3.0"):
+	case strings.Contains(m, "wan3.0") || strings.Contains(m, "wan-3.0"):
 		return wan30TierRatio(raw)
 	default:
 		// Unknown video model: charge duration only (tier=1). Safer than inventing rates.
@@ -214,7 +272,7 @@ func wan30TierRatio(raw map[string]any) (float64, error) {
 	return rate, nil
 }
 
-func seedanceTierRatio(rates map[string]float64, baseKey string, raw map[string]any) (float64, error) {
+func seedanceTierRatio(rates map[string]float64, baseKey string, raw map[string]any, suggestGroupPricingOn1080p bool) (float64, error) {
 	base, ok := rates[baseKey]
 	if !ok || base <= 0 {
 		return 1, nil
@@ -234,6 +292,9 @@ func seedanceTierRatio(rates map[string]float64, baseKey string, raw map[string]
 	rate, ok := rates[key]
 	if !ok {
 		if explicit {
+			if suggestGroupPricingOn1080p && res == "1080p" {
+				return 0, fmt.Errorf("unsupported resolution %q for preset tier billing on this model; configure group pricing with video_tier_billing_policy=%q", res, kitdto.VideoTierBillingPolicyNone)
+			}
 			return 0, fmt.Errorf("unsupported resolution %q for this model", res)
 		}
 		rate = base

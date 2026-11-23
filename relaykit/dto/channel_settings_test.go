@@ -795,3 +795,47 @@ func TestChannelOtherSettingsValidateToolLossPolicy(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tool_loss_policy")
 }
+
+func TestChannelOtherSettingsValidateVideoTierBillingPolicy(t *testing.T) {
+	policy, err := (*ChannelOtherSettings)(nil).EffectiveVideoTierBillingPolicy()
+	require.NoError(t, err)
+	assert.Equal(t, VideoTierBillingPolicyPreset, policy)
+	require.NoError(t, (*ChannelOtherSettings)(nil).ValidateVideoTierBillingPolicy())
+
+	for _, tc := range []struct {
+		raw  string
+		want string
+	}{
+		{"", VideoTierBillingPolicyPreset},
+		{VideoTierBillingPolicyPreset, VideoTierBillingPolicyPreset},
+		{VideoTierBillingPolicyNone, VideoTierBillingPolicyNone},
+	} {
+		settings := &ChannelOtherSettings{VideoTierBillingPolicy: tc.raw}
+		require.NoError(t, settings.ValidateVideoTierBillingPolicy(), tc.raw)
+		got, err := settings.EffectiveVideoTierBillingPolicy()
+		require.NoError(t, err, tc.raw)
+		assert.Equal(t, tc.want, got, tc.raw)
+	}
+
+	for _, invalid := range []string{"custom", "flat", "NONE", "Preset", " ", " none "} {
+		settings := &ChannelOtherSettings{VideoTierBillingPolicy: invalid}
+		err := settings.ValidateVideoTierBillingPolicy()
+		require.Error(t, err, invalid)
+		assert.Contains(t, err.Error(), "video_tier_billing_policy")
+		_, err = settings.EffectiveVideoTierBillingPolicy()
+		require.Error(t, err, invalid)
+	}
+
+	// JSON marshaling uses video_tier_billing_policy,omitempty
+	emptyJSON, err := json.Marshal(ChannelOtherSettings{})
+	require.NoError(t, err)
+	assert.NotContains(t, string(emptyJSON), "video_tier_billing_policy")
+
+	encoded, err := json.Marshal(ChannelOtherSettings{VideoTierBillingPolicy: VideoTierBillingPolicyNone})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"video_tier_billing_policy":"none"}`, string(encoded))
+
+	var decoded ChannelOtherSettings
+	require.NoError(t, json.Unmarshal(encoded, &decoded))
+	assert.Equal(t, VideoTierBillingPolicyNone, decoded.VideoTierBillingPolicy)
+}

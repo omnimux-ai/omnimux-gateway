@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	hosttypes "github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
@@ -58,6 +60,9 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *taskdto.TaskError {
+	if info != nil && info.TaskRelayInfo != nil {
+		info.AutoDurationBilling = false
+	}
 	var raw map[string]any
 	if err := common.UnmarshalBodyReusable(c, &raw); err != nil {
 		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
@@ -74,7 +79,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		return service.TaskErrorWrapperLocal(fmt.Errorf("model is required"), "invalid_request", http.StatusBadRequest)
 	}
 
-	kind := detectKind(modelName, c.Request.URL.Path)
+	kind := detectKind(modelName, requestPath(c))
 	filter, managed := service.GetChannelConstraints(c).VideoFilter()
 	a.managedVideo = managed && filter.VideoRequest != nil && filter.VideoRequest.Protocol == modelcontracts.VideoProtocolGenerations
 	if a.managedVideo {
@@ -83,7 +88,8 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	c.Set(contextKeyApimartKind, kind)
 	info.Action = constant.TaskActionGenerate
 
-	// Validate video duration/resolution billing inputs early (EstimateBilling cannot return errors).
+	// Validate video contract, tier billing policy, and duration inputs using the
+	// same estimator as EstimateBillingValidated so both stages agree fail-closed.
 	if kind == kindVideo {
 		if a.managedVideo {
 			requestModel := modelcontracts.ActiveVideoCapabilities().NativeRequestModel(modelName)
@@ -99,14 +105,38 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 			}
 			raw = normalized
 		}
-		if _, err := estimateVideoBilling(modelName, raw); err != nil {
+		_, autoDuration, err := estimateVideoBillingForRequest(info, modelName, raw)
+		if err != nil {
 			return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+		}
+		if info != nil && info.TaskRelayInfo != nil {
+			info.AutoDurationBilling = autoDuration
 		}
 	}
 
 	// Store raw for BuildRequestBody (preserves extra fields: duration, version, aspect_ratio, …)
 	c.Set("task_request_raw", raw)
 	return nil
+}
+
+func requestPath(c *gin.Context) string {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return ""
+	}
+	return c.Request.URL.Path
+}
+
+func estimateVideoBillingForRequest(info *relaycommon.RelayInfo, originModel string, body map[string]any) (map[string]float64, bool, error) {
+	policy := ""
+	if info != nil && info.ChannelMeta != nil {
+		policy = info.ChannelOtherSettings.VideoTierBillingPolicy
+	}
+	origin := strings.TrimSpace(originModel)
+	rateModel := origin
+	if upstream := strings.TrimSpace(info.GetUpstreamModelName()); upstream != "" {
+		rateModel = upstream
+	}
+	return estimateVideoBillingWithPolicy(policy, origin, rateModel, body)
 }
 
 func detectKind(modelName, path string) string {
@@ -127,26 +157,71 @@ func detectKind(modelName, path string) string {
 }
 
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	ratios, err := a.EstimateBillingValidated(c, info)
+	if err != nil {
+		return nil
+	}
+	return ratios
+}
+
+func (a *TaskAdaptor) EstimateBillingValidated(c *gin.Context, info *relaycommon.RelayInfo) (map[string]float64, error) {
+	if info == nil {
+		return nil, fmt.Errorf("relay info is required")
+	}
+	if info.TaskRelayInfo != nil {
+		info.AutoDurationBilling = false
+	}
 	// MJ / Suno music / Suno sound effects: ModelPrice is USD per call.
-	kind := detectKind(info.OriginModelName, c.Request.URL.Path)
+	kind := detectKind(info.OriginModelName, requestPath(c))
 	if !a.managedVideo && (kind == kindMusic || kind == kindSoundEffect || kind == kindMidjourney) {
-		return map[string]float64{"units": 1}
+		return map[string]float64{"units": 1}, nil
 	}
 
 	// Video: ModelPrice is USD per second for the model base tier.
-	// OtherRatios: seconds × tier (resolution/mode relative to base).
-	raw, _ := c.Get("task_request_raw")
-	body, _ := raw.(map[string]any)
-	if body == nil {
-		body = map[string]any{}
-		_ = common.UnmarshalBodyReusable(c, &body)
+	// OtherRatios: seconds × optional tier (controlled by channel video_tier_billing_policy).
+	var body map[string]any
+	if c != nil {
+		if raw, exists := c.Get("task_request_raw"); exists {
+			body, _ = raw.(map[string]any)
+		}
+		if body == nil && c.Request != nil && c.Request.Body != nil {
+			body = map[string]any{}
+			if err := common.UnmarshalBodyReusable(c, &body); err != nil {
+				return nil, err
+			}
+		}
 	}
-	ratios, err := estimateVideoBillingWithRateModel(info.OriginModelName, info.GetUpstreamModelName(), body)
+	ratios, autoDuration, err := estimateVideoBillingForRequest(info, info.OriginModelName, body)
 	if err != nil {
-		// Validated in ValidateRequestAndSetAction; fall back to default seconds only.
-		return map[string]float64{"seconds": float64(defaultVideoSeconds)}
+		return nil, err
 	}
-	return ratios
+	if info.TaskRelayInfo != nil {
+		info.AutoDurationBilling = autoDuration
+	}
+	return ratios, nil
+}
+
+func (a *TaskAdaptor) ExtractUsageFacts(c *gin.Context, info *relaycommon.RelayInfo) map[string]any {
+	facts, err := a.ExtractUsageFactsValidated(c, info)
+	if err != nil {
+		return nil
+	}
+	return facts
+}
+
+func (a *TaskAdaptor) ExtractUsageFactsValidated(c *gin.Context, info *relaycommon.RelayInfo) (map[string]any, error) {
+	ratios, err := a.EstimateBillingValidated(c, info)
+	if err != nil {
+		return nil, err
+	}
+	if len(ratios) == 0 {
+		return nil, nil
+	}
+	facts := make(map[string]any, len(ratios))
+	for k, v := range ratios {
+		facts[k] = v
+	}
+	return facts, nil
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
@@ -427,17 +502,28 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 	var envelope struct {
 		Code int `json:"code"`
 		Data *struct {
-			ID       string         `json:"id"`
-			Status   string         `json:"status"`
-			Progress int            `json:"progress"`
-			Result   map[string]any `json:"result"`
-			Error    *struct {
+			ID             string         `json:"id"`
+			Status         string         `json:"status"`
+			Progress       int            `json:"progress"`
+			Result         map[string]any `json:"result"`
+			Usage          map[string]any `json:"usage"`
+			ActualDuration any            `json:"actual_duration"`
+			VideoDuration  any            `json:"video_duration"`
+			Duration       any            `json:"duration"`
+			Seconds        any            `json:"seconds"`
+			Error          *struct {
 				Message string `json:"message"`
 			} `json:"error"`
 		} `json:"data"`
 		// Flat fallbacks
-		Status string `json:"status"`
-		ID     string `json:"id"`
+		Status         string         `json:"status"`
+		ID             string         `json:"id"`
+		Result         map[string]any `json:"result"`
+		Usage          map[string]any `json:"usage"`
+		ActualDuration any            `json:"actual_duration"`
+		VideoDuration  any            `json:"video_duration"`
+		Duration       any            `json:"duration"`
+		Seconds        any            `json:"seconds"`
 	}
 	if err := common.Unmarshal(respBody, &envelope); err != nil {
 		return nil, errors.Wrap(err, "unmarshal apimart task")
@@ -445,6 +531,9 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 
 	info := &relaycommon.TaskInfo{Code: 0}
 	status := strings.ToLower(strings.TrimSpace(envelope.Status))
+	resultMap := envelope.Result
+	var dataUsage map[string]any
+	var dataDirect map[string]any
 	if envelope.Data != nil {
 		info.TaskID = strings.TrimSpace(envelope.Data.ID)
 		status = strings.ToLower(strings.TrimSpace(envelope.Data.Status))
@@ -454,10 +543,20 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 		if envelope.Data.Error != nil && strings.TrimSpace(envelope.Data.Error.Message) != "" {
 			info.Reason = strings.TrimSpace(envelope.Data.Error.Message)
 		}
-		if u := extractMediaURL(envelope.Data.Result); u != "" {
-			info.Url = u
-			info.RemoteUrl = u
+		if envelope.Data.Result != nil {
+			resultMap = envelope.Data.Result
 		}
+		dataUsage = envelope.Data.Usage
+		dataDirect = map[string]any{
+			"actual_duration": envelope.Data.ActualDuration,
+			"video_duration":  envelope.Data.VideoDuration,
+			"duration":        envelope.Data.Duration,
+			"seconds":         envelope.Data.Seconds,
+		}
+	}
+	if u := extractMediaURL(resultMap); u != "" {
+		info.Url = u
+		info.RemoteUrl = u
 	}
 	if info.TaskID == "" {
 		info.TaskID = strings.TrimSpace(envelope.ID)
@@ -467,8 +566,16 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 	case "completed", "success", "succeeded", "done":
 		info.Status = string(model.TaskStatusSuccess)
 		info.Progress = taskcommon.ProgressComplete
-		if info.Url == "" && info.Reason == "" {
-			// completed without URL still mark success; client may use stored raw data
+		if !isNonVideoResult(task, resultMap) {
+			flatDirect := map[string]any{
+				"actual_duration": envelope.ActualDuration,
+				"video_duration":  envelope.VideoDuration,
+				"duration":        envelope.Duration,
+				"seconds":         envelope.Seconds,
+			}
+			if sec, ok := extractActualVideoDuration(resultMap, dataUsage, dataDirect, envelope.Usage, flatDirect); ok {
+				info.UsageFacts = map[string]any{"seconds": sec}
+			}
 		}
 	case "failed", "error", "failure", "cancelled", "canceled":
 		info.Status = string(model.TaskStatusFailure)
@@ -492,6 +599,158 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 		}
 	}
 	return info, nil
+}
+
+// AdjustBillingOnComplete reconciles auto-duration (duration=-1) video tasks
+// against the actual output duration reported by upstream. It never exceeds the
+// pre-authorized task quota and returns 0 on failure, free groups, or missing/
+// invalid/oversized duration so pre-charge or full refund handling applies.
+func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	if task == nil || taskResult == nil {
+		return 0
+	}
+	if task.Status != "" && task.Status != model.TaskStatusSuccess {
+		return 0
+	}
+	if taskResult.Status != "" && taskResult.Status != string(model.TaskStatusSuccess) {
+		return 0
+	}
+	if task.Status != model.TaskStatusSuccess && taskResult.Status != string(model.TaskStatusSuccess) {
+		return 0
+	}
+	bc := task.PrivateData.BillingContext
+	if bc == nil || !bc.AutoDurationBilling {
+		return 0
+	}
+	if task.Quota <= 0 || bc.GroupRatio <= 0 || math.IsNaN(bc.GroupRatio) || math.IsInf(bc.GroupRatio, 0) {
+		return 0
+	}
+	if math.IsNaN(bc.ModelPrice) || math.IsInf(bc.ModelPrice, 0) || math.IsNaN(bc.ModelRatio) || math.IsInf(bc.ModelRatio, 0) {
+		return 0
+	}
+	actualSeconds, ok := parseBoundedPositiveSeconds(taskResult.UsageFacts["seconds"])
+	if !ok {
+		return 0
+	}
+	reservedSeconds := bc.OtherRatios["seconds"]
+	if math.IsNaN(reservedSeconds) || math.IsInf(reservedSeconds, 0) || reservedSeconds <= 0 || actualSeconds >= reservedSeconds {
+		return 0
+	}
+
+	var baseQuota int
+	var clamp *common.QuotaClamp
+	if bc.ModelPrice > 0 {
+		baseQuota, clamp = common.QuotaFromFloatChecked(bc.ModelPrice * common.QuotaPerUnit * bc.GroupRatio)
+	} else if bc.ModelRatio > 0 {
+		baseQuota, clamp = common.QuotaFromFloatChecked(bc.ModelRatio / 2 * common.QuotaPerUnit * bc.GroupRatio)
+	} else {
+		return 0
+	}
+	if clamp != nil {
+		common.SysError(fmt.Sprintf("apimart settle base clamp task=%s: %v", task.TaskID, clamp))
+		return 0
+	}
+	if baseQuota <= 0 {
+		return 0
+	}
+
+	priceData := &hosttypes.PriceData{}
+	for k, v := range bc.OtherRatios {
+		if k == "seconds" {
+			continue
+		}
+		priceData.AddOtherRatio(k, v)
+	}
+	priceData.AddOtherRatio("seconds", actualSeconds)
+
+	actualQuota, clamp := common.QuotaFromFloatChecked(priceData.ApplyOtherRatiosToFloat(float64(baseQuota)))
+	if clamp != nil {
+		common.SysError(fmt.Sprintf("apimart settle quota clamp task=%s: %v", task.TaskID, clamp))
+		return 0
+	}
+	if actualQuota <= 0 || actualQuota >= task.Quota {
+		return 0
+	}
+	return actualQuota
+}
+
+var actualDurationKeys = []string{"actual_duration", "video_duration", "duration", "seconds"}
+
+func isNonVideoResult(task *model.Task, result map[string]any) bool {
+	if task != nil && task.IsImageTask() {
+		return true
+	}
+	if result == nil {
+		return false
+	}
+	if _, hasVideos := result["videos"]; hasVideos {
+		return false
+	}
+	if _, hasVideo := result["video"]; hasVideo {
+		return false
+	}
+	if _, hasVideoURL := result["video_url"]; hasVideoURL {
+		return false
+	}
+	if _, hasMusic := result["music"]; hasMusic {
+		return true
+	}
+	if _, hasImages := result["images"]; hasImages {
+		return true
+	}
+	if _, hasImageURLs := result["image_urls"]; hasImageURLs {
+		return true
+	}
+	return false
+}
+
+func extractDurationFromMap(m map[string]any) (seconds float64, found bool, valid bool) {
+	if m == nil {
+		return 0, false, false
+	}
+	for _, key := range actualDurationKeys {
+		v, ok := m[key]
+		if !ok || v == nil {
+			continue
+		}
+		if s, isStr := v.(string); isStr && strings.TrimSpace(s) == "" {
+			continue
+		}
+		sec, ok := parseBoundedPositiveSeconds(v)
+		return sec, true, ok
+	}
+	return 0, false, false
+}
+
+func extractActualVideoDuration(result, dataUsage, dataDirect, flatUsage, flatDirect map[string]any) (float64, bool) {
+	if result != nil {
+		if arr, ok := result["videos"].([]any); ok && len(arr) > 0 {
+			if item, ok := arr[0].(map[string]any); ok {
+				if sec, found, valid := extractDurationFromMap(item); found {
+					return sec, valid
+				}
+			}
+		}
+		if videoObj, ok := result["video"].(map[string]any); ok {
+			if sec, found, valid := extractDurationFromMap(videoObj); found {
+				return sec, valid
+			}
+		}
+		if sec, found, valid := extractDurationFromMap(result); found {
+			return sec, valid
+		}
+		if usageObj, ok := result["usage"].(map[string]any); ok {
+			if sec, found, valid := extractDurationFromMap(usageObj); found {
+				return sec, valid
+			}
+		}
+	}
+	for _, m := range []map[string]any{dataUsage, dataDirect, flatUsage, flatDirect} {
+		if sec, found, valid := extractDurationFromMap(m); found {
+			return sec, valid
+		}
+	}
+	return 0, false
 }
 
 func extractMediaURL(result map[string]any) string {
@@ -579,3 +838,10 @@ func (a *TaskAdaptor) GetModelList() []string {
 func (a *TaskAdaptor) GetChannelName() string {
 	return "apimart"
 }
+
+var (
+	_ channel.TaskAdaptor                     = (*TaskAdaptor)(nil)
+	_ channel.TaskValidatedBillingProvider    = (*TaskAdaptor)(nil)
+	_ channel.TaskUsageFactsProvider          = (*TaskAdaptor)(nil)
+	_ channel.TaskValidatedUsageFactsProvider = (*TaskAdaptor)(nil)
+)

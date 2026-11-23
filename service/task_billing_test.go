@@ -1955,3 +1955,264 @@ func TestSettle_TokenRecalcFallsBackToCompletionTokens(t *testing.T) {
 		})
 	}
 }
+
+func TestSettle_PerCallAutoDurationBilling(t *testing.T) {
+	t.Run("success reconciles via adaptor adjustment and refunds delta", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+
+		const userID, tokenID, channelID = 40, 40, 40
+		const initQuota, preConsumed, actualQuota = 200_000, 150_000, 40_000
+		const tokenRemain = 50_000
+
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-auto-duration-ok", tokenRemain)
+		seedChannel(t, channelID)
+
+		task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+		task.Status = model.TaskStatusSuccess
+		task.PrivateData.BillingContext.PerCallBilling = true
+		task.PrivateData.BillingContext.AutoDurationBilling = true
+		task.PrivateData.BillingContext.OtherRatios = map[string]float64{"seconds": 30}
+
+		adaptor := &mockAdaptor{adjustReturn: actualQuota}
+		settled := settleTaskBillingOnComplete(ctx, adaptor, task, &relaycommon.TaskInfo{
+			Status:     string(model.TaskStatusSuccess),
+			UsageFacts: map[string]any{"seconds": float64(8)},
+		})
+
+		assert.True(t, settled)
+		assert.Equal(t, actualQuota, task.Quota)
+		assert.Equal(t, initQuota+(preConsumed-actualQuota), getUserQuota(t, userID))
+		assert.Equal(t, tokenRemain+(preConsumed-actualQuota), getTokenRemainQuota(t, tokenID))
+
+		log := getLastLog(t)
+		require.NotNil(t, log)
+		assert.Equal(t, model.LogTypeRefund, log.Type)
+		assert.Equal(t, preConsumed-actualQuota, log.Quota)
+	})
+
+	t.Run("failure triggers full refund instead of differential settlement", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+
+		const userID, tokenID, channelID = 41, 41, 41
+		const initQuota, preConsumed = 200_000, 150_000
+		const tokenRemain = 50_000
+
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-auto-duration-fail", tokenRemain)
+		seedChannel(t, channelID)
+
+		task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+		task.Status = model.TaskStatusFailure
+		task.FailReason = "upstream failure"
+		task.PrivateData.BillingContext.PerCallBilling = true
+		task.PrivateData.BillingContext.AutoDurationBilling = true
+
+		// Even if an adaptor were buggy and returned positive quota, failure must refund in full.
+		finalizeTerminalTask(ctx, &mockAdaptor{adjustReturn: 40_000}, task, &relaycommon.TaskInfo{
+			Status:     string(model.TaskStatusFailure),
+			UsageFacts: map[string]any{"seconds": float64(8)},
+		})
+
+		assert.Equal(t, 0, task.Quota)
+		assert.Equal(t, initQuota+preConsumed, getUserQuota(t, userID))
+		assert.Equal(t, tokenRemain+preConsumed, getTokenRemainQuota(t, tokenID))
+		log := getLastLog(t)
+		require.NotNil(t, log)
+		assert.Equal(t, model.LogTypeRefund, log.Type)
+		assert.Equal(t, preConsumed, log.Quota)
+	})
+
+	t.Run("zero adaptor return keeps pre-charge and never falls back to token billing", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+
+		previousRatios := ratio_setting.ModelRatio2JSONString()
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"test-model":1}`))
+		t.Cleanup(func() {
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(previousRatios))
+		})
+
+		const userID, tokenID, channelID = 42, 42, 42
+		const initQuota, preConsumed, tokenRemain = 200_000, 150_000, 50_000
+
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-auto-duration-keep", tokenRemain)
+		seedChannel(t, channelID)
+
+		task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+		task.Status = model.TaskStatusSuccess
+		task.PrivateData.BillingContext.PerCallBilling = true
+		task.PrivateData.BillingContext.AutoDurationBilling = true
+
+		settled := settleTaskBillingOnComplete(ctx, &mockAdaptor{adjustReturn: 0}, task, &relaycommon.TaskInfo{
+			Status:      string(model.TaskStatusSuccess),
+			TotalTokens: 9999,
+		})
+
+		assert.False(t, settled)
+		assert.Equal(t, preConsumed, task.Quota)
+		assert.Equal(t, initQuota, getUserQuota(t, userID))
+		assert.Equal(t, tokenRemain, getTokenRemainQuota(t, tokenID))
+		assert.Equal(t, int64(0), countLogs(t))
+	})
+
+	t.Run("free group stays zero charge", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+
+		const userID, tokenID, channelID = 43, 43, 43
+		const initQuota, tokenRemain = 200_000, 50_000
+
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-auto-duration-free", tokenRemain)
+		seedChannel(t, channelID)
+
+		task := makeTask(userID, channelID, 0, tokenID, BillingSourceWallet, 0)
+		task.Status = model.TaskStatusSuccess
+		task.PrivateData.BillingContext.GroupRatio = 0
+		task.PrivateData.BillingContext.PerCallBilling = true
+		task.PrivateData.BillingContext.AutoDurationBilling = true
+
+		settled := settleTaskBillingOnComplete(ctx, &mockAdaptor{adjustReturn: 0}, task, &relaycommon.TaskInfo{
+			Status:     string(model.TaskStatusSuccess),
+			UsageFacts: map[string]any{"seconds": float64(8)},
+		})
+
+		assert.False(t, settled)
+		assert.Equal(t, 0, task.Quota)
+		assert.Equal(t, initQuota, getUserQuota(t, userID))
+		assert.Equal(t, tokenRemain, getTokenRemainQuota(t, tokenID))
+		assert.Equal(t, int64(0), countLogs(t))
+	})
+}
+
+func TestSettle_TieredAutoDurationBilling(t *testing.T) {
+	const expression = `tier("duration", u("seconds") * 0.01)`
+
+	newSnapshot := func(groupRatio float64, estimatedQuota int) *billingexpr.BillingSnapshot {
+		return &billingexpr.BillingSnapshot{
+			ExprString:               expression,
+			ExprHash:                 billingexpr.ExprHashString(expression),
+			GroupRatio:               groupRatio,
+			QuotaPerUnit:             500_000,
+			ExprVersion:              1,
+			TaskUsageBilling:         true,
+			UsageFacts:               map[string]any{"seconds": float64(30)},
+			EstimatedTier:            "duration",
+			EstimatedQuotaAfterGroup: estimatedQuota,
+		}
+	}
+
+	t.Run("refunds difference when actual duration is below reserved 30s", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+
+		const userID, tokenID, channelID = 44, 44, 44
+		const initQuota, preConsumed, wantActual = 300_000, 150_000, 40_000
+		const tokenRemain = 100_000
+		seedUser(t, userID, initQuota)
+		seedToken(t, tokenID, userID, "sk-tiered-auto-ok", tokenRemain)
+		seedChannel(t, channelID)
+
+		task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+		task.Status = model.TaskStatusSuccess
+		task.PrivateData.BillingContext.AutoDurationBilling = true
+		task.PrivateData.BillingContext.TieredSnapshot = newSnapshot(1.0, preConsumed)
+
+		settled := settleTaskBillingOnComplete(ctx, &mockAdaptor{}, task, &relaycommon.TaskInfo{
+			Status:     string(model.TaskStatusSuccess),
+			UsageFacts: map[string]any{"seconds": float64(8)},
+		})
+
+		assert.True(t, settled)
+		assert.Equal(t, wantActual, task.Quota)
+		assert.Equal(t, initQuota+(preConsumed-wantActual), getUserQuota(t, userID))
+		assert.Equal(t, tokenRemain+(preConsumed-wantActual), getTokenRemainQuota(t, tokenID))
+		assert.Equal(t, float64(8), task.PrivateData.BillingContext.TieredSnapshot.UsageFacts["seconds"])
+		log := getLastLog(t)
+		require.NotNil(t, log)
+		assert.Equal(t, model.LogTypeRefund, log.Type)
+		assert.Equal(t, preConsumed-wantActual, log.Quota)
+	})
+
+	t.Run("missing, invalid, or exceeding duration retains 30s pre-charge without overcharge", func(t *testing.T) {
+		cases := []struct {
+			name  string
+			facts map[string]any
+		}{
+			{"missing duration", nil},
+			{"zero duration", map[string]any{"seconds": float64(0)}},
+			{"negative duration", map[string]any{"seconds": float64(-5)}},
+			{"NaN duration", map[string]any{"seconds": math.NaN()}},
+			{"Inf duration", map[string]any{"seconds": math.Inf(1)}},
+			{"exceeds reserved 30s", map[string]any{"seconds": float64(40)}},
+			{"exceeds max duration", map[string]any{"seconds": float64(relaycommon.MaxTaskDurationSeconds + 1)}},
+		}
+
+		for idx, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				truncate(t)
+				ctx := context.Background()
+
+				userID := 50 + idx
+				const initQuota, preConsumed = 300_000, 150_000
+				seedUser(t, userID, initQuota)
+
+				task := makeTask(userID, 0, preConsumed, 0, BillingSourceWallet, 0)
+				task.Status = model.TaskStatusSuccess
+				task.PrivateData.BillingContext.AutoDurationBilling = true
+				task.PrivateData.BillingContext.TieredSnapshot = newSnapshot(1.0, preConsumed)
+
+				settled := settleTaskBillingOnComplete(ctx, &mockAdaptor{}, task, &relaycommon.TaskInfo{
+					Status:     string(model.TaskStatusSuccess),
+					UsageFacts: tc.facts,
+				})
+
+				assert.True(t, settled)
+				assert.Equal(t, preConsumed, task.Quota)
+				assert.Equal(t, initQuota, getUserQuota(t, userID))
+				assert.Equal(t, int64(0), countLogs(t))
+			})
+		}
+	})
+
+	t.Run("free group stays zero", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+
+		seedUser(t, 60, 100_000)
+		freeTask := makeTask(60, 0, 0, 0, BillingSourceWallet, 0)
+		freeTask.Status = model.TaskStatusSuccess
+		freeTask.PrivateData.BillingContext.GroupRatio = 0
+		freeTask.PrivateData.BillingContext.AutoDurationBilling = true
+		freeTask.PrivateData.BillingContext.TieredSnapshot = newSnapshot(0, 0)
+		settled := settleTaskBillingOnComplete(ctx, &mockAdaptor{}, freeTask, &relaycommon.TaskInfo{
+			Status:     string(model.TaskStatusSuccess),
+			UsageFacts: map[string]any{"seconds": float64(8)},
+		})
+		assert.True(t, settled)
+		assert.Equal(t, 0, freeTask.Quota)
+		assert.Equal(t, 100_000, getUserQuota(t, 60))
+	})
+
+	t.Run("failure refunds in full", func(t *testing.T) {
+		truncate(t)
+		ctx := context.Background()
+
+		seedUser(t, 61, 100_000)
+		failTask := makeTask(61, 0, 150_000, 0, BillingSourceWallet, 0)
+		failTask.Status = model.TaskStatusFailure
+		failTask.FailReason = "upstream failed"
+		failTask.PrivateData.BillingContext.AutoDurationBilling = true
+		failTask.PrivateData.BillingContext.TieredSnapshot = newSnapshot(1.0, 150_000)
+		finalizeTerminalTask(ctx, &mockAdaptor{}, failTask, &relaycommon.TaskInfo{
+			Status:     string(model.TaskStatusFailure),
+			UsageFacts: map[string]any{"seconds": float64(8)},
+		})
+		assert.Equal(t, 0, failTask.Quota)
+		assert.Equal(t, 250_000, getUserQuota(t, 61))
+	})
+}
