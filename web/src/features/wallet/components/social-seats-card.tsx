@@ -61,9 +61,11 @@ export function SocialSeatsCard() {
 
   useEffect(() => {
     let cancelled = false
-    void fetchSocialSeats().then((next) => {
+    const loadSeats = async () => {
+      const next = await fetchSocialSeats()
       if (!cancelled) setView(next)
-    })
+    }
+    void loadSeats()
     return () => {
       cancelled = true
     }

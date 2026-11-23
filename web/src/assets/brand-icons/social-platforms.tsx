@@ -36,32 +36,59 @@ type BrandIconProps = {
   title?: string
 }
 
-function wrapSi(
-  Icon: ComponentType<{ size?: number | string; className?: string; title?: string }>,
-  defaultTitle: string
+type SocialBrandIconComponent = ComponentType<{
+  size?: number | string
+  className?: string
+  title?: string
+}>
+
+function renderSocialBrandIcon(
+  Icon: SocialBrandIconComponent,
+  defaultTitle: string,
+  { size = 20, className, title }: BrandIconProps
 ) {
-  return function SocialBrandIcon({ size = 20, className, title }: BrandIconProps) {
-    return (
-      <Icon
-        size={size}
-        className={className}
-        title={title || defaultTitle}
-        aria-label={title || defaultTitle}
-      />
-    )
-  }
+  return (
+    <Icon
+      size={size}
+      className={className}
+      title={title || defaultTitle}
+      aria-label={title || defaultTitle}
+    />
+  )
 }
 
 /** Vendor icon keys for getLobeIcon CUSTOM_ICONS (social data platforms). */
-export const IconTikTok = wrapSi(SiTiktok, 'TikTok')
+export function IconTikTok(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiTiktok, 'TikTok', props)
+}
 /** Douyin shares the same mark family as TikTok for UI consistency. */
-export const IconDouyin = wrapSi(SiTiktok, 'Douyin')
-export const IconInstagram = wrapSi(SiInstagram, 'Instagram')
-export const IconYouTube = wrapSi(SiYoutube, 'YouTube')
-export const IconX = wrapSi(SiX, 'X')
-export const IconBilibili = wrapSi(SiBilibili, 'Bilibili')
-export const IconXiaohongshu = wrapSi(SiXiaohongshu, 'Xiaohongshu')
-export const IconKuaishou = wrapSi(SiKuaishou, 'Kuaishou')
-export const IconWeibo = wrapSi(SiSinaweibo, 'Weibo')
-export const IconThreads = wrapSi(SiThreads, 'Threads')
-export const IconReddit = wrapSi(SiReddit, 'Reddit')
+export function IconDouyin(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiTiktok, 'Douyin', props)
+}
+export function IconInstagram(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiInstagram, 'Instagram', props)
+}
+export function IconYouTube(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiYoutube, 'YouTube', props)
+}
+export function IconX(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiX, 'X', props)
+}
+export function IconBilibili(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiBilibili, 'Bilibili', props)
+}
+export function IconXiaohongshu(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiXiaohongshu, 'Xiaohongshu', props)
+}
+export function IconKuaishou(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiKuaishou, 'Kuaishou', props)
+}
+export function IconWeibo(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiSinaweibo, 'Weibo', props)
+}
+export function IconThreads(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiThreads, 'Threads', props)
+}
+export function IconReddit(props: BrandIconProps) {
+  return renderSocialBrandIcon(SiReddit, 'Reddit', props)
+}

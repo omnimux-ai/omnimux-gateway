@@ -41,7 +41,8 @@ const reported = new Set<string>()
 export function warnAnalytics(message: string): void {
   if (reported.has(message)) return
   reported.add(message)
-  console.warn('[analytics] ' + message)
+  // eslint-disable-next-line no-console
+  console.warn(`[analytics] ${message}`)
 }
 
 export function installAnalytics(

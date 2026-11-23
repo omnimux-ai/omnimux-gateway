@@ -80,7 +80,7 @@ export function Turnstile({
       return
     }
     const scriptId = 'cf-turnstile'
-    const existing = document.getElementById(scriptId)
+    const existing = document.querySelector(`#${scriptId}`)
     if (existing) {
       // The script is still loading for an earlier mount: render on its load.
       existing.addEventListener('load', render)

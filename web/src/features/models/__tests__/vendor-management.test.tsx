@@ -255,7 +255,7 @@ describe('vendor management', () => {
     )
   })
   it('keeps the requested linked-model page while its response is pending', async () => {
-    let finishPage: ((value: any) => void) | undefined
+    let finishPage: ((value: { data: unknown }) => void) | undefined
     const get = vi
       .spyOn(api, 'get')
       .mockImplementation(async (_url, config) => {

@@ -154,6 +154,10 @@ function ChatRouteComponent() {
   }
 
   return (
+    // Admin-configured third-party chat apps require same-origin storage and
+    // interactive script execution; applying sandbox without allow-same-origin
+    // breaks external chat sessions.
+    // oxlint-disable-next-line react/iframe-missing-sandbox
     <iframe
       src={iframeSrc}
       key={iframeSrc}

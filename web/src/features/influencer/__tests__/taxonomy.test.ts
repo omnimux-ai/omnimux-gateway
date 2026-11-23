@@ -81,7 +81,7 @@ describe('trySelect', () => {
   })
 
   it('respects max and keeps first picks', () => {
-    let sel = { proportions: ['p1', 'p2'] }
+    const sel = { proportions: ['p1', 'p2'] }
     const { selection } = trySelect(cats, 'normal', sel, 'proportions', 'p3')
     expect(selection.proportions).toEqual(['p1', 'p2'])
   })

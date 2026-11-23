@@ -131,6 +131,7 @@ export async function ensureLocaleLoaded(language?: string | null) {
   try {
     i18n.addResourceBundle(code, 'translation', await localeLoaders[code]())
   } catch (error: unknown) {
+    // eslint-disable-next-line no-console
     console.error(`[i18n] failed to load the "${code}" locale chunk`, error)
   }
 }
@@ -183,6 +184,7 @@ export const i18nReady = i18n
   })
   .catch((error: unknown) => {
     // The app still renders its fallback language when a locale chunk fails.
+    // eslint-disable-next-line no-console
     console.error('[i18n] failed to load the interface language', error)
   })
 

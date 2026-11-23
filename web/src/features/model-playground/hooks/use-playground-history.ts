@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import { isTerminal } from '../transport/mock-transport'
 import type { GenerationTask, GenerationTransport } from '../types'
@@ -53,7 +53,7 @@ export function usePlaygroundHistory(
       ? finishedTask.taskId
       : null
 
-  const queryKey = ['playground-history', modelId]
+  const queryKey = useMemo(() => ['playground-history', modelId], [modelId])
 
   const { data: tasks = [], isFetching, refetch } = useQuery({
     queryKey,
@@ -73,7 +73,7 @@ export function usePlaygroundHistory(
     if (finishedId) {
       void queryClient.invalidateQueries({ queryKey })
     }
-  }, [finishedId, modelId, queryClient])
+  }, [finishedId, queryClient, queryKey])
 
   const refresh = useCallback(() => {
     void refetch()
