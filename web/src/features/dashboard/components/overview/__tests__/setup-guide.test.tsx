@@ -120,9 +120,8 @@ describe('overview setup guide', () => {
     for (const name of ['API Keys', 'Channels', 'Usage Logs', 'Pricing']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
     }
-    const panel = document.getElementById(
-      toggle.getAttribute('aria-controls') ?? ''
-    )
+    const panelId = toggle.getAttribute('aria-controls') ?? ''
+    const panel = document.querySelector(`[id="${panelId.replaceAll('"', '\\"')}"]`)
     expect(panel).toBeInTheDocument()
     expect(panel).not.toBeVisible()
   })
@@ -136,8 +135,9 @@ describe('overview setup guide', () => {
     expect(toggle).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const panelId = toggle.getAttribute('aria-controls') ?? ''
     expect(
-      document.getElementById(toggle.getAttribute('aria-controls') ?? '')
+      document.querySelector(`[id="${panelId.replaceAll('"', '\\"')}"]`)
     ).toBeVisible()
     expect(
       screen.getByRole('heading', {

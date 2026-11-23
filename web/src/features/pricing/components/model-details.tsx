@@ -671,7 +671,7 @@ export function ModelHeader(props: {
   const outputModalities = model.output_modalities ?? []
 
   const scrollToSection = (sectionId: string) => {
-    document.getElementById(sectionId)?.scrollIntoView({
+    document.querySelector(`#${sectionId}`)?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
     })

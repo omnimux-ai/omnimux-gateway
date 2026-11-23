@@ -57,8 +57,12 @@ it('character type exposes five choices without an illustration caption and show
 
 it('marks a hand-picked tile as locked and names that state for assistive tech', () => {
   const tax = taxonomy as unknown as InfluencerTaxonomy
-  const cat = tax.categories.find((c) => c.id === 'gender')!
-  const option = cat.options.find((o) => o.visibleIn.includes('total'))!
+  const cat = tax.categories.find((c) => c.id === 'gender')
+  expect(cat).toBeDefined()
+  if (!cat) return
+  const option = cat.options.find((o) => o.visibleIn.includes('total'))
+  expect(option).toBeDefined()
+  if (!option) return
   render(
     <BuilderPanel
       taxonomy={tax}

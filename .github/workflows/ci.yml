@@ -216,6 +216,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Typecheck
         run: bun run typecheck
+      - name: Lint
+        run: bun run lint -- --deny-warnings
       - name: Translation coverage
         run: bun run i18n:check
       # The root vitest.config.ts excludes landing __tests__ (other landing

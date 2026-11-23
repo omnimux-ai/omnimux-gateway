@@ -30,7 +30,12 @@ let mockedCopiedText: string | null = null
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
-  Link: (props: any) => (
+  Link: (props: {
+    to?: unknown
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>
+    className?: string
+    children?: React.ReactNode
+  }) => (
     <a
       href={typeof props.to === 'string' ? props.to : '#'}
       onClick={props.onClick}

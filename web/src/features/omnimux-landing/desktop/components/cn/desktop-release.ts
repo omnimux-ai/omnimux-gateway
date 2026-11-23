@@ -107,6 +107,7 @@ export async function fetchDesktopRelease(
     if (!version) return { status: 'unavailable' }
     return { status: 'ready', version, urls: versionedUrls(version) }
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.warn(
       '[omnimux] desktop version-stable.json unavailable, using releases/latest:',
       error

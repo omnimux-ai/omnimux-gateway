@@ -19,7 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -43,8 +44,9 @@ vi.mock('@visactor/react-vchart', () => ({ VChart: () => null }))
  * matters: a parity id can sit in a lookup map, behind a condition that never
  * holds, or in a component nobody renders.
  */
+const CURRENT_DIR = dirname(fileURLToPath(import.meta.url))
 const CHECKLIST_PATH = resolve(
-  __dirname,
+  CURRENT_DIR,
   '../../../../../docs/product/model-page-parity-checklist.json'
 )
 

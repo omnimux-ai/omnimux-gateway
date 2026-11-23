@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import axios, { type AxiosRequestConfig } from 'axios'
+import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import { t } from 'i18next'
 
 import {
@@ -33,7 +33,7 @@ import {
 import { useAuthStore } from '@/stores/auth-store'
 
 declare module 'axios' {
-  export interface AxiosRequestConfig<D = any, P = any> {
+  export interface AxiosRequestConfig<D, P> {
     skipBusinessError?: boolean
     skipErrorHandler?: boolean
     disableDuplicate?: boolean
@@ -44,8 +44,11 @@ declare module 'axios' {
   }
 }
 
-export type ApiRequestConfig = AxiosRequestConfig<any, any>
-type ApiGet = <T = any>(url: string, config?: ApiRequestConfig) => Promise<{ data: T }>
+export type ApiRequestConfig = AxiosRequestConfig
+type ApiGet = <T = AxiosResponse['data']>(
+  url: string,
+  config?: ApiRequestConfig
+) => Promise<{ data: T }>
 
 const axiosClient = axios.create({
   baseURL: '',

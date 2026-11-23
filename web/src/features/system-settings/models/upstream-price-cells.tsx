@@ -63,16 +63,24 @@ export function SyncPriceCell(props: {
         </div>
         {parsed ? (
           <div className='space-y-2'>
-            {parsed.tiers.map((tier, index) => (
-              <div key={`${tier.label}-${index}`} className='space-y-1'>
-                {parsed.tiers.length > 1 && (
-                  <div className='text-muted-foreground text-xs!'>
-                    {tier.condition || tier.label || t('Default')}
+            {(() => {
+              const seen = new Map<string, number>()
+              return parsed.tiers.map((tier) => {
+                const baseKey = `${tier.label}-${tier.condition}`
+                const count = (seen.get(baseKey) ?? 0) + 1
+                seen.set(baseKey, count)
+                return (
+                  <div key={`${baseKey}-${count}`} className='space-y-1'>
+                    {parsed.tiers.length > 1 && (
+                      <div className='text-muted-foreground text-xs!'>
+                        {tier.condition || tier.label || t('Default')}
+                      </div>
+                    )}
+                    <SyncPriceMetrics lines={tier.lines} />
                   </div>
-                )}
-                <SyncPriceMetrics lines={tier.lines} />
-              </div>
-            ))}
+                )
+              })
+            })()}
             {parsed.requestRuleExpr && (
               <div className='text-muted-foreground text-xs! break-all'>
                 {t('Includes request rules')}: {parsed.requestRuleExpr}
