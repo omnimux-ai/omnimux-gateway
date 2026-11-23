@@ -242,8 +242,27 @@ func TestSocialProviderRetirement(t *testing.T) {
 
 func TestRenderTikTokCallbackPageEscapesDynamicValues(t *testing.T) {
 	page := renderTikTokCallbackPage("<script>alert(1)</script>", `<img src=x onerror=alert(1)>`, "")
+	lower := strings.ToLower(page)
 	assert.NotContains(t, page, "<script>alert(1)</script>")
+	assert.NotContains(t, lower, "<script")
+	assert.NotContains(t, lower, "<img")
+	assert.NotContains(t, lower, "omnimux.ai/logo.png")
 	assert.Contains(t, page, "&lt;script&gt;alert(1)&lt;/script&gt;")
+	assert.Contains(t, page, "&lt;img src=x onerror=alert(1)&gt;")
+	assert.Contains(t, page, tikTokCallbackLogoSVG)
+	assert.Contains(t, page, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" width="56" height="56" fill="none" aria-hidden="true" style="display:block;margin:0 auto 16px">`)
+	assert.NotContains(t, lower, "clip-path")
+	assert.NotContains(t, lower, "<clippath")
+	assert.NotContains(t, lower, "url(")
+	assert.NotContains(t, page, `omnimux://social/connected`)
+
+	successPage := renderTikTokCallbackPage("TikTok 已连接", "账号 @creator 已绑定到 OmniMux，可以返回客户端了。", "creator")
+	successLower := strings.ToLower(successPage)
+	assert.Contains(t, successPage, tikTokCallbackLogoSVG)
+	assert.Contains(t, successPage, `aria-hidden="true"`)
+	assert.Contains(t, successPage, `href="omnimux://social/connected"`)
+	assert.NotContains(t, successLower, "<img")
+	assert.NotContains(t, successLower, "omnimux.ai/logo.png")
 }
 
 func TestSocialOAuthBrowserCookieBinding(t *testing.T) {
@@ -343,6 +362,19 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		assert.Equal(t, "nosniff", h.Get("X-Content-Type-Options"))
 	}
 
+	const strictTikTokCallbackCSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox"
+	assertStrictCallbackHTML := func(t *testing.T, rec *httptest.ResponseRecorder) {
+		t.Helper()
+		assertStartSecurityHeaders(t, rec.Header())
+		assert.Equal(t, strictTikTokCallbackCSP, rec.Header().Get("Content-Security-Policy"))
+		body := rec.Body.String()
+		lower := strings.ToLower(body)
+		assert.Contains(t, body, tikTokCallbackLogoSVG)
+		assert.Contains(t, body, `aria-hidden="true"`)
+		assert.NotContains(t, lower, "<img")
+		assert.NotContains(t, lower, "omnimux.ai/logo.png")
+	}
+
 	connect := func(t *testing.T, body string) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(http.MethodPost, "/api/social/v1/connect", strings.NewReader(body))
@@ -407,13 +439,14 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		replayRec := httptest.NewRecorder()
 		router.ServeHTTP(replayRec, httptest.NewRequest(http.MethodGet, startURL.RequestURI(), nil))
 		assert.Equal(t, http.StatusBadRequest, replayRec.Code)
-		assertStartSecurityHeaders(t, replayRec.Header())
+		assertStrictCallbackHTML(t, replayRec)
 		assert.NotContains(t, replayRec.Body.String(), ticket)
 
 		// Callback without browser cookie is rejected and does NOT consume state.
 		noCookieRec := httptest.NewRecorder()
 		router.ServeHTTP(noCookieRec, httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/callback?code=c1&state="+url.QueryEscape(state), nil))
 		assert.Equal(t, http.StatusBadRequest, noCookieRec.Code)
+		assertStrictCallbackHTML(t, noCookieRec)
 		assert.Contains(t, noCookieRec.Body.String(), "authorization flow does not belong to this browser")
 
 		// Callback with forged/other-state cookie is rejected.
@@ -422,6 +455,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		wrongCookieRec := httptest.NewRecorder()
 		router.ServeHTTP(wrongCookieRec, wrongCookieReq)
 		assert.Equal(t, http.StatusBadRequest, wrongCookieRec.Code)
+		assertStrictCallbackHTML(t, wrongCookieRec)
 
 		// Callback with the browser cookie succeeds and clears the cookie in Set-Cookie.
 		cbReq := httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/callback?code=c1&state="+url.QueryEscape(state), nil)
@@ -429,6 +463,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		cbRec := httptest.NewRecorder()
 		router.ServeHTTP(cbRec, cbReq)
 		require.Equal(t, http.StatusOK, cbRec.Code, cbRec.Body.String())
+		assertStrictCallbackHTML(t, cbRec)
 		assert.Contains(t, cbRec.Body.String(), "TikTok 已连接")
 		cleared := cbRec.Result().Cookies()
 		require.Len(t, cleared, 1)
@@ -441,6 +476,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		cbReplayRec := httptest.NewRecorder()
 		router.ServeHTTP(cbReplayRec, cbReplayReq)
 		assert.Equal(t, http.StatusBadRequest, cbReplayRec.Code)
+		assertStrictCallbackHTML(t, cbReplayRec)
 	})
 
 	t.Run("missing, invalid, expired ticket and expired state return safe HTML", func(t *testing.T) {
@@ -451,9 +487,16 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
-			assertStartSecurityHeaders(t, rec.Header())
+			assertStrictCallbackHTML(t, rec)
 			assert.NotContains(t, rec.Body.String(), "nonexistent-secret-ticket-999")
 		}
+
+		// Missing code or state on callback also keeps strict CSP and inline SVG.
+		missingParamsRec := httptest.NewRecorder()
+		router.ServeHTTP(missingParamsRec, httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/callback", nil))
+		assert.Equal(t, http.StatusBadRequest, missingParamsRec.Code)
+		assertStrictCallbackHTML(t, missingParamsRec)
+		assert.Contains(t, missingParamsRec.Body.String(), "missing code or state")
 
 		// Expired ticket
 		require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
@@ -465,7 +508,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		expTicketRec := httptest.NewRecorder()
 		router.ServeHTTP(expTicketRec, httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/start?ticket=expired-ticket-secret-1", nil))
 		assert.Equal(t, http.StatusBadRequest, expTicketRec.Code)
-		assertStartSecurityHeaders(t, expTicketRec.Header())
+		assertStrictCallbackHTML(t, expTicketRec)
 		assert.NotContains(t, expTicketRec.Body.String(), "expired-ticket-secret-1")
 
 		// Expired state with valid browser cookie
@@ -485,6 +528,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		expCbRec := httptest.NewRecorder()
 		router.ServeHTTP(expCbRec, expCbReq)
 		assert.Equal(t, http.StatusBadRequest, expCbRec.Code)
+		assertStrictCallbackHTML(t, expCbRec)
 		require.Len(t, expCbRec.Result().Cookies(), 1)
 		assert.Less(t, expCbRec.Result().Cookies()[0].MaxAge, 0)
 	})
