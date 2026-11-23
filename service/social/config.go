@@ -54,7 +54,11 @@ type Config struct {
 	// TikTokClientKey / TikTokClientSecret are the official app credentials (server-only).
 	TikTokClientKey    string
 	TikTokClientSecret string
-	// Sandbox pair takes precedence over the production pair when both are set.
+	// TikTokSandboxEnabled explicitly opts into sandbox app credentials
+	// (TIKTOK_SANDBOX_ENABLED, default false). When false, sandbox vars are ignored;
+	// when true, both sandbox vars are required and TikTokCredentials fails closed
+	// without falling back to production credentials.
+	TikTokSandboxEnabled      bool
 	TikTokSandboxClientKey    string
 	TikTokSandboxClientSecret string
 	// TikTokRedirectURI must match the TikTok Developer console exactly (protocol/host/path).
@@ -117,6 +121,7 @@ func LoadConfig() Config {
 	cfg.RollbackTikTokToZernio = common.GetEnvOrDefaultBool("ROLLBACK_TIKTOK_TO_ZERNIO", false)
 	cfg.TikTokClientKey = strings.TrimSpace(os.Getenv("TIKTOK_CLIENT_KEY"))
 	cfg.TikTokClientSecret = strings.TrimSpace(os.Getenv("TIKTOK_CLIENT_SECRET"))
+	cfg.TikTokSandboxEnabled = common.GetEnvOrDefaultBool("TIKTOK_SANDBOX_ENABLED", false)
 	cfg.TikTokSandboxClientKey = strings.TrimSpace(os.Getenv("TIKTOK_SANDBOX_CLIENT_KEY"))
 	cfg.TikTokSandboxClientSecret = strings.TrimSpace(os.Getenv("TIKTOK_SANDBOX_CLIENT_SECRET"))
 	cfg.TikTokRedirectURI = strings.TrimSpace(common.GetEnvOrDefaultString("TIKTOK_REDIRECT_URI", defaultTikTokRedirectURI))
@@ -186,13 +191,20 @@ func (c Config) TikTokDirectActive() bool {
 	return c.TikTokDirectEnabled && !c.RollbackTikTokToZernio
 }
 
-// TikTokCredentials returns the effective client key/secret (sandbox pair wins when set).
+// TikTokCredentials returns the effective client key/secret.
+// Production credentials are returned unless TikTokSandboxEnabled is explicitly true.
+// When TikTokSandboxEnabled is true, both sandbox credentials must be set; if either
+// is missing it fails closed (empty strings) and never falls back to production keys.
 func (c Config) TikTokCredentials() (key, secret string) {
-	key, secret = c.TikTokClientKey, c.TikTokClientSecret
-	if c.TikTokSandboxClientKey != "" && c.TikTokSandboxClientSecret != "" {
-		return c.TikTokSandboxClientKey, c.TikTokSandboxClientSecret
+	if c.TikTokSandboxEnabled {
+		k := strings.TrimSpace(c.TikTokSandboxClientKey)
+		s := strings.TrimSpace(c.TikTokSandboxClientSecret)
+		if k == "" || s == "" {
+			return "", ""
+		}
+		return k, s
 	}
-	return key, secret
+	return strings.TrimSpace(c.TikTokClientKey), strings.TrimSpace(c.TikTokClientSecret)
 }
 
 // TikTokDirectConfigured reports whether direct path has usable credentials + redirect.
