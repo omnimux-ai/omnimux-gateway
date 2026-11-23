@@ -309,6 +309,20 @@ func SocialTikTokCallback(c *gin.Context) {
 // HandleTikTokCallback is exported on the service for controller wiring.
 // (Wrapper keeps service method testable without gin.)
 
+// tikTokCallbackLogoSVG is the inline brand mark derived from web/public/logo.svg
+// (without the geometrically redundant clipPath) so TikTok OAuth callback pages
+// render cleanly under Content-Security-Policy: default-src 'none'; ...; sandbox.
+// fork: tiktok-direct
+const tikTokCallbackLogoSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" width="56" height="56" fill="none" aria-hidden="true" style="display:block;margin:0 auto 16px">` +
+	`<rect width="1254" height="1254" rx="280" fill="#b8b7ff"/>` +
+	`<g transform="translate(627 627) scale(0.9) translate(-627 -627)">` +
+	`<g transform="translate(0 1254) scale(0.1 -0.1)" fill="#121213" stroke="none">` +
+	`<path d="M6140 11075 c-139 -45 -194 -180 -155 -380 64 -321 -32 -625 -266 -851 -124 -119 -249 -191 -570 -330 -668 -288 -1134 -629 -1523 -1116 -386 -481 -639 -1054 -746 -1689 -42 -253 -54 -430 -47 -728 7 -336 18 -419 137 -1061 102 -550 86 -978 -48 -1263 -62 -133 -119 -212 -257 -357 -127 -134 -182 -205 -225 -290 -113 -221 -83 -455 80 -633 77 -84 163 -140 265 -174 69 -23 97 -27 205 -27 186 -1 248 20 506 170 152 88 208 107 314 108 75 1 91 -3 140 -28 80 -42 165 -135 239 -262 183 -314 288 -417 499 -492 69 -24 91 -27 212 -27 146 1 196 11 318 66 111 50 203 120 368 280 173 167 248 227 362 283 189 95 420 102 619 19 110 -47 208 -121 388 -293 180 -172 287 -251 404 -300 152 -62 333 -78 471 -39 217 60 345 181 541 513 78 133 156 216 235 253 50 23 72 27 144 27 102 -1 153 -18 290 -100 290 -173 465 -215 679 -164 115 28 193 71 276 155 143 143 202 333 161 523 -31 147 -88 237 -274 434 -66 70 -141 156 -166 192 -67 93 -133 240 -169 374 -31 117 -31 118 -31 382 -1 294 9 398 70 715 37 193 84 492 106 670 8 71 13 228 13 445 -1 356 -6 421 -61 720 -194 1062 -829 1958 -1753 2476 -230 129 -268 182 -312 441 -29 171 -60 278 -119 401 -199 417 -609 800 -1005 937 -98 34 -244 43 -315 20z"/>` +
+	`</g>` +
+	`<rect x="447" y="562" width="75" height="172" rx="37.5" ry="37.5" fill="#ffffff"/>` +
+	`<rect x="731" y="562" width="75" height="172" rx="37.5" ry="37.5" fill="#ffffff"/>` +
+	`</g></svg>`
+
 func renderTikTokCallbackPage(title, msg, handle string) string {
 	deepLink := ""
 	if handle != "" {
@@ -318,7 +332,7 @@ func renderTikTokCallbackPage(title, msg, handle string) string {
 	safeMsg := html.EscapeString(msg)
 	return `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + safeTitle + `</title>` +
 		`<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0A0A0B;color:#EDEDED;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}main{text-align:center;max-width:420px;padding:32px}h1{font-size:22px;margin:0 0 8px}p{color:#A19F9D;font-size:14px;line-height:1.6}</style></head><body><main>` +
-		`<img src="https://omnimux.ai/logo.png" alt="" width="56" height="56" style="border-radius:14px">` +
+		tikTokCallbackLogoSVG +
 		`<h1>` + safeTitle + `</h1><p>` + safeMsg + `</p>` + deepLink +
 		`<p style="margin-top:24px;font-size:12px;color:#5b5b5b">omnimux.ai · Twinspace Labs LLC</p></main></body></html>`
 }
