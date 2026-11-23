@@ -19,7 +19,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { lstatSync, realpathSync, readFileSync } from 'node:fs'
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, posix, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const WORKTREE_COMMAND = './scripts/ops/worktree.sh new <task>'
@@ -182,7 +182,8 @@ export function isEphemeralPath(fullPath) {
 }
 
 export function isProtectedScope(fullPath, cwd) {
-  const root = gitRoot(cwd) || cwd
+  const detectedRoot = cwd ? gitRoot(cwd) : ''
+  const root = detectedRoot || cwd
   const normalizedFull = String(fullPath || '').replace(/\\/g, '/')
   const normalizedRoot = String(root || '').replace(/\\/g, '/').replace(/\/+$/, '')
 
@@ -190,10 +191,19 @@ export function isProtectedScope(fullPath, cwd) {
   if (normalizedRoot && normalizedFull.startsWith(normalizedRoot + '/')) {
     relative = normalizedFull.slice(normalizedRoot.length + 1)
   } else if (normalizedFull.startsWith('/')) {
-    const marker = '/OmniMux/'
-    const idx = normalizedFull.lastIndexOf(marker)
-    if (idx !== -1) {
-      relative = normalizedFull.slice(idx + marker.length)
+    const repoAnchor = detectedRoot || scriptRepo
+    const commonRes = git(['rev-parse', '--path-format=absolute', '--git-common-dir'], repoAnchor)
+    const commonDir = !gitUnavailable(commonRes) && commonRes.status === 0
+      ? String(commonRes.stdout || '').trim().replace(/\\/g, '/').replace(/\/+$/, '')
+      : ''
+    const repoBase = commonDir.endsWith('/.git') ? commonDir.slice(0, -'/.git'.length) : repoAnchor
+    const repoName = posix.basename(String(repoBase || '').replace(/\\/g, '/').replace(/\/+$/, ''))
+    if (repoName && repoName !== '/' && repoName !== '.') {
+      const marker = `/${repoName}/`
+      const idx = normalizedFull.lastIndexOf(marker)
+      if (idx !== -1) {
+        relative = normalizedFull.slice(idx + marker.length)
+      }
     }
   }
 

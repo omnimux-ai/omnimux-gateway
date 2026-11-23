@@ -114,9 +114,12 @@ deploy/worker-proxy/.wrangler/
 scripts/ops/.secrets.local.json
 node_modules
 
-# Local-only agent/operator scratch (never commit)
-# Heavy, rebuildable agent working output; evidence stays in .agent-reports/.
+# Local sidecar build outputs (rebuilt via services/inspiration/Makefile)
+services/inspiration/bin/
+
+# Local-only agent/operator scratch and reports (never commit to this public repo)
 .agent-workspaces/
+.agent-reports/
 .agent-reports-reference-picker-lint-baseline.log
 .artifacts/
 .demo-assets/

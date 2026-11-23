@@ -7,9 +7,11 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, posix, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isProtectedScope } from './guard-worktree.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const guard = resolve(here, 'guard-worktree.mjs')
@@ -204,8 +206,20 @@ const cases = [
   ['empty file_path is ignored', () => run('write', repo, { file_path: '' }), 'allow'],
 ]
 
+const PRIMARY_REPO_NAME = (() => {
+  const res = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+    cwd: repo,
+    encoding: 'utf8',
+  })
+  const common = String(res.stdout || '').trim().replace(/\\/g, '/').replace(/\/+$/, '')
+  const base = common.endsWith('/.git') ? common.slice(0, -'/.git'.length) : repo
+  return posix.basename(base.replace(/\\/g, '/').replace(/\/+$/, ''))
+})()
+
 let failed = 0
+let total = 0
 for (const [name, fn, expected] of cases) {
+  total += 1
   const result = fn()
   const decision = result.permissionDecision
   let ok
@@ -229,5 +243,66 @@ for (const [name, fn, expected] of cases) {
   console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}: ${decision}${reason}`)
 }
 
-console.log(`\n${cases.length - failed}/${cases.length} passed`)
+// --- isProtectedScope fallback branch: dynamic repo-name derivation ---
+const fallbackTmp = mkdtempSync(join(tmpdir(), 'guard-worktree-fallback-'))
+try {
+  const nonGitDir = join(fallbackTmp, 'non-git')
+  const customRepoDir = join(fallbackTmp, 'custom-checkout')
+  mkdirSync(nonGitDir)
+  mkdirSync(customRepoDir)
+  const initRes = spawnSync('git', ['init', '-q'], { cwd: customRepoDir, encoding: 'utf8' })
+  if (initRes.status !== 0) {
+    throw new Error(`git init failed for fallback test fixture: ${initRes.stderr}`)
+  }
+
+  const scopeCases = [
+    [
+      'isProtectedScope fallback (scriptRepo): strips repo dir name so ancestor docs/ is ignored',
+      () => isProtectedScope(`/alias/docs/${PRIMARY_REPO_NAME}/probe-draft.md`, nonGitDir),
+      false,
+    ],
+    [
+      'isProtectedScope fallback (scriptRepo): protected subdir under repo dir name is caught',
+      () => isProtectedScope(`/alias/other/${PRIMARY_REPO_NAME}/docs/probe.md`, nonGitDir),
+      true,
+    ],
+    [
+      'isProtectedScope fallback (scriptRepo): protected root file under repo dir name is caught',
+      () => isProtectedScope(`/alias/other/${PRIMARY_REPO_NAME}/AGENTS.md`, nonGitDir),
+      true,
+    ],
+    [
+      'isProtectedScope fallback (empty cwd): derives repo dir name from scriptRepo',
+      () => isProtectedScope(`/alias/scripts/${PRIMARY_REPO_NAME}/probe-draft.md`, ''),
+      false,
+    ],
+    [
+      'isProtectedScope fallback (gitRoot): derives marker from gitRoot(cwd) directory name',
+      () => isProtectedScope('/alias/docs/custom-checkout/probe-draft.md', customRepoDir),
+      false,
+    ],
+    [
+      'isProtectedScope fallback (gitRoot): protected subdir under gitRoot directory name is caught',
+      () => isProtectedScope('/alias/other/custom-checkout/scripts/ops/probe.mjs', customRepoDir),
+      true,
+    ],
+    [
+      'isProtectedScope fallback (gitRoot): unrelated directory name does not strip ancestor docs/',
+      () => isProtectedScope('/alias/docs/unrelated-checkout/probe-draft.md', customRepoDir),
+      true,
+    ],
+  ]
+
+  for (const [name, fn, expected] of scopeCases) {
+    total += 1
+    const actual = fn()
+    const ok = actual === expected
+    if (!ok) failed += 1
+    console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}: ${actual}`)
+  }
+} finally {
+  rmSync(fallbackTmp, { recursive: true, force: true })
+}
+
+console.log(`\n${total - failed}/${total} passed`)
 process.exit(failed === 0 ? 0 : 1)

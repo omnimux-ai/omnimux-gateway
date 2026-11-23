@@ -7,10 +7,12 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 GOARCH ?= amd64
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/inspiration
+	@mkdir -p $(dir $(BIN))
+	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/inspiration
 
 build-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -ldflags "$(LDFLAGS)" -o $(BIN_LINUX) ./cmd/inspiration
+	@mkdir -p $(dir $(BIN_LINUX))
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_LINUX) ./cmd/inspiration
 
 test:
 	go test ./...
