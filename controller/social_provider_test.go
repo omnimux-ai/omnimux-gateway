@@ -702,3 +702,260 @@ func TestSocialTikTokPhotoDraftAndInboxStatusHTTP(t *testing.T) {
 		assert.Contains(t, badRec.Body.String(), `"code":"SOCIAL_MEDIA_INVALID"`)
 	}
 }
+
+func TestSocialOAuthBrowserCookiePathUnified(t *testing.T) {
+	oldSecret, oldSecure := common.SessionSecret, common.SessionCookieSecure
+	common.SessionSecret = "test-social-cookie-path-secret"
+	t.Cleanup(func() {
+		common.SessionSecret, common.SessionCookieSecure = oldSecret, oldSecure
+	})
+
+	for _, secure := range []bool{true, false} {
+		t.Run(fmt.Sprintf("secure=%v", secure), func(t *testing.T) {
+			common.SessionCookieSecure = secure
+			const state = "state-unified-path"
+			sum := sha256.Sum256([]byte(state))
+			wantName := socialOAuthBrowserCookiePrefix + hex.EncodeToString(sum[:])
+			if secure {
+				wantName = "__Host-" + wantName
+			}
+
+			setRec := httptest.NewRecorder()
+			setCtx, _ := gin.CreateTestContext(setRec)
+			setCtx.Request = httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/start", nil)
+			setSocialOAuthBrowserCookie(setCtx, state)
+
+			cookies := setRec.Result().Cookies()
+			require.Len(t, cookies, 1)
+			assert.Equal(t, wantName, cookies[0].Name)
+			assert.Equal(t, "/", cookies[0].Path)
+			assert.Empty(t, cookies[0].Domain)
+			assert.True(t, cookies[0].HttpOnly)
+			assert.Equal(t, secure, cookies[0].Secure)
+			assert.Equal(t, http.SameSiteLaxMode, cookies[0].SameSite)
+
+			clearRec := httptest.NewRecorder()
+			clearCtx, _ := gin.CreateTestContext(clearRec)
+			clearCtx.Request = httptest.NewRequest(http.MethodGet, "/oauth/tiktok/callback", nil)
+			clearSocialOAuthBrowserCookie(clearCtx, state)
+
+			cleared := clearRec.Result().Cookies()
+			require.Len(t, cleared, 1)
+			assert.Equal(t, wantName, cleared[0].Name)
+			assert.Equal(t, "/", cleared[0].Path)
+			assert.Empty(t, cleared[0].Domain)
+			assert.True(t, cleared[0].HttpOnly)
+			assert.Equal(t, secure, cleared[0].Secure)
+			assert.Equal(t, http.SameSiteLaxMode, cleared[0].SameSite)
+			assert.Less(t, cleared[0].MaxAge, 0)
+			rawSetCookie := clearRec.Header().Get("Set-Cookie")
+			assert.Contains(t, rawSetCookie, "Path=/")
+			assert.Contains(t, rawSetCookie, "Max-Age=0")
+		})
+	}
+}
+
+func TestSocialTikTokOAuthRootCallbackAliasEndToEnd(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	oldDB, oldService := model.DB, socialSvc
+	oldSecret, oldSecure := common.SessionSecret, common.SessionCookieSecure
+	model.DB = db
+	common.SessionSecret = "test-social-alias-secret"
+	t.Cleanup(func() {
+		model.DB, socialSvc = oldDB, oldService
+		common.SessionSecret, common.SessionCookieSecure = oldSecret, oldSecure
+		_ = sqlDB.Close()
+	})
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.SocialAccount{}, &model.SocialPost{}, &model.SocialSeat{}, &model.SocialOAuthState{}))
+	require.NoError(t, db.Create(&model.User{Id: 7, Username: "u7", Quota: 1000000}).Error)
+
+	const rootRedirectURI = "https://omnimux.ai/oauth/tiktok/callback"
+	var lastExchangedRedirectURI atomic.Value
+	var openIDCounter atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v2/oauth/token/":
+			_ = r.ParseForm()
+			lastExchangedRedirectURI.Store(r.FormValue("redirect_uri"))
+			oid := fmt.Sprintf("oid-alias-%d", openIDCounter.Add(1))
+			_, _ = fmt.Fprintf(w, `{"access_token":"at-%s","refresh_token":"rt-%s","expires_in":7200,"refresh_expires_in":15552000,"open_id":"%s","scope":"user.info.basic,video.upload","token_type":"Bearer"}`, oid, oid, oid)
+		case "/v2/user/info/":
+			oid := fmt.Sprintf("oid-alias-%d", openIDCounter.Load())
+			_, _ = fmt.Fprintf(w, `{"data":{"user":{"open_id":"%s","display_name":"Alias Creator %s"}},"error":{"code":"ok","message":"","log_id":"log-ui"}}`, oid, oid)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(upstream.Close)
+
+	svc := social.NewService(social.Config{
+		Enabled:             true,
+		Platforms:           []string{"tiktok"},
+		TikTokDirectEnabled: true,
+		TikTokClientKey:     "tt-ck-prod",
+		TikTokClientSecret:  "tt-cs-prod",
+		TikTokRedirectURI:   rootRedirectURI,
+		TikTokAuthorizeURL:  "https://www.tiktok.com/v2/auth/authorize/",
+		TikTokBaseURL:       upstream.URL,
+		TikTokScopes:        "user.info.basic,video.upload",
+		SocialTokenEncKey:   base64.StdEncoding.EncodeToString(make([]byte, 32)),
+	})
+	setSocialService(svc)
+
+	// Verified media URLs keep using the redirect origin with /api/social/v1/public/media/.
+	wrappedMedia, err := svc.WrapTikTokVerifiedMediaURL("https://cdn.example.com/clip.mp4")
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(wrappedMedia, "https://omnimux.ai/api/social/v1/public/media/"), wrappedMedia)
+
+	engine := gin.New()
+	engine.GET("/oauth/tiktok/callback", SocialTikTokCallback)
+	engine.POST("/oauth/tiktok/callback", SocialTikTokCallback)
+	engine.GET("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
+	engine.GET("/api/social/v1/oauth/tiktok/callback", SocialTikTokCallback)
+	engine.POST("/api/social/v1/oauth/tiktok/callback", SocialTikTokCallback)
+	authed := engine.Group("/api/social/v1")
+	authed.Use(func(c *gin.Context) { c.Set("id", 7); c.Next() })
+	authed.POST("/connect", SocialConnect)
+
+	startOAuth := func(t *testing.T) (string, *http.Cookie) {
+		t.Helper()
+		connectReq := httptest.NewRequest(http.MethodPost, "/api/social/v1/connect", strings.NewReader(`{"provider":"tiktok_direct","platform":"tiktok"}`))
+		connectReq.Header.Set("Content-Type", "application/json")
+		connectRec := httptest.NewRecorder()
+		engine.ServeHTTP(connectRec, connectReq)
+		require.Equal(t, http.StatusOK, connectRec.Code, connectRec.Body.String())
+
+		var connectResp struct {
+			Data struct {
+				AuthURL string `json:"auth_url"`
+			} `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(connectRec.Body.Bytes(), &connectResp))
+		startURL, parseErr := url.Parse(connectResp.Data.AuthURL)
+		require.NoError(t, parseErr)
+		assert.Equal(t, "https", startURL.Scheme)
+		assert.Equal(t, "omnimux.ai", startURL.Host)
+		assert.Equal(t, "/api/social/v1/oauth/tiktok/start", startURL.Path)
+		require.NotEmpty(t, startURL.Query().Get("ticket"))
+
+		startRec := httptest.NewRecorder()
+		engine.ServeHTTP(startRec, httptest.NewRequest(http.MethodGet, startURL.RequestURI(), nil))
+		require.Equal(t, http.StatusFound, startRec.Code, startRec.Body.String())
+
+		loc, locErr := url.Parse(startRec.Header().Get("Location"))
+		require.NoError(t, locErr)
+		assert.Equal(t, rootRedirectURI, loc.Query().Get("redirect_uri"))
+		state := loc.Query().Get("state")
+		require.NotEmpty(t, state)
+
+		cookies := startRec.Result().Cookies()
+		require.Len(t, cookies, 1)
+		assert.Equal(t, "/", cookies[0].Path)
+		assert.True(t, cookies[0].HttpOnly)
+		assert.Equal(t, common.SessionCookieSecure, cookies[0].Secure)
+		assert.Equal(t, http.SameSiteLaxMode, cookies[0].SameSite)
+		return state, cookies[0]
+	}
+
+	callbackCases := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "root alias GET", method: http.MethodGet, path: "/oauth/tiktok/callback"},
+		{name: "root alias POST", method: http.MethodPost, path: "/oauth/tiktok/callback"},
+		{name: "legacy api GET", method: http.MethodGet, path: "/api/social/v1/oauth/tiktok/callback"},
+		{name: "legacy api POST", method: http.MethodPost, path: "/api/social/v1/oauth/tiktok/callback"},
+	}
+
+	for _, secure := range []bool{true, false} {
+		for _, tc := range callbackCases {
+			t.Run(fmt.Sprintf("secure=%v/%s", secure, tc.name), func(t *testing.T) {
+				common.SessionCookieSecure = secure
+				state, browserCookie := startOAuth(t)
+
+				var cbReq *http.Request
+				if tc.method == http.MethodGet {
+					cbReq = httptest.NewRequest(http.MethodGet, tc.path+"?code=auth-code-ok&state="+url.QueryEscape(state), nil)
+				} else {
+					form := url.Values{}
+					form.Set("code", "auth-code-ok")
+					form.Set("state", state)
+					cbReq = httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(form.Encode()))
+					cbReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				}
+				cbReq.AddCookie(browserCookie)
+				cbRec := httptest.NewRecorder()
+				engine.ServeHTTP(cbRec, cbReq)
+				require.Equal(t, http.StatusOK, cbRec.Code, cbRec.Body.String())
+				assert.Contains(t, cbRec.Body.String(), "TikTok 已连接")
+				assert.Equal(t, rootRedirectURI, lastExchangedRedirectURI.Load())
+
+				cleared := cbRec.Result().Cookies()
+				require.Len(t, cleared, 1)
+				assert.Equal(t, browserCookie.Name, cleared[0].Name)
+				assert.Equal(t, "/", cleared[0].Path)
+				assert.Less(t, cleared[0].MaxAge, 0)
+				assert.Equal(t, secure, cleared[0].Secure)
+				assert.Contains(t, cbRec.Header().Get("Set-Cookie"), "Path=/")
+				assert.Contains(t, cbRec.Header().Get("Set-Cookie"), "Max-Age=0")
+			})
+		}
+	}
+
+	t.Run("negative security cases on /oauth/tiktok/callback", func(t *testing.T) {
+		common.SessionCookieSecure = false
+		state, validCookie := startOAuth(t)
+
+		// Missing parameters.
+		for _, badPath := range []string{
+			"/oauth/tiktok/callback",
+			"/oauth/tiktok/callback?code=only-code",
+			"/oauth/tiktok/callback?state=" + url.QueryEscape(state),
+		} {
+			rec := httptest.NewRecorder()
+			engine.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, badPath, nil))
+			assert.Equal(t, http.StatusBadRequest, rec.Code, badPath)
+			assert.Contains(t, rec.Body.String(), "missing code or state")
+		}
+
+		// Missing browser cookie is rejected without consuming state.
+		noCookieRec := httptest.NewRecorder()
+		engine.ServeHTTP(noCookieRec, httptest.NewRequest(http.MethodGet, "/oauth/tiktok/callback?code=c1&state="+url.QueryEscape(state), nil))
+		assert.Equal(t, http.StatusBadRequest, noCookieRec.Code)
+		assert.Contains(t, noCookieRec.Body.String(), "authorization flow does not belong to this browser")
+
+		// Wrong/forged browser cookie value is rejected.
+		wrongCookieReq := httptest.NewRequest(http.MethodGet, "/oauth/tiktok/callback?code=c1&state="+url.QueryEscape(state), nil)
+		wrongCookieReq.AddCookie(&http.Cookie{Name: validCookie.Name, Value: "forged-cookie-value"})
+		wrongCookieRec := httptest.NewRecorder()
+		engine.ServeHTTP(wrongCookieRec, wrongCookieReq)
+		assert.Equal(t, http.StatusBadRequest, wrongCookieRec.Code)
+		assert.Contains(t, wrongCookieRec.Body.String(), "authorization flow does not belong to this browser")
+
+		// Forged state even with a browser cookie minted for that forged state is rejected.
+		const forgedState = "forged-unknown-state"
+		forgedRec := httptest.NewRecorder()
+		forgedCtx, _ := gin.CreateTestContext(forgedRec)
+		forgedCtx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+		setSocialOAuthBrowserCookie(forgedCtx, forgedState)
+		forgedReq := httptest.NewRequest(http.MethodGet, "/oauth/tiktok/callback?code=c1&state="+forgedState, nil)
+		forgedReq.AddCookie(forgedRec.Result().Cookies()[0])
+		forgedOut := httptest.NewRecorder()
+		engine.ServeHTTP(forgedOut, forgedReq)
+		assert.Equal(t, http.StatusBadRequest, forgedOut.Code)
+
+		// Original state remained unconsumed after rejected requests and still succeeds with the valid cookie.
+		okReq := httptest.NewRequest(http.MethodGet, "/oauth/tiktok/callback?code=c-ok&state="+url.QueryEscape(state), nil)
+		okReq.AddCookie(validCookie)
+		okRec := httptest.NewRecorder()
+		engine.ServeHTTP(okRec, okReq)
+		require.Equal(t, http.StatusOK, okRec.Code, okRec.Body.String())
+		assert.Contains(t, okRec.Body.String(), "TikTok 已连接")
+	})
+}

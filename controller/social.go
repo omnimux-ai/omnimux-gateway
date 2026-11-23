@@ -42,14 +42,10 @@ func setSocialOAuthBrowserCookie(c *gin.Context, state string) {
 	if state == "" {
 		return
 	}
-	path := "/api/social/v1/oauth/tiktok"
-	if common.SessionCookieSecure {
-		path = "/"
-	}
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     socialOAuthBrowserCookieName(state),
 		Value:    socialOAuthBrowserCookieValue(state),
-		Path:     path,
+		Path:     "/",
 		MaxAge:   int(socialOAuthBrowserCookieTTL / time.Second),
 		HttpOnly: true,
 		Secure:   common.SessionCookieSecure,
@@ -73,14 +69,10 @@ func clearSocialOAuthBrowserCookie(c *gin.Context, state string) {
 	if c == nil || state == "" {
 		return
 	}
-	path := "/api/social/v1/oauth/tiktok"
-	if common.SessionCookieSecure {
-		path = "/"
-	}
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     socialOAuthBrowserCookieName(state),
 		Value:    "",
-		Path:     path,
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   common.SessionCookieSecure,
@@ -268,7 +260,7 @@ func SocialTikTokOAuthStart(c *gin.Context) {
 
 // SocialTikTokCallback handles the official TikTok OAuth redirect (anonymous, state-bound).
 // fork: tiktok-direct
-// GET (and POST for defensive parity) /api/social/v1/oauth/tiktok/callback?code=...&state=...
+// GET (and POST for defensive parity) /oauth/tiktok/callback and /api/social/v1/oauth/tiktok/callback?code=...&state=...
 func SocialTikTokCallback(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Referrer-Policy", "no-referrer")

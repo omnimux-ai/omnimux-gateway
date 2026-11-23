@@ -634,4 +634,19 @@ func SetApiRouter(router *gin.Engine) {
 			deploymentsRoute.DELETE("/:id", controller.DeleteDeployment)
 		}
 	}
+
+	// fork: tiktok-direct — root-level OAuth callback alias matching the live TikTok
+	// Login Kit Redirect URI (/oauth/tiktok/callback) while keeping
+	// /api/social/v1/oauth/tiktok/callback intact for backwards compatibility.
+	tiktokOAuthCallbackAlias := router.Group("/oauth/tiktok")
+	tiktokOAuthCallbackAlias.Use(
+		middleware.RouteTag("api"),
+		middleware.AccessTokenAudit(),
+		middleware.BodyStorageCleanup(),
+		middleware.GlobalAPIRateLimit(),
+	)
+	{
+		tiktokOAuthCallbackAlias.GET("/callback", controller.SocialTikTokCallback)
+		tiktokOAuthCallbackAlias.POST("/callback", controller.SocialTikTokCallback)
+	}
 }
