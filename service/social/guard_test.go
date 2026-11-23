@@ -110,7 +110,193 @@ func TestConfigDefaultOff(t *testing.T) {
 	t.Setenv("SOCIAL_ZERNIO_API_KEY", "")
 	cfg := LoadConfig()
 	assert.False(t, cfg.Enabled)
+	assert.False(t, cfg.TikTokSandboxEnabled)
 	assert.False(t, cfg.Ready())
+}
+
+func TestConfigTikTokSandboxCredentialsPrecedence(t *testing.T) {
+	cases := []struct {
+		name           string
+		cfg            Config
+		wantKey        string
+		wantSecret     string
+		wantConfigured bool
+	}{
+		{
+			name: "sandbox disabled uses prod and ignores leftover sandbox vars",
+			cfg: Config{
+				TikTokClientKey:           "prod-key",
+				TikTokClientSecret:        "prod-secret",
+				TikTokSandboxEnabled:      false,
+				TikTokSandboxClientKey:    "sbx-key",
+				TikTokSandboxClientSecret: "sbx-secret",
+				TikTokRedirectURI:         defaultTikTokRedirectURI,
+			},
+			wantKey:        "prod-key",
+			wantSecret:     "prod-secret",
+			wantConfigured: true,
+		},
+		{
+			name: "sandbox disabled with only sandbox vars stays unconfigured",
+			cfg: Config{
+				TikTokSandboxEnabled:      false,
+				TikTokSandboxClientKey:    "sbx-key",
+				TikTokSandboxClientSecret: "sbx-secret",
+				TikTokRedirectURI:         defaultTikTokRedirectURI,
+			},
+			wantKey:        "",
+			wantSecret:     "",
+			wantConfigured: false,
+		},
+		{
+			name: "sandbox enabled selects sandbox pair over prod",
+			cfg: Config{
+				TikTokClientKey:           "prod-key",
+				TikTokClientSecret:        "prod-secret",
+				TikTokSandboxEnabled:      true,
+				TikTokSandboxClientKey:    "sbx-key",
+				TikTokSandboxClientSecret: "sbx-secret",
+				TikTokRedirectURI:         defaultTikTokRedirectURI,
+			},
+			wantKey:        "sbx-key",
+			wantSecret:     "sbx-secret",
+			wantConfigured: true,
+		},
+		{
+			name: "sandbox enabled fails closed when sandbox key missing",
+			cfg: Config{
+				TikTokClientKey:           "prod-key",
+				TikTokClientSecret:        "prod-secret",
+				TikTokSandboxEnabled:      true,
+				TikTokSandboxClientKey:    "",
+				TikTokSandboxClientSecret: "sbx-secret",
+				TikTokRedirectURI:         defaultTikTokRedirectURI,
+			},
+			wantKey:        "",
+			wantSecret:     "",
+			wantConfigured: false,
+		},
+		{
+			name: "sandbox enabled fails closed when sandbox secret missing",
+			cfg: Config{
+				TikTokClientKey:           "prod-key",
+				TikTokClientSecret:        "prod-secret",
+				TikTokSandboxEnabled:      true,
+				TikTokSandboxClientKey:    "sbx-key",
+				TikTokSandboxClientSecret: "",
+				TikTokRedirectURI:         defaultTikTokRedirectURI,
+			},
+			wantKey:        "",
+			wantSecret:     "",
+			wantConfigured: false,
+		},
+		{
+			name: "sandbox enabled fails closed when both sandbox vars missing",
+			cfg: Config{
+				TikTokClientKey:      "prod-key",
+				TikTokClientSecret:   "prod-secret",
+				TikTokSandboxEnabled: true,
+				TikTokRedirectURI:    defaultTikTokRedirectURI,
+			},
+			wantKey:        "",
+			wantSecret:     "",
+			wantConfigured: false,
+		},
+		{
+			name: "sandbox enabled fails closed on whitespace-only sandbox secret",
+			cfg: Config{
+				TikTokClientKey:           "prod-key",
+				TikTokClientSecret:        "prod-secret",
+				TikTokSandboxEnabled:      true,
+				TikTokSandboxClientKey:    "sbx-key",
+				TikTokSandboxClientSecret: "   ",
+				TikTokRedirectURI:         defaultTikTokRedirectURI,
+			},
+			wantKey:        "",
+			wantSecret:     "",
+			wantConfigured: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotKey, gotSecret := tc.cfg.TikTokCredentials()
+			assert.Equal(t, tc.wantKey, gotKey)
+			assert.Equal(t, tc.wantSecret, gotSecret)
+			assert.Equal(t, tc.wantConfigured, tc.cfg.TikTokDirectConfigured())
+		})
+	}
+}
+
+func TestLoadConfigTikTokSandboxEnabledEnv(t *testing.T) {
+	t.Run("unset defaults to false and prefers prod over leftover sandbox", func(t *testing.T) {
+		t.Setenv("SOCIAL_OPS_ENABLED", "true")
+		t.Setenv("TIKTOK_DIRECT_ENABLED", "true")
+		t.Setenv("TIKTOK_SANDBOX_ENABLED", "")
+		t.Setenv("TIKTOK_CLIENT_KEY", "prod-k")
+		t.Setenv("TIKTOK_CLIENT_SECRET", "prod-s")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_KEY", "sbx-k")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_SECRET", "sbx-s")
+
+		cfg := LoadConfig()
+		assert.False(t, cfg.TikTokSandboxEnabled)
+		key, secret := cfg.TikTokCredentials()
+		assert.Equal(t, "prod-k", key)
+		assert.Equal(t, "prod-s", secret)
+		assert.True(t, cfg.TikTokDirectConfigured())
+		assert.True(t, cfg.Ready())
+	})
+
+	t.Run("explicit true selects sandbox credentials", func(t *testing.T) {
+		t.Setenv("SOCIAL_OPS_ENABLED", "true")
+		t.Setenv("TIKTOK_DIRECT_ENABLED", "true")
+		t.Setenv("TIKTOK_SANDBOX_ENABLED", "true")
+		t.Setenv("TIKTOK_CLIENT_KEY", "prod-k")
+		t.Setenv("TIKTOK_CLIENT_SECRET", "prod-s")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_KEY", "sbx-k")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_SECRET", "sbx-s")
+
+		cfg := LoadConfig()
+		assert.True(t, cfg.TikTokSandboxEnabled)
+		key, secret := cfg.TikTokCredentials()
+		assert.Equal(t, "sbx-k", key)
+		assert.Equal(t, "sbx-s", secret)
+		assert.True(t, cfg.TikTokDirectConfigured())
+		assert.True(t, cfg.Ready())
+	})
+
+	t.Run("explicit true with missing sandbox secret fails closed without prod fallback", func(t *testing.T) {
+		t.Setenv("SOCIAL_OPS_ENABLED", "true")
+		t.Setenv("TIKTOK_DIRECT_ENABLED", "true")
+		t.Setenv("TIKTOK_SANDBOX_ENABLED", "true")
+		t.Setenv("TIKTOK_CLIENT_KEY", "prod-k")
+		t.Setenv("TIKTOK_CLIENT_SECRET", "prod-s")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_KEY", "sbx-k")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_SECRET", "")
+
+		cfg := LoadConfig()
+		assert.True(t, cfg.TikTokSandboxEnabled)
+		key, secret := cfg.TikTokCredentials()
+		assert.Empty(t, key)
+		assert.Empty(t, secret)
+		assert.False(t, cfg.TikTokDirectConfigured())
+		assert.False(t, cfg.Ready())
+		assert.ErrorIs(t, NewService(cfg).requireReady(), ErrNotConfigured)
+	})
+
+	t.Run("invalid bool value defaults safely to false", func(t *testing.T) {
+		t.Setenv("TIKTOK_SANDBOX_ENABLED", "not-a-bool")
+		t.Setenv("TIKTOK_CLIENT_KEY", "prod-k")
+		t.Setenv("TIKTOK_CLIENT_SECRET", "prod-s")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_KEY", "sbx-k")
+		t.Setenv("TIKTOK_SANDBOX_CLIENT_SECRET", "sbx-s")
+
+		cfg := LoadConfig()
+		assert.False(t, cfg.TikTokSandboxEnabled)
+		key, secret := cfg.TikTokCredentials()
+		assert.Equal(t, "prod-k", key)
+		assert.Equal(t, "prod-s", secret)
+	})
 }
 
 func TestValidateRedirectURL(t *testing.T) {
