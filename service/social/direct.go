@@ -9,16 +9,83 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service/social/tiktok"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
-var ErrTikTokDirectNotConfigured = errors.New("tiktok direct is not configured")
+const (
+	// ProviderTikTokDirectStart stores short-lived one-time browser launch tickets
+	// in social_oauth_states without requiring a schema migration.
+	ProviderTikTokDirectStart = "tiktok_direct_start"
+	tikTokOAuthStartPath      = "/api/social/v1/oauth/tiktok/start"
+	tikTokOAuthStartTicketTTL = 3 * time.Minute
+
+	tikTokTokenRefreshWindow       = 10 * time.Minute
+	tikTokRefreshRedisLockPrefix   = "social:tiktok:refresh_lock:"
+	tikTokRefreshRedisLockTTL      = 20 * time.Second
+	tikTokRefreshRedisWaitLimit    = 5 * time.Second
+	tikTokRefreshRedisPollInterval = 50 * time.Millisecond
+)
+
+var (
+	ErrTikTokDirectNotConfigured = errors.New("tiktok direct is not configured")
+	ErrTikTokOAuthTicketInvalid  = errors.New("tiktok oauth launch ticket is invalid or already used")
+	ErrTikTokOAuthTicketExpired  = errors.New("tiktok oauth launch ticket expired")
+	ErrTikTokAuthorizeURLInvalid = errors.New("tiktok authorize url is not allowed")
+	ErrTikTokTokenExpired        = errors.New("tiktok access token expired; reconnect account")
+)
+
+var tikTokRefreshUnlockScript = redis.NewScript(`
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+	return redis.call("DEL", KEYS[1])
+end
+return 0
+`)
+
+type accountLockEntry struct {
+	mu   sync.Mutex
+	refs int
+}
+
+type accountRefreshLocker struct {
+	mu    sync.Mutex
+	locks map[int64]*accountLockEntry
+}
+
+func (l *accountRefreshLocker) lock(accountID int64) func() {
+	l.mu.Lock()
+	if l.locks == nil {
+		l.locks = make(map[int64]*accountLockEntry)
+	}
+	entry := l.locks[accountID]
+	if entry == nil {
+		entry = &accountLockEntry{}
+		l.locks[accountID] = entry
+	}
+	entry.refs++
+	l.mu.Unlock()
+
+	entry.mu.Lock()
+	return func() {
+		entry.mu.Unlock()
+		l.mu.Lock()
+		entry.refs--
+		if entry.refs == 0 {
+			delete(l.locks, accountID)
+		}
+		l.mu.Unlock()
+	}
+}
 
 func (s *Service) tiktokClient() *tiktok.Client {
 	return tiktok.NewClient(s.cfg.TikTokBaseURL)
@@ -46,39 +113,159 @@ func randomState() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// connectTikTokDirect starts official OAuth: persists one-time state and returns authorize URL.
+func (s *Service) effectiveTikTokDefaultRedirect() string {
+	defaultRedirect := strings.TrimSpace(s.cfg.DefaultRedirectURL)
+	if defaultRedirect == "" {
+		defaultRedirect = strings.TrimSpace(s.cfg.TikTokRedirectURI)
+	}
+	return defaultRedirect
+}
+
+func (s *Service) effectiveTikTokAuthorizeBase() string {
+	base := strings.TrimSpace(s.cfg.TikTokAuthorizeURL)
+	if base == "" {
+		return defaultTikTokAuthorizeURL
+	}
+	return base
+}
+
+func validateTikTokAuthorizeURL(rawURL string, requireNoQuery bool) error {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u == nil || u.User != nil || u.Fragment != "" {
+		return ErrTikTokAuthorizeURLInvalid
+	}
+	if requireNoQuery && u.RawQuery != "" {
+		return ErrTikTokAuthorizeURLInvalid
+	}
+	if !strings.EqualFold(u.Scheme, "https") {
+		return ErrTikTokAuthorizeURLInvalid
+	}
+	if !strings.EqualFold(u.Host, "www.tiktok.com") {
+		return ErrTikTokAuthorizeURLInvalid
+	}
+	if u.Path != "/v2/auth/authorize" && u.Path != "/v2/auth/authorize/" {
+		return ErrTikTokAuthorizeURLInvalid
+	}
+	return nil
+}
+
+func tikTokOAuthStartURL(redirectURI, ticket string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(redirectURI))
+	if err != nil || u == nil || u.Host == "" || u.User != nil {
+		return "", ErrTikTokDirectNotConfigured
+	}
+	scheme := strings.ToLower(u.Scheme)
+	isLoopback := u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1"
+	if scheme != "https" && !(scheme == "http" && isLoopback) {
+		return "", ErrTikTokDirectNotConfigured
+	}
+	q := url.Values{}
+	q.Set("ticket", ticket)
+	return (&url.URL{
+		Scheme:   scheme,
+		Host:     u.Host,
+		Path:     tikTokOAuthStartPath,
+		RawQuery: q.Encode(),
+	}).String(), nil
+}
+
+// connectTikTokDirect starts official OAuth by issuing a short-lived one-time
+// browser launch ticket. The system browser redeems it on /oauth/tiktok/start
+// so the CSRF binding cookie is set in the browser that receives the callback.
 func (s *Service) connectTikTokDirect(ctx context.Context, userId int, redirectAfter string) (string, error) {
 	if err := s.tiktokDirectUsable(); err != nil {
+		return "", err
+	}
+	if err := validateTikTokAuthorizeURL(s.effectiveTikTokAuthorizeBase(), true); err != nil {
 		return "", err
 	}
 	// Seat preflight parity with Zernio path (single billing story).
 	if err := s.PreflightConnect(userId); err != nil {
 		return "", err
 	}
-	state, err := randomState()
-	if err != nil {
-		return "", err
-	}
 	redirectAfter = strings.TrimSpace(redirectAfter)
 	if redirectAfter != "" {
-		defaultRedirect := strings.TrimSpace(s.cfg.DefaultRedirectURL)
-		if defaultRedirect == "" {
-			defaultRedirect = s.cfg.TikTokRedirectURI
-		}
-		if err := validateRedirectURL(redirectAfter, defaultRedirect); err != nil {
+		if err := validateRedirectURL(redirectAfter, s.effectiveTikTokDefaultRedirect()); err != nil {
 			return "", err
 		}
 	}
+	ticket, err := randomState()
+	if err != nil {
+		return "", err
+	}
+	startURL, err := tikTokOAuthStartURL(s.cfg.TikTokRedirectURI, ticket)
+	if err != nil {
+		return "", err
+	}
 	if err := model.CreateSocialOAuthState(&model.SocialOAuthState{
-		State:         state,
+		State:         ticket,
 		UserId:        userId,
-		Provider:      ProviderTikTokDirect,
+		Provider:      ProviderTikTokDirectStart,
 		RedirectAfter: redirectAfter,
+		ExpiresAt:     time.Now().UTC().Add(tikTokOAuthStartTicketTTL),
 	}); err != nil {
 		return "", err
 	}
+	return startURL, nil
+}
+
+// TikTokStartResult holds the fresh OAuth state and validated TikTok authorize URL.
+type TikTokStartResult struct {
+	State        string
+	AuthorizeURL string
+}
+
+// StartTikTokOAuth atomically consumes a one-time launch ticket, persists a fresh
+// OAuth state bound to the same user, and returns the strictly validated TikTok
+// authorize URL for browser redirection.
+func (s *Service) StartTikTokOAuth(ctx context.Context, ticket string) (*TikTokStartResult, error) {
+	if err := s.tiktokDirectUsable(); err != nil {
+		return nil, err
+	}
+	if ticket == "" || len(ticket) > 128 || strings.TrimSpace(ticket) != ticket {
+		return nil, ErrTikTokOAuthTicketInvalid
+	}
+	authorizeBase := s.effectiveTikTokAuthorizeBase()
+	if err := validateTikTokAuthorizeURL(authorizeBase, true); err != nil {
+		return nil, err
+	}
+	st, err := model.ConsumeSocialOAuthState(ticket, ProviderTikTokDirectStart)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrTikTokOAuthTicketInvalid
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "expired") {
+			return nil, ErrTikTokOAuthTicketExpired
+		}
+		return nil, err
+	}
+	if st.UserId <= 0 {
+		return nil, ErrTikTokOAuthTicketInvalid
+	}
+	redirectAfter := strings.TrimSpace(st.RedirectAfter)
+	if redirectAfter != "" {
+		if err := validateRedirectURL(redirectAfter, s.effectiveTikTokDefaultRedirect()); err != nil {
+			return nil, err
+		}
+	}
+	state, err := randomState()
+	if err != nil {
+		return nil, err
+	}
+	if err := model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:         state,
+		UserId:        st.UserId,
+		Provider:      ProviderTikTokDirect,
+		RedirectAfter: redirectAfter,
+	}); err != nil {
+		return nil, err
+	}
 	key, _ := s.cfg.TikTokCredentials()
-	return tiktok.AuthorizeURL(s.cfg.TikTokAuthorizeURL, key, s.cfg.TikTokRedirectURI, s.cfg.TikTokScopes, state), nil
+	authURL := tiktok.AuthorizeURL(authorizeBase, key, s.cfg.TikTokRedirectURI, s.cfg.TikTokScopes, state)
+	if err := validateTikTokAuthorizeURL(authURL, false); err != nil {
+		return nil, err
+	}
+	return &TikTokStartResult{State: state, AuthorizeURL: authURL}, nil
 }
 
 // TikTokCallbackResult is returned to the controller for redirect/render.
@@ -141,10 +328,7 @@ func (s *Service) HandleTikTokCallback(ctx context.Context, code, state string) 
 		t := time.Now().UTC().Add(time.Duration(tok.ExpiresIn) * time.Second)
 		expiresAt = &t
 	}
-	scopes := tok.Scope
-	if scopes == "" {
-		scopes = s.cfg.TikTokScopes
-	}
+	scopes := strings.TrimSpace(tok.Scope)
 	meta, _ := common.Marshal(map[string]any{
 		"avatar_url": info.AvatarURL,
 		"union_id":   info.UnionID,
@@ -182,46 +366,245 @@ func (s *Service) HandleTikTokCallback(ctx context.Context, code, state string) 
 	if err != nil {
 		return nil, err
 	}
-	return &TikTokCallbackResult{Account: saved, RedirectAfter: st.RedirectAfter}, nil
+	redirectAfter := strings.TrimSpace(st.RedirectAfter)
+	if redirectAfter != "" {
+		if err := validateRedirectURL(redirectAfter, s.effectiveTikTokDefaultRedirect()); err != nil {
+			redirectAfter = ""
+		}
+	}
+	return &TikTokCallbackResult{Account: saved, RedirectAfter: redirectAfter}, nil
 }
 
-// accessTokenForAccount decrypts (and refreshes if expired) the account's access token.
+func needsTikTokTokenRefresh(acc *model.SocialAccount, now time.Time) bool {
+	return acc != nil && acc.TokenExpiresAt != nil && !now.Add(tikTokTokenRefreshWindow).Before(*acc.TokenExpiresAt)
+}
+
+func isTikTokTokenExpired(acc *model.SocialAccount, now time.Time) bool {
+	return acc != nil && acc.TokenExpiresAt != nil && !now.Before(*acc.TokenExpiresAt)
+}
+
+func isTikTokTokenInvalidError(err error) bool {
+	var apiErr *tiktok.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	if apiErr.Status == http.StatusBadRequest || apiErr.Status == http.StatusUnauthorized || apiErr.Status == http.StatusForbidden {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(apiErr.Code)) {
+	case "invalid_grant", "invalid_token", "invalid_request", "unauthorized_client",
+		"access_denied", "access_token_invalid", "refresh_token_invalid",
+		"token_expired", "token_revoked", "scope_not_authorized":
+		return true
+	default:
+		return false
+	}
+}
+
+func sanitizeTikTokRefreshError(err error, secrets ...string) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	for _, secret := range secrets {
+		if secret != "" && strings.Contains(msg, secret) {
+			return errors.New("tiktok token refresh failed")
+		}
+	}
+	return fmt.Errorf("tiktok token refresh failed: %w", err)
+}
+
+func acquireTikTokRefreshRedisLock(ctx context.Context, accountID int64) (func(), error) {
+	if !common.RedisEnabled || common.RDB == nil || accountID <= 0 {
+		return func() {}, nil
+	}
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err != nil {
+		return func() {}, nil
+	}
+	key := tikTokRefreshRedisLockPrefix + strconv.FormatInt(accountID, 10)
+	holder := hex.EncodeToString(raw)
+	deadline := time.Now().Add(tikTokRefreshRedisWaitLimit)
+	for {
+		held, err := common.RDB.SetNX(ctx, key, holder, tikTokRefreshRedisLockTTL).Result()
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			// Fall back to DB conditional update when Redis is transiently unavailable.
+			return func() {}, nil
+		}
+		if held {
+			return func() {
+				releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = tikTokRefreshUnlockScript.Run(releaseCtx, common.RDB, []string{key}, holder).Err()
+			}, nil
+		}
+		if time.Now().After(deadline) {
+			return func() {}, nil
+		}
+		timer := time.NewTimer(tikTokRefreshRedisPollInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+// accessTokenForAccount decrypts (and refreshes with per-account serialization when near expiry)
+// the account's access token without mutating the caller's struct.
 func (s *Service) accessTokenForAccount(ctx context.Context, acc *model.SocialAccount) (string, error) {
+	tok, _, err := s.accessTokenAndScopesForAccount(ctx, acc)
+	return tok, err
+}
+
+func (s *Service) accessTokenAndScopesForAccount(ctx context.Context, acc *model.SocialAccount) (string, string, error) {
 	if acc == nil || acc.AccessTokenEncrypted == "" {
-		return "", ErrTikTokDirectNotConfigured
+		return "", "", ErrTikTokDirectNotConfigured
 	}
-	plain, err := OpenToken(acc.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+	now := time.Now().UTC()
+	if !needsTikTokTokenRefresh(acc, now) {
+		plain, err := OpenToken(acc.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+		if err != nil {
+			return "", "", err
+		}
+		return plain, acc.ScopesGranted, nil
+	}
+
+	unlockLocal := s.refreshLocks.lock(acc.ID)
+	defer unlockLocal()
+
+	unlockRedis, err := acquireTikTokRefreshRedisLock(ctx, acc.ID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	// Refresh if within 10 minutes of expiry.
-	if acc.TokenExpiresAt != nil && time.Now().UTC().Add(10*time.Minute).After(*acc.TokenExpiresAt) && acc.RefreshTokenEncrypted != "" {
-		rt, err := OpenToken(acc.RefreshTokenEncrypted, s.cfg.SocialTokenEncKey)
-		if err != nil {
-			return plain, nil // fall back to stale access token; upstream will 401 and caller handles
-		}
-		key, secret := s.cfg.TikTokCredentials()
-		tok, err := s.tiktokClient().RefreshToken(ctx, key, secret, rt)
-		if err != nil {
-			return plain, nil
-		}
-		accessEnc, e1 := SealToken(tok.AccessToken, s.cfg.SocialTokenEncKey)
-		refreshEnc, e2 := SealToken(firstNonEmpty(tok.RefreshToken, rt), s.cfg.SocialTokenEncKey)
-		if e1 == nil && e2 == nil {
-			updates := map[string]any{
-				"access_token_encrypted":  accessEnc,
-				"refresh_token_encrypted": refreshEnc,
-				"updated_at":              time.Now().UTC(),
-			}
-			if tok.ExpiresIn > 0 {
-				t := time.Now().UTC().Add(time.Duration(tok.ExpiresIn) * time.Second)
-				updates["token_expires_at"] = t
-			}
-			_ = model.DB.Model(&model.SocialAccount{}).Where("id = ?", acc.ID).Updates(updates).Error
-			return tok.AccessToken, nil
+	defer unlockRedis()
+
+	// Double-check latest DB row after acquiring lock(s).
+	current := acc
+	if acc.ID > 0 && acc.UserId > 0 {
+		latest, loadErr := model.GetSocialAccountByIDForUser(acc.ID, acc.UserId)
+		if loadErr == nil && latest != nil {
+			current = latest
+		} else if loadErr != nil && !errors.Is(loadErr, gorm.ErrRecordNotFound) {
+			return "", "", loadErr
 		}
 	}
-	return plain, nil
+	if current.AccessTokenEncrypted == "" {
+		return "", "", ErrTikTokDirectNotConfigured
+	}
+	now = time.Now().UTC()
+	if !needsTikTokTokenRefresh(current, now) {
+		plain, err := OpenToken(current.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+		if err != nil {
+			return "", "", err
+		}
+		return plain, current.ScopesGranted, nil
+	}
+	if current.RefreshTokenEncrypted == "" {
+		if isTikTokTokenExpired(current, now) {
+			return "", "", ErrTikTokTokenExpired
+		}
+		plain, err := OpenToken(current.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+		if err != nil {
+			return "", "", err
+		}
+		return plain, current.ScopesGranted, nil
+	}
+	rt, err := OpenToken(current.RefreshTokenEncrypted, s.cfg.SocialTokenEncKey)
+	if err != nil {
+		if isTikTokTokenExpired(current, now) {
+			return "", "", ErrTikTokTokenExpired
+		}
+		plain, openErr := OpenToken(current.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+		if openErr != nil {
+			return "", "", openErr
+		}
+		return plain, current.ScopesGranted, nil
+	}
+
+	oldRefreshEnc := current.RefreshTokenEncrypted
+	key, secret := s.cfg.TikTokCredentials()
+	tok, err := s.tiktokClient().RefreshToken(ctx, key, secret, rt)
+	if err != nil {
+		// Re-read DB to see if another instance concurrently rotated the refresh token.
+		if current.ID > 0 && current.UserId > 0 {
+			if latest, rereadErr := model.GetSocialAccountByIDForUser(current.ID, current.UserId); rereadErr == nil &&
+				latest != nil &&
+				latest.RefreshTokenEncrypted != "" &&
+				latest.RefreshTokenEncrypted != oldRefreshEnc &&
+				latest.AccessTokenEncrypted != "" &&
+				!isTikTokTokenExpired(latest, time.Now().UTC()) {
+				plain, openErr := OpenToken(latest.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+				if openErr != nil {
+					return "", "", openErr
+				}
+				return plain, latest.ScopesGranted, nil
+			}
+		}
+		plain, openErr := OpenToken(current.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+		if isTikTokTokenExpired(current, time.Now().UTC()) || isTikTokTokenInvalidError(err) {
+			return "", "", sanitizeTikTokRefreshError(err, rt, plain, key, secret)
+		}
+		if openErr != nil {
+			return "", "", sanitizeTikTokRefreshError(err, rt, key, secret)
+		}
+		return plain, current.ScopesGranted, nil
+	}
+
+	if strings.TrimSpace(tok.AccessToken) == "" {
+		return "", "", errors.New("tiktok token refresh returned empty access token")
+	}
+	accessEnc, err := SealToken(tok.AccessToken, s.cfg.SocialTokenEncKey)
+	if err != nil {
+		return "", "", err
+	}
+	refreshEnc, err := SealToken(firstNonEmpty(tok.RefreshToken, rt), s.cfg.SocialTokenEncKey)
+	if err != nil {
+		return "", "", err
+	}
+	now = time.Now().UTC()
+	updates := map[string]any{
+		"access_token_encrypted":  accessEnc,
+		"refresh_token_encrypted": refreshEnc,
+		"updated_at":              now,
+	}
+	if tok.ExpiresIn > 0 {
+		t := now.Add(time.Duration(tok.ExpiresIn) * time.Second)
+		updates["token_expires_at"] = t
+	}
+	newScopes := strings.TrimSpace(tok.Scope)
+	if newScopes != "" {
+		updates["scopes_granted"] = newScopes
+	}
+	res := model.DB.Model(&model.SocialAccount{}).
+		Where("id = ? AND user_id = ? AND refresh_token_encrypted = ?", current.ID, current.UserId, oldRefreshEnc).
+		Updates(updates)
+	if res.Error != nil {
+		return "", "", res.Error
+	}
+	if res.RowsAffected == 0 {
+		// Another instance rotated refresh_token_encrypted concurrently; re-read instead of overwriting.
+		latest, rereadErr := model.GetSocialAccountByIDForUser(current.ID, current.UserId)
+		if rereadErr != nil {
+			return "", "", rereadErr
+		}
+		if latest.AccessTokenEncrypted == "" {
+			return "", "", ErrTikTokDirectNotConfigured
+		}
+		if isTikTokTokenExpired(latest, time.Now().UTC()) {
+			return "", "", ErrTikTokTokenExpired
+		}
+		plain, openErr := OpenToken(latest.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+		if openErr != nil {
+			return "", "", openErr
+		}
+		return plain, latest.ScopesGranted, nil
+	}
+	return tok.AccessToken, firstNonEmpty(newScopes, current.ScopesGranted), nil
 }
 
 func firstNonEmpty(v, fallback string) string {
@@ -328,14 +711,12 @@ func tiktokPublishCapabilities(scopes string) (uploadDraft, directPost bool) {
 	return uploadDraft, directPost
 }
 
-// tiktokCapabilitiesFor prefers the account's granted scopes and falls back to the
-// configured request set for accounts connected before scopes were persisted.
+// tiktokCapabilitiesFor derives publishing abilities strictly from the account's granted scopes (fail-closed).
 func (s *Service) tiktokCapabilitiesFor(acc *model.SocialAccount) (uploadDraft, directPost bool) {
-	scopes := strings.TrimSpace(acc.ScopesGranted)
-	if scopes == "" {
-		scopes = s.cfg.TikTokScopes
+	if acc == nil {
+		return false, false
 	}
-	return tiktokPublishCapabilities(scopes)
+	return tiktokPublishCapabilities(acc.ScopesGranted)
 }
 
 // TikTokCapabilities reports what the account's granted TikTok scopes allow.
@@ -382,9 +763,15 @@ func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *m
 	if !uploadDraft && !directPost {
 		return nil, ErrTikTokPublishScopeMissing
 	}
-	accessToken, err := s.accessTokenForAccount(ctx, acc)
+	accessToken, effectiveScopes, err := s.accessTokenAndScopesForAccount(ctx, acc)
 	if err != nil {
 		return nil, err
+	}
+	if effectiveScopes != acc.ScopesGranted {
+		uploadDraft, directPost = tiktokPublishCapabilities(effectiveScopes)
+		if !uploadDraft && !directPost {
+			return nil, ErrTikTokPublishScopeMissing
+		}
 	}
 	client := s.tiktokClient()
 

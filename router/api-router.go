@@ -240,7 +240,8 @@ func SetApiRouter(router *gin.Engine) {
 		socialRoute := apiRouter.Group("/social/v1")
 		{
 			socialRoute.GET("/status", controller.SocialStatus)
-			// fork: tiktok-direct — official OAuth callback is anonymous (state binds it to the user).
+			// fork: tiktok-direct — one-time browser launch entry and OAuth callback (state + browser cookie bound).
+			socialRoute.GET("/oauth/tiktok/start", middleware.CriticalRateLimit(), controller.SocialTikTokOAuthStart)
 			socialRoute.GET("/oauth/tiktok/callback", controller.SocialTikTokCallback)
 			socialRoute.POST("/oauth/tiktok/callback", controller.SocialTikTokCallback)
 			socialRoute.GET("/public/media/:token", middleware.DownloadRateLimit(), controller.SocialPublicMediaProxy)

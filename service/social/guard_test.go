@@ -116,6 +116,9 @@ func TestConfigDefaultOff(t *testing.T) {
 func TestValidateRedirectURL(t *testing.T) {
 	assert.NoError(t, validateRedirectURL("https://omnimux.ai/cb", "https://omnimux.ai/social/oauth/callback"))
 	assert.ErrorIs(t, validateRedirectURL("https://evil.example/cb", "https://omnimux.ai/cb"), ErrRedirectDenied)
+	assert.ErrorIs(t, validateRedirectURL("javascript://omnimux.ai/cb", "https://omnimux.ai/cb"), ErrRedirectDenied)
+	assert.ErrorIs(t, validateRedirectURL("http://omnimux.ai/cb", "https://omnimux.ai/cb"), ErrRedirectDenied)
+	assert.ErrorIs(t, validateRedirectURL("https://user@omnimux.ai/cb", "https://omnimux.ai/cb"), ErrRedirectDenied)
 	assert.NoError(t, validateRedirectURL("http://localhost:3000/cb", ""))
 	assert.ErrorIs(t, validateRedirectURL("http://evil.example/cb", ""), ErrRedirectDenied)
 }

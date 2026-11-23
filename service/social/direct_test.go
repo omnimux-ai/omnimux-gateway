@@ -9,11 +9,15 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/alicebob/miniredis/v2"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,13 +60,37 @@ func TestConnectRoutesToDirect(t *testing.T) {
 
 	urlOut, err := s.Connect(context.Background(), 42, ProviderTikTokDirect, "tiktok", "")
 	require.NoError(t, err)
-	assert.Contains(t, urlOut, "client_key=tt-ck")
-	assert.Contains(t, urlOut, "www.tiktok.com/v2/auth/authorize")
+	parsed, err := url.Parse(urlOut)
+	require.NoError(t, err)
+	assert.Equal(t, "https", parsed.Scheme)
+	assert.Equal(t, "omnimux.ai", parsed.Host)
+	assert.Equal(t, tikTokOAuthStartPath, parsed.Path)
+	ticket := parsed.Query().Get("ticket")
+	require.NotEmpty(t, ticket)
 
-	// state persisted
+	// One-time launch ticket persisted with short TTL (<= 3m) under start provider.
 	var st model.SocialOAuthState
-	require.NoError(t, model.DB.Where("user_id = ? AND provider = ?", 42, ProviderTikTokDirect).First(&st).Error)
-	assert.NotEmpty(t, st.State)
+	require.NoError(t, model.DB.Where("user_id = ? AND provider = ?", 42, ProviderTikTokDirectStart).First(&st).Error)
+	assert.Equal(t, ticket, st.State)
+	assert.True(t, st.ExpiresAt.After(time.Now().UTC()))
+	assert.True(t, st.ExpiresAt.Before(time.Now().UTC().Add(tikTokOAuthStartTicketTTL+5*time.Second)))
+
+	// Redeeming ticket produces a fresh callback state and strictly validated TikTok URL.
+	started, err := s.StartTikTokOAuth(context.Background(), ticket)
+	require.NoError(t, err)
+	assert.NotEqual(t, ticket, started.State)
+	assert.Contains(t, started.AuthorizeURL, "client_key=tt-ck")
+	assert.Contains(t, started.AuthorizeURL, "https://www.tiktok.com/v2/auth/authorize/")
+	assert.Contains(t, started.AuthorizeURL, "state="+started.State)
+
+	// Ticket cannot be replayed.
+	_, err = s.StartTikTokOAuth(context.Background(), ticket)
+	require.ErrorIs(t, err, ErrTikTokOAuthTicketInvalid)
+
+	// Fresh callback state persisted under ProviderTikTokDirect.
+	var cbState model.SocialOAuthState
+	require.NoError(t, model.DB.Where("user_id = ? AND provider = ?", 42, ProviderTikTokDirect).First(&cbState).Error)
+	assert.Equal(t, started.State, cbState.State)
 }
 
 func TestConnectExplicitZernioIgnoresDirectFlag(t *testing.T) {
@@ -142,14 +170,14 @@ func tiktokStubServer(t *testing.T) *httptest.Server {
 		require.NoError(t, r.ParseForm())
 		w.Header().Set("Content-Type", "application/json")
 		if r.Form.Get("grant_type") == "refresh_token" {
-			_, _ = w.Write([]byte(`{"data":{"access_token":"at-refreshed","refresh_token":"rt-new","expires_in":3600,"open_id":"oid-9"}}`))
+			_, _ = w.Write([]byte(`{"access_token":"at-refreshed","refresh_token":"rt-new","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-9","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"data":{"access_token":"at-9","refresh_token":"rt-9","expires_in":3600,"open_id":"oid-9","scope":"user.info.basic,video.upload"}}`))
+		_, _ = w.Write([]byte(`{"access_token":"at-9","refresh_token":"rt-9","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-9","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
 	})
 	mux.HandleFunc("/v2/user/info/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{"user":{"open_id":"oid-9","display_name":"Demo Creator","username":"democreator","avatar_url":"https://img"}}}`))
+		_, _ = w.Write([]byte(`{"data":{"user":{"open_id":"oid-9","display_name":"Demo Creator","username":"democreator","avatar_url":"https://img"}},"error":{"code":"ok","message":"","log_id":"log-ui"}}`))
 	})
 	return httptest.NewServer(mux)
 }
@@ -539,4 +567,439 @@ func TestConsumeStateSingleUse(t *testing.T) {
 	require.Error(t, err)
 }
 
-var _ = url.Values{} // keep url import if needed later
+func TestHandleTikTokCallbackPartialAndEmptyScopesFailClosed(t *testing.T) {
+	cases := []struct {
+		name      string
+		tokenBody string
+		wantScope string
+	}{
+		{
+			name:      "user denies video.upload",
+			tokenBody: `{"access_token":"at-basic","refresh_token":"rt-basic","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-basic","scope":"user.info.basic","token_type":"Bearer"}`,
+			wantScope: "user.info.basic",
+		},
+		{
+			name:      "upstream omits scope",
+			tokenBody: `{"access_token":"at-empty","refresh_token":"rt-empty","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-empty","token_type":"Bearer"}`,
+			wantScope: "",
+		},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupDirectDB(t)
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.tokenBody))
+			})
+			mux.HandleFunc("/v2/user/info/", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"data":{"user":{"open_id":"oid-partial","display_name":"Basic User"}},"error":{"code":"ok","message":""}}`))
+			})
+			srv := httptest.NewServer(mux)
+			defer srv.Close()
+
+			cfg := testDirectConfig(t, srv.URL)
+			cfg.TikTokScopes = "user.info.basic,video.upload"
+			s := NewService(cfg)
+			userID := 70 + i
+			require.NoError(t, model.DB.Create(&model.User{Id: userID, Username: "u_partial", Quota: 1000000}).Error)
+			require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+				State:    "state-partial",
+				UserId:   userID,
+				Provider: ProviderTikTokDirect,
+			}))
+
+			res, err := s.HandleTikTokCallback(context.Background(), "code-partial", "state-partial")
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantScope, res.Account.ScopesGranted)
+
+			uploadDraft, publishDirect := s.TikTokCapabilities(res.Account)
+			assert.False(t, uploadDraft)
+			assert.False(t, publishDirect)
+
+			_, err = s.CreatePost(context.Background(), userID, CreatePostInput{
+				Provider:   ProviderTikTokDirect,
+				Content:    "should be blocked",
+				AccountIDs: []int64{res.Account.ID},
+				PublishNow: true,
+				MediaItems: []map[string]any{{"url": "https://cdn.example.com/v.mp4"}},
+			})
+			require.ErrorIs(t, err, ErrTikTokPublishScopeMissing)
+		})
+	}
+}
+
+func TestAccessTokenConcurrentRefreshSingleUpstreamCall(t *testing.T) {
+	setupDirectDB(t)
+	var refreshCalls atomic.Int32
+	refreshStarted := make(chan struct{})
+	releaseRefresh := make(chan struct{})
+	var startOnce sync.Once
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		assert.Equal(t, "refresh_token", r.Form.Get("grant_type"))
+		assert.Equal(t, "rt-initial", r.Form.Get("refresh_token"))
+		refreshCalls.Add(1)
+		startOnce.Do(func() { close(refreshStarted) })
+		<-releaseRefresh
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"at-rotated","refresh_token":"rt-rotated","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-race","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cfg := testDirectConfig(t, srv.URL)
+	s := NewService(cfg)
+	require.NoError(t, model.DB.Create(&model.User{Id: 90, Username: "u90"}).Error)
+	oldAccessEnc, err := SealToken("at-expiring", cfg.SocialTokenEncKey)
+	require.NoError(t, err)
+	oldRefreshEnc, err := SealToken("rt-initial", cfg.SocialTokenEncKey)
+	require.NoError(t, err)
+	expiringSoon := time.Now().UTC().Add(2 * time.Minute)
+	acc := &model.SocialAccount{
+		UserId:                90,
+		Provider:              ProviderTikTokDirect,
+		ProviderAccountID:     "oid-race",
+		Platform:              "tiktok",
+		Status:                model.SocialAccountStatusActive,
+		AccessTokenEncrypted:  oldAccessEnc,
+		RefreshTokenEncrypted: oldRefreshEnc,
+		TokenExpiresAt:        &expiringSoon,
+		ScopesGranted:         "user.info.basic",
+	}
+	require.NoError(t, model.DB.Create(acc).Error)
+
+	const workers = 12
+	tokens := make([]string, workers)
+	errs := make([]error, workers)
+	var wg sync.WaitGroup
+	for i := range workers {
+		accCopy := *acc
+		wg.Go(func() {
+			tokens[i], errs[i] = s.accessTokenForAccount(context.Background(), &accCopy)
+		})
+	}
+
+	<-refreshStarted
+	close(releaseRefresh)
+	wg.Wait()
+
+	assert.Equal(t, int32(1), refreshCalls.Load(), "concurrent callers in expiry window must trigger exactly one RefreshToken")
+	for i := range workers {
+		require.NoError(t, errs[i])
+		assert.Equal(t, "at-rotated", tokens[i])
+	}
+
+	saved, err := model.GetSocialAccountByIDForUser(acc.ID, 90)
+	require.NoError(t, err)
+	gotRefresh, err := OpenToken(saved.RefreshTokenEncrypted, cfg.SocialTokenEncKey)
+	require.NoError(t, err)
+	assert.Equal(t, "rt-rotated", gotRefresh)
+	assert.Equal(t, "user.info.basic,video.upload", saved.ScopesGranted)
+}
+
+func TestAccessTokenConcurrentRefreshMultiInstanceRedisLock(t *testing.T) {
+	setupDirectDB(t)
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	oldEnabled, oldRDB := common.RedisEnabled, common.RDB
+	common.RedisEnabled, common.RDB = true, rdb
+	t.Cleanup(func() {
+		common.RedisEnabled, common.RDB = oldEnabled, oldRDB
+		_ = rdb.Close()
+	})
+
+	var refreshCalls atomic.Int32
+	refreshStarted := make(chan struct{})
+	releaseRefresh := make(chan struct{})
+	var startOnce sync.Once
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+		refreshCalls.Add(1)
+		startOnce.Do(func() { close(refreshStarted) })
+		<-releaseRefresh
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"at-redis-new","refresh_token":"rt-redis-new","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-redis","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cfg := testDirectConfig(t, srv.URL)
+	// Two separate Service instances simulate two gateway processes sharing DB + Redis.
+	s1 := NewService(cfg)
+	s2 := NewService(cfg)
+
+	require.NoError(t, model.DB.Create(&model.User{Id: 96, Username: "u96"}).Error)
+	oldAccessEnc, err := SealToken("at-redis-old", cfg.SocialTokenEncKey)
+	require.NoError(t, err)
+	oldRefreshEnc, err := SealToken("rt-redis-old", cfg.SocialTokenEncKey)
+	require.NoError(t, err)
+	expiringSoon := time.Now().UTC().Add(2 * time.Minute)
+	acc := &model.SocialAccount{
+		UserId:                96,
+		Provider:              ProviderTikTokDirect,
+		ProviderAccountID:     "oid-redis",
+		Platform:              "tiktok",
+		Status:                model.SocialAccountStatusActive,
+		AccessTokenEncrypted:  oldAccessEnc,
+		RefreshTokenEncrypted: oldRefreshEnc,
+		TokenExpiresAt:        &expiringSoon,
+		ScopesGranted:         "user.info.basic,video.upload",
+	}
+	require.NoError(t, model.DB.Create(acc).Error)
+
+	var tok1, tok2 string
+	var err1, err2 error
+	var wg sync.WaitGroup
+	acc1, acc2 := *acc, *acc
+	wg.Go(func() { tok1, err1 = s1.accessTokenForAccount(context.Background(), &acc1) })
+	<-refreshStarted
+	wg.Go(func() { tok2, err2 = s2.accessTokenForAccount(context.Background(), &acc2) })
+	// Give s2 a moment to contend on the Redis lock before releasing s1.
+	time.Sleep(80 * time.Millisecond)
+	close(releaseRefresh)
+	wg.Wait()
+
+	require.NoError(t, err1)
+	require.NoError(t, err2)
+	assert.Equal(t, "at-redis-new", tok1)
+	assert.Equal(t, "at-redis-new", tok2)
+	assert.Equal(t, int32(1), refreshCalls.Load(), "Redis distributed lock must serialize cross-instance refresh")
+	assert.Empty(t, mr.Keys(), "Redis lock key must be released after refresh")
+
+	// Token-verified unlock must not delete a lock acquired by another holder.
+	release, err := acquireTikTokRefreshRedisLock(context.Background(), acc.ID)
+	require.NoError(t, err)
+	keys := mr.Keys()
+	require.Len(t, keys, 1)
+	require.NoError(t, mr.Set(keys[0], "other-holder"))
+	release()
+	val, err := mr.Get(keys[0])
+	require.NoError(t, err)
+	assert.Equal(t, "other-holder", val)
+}
+
+func TestAccessTokenRefreshOptimisticUpdateAndFailureSafety(t *testing.T) {
+	t.Run("optimistic update yields to concurrent DB rotation", func(t *testing.T) {
+		setupDirectDB(t)
+		cfg := testDirectConfig(t, "http://placeholder")
+		require.NoError(t, model.DB.Create(&model.User{Id: 91, Username: "u91"}).Error)
+		oldAccessEnc, err := SealToken("at-old-91", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		oldRefreshEnc, err := SealToken("rt-old-91", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		expiringSoon := time.Now().UTC().Add(2 * time.Minute)
+		acc := &model.SocialAccount{
+			UserId:                91,
+			Provider:              ProviderTikTokDirect,
+			ProviderAccountID:     "oid-91",
+			Platform:              "tiktok",
+			Status:                model.SocialAccountStatusActive,
+			AccessTokenEncrypted:  oldAccessEnc,
+			RefreshTokenEncrypted: oldRefreshEnc,
+			TokenExpiresAt:        &expiringSoon,
+			ScopesGranted:         "user.info.basic,video.upload",
+		}
+		require.NoError(t, model.DB.Create(acc).Error)
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+			// Simulate another instance rotating the DB row while this refresh is in flight.
+			otherAccessEnc, e1 := SealToken("at-from-peer", cfg.SocialTokenEncKey)
+			require.NoError(t, e1)
+			otherRefreshEnc, e2 := SealToken("rt-from-peer", cfg.SocialTokenEncKey)
+			require.NoError(t, e2)
+			future := time.Now().UTC().Add(2 * time.Hour)
+			require.NoError(t, model.DB.Model(&model.SocialAccount{}).Where("id = ?", acc.ID).Updates(map[string]any{
+				"access_token_encrypted":  otherAccessEnc,
+				"refresh_token_encrypted": otherRefreshEnc,
+				"token_expires_at":        future,
+			}).Error)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"at-stale-loser","refresh_token":"rt-stale-loser","expires_in":7200,"open_id":"oid-91","token_type":"Bearer"}`))
+		})
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
+		cfg.TikTokBaseURL = srv.URL
+		s := NewService(cfg)
+
+		gotToken, err := s.accessTokenForAccount(context.Background(), acc)
+		require.NoError(t, err)
+		assert.Equal(t, "at-from-peer", gotToken)
+
+		saved, err := model.GetSocialAccountByIDForUser(acc.ID, 91)
+		require.NoError(t, err)
+		gotRefresh, err := OpenToken(saved.RefreshTokenEncrypted, cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		assert.Equal(t, "rt-from-peer", gotRefresh, "conditional update must not overwrite newer rotation")
+	})
+
+	t.Run("expired token never falls back on refresh failure and never leaks secrets", func(t *testing.T) {
+		setupDirectDB(t)
+		const secretAccess = "act.super-secret-expired-token"
+		const secretRefresh = "rft.super-secret-refresh-token"
+		mux := http.NewServeMux()
+		mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"Refresh token is expired or invalid.","log_id":"log-fail"}`))
+		})
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
+
+		cfg := testDirectConfig(t, srv.URL)
+		s := NewService(cfg)
+		require.NoError(t, model.DB.Create(&model.User{Id: 92, Username: "u92"}).Error)
+		accessEnc, err := SealToken(secretAccess, cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		refreshEnc, err := SealToken(secretRefresh, cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		expired := time.Now().UTC().Add(-time.Minute)
+		acc := &model.SocialAccount{
+			UserId:                92,
+			Provider:              ProviderTikTokDirect,
+			ProviderAccountID:     "oid-92",
+			Platform:              "tiktok",
+			Status:                model.SocialAccountStatusActive,
+			AccessTokenEncrypted:  accessEnc,
+			RefreshTokenEncrypted: refreshEnc,
+			TokenExpiresAt:        &expired,
+			ScopesGranted:         "user.info.basic,video.upload",
+		}
+		require.NoError(t, model.DB.Create(acc).Error)
+
+		_, err = s.accessTokenForAccount(context.Background(), acc)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid_grant")
+		assert.NotContains(t, err.Error(), secretAccess)
+		assert.NotContains(t, err.Error(), secretRefresh)
+	})
+
+	t.Run("invalid_grant inside pre-expiry window fails closed when not refreshed by peer", func(t *testing.T) {
+		setupDirectDB(t)
+		mux := http.NewServeMux()
+		mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"Refresh token revoked","log_id":"log-revoked"}`))
+		})
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
+
+		cfg := testDirectConfig(t, srv.URL)
+		s := NewService(cfg)
+		require.NoError(t, model.DB.Create(&model.User{Id: 93, Username: "u93"}).Error)
+		accessEnc, err := SealToken("at-93", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		refreshEnc, err := SealToken("rt-93", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		expiringSoon := time.Now().UTC().Add(3 * time.Minute)
+		acc := &model.SocialAccount{
+			UserId:                93,
+			Provider:              ProviderTikTokDirect,
+			ProviderAccountID:     "oid-93",
+			Platform:              "tiktok",
+			Status:                model.SocialAccountStatusActive,
+			AccessTokenEncrypted:  accessEnc,
+			RefreshTokenEncrypted: refreshEnc,
+			TokenExpiresAt:        &expiringSoon,
+		}
+		require.NoError(t, model.DB.Create(acc).Error)
+
+		_, err = s.accessTokenForAccount(context.Background(), acc)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid_grant")
+	})
+
+	t.Run("refresh failure recovers when peer already rotated DB row", func(t *testing.T) {
+		setupDirectDB(t)
+		cfg := testDirectConfig(t, "http://placeholder")
+		require.NoError(t, model.DB.Create(&model.User{Id: 94, Username: "u94"}).Error)
+		oldAccessEnc, err := SealToken("at-old-94", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		oldRefreshEnc, err := SealToken("rt-old-94", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		expired := time.Now().UTC().Add(-time.Minute)
+		acc := &model.SocialAccount{
+			UserId:                94,
+			Provider:              ProviderTikTokDirect,
+			ProviderAccountID:     "oid-94",
+			Platform:              "tiktok",
+			Status:                model.SocialAccountStatusActive,
+			AccessTokenEncrypted:  oldAccessEnc,
+			RefreshTokenEncrypted: oldRefreshEnc,
+			TokenExpiresAt:        &expired,
+		}
+		require.NoError(t, model.DB.Create(acc).Error)
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+			// Another instance rotated before TikTok rejected our stale refresh token.
+			peerAccessEnc, e1 := SealToken("at-peer-94", cfg.SocialTokenEncKey)
+			require.NoError(t, e1)
+			peerRefreshEnc, e2 := SealToken("rt-peer-94", cfg.SocialTokenEncKey)
+			require.NoError(t, e2)
+			future := time.Now().UTC().Add(2 * time.Hour)
+			require.NoError(t, model.DB.Model(&model.SocialAccount{}).Where("id = ?", acc.ID).Updates(map[string]any{
+				"access_token_encrypted":  peerAccessEnc,
+				"refresh_token_encrypted": peerRefreshEnc,
+				"token_expires_at":        future,
+			}).Error)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"Refresh token already used","log_id":"log-peer"}`))
+		})
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
+		cfg.TikTokBaseURL = srv.URL
+		s := NewService(cfg)
+
+		gotToken, err := s.accessTokenForAccount(context.Background(), acc)
+		require.NoError(t, err)
+		assert.Equal(t, "at-peer-94", gotToken)
+	})
+}
+
+func TestTikTokOAuthStartRejectsUnapprovedAuthorizeURLAndDomainMismatch(t *testing.T) {
+	setupDirectDB(t)
+	require.NoError(t, model.DB.Create(&model.User{Id: 95, Username: "u95", Quota: 1000000}).Error)
+
+	for _, badBase := range []string{
+		"https://evil.example/v2/auth/authorize/",
+		"http://www.tiktok.com/v2/auth/authorize/",
+		"https://www.tiktok.com.evil.example/v2/auth/authorize/",
+		"https://www.tiktok.com/v2/auth/authorize/?evil=1",
+		"https://www.tiktok.com/redirect",
+	} {
+		cfg := testDirectConfig(t, "http://stub")
+		cfg.TikTokAuthorizeURL = badBase
+		s := NewService(cfg)
+		_, err := s.Connect(context.Background(), 95, ProviderTikTokDirect, "tiktok", "")
+		require.ErrorIs(t, err, ErrTikTokAuthorizeURLInvalid, badBase)
+
+		require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+			State:     "t-bad-base",
+			UserId:    95,
+			Provider:  ProviderTikTokDirectStart,
+			ExpiresAt: time.Now().UTC().Add(time.Minute),
+		}))
+		_, err = s.StartTikTokOAuth(context.Background(), "t-bad-base")
+		require.ErrorIs(t, err, ErrTikTokAuthorizeURLInvalid, badBase)
+		require.NoError(t, model.DB.Exec("DELETE FROM social_oauth_states").Error)
+	}
+
+	// Launch ticket cannot be consumed as callback state (domain separation).
+	cfg := testDirectConfig(t, "http://stub")
+	s := NewService(cfg)
+	startURL, err := s.Connect(context.Background(), 95, ProviderTikTokDirect, "tiktok", "")
+	require.NoError(t, err)
+	u, err := url.Parse(startURL)
+	require.NoError(t, err)
+	ticket := u.Query().Get("ticket")
+	_, err = s.HandleTikTokCallback(context.Background(), "code-1", ticket)
+	require.Error(t, err)
+}

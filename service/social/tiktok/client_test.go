@@ -42,13 +42,58 @@ func TestExchangeTokenSuccess(t *testing.T) {
 func TestExchangeTokenTopLevelShape(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"access_token":"at-top","refresh_token":"rt-top","expires_in":100,"open_id":"oid-top"}`))
+		_, _ = w.Write([]byte(`{"access_token":"at-top","refresh_token":"rt-top","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-top","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
 	}))
 	defer srv.Close()
 	c := NewClient(srv.URL)
 	tk, err := c.ExchangeToken(context.Background(), "ck", "cs", "code", "https://cb")
 	require.NoError(t, err)
 	assert.Equal(t, "at-top", tk.AccessToken)
+	assert.Equal(t, "rt-top", tk.RefreshToken)
+	assert.Equal(t, int64(7200), tk.ExpiresIn)
+	assert.Equal(t, int64(15552000), tk.RefreshExpiresIn)
+	assert.Equal(t, "oid-top", tk.OpenID)
+	assert.Equal(t, "user.info.basic,video.upload", tk.Scope)
+	assert.Equal(t, "Bearer", tk.TokenType)
+}
+
+func TestExchangeTokenFlatError(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{
+			name:   "HTTP 400 flat string error",
+			status: http.StatusBadRequest,
+			body:   `{"error":"invalid_grant","error_description":"The authorization code is invalid or expired.","log_id":"log-400"}`,
+		},
+		{
+			name:   "HTTP 200 flat string error",
+			status: http.StatusOK,
+			body:   `{"error":"invalid_grant","error_description":"The refresh token is invalid.","log_id":"log-200"}`,
+		},
+		{
+			name:   "HTTP 401 nested object error",
+			status: http.StatusUnauthorized,
+			body:   `{"error":{"code":"access_token_invalid","message":"The access token is invalid.","log_id":"log-401"}}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			_, err := NewClient(srv.URL).ExchangeToken(context.Background(), "ck", "cs", "code", "https://cb")
+			var apiErr *APIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.NotEmpty(t, apiErr.Code)
+			assert.NotEmpty(t, apiErr.Message)
+			assert.NotEmpty(t, apiErr.LogID)
+		})
+	}
 }
 
 func TestExchangeTokenError(t *testing.T) {
@@ -69,13 +114,17 @@ func TestRefreshToken(t *testing.T) {
 		assert.Equal(t, "refresh_token", r.Form.Get("grant_type"))
 		assert.Equal(t, "rt-old", r.Form.Get("refresh_token"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{"access_token":"at-new","refresh_token":"rt-new","expires_in":100,"open_id":"oid"}}`))
+		_, _ = w.Write([]byte(`{"access_token":"at-new","refresh_token":"rt-new","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
 	}))
 	defer srv.Close()
 	c := NewClient(srv.URL)
 	tk, err := c.RefreshToken(context.Background(), "ck", "cs", "rt-old")
 	require.NoError(t, err)
 	assert.Equal(t, "at-new", tk.AccessToken)
+	assert.Equal(t, "rt-new", tk.RefreshToken)
+	assert.Equal(t, int64(15552000), tk.RefreshExpiresIn)
+	assert.Equal(t, "user.info.basic,video.upload", tk.Scope)
+	assert.Equal(t, "Bearer", tk.TokenType)
 }
 
 func TestGetUserInfo(t *testing.T) {
