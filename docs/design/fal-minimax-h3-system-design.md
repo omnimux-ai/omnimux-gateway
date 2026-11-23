@@ -77,7 +77,7 @@
 ## 2. File List（完整文件列表及相对路径）
 
 ```
-OmniMux/
+omnimux-gateway/
 ├── constant/
 │   └── channel.go                                  # [修改] 声明 ChannelTypeFalAI = 64, 注册 BaseURL 与 Name
 ├── relay/
