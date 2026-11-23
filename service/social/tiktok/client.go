@@ -359,6 +359,39 @@ type PostOptions struct {
 	DisableStitch      *bool
 	BrandContentToggle *bool
 	BrandOrganicToggle *bool
+	Description        string
+	PhotoCoverIndex    *int
+	IsAIGC             *bool
+}
+
+// PhotoDraftOptions carries optional metadata allowed by TikTok's
+// /v2/post/publish/content/init/ endpoint in post_mode="MEDIA_UPLOAD".
+// Direct-post-only fields (privacy_level, disable_comment, disable_duet,
+// disable_stitch, brand_*_toggle) are intentionally excluded.
+type PhotoDraftOptions struct {
+	Title           string
+	Description     string
+	PhotoCoverIndex *int
+	IsAIGC          *bool
+}
+
+type photoInboxPostInfo struct {
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	IsAIGC      *bool  `json:"is_aigc,omitempty"`
+}
+
+type photoInboxSourceInfo struct {
+	Source          string   `json:"source"`
+	PhotoImages     []string `json:"photo_images"`
+	PhotoCoverIndex *int     `json:"photo_cover_index,omitempty"`
+}
+
+type photoInboxInitRequest struct {
+	PostInfo   *photoInboxPostInfo  `json:"post_info,omitempty"`
+	SourceInfo photoInboxSourceInfo `json:"source_info"`
+	PostMode   string               `json:"post_mode"`
+	MediaType  string               `json:"media_type"`
 }
 
 func buildPostInfo(title, defaultPrivacy string, opts *PostOptions) map[string]any {
@@ -388,6 +421,9 @@ func buildPostInfo(title, defaultPrivacy string, opts *PostOptions) map[string]a
 		}
 		if opts.BrandOrganicToggle != nil {
 			postInfo["brand_organic_toggle"] = *opts.BrandOrganicToggle
+		}
+		if opts.IsAIGC != nil {
+			postInfo["is_aigc"] = *opts.IsAIGC
 		}
 	}
 	return postInfo
@@ -444,16 +480,57 @@ func (c *Client) PublishPhotoByURLWithOptions(ctx context.Context, accessToken, 
 	postInfo := buildPostInfo(title, "SELF_ONLY", opts)
 	delete(postInfo, "disable_duet")
 	delete(postInfo, "disable_stitch")
+	if opts != nil {
+		if desc := strings.TrimSpace(opts.Description); desc != "" {
+			postInfo["description"] = desc
+		}
+	}
+	sourceInfo := map[string]any{
+		"source":       "PULL_FROM_URL",
+		"photo_images": photoURLs,
+	}
+	if opts != nil && opts.PhotoCoverIndex != nil {
+		sourceInfo["photo_cover_index"] = *opts.PhotoCoverIndex
+	}
 	body := map[string]any{
-		"post_info": postInfo,
-		"source_info": map[string]any{
-			"source":       "PULL_FROM_URL",
-			"photo_images": photoURLs,
-		},
-		"post_mode":  "DIRECT_POST",
-		"media_type": "PHOTO",
+		"post_info":   postInfo,
+		"source_info": sourceInfo,
+		"post_mode":   "DIRECT_POST",
+		"media_type":  "PHOTO",
 	}
 	return c.publishInit(ctx, accessToken, photoPostPath, body)
+}
+
+// PublishPhotoToInboxByURL sends one or more photos to the creator's TikTok inbox as a draft.
+// Scope: video.upload. Uses /v2/post/publish/content/init/ with post_mode="MEDIA_UPLOAD".
+// https://developers.tiktok.com/docs/en/content-posting-api-reference-photo-post
+func (c *Client) PublishPhotoToInboxByURL(ctx context.Context, accessToken string, photoURLs []string, opts *PhotoDraftOptions) (*PublishInitResponse, error) {
+	if len(photoURLs) == 0 {
+		return nil, errors.New("tiktok: photo inbox init: empty photo_images")
+	}
+	req := photoInboxInitRequest{
+		SourceInfo: photoInboxSourceInfo{
+			Source:      "PULL_FROM_URL",
+			PhotoImages: photoURLs,
+		},
+		PostMode:  "MEDIA_UPLOAD",
+		MediaType: "PHOTO",
+	}
+	if opts != nil {
+		title := strings.TrimSpace(opts.Title)
+		desc := strings.TrimSpace(opts.Description)
+		if title != "" || desc != "" || opts.IsAIGC != nil {
+			req.PostInfo = &photoInboxPostInfo{
+				Title:       title,
+				Description: desc,
+				IsAIGC:      opts.IsAIGC,
+			}
+		}
+		if opts.PhotoCoverIndex != nil {
+			req.SourceInfo.PhotoCoverIndex = opts.PhotoCoverIndex
+		}
+	}
+	return c.publishInit(ctx, accessToken, photoPostPath, req)
 }
 
 func (c *Client) publishInit(ctx context.Context, accessToken, path string, body any) (*PublishInitResponse, error) {

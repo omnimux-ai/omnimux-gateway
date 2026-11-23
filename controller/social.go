@@ -423,15 +423,19 @@ func SocialPublicMediaProxy(c *gin.Context) {
 }
 
 type socialCreatePostRequest struct {
-	Provider      string                    `json:"provider"`
-	Content       string                    `json:"content"`
-	AccountIDs    []int64                   `json:"account_ids"`
-	PublishNow    *bool                     `json:"publish_now"`
-	ScheduledFor  string                    `json:"scheduled_for"`
-	Timezone      string                    `json:"timezone"`
-	MediaItems    []map[string]any          `json:"media_items"`
-	Queued        bool                      `json:"queued"`
-	TikTokOptions *social.TikTokPostOptions `json:"tiktok_options"`
+	Provider        string                    `json:"provider"`
+	Content         string                    `json:"content"`
+	AccountIDs      []int64                   `json:"account_ids"`
+	PublishNow      *bool                     `json:"publish_now"`
+	ScheduledFor    string                    `json:"scheduled_for"`
+	Timezone        string                    `json:"timezone"`
+	MediaItems      []map[string]any          `json:"media_items"`
+	Queued          bool                      `json:"queued"`
+	TikTokOptions   *social.TikTokPostOptions `json:"tiktok_options"`
+	Title           string                    `json:"title,omitempty"`
+	Description     string                    `json:"description,omitempty"`
+	PhotoCoverIndex *int                      `json:"photo_cover_index,omitempty"`
+	IsAIGC          *bool                     `json:"is_aigc,omitempty"`
 }
 
 // SocialCreatePost POST /api/social/v1/posts
@@ -453,16 +457,20 @@ func SocialCreatePost(c *gin.Context) {
 		publishNow = false
 	}
 	post, err := socialSvc.CreatePost(c.Request.Context(), c.GetInt("id"), social.CreatePostInput{
-		Provider:       req.Provider,
-		Content:        req.Content,
-		AccountIDs:     req.AccountIDs,
-		PublishNow:     publishNow,
-		ScheduledFor:   req.ScheduledFor,
-		Timezone:       req.Timezone,
-		MediaItems:     req.MediaItems,
-		IdempotencyKey: idem,
-		Queued:         req.Queued,
-		TikTokOptions:  req.TikTokOptions,
+		Provider:        req.Provider,
+		Content:         req.Content,
+		AccountIDs:      req.AccountIDs,
+		PublishNow:      publishNow,
+		ScheduledFor:    req.ScheduledFor,
+		Timezone:        req.Timezone,
+		MediaItems:      req.MediaItems,
+		IdempotencyKey:  idem,
+		Queued:          req.Queued,
+		TikTokOptions:   req.TikTokOptions,
+		Title:           req.Title,
+		Description:     req.Description,
+		PhotoCoverIndex: req.PhotoCoverIndex,
+		IsAIGC:          req.IsAIGC,
 	})
 	if err != nil {
 		socialError(c, err)

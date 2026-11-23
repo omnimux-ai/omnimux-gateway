@@ -296,7 +296,7 @@ func AccountGuard(userId int, localIDs []int64) ([]*model.SocialAccount, error) 
 	return rows, nil
 }
 
-// TikTokPostOptions carries optional Content Sharing Guidelines metadata for a TikTok Direct post.
+// TikTokPostOptions carries optional Content Sharing Guidelines and photo draft metadata for a TikTok Direct post.
 type TikTokPostOptions struct {
 	PrivacyLevel        string `json:"privacy_level,omitempty"`
 	AllowComment        *bool  `json:"allow_comment,omitempty"`
@@ -306,20 +306,28 @@ type TikTokPostOptions struct {
 	YourBrand           *bool  `json:"your_brand,omitempty"`
 	BrandedContent      *bool  `json:"branded_content,omitempty"`
 	MusicUsageConfirmed *bool  `json:"music_usage_confirmed,omitempty"`
+	Title               string `json:"title,omitempty"`
+	Description         string `json:"description,omitempty"`
+	PhotoCoverIndex     *int   `json:"photo_cover_index,omitempty"`
+	IsAIGC              *bool  `json:"is_aigc,omitempty"`
 }
 
 // CreatePostInput is the user-facing create-post body.
 type CreatePostInput struct {
-	Provider       string
-	Content        string
-	AccountIDs     []int64
-	PublishNow     bool
-	ScheduledFor   string
-	Timezone       string
-	MediaItems     []map[string]any
-	IdempotencyKey string
-	Queued         bool
-	TikTokOptions  *TikTokPostOptions
+	Provider        string
+	Content         string
+	AccountIDs      []int64
+	PublishNow      bool
+	ScheduledFor    string
+	Timezone        string
+	MediaItems      []map[string]any
+	IdempotencyKey  string
+	Queued          bool
+	TikTokOptions   *TikTokPostOptions
+	Title           string
+	Description     string
+	PhotoCoverIndex *int
+	IsAIGC          *bool
 }
 
 // CreatePost publishes or schedules a post for the user's owned accounts only.

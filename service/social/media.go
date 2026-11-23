@@ -167,7 +167,7 @@ func (s *Service) WrapTikTokVerifiedMediaURL(rawURL string) (string, error) {
 		return rawURL, nil
 	}
 	mediaParsed, err := url.Parse(rawURL)
-	if err != nil || mediaParsed == nil || mediaParsed.Host == "" {
+	if err != nil || mediaParsed == nil || mediaParsed.Host == "" || mediaParsed.User != nil || mediaParsed.Fragment != "" {
 		return "", fmt.Errorf("%w: invalid media url", ErrMediaInvalid)
 	}
 	if strings.EqualFold(mediaParsed.Host, redirectParsed.Host) && strings.EqualFold(mediaParsed.Scheme, redirectParsed.Scheme) {
@@ -262,19 +262,31 @@ func NormalizeMediaItems(raw []map[string]any, maxItems int) ([]map[string]any, 
 		if u == "" {
 			return nil, fmt.Errorf("media_items[%d].url is required", i)
 		}
-		if _, err := url.ParseRequestURI(u); err != nil {
+		parsedURL, err := url.ParseRequestURI(u)
+		if err != nil {
 			return nil, fmt.Errorf("media_items[%d].url is invalid", i)
 		}
 		entry := map[string]any{"url": u}
 		typ := firstString(item, "type", "media_type", "mediaType")
 		typ = strings.ToLower(strings.TrimSpace(typ))
 		if typ == "" {
-			// Infer from URL extension when possible
-			ext := strings.ToLower(path.Ext(u))
+			if ct := strings.ToLower(strings.TrimSpace(strings.Split(firstString(item, "content_type", "contentType", "mime_type", "mimeType"), ";")[0])); ct != "" {
+				if kind, ok := allowedContentTypes[ct]; ok {
+					typ = kind
+				} else if strings.HasPrefix(ct, "image/") {
+					typ = "image"
+				} else if strings.HasPrefix(ct, "video/") {
+					typ = "video"
+				}
+			}
+		}
+		if typ == "" {
+			// Infer from URL path extension when possible (ignore query parameters).
+			ext := strings.ToLower(path.Ext(parsedURL.Path))
 			switch ext {
 			case ".mp4", ".mov", ".webm", ".m4v", ".avi", ".mpeg", ".mpg":
 				typ = "video"
-			case ".png", ".jpg", ".jpeg", ".gif", ".webp":
+			case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".heic", ".heif", ".avif", ".tif", ".tiff":
 				typ = "image"
 			case ".mp3", ".aac", ".wav", ".ogg", ".m4a":
 				typ = "audio"

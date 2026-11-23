@@ -91,17 +91,23 @@ omnimux skill install --user  # ~/.agents/skills/<id>; or --project inside a rep
 
 Everything is also overridable per-invocation: `omnimux --base-url https://... models`, or via env vars `OMNIMUX_BASE_URL` / `OMNIMUX_ACCESS_TOKEN` / `OMNIMUX_USER_ID`. Priority: **flag > env > config file > built-in default (`https://omnimux.ai`)**.
 
-## Social migration to 0.4.0
+## Social Ops (official TikTok direct)
 
-Upgrade with `omnimux update` for binaries or `npm install -g @omnimux/cli@0.4.0` for npm. Update scripts as well: `social accounts`, `connect`, `disconnect`, `post`, and `post-status` all require `--provider zernio|tiktok_direct`. No source is inferred. For example:
+Social commands target the official TikTok direct integration (`--provider tiktok_direct`). The legacy `zernio` proxy has been retired — passing `--provider zernio` fails locally with a migration notice before any HTTP request is sent.
+
+`social accounts`, `connect`, `disconnect`, `post`, and `post-status` require `--provider tiktok_direct`; `social creator-info <accountId>` defaults to `tiktok_direct` (and also accepts `--provider tiktok_direct`). Examples:
 
 ```bash
-omnimux social accounts --provider zernio
 omnimux social accounts --provider tiktok_direct
-omnimux social post-status <post-id> --provider zernio --no-refresh
+omnimux social creator-info <account-id> --provider tiktok_direct
+omnimux social post --provider tiktok_direct --accounts <account-id> \
+  --media https://cdn.example.com/slide1.jpg,https://cdn.example.com/slide2.webp \
+  --title "Spring Lookbook" --description "Shop the drop" \
+  --photo-cover-index 0 --is-aigc=false
+omnimux social post-status <post-id> --provider tiktok_direct --no-refresh
 ```
 
-Use the provider that owns the account/post. Missing or unknown CLI providers fail before HTTP; the gateway rejects invalid providers with 400 and cross-source resources with 409. The Agent RPC envelope remains version 1. See [CHANGELOG.md](./CHANGELOG.md) for all changes since 0.3.0, including credential storage and hosted commands.
+For `social post`, TikTok compliance and photo-draft options can be passed via flags (`--title`, `--description`, `--photo-cover-index`, `--is-aigc` / `--no-is-aigc`, `--privacy-level`, `--allow-comment` / `--no-allow-comment`, `--allow-duet` / `--no-allow-duet`, `--allow-stitch` / `--no-allow-stitch`, `--commercial-content`, `--your-brand`, `--branded-content`, `--music-usage-confirmed`) or structured `--tiktok-options '<json>'`. Missing or unknown CLI providers fail before HTTP; the gateway rejects invalid providers with 400 and cross-source resources with 409. The Agent RPC envelope remains version 1. See [CHANGELOG.md](./CHANGELOG.md) for historical release notes, including 0.4.0 credential storage and hosted commands.
 
 ## Commands
 
