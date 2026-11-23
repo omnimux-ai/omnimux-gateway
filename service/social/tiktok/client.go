@@ -51,6 +51,7 @@ type APIError struct {
 	Status   int
 	Code     string
 	Message  string
+	LogID    string
 	Body     string
 	Endpoint string
 }
@@ -85,12 +86,17 @@ type Token struct {
 }
 
 type tokenEnvelope struct {
-	Data         *Token        `json:"data"`
-	Error        *apiErrorBody `json:"error"`
-	AccessToken  string        `json:"access_token"`
-	RefreshToken string        `json:"refresh_token"`
-	ExpiresIn    int64         `json:"expires_in"`
-	OpenID       string        `json:"open_id"`
+	Data             *Token        `json:"data"`
+	Error            *apiErrorBody `json:"error"`
+	ErrorDescription string        `json:"error_description"`
+	LogID            string        `json:"log_id"`
+	AccessToken      string        `json:"access_token"`
+	RefreshToken     string        `json:"refresh_token"`
+	ExpiresIn        int64         `json:"expires_in"`
+	RefreshExpiresIn int64         `json:"refresh_expires_in"`
+	OpenID           string        `json:"open_id"`
+	Scope            string        `json:"scope"`
+	TokenType        string        `json:"token_type"`
 }
 
 type apiErrorBody struct {
@@ -98,6 +104,56 @@ type apiErrorBody struct {
 	Message   string `json:"message"`
 	LogID     string `json:"log_id"`
 	ErrorCode string `json:"error_code"`
+}
+
+// UnmarshalJSON accepts both TikTok v2 nested object errors
+// ({"code":"...","message":"...","log_id":"..."}) and OAuth v2 flat string
+// errors ("invalid_grant").
+func (e *apiErrorBody) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return nil
+	}
+	if trimmed[0] == '"' {
+		var code string
+		if err := common.Unmarshal(trimmed, &code); err != nil {
+			return err
+		}
+		e.Code = code
+		return nil
+	}
+	type rawAPIErrorBody apiErrorBody
+	var obj rawAPIErrorBody
+	if err := common.Unmarshal(trimmed, &obj); err != nil {
+		return err
+	}
+	*e = apiErrorBody(obj)
+	return nil
+}
+
+func (env *tokenEnvelope) apiError(endpoint string, status int) *APIError {
+	if env == nil || env.Error == nil {
+		return nil
+	}
+	code := env.Error.Code
+	if code == "" {
+		code = env.Error.ErrorCode
+	}
+	msg := env.Error.Message
+	if msg == "" {
+		msg = env.ErrorDescription
+	}
+	logID := env.Error.LogID
+	if logID == "" {
+		logID = env.LogID
+	}
+	return &APIError{
+		Status:   status,
+		Code:     code,
+		Message:  msg,
+		LogID:    logID,
+		Endpoint: endpoint,
+	}
 }
 
 func (c *Client) doForm(ctx context.Context, endpoint, path string, form url.Values, bearer string) ([]byte, int, error) {
@@ -155,12 +211,13 @@ func (c *Client) doRaw(ctx context.Context, endpoint string, req *http.Request) 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		ae := &APIError{Status: resp.StatusCode, Endpoint: endpoint}
 		var eb tokenEnvelope
-		if e2 := common.Unmarshal(raw, &eb); e2 == nil && eb.Error != nil {
-			ae.Code = eb.Error.Code
-			if ae.Code == "" {
-				ae.Code = eb.Error.ErrorCode
+		if e2 := common.Unmarshal(raw, &eb); e2 == nil {
+			if parsed := eb.apiError(endpoint, resp.StatusCode); parsed != nil {
+				ae = parsed
+			} else if eb.ErrorDescription != "" {
+				ae.Message = eb.ErrorDescription
+				ae.LogID = eb.LogID
 			}
-			ae.Message = eb.Error.Message
 		}
 		if ae.Message == "" {
 			msg := string(raw)
@@ -184,14 +241,17 @@ func parseToken(raw []byte) (*Token, error) {
 	}
 	if env.AccessToken != "" {
 		return &Token{
-			AccessToken:  env.AccessToken,
-			RefreshToken: env.RefreshToken,
-			ExpiresIn:    env.ExpiresIn,
-			OpenID:       env.OpenID,
+			AccessToken:      env.AccessToken,
+			RefreshToken:     env.RefreshToken,
+			ExpiresIn:        env.ExpiresIn,
+			RefreshExpiresIn: env.RefreshExpiresIn,
+			OpenID:           env.OpenID,
+			Scope:            env.Scope,
+			TokenType:        env.TokenType,
 		}, nil
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "token"}
+		return nil, env.apiError("token", 0)
 	}
 	return nil, errors.New("tiktok: token: empty access_token")
 }

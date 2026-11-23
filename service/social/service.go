@@ -31,8 +31,9 @@ var (
 
 // Service is the Social Ops application service (tenant mapping + Zernio proxy).
 type Service struct {
-	cfg    Config
-	client *zernio.Client
+	cfg          Config
+	client       *zernio.Client
+	refreshLocks accountRefreshLocker
 }
 
 func NewService(cfg Config) *Service {
@@ -568,23 +569,26 @@ func truncate(s string, max int) string {
 	return string(runes[:max])
 }
 
-// validateRedirectURL allows empty, exact default, or same host as default.
+// validateRedirectURL allows empty, exact default, or same host as default with a safe scheme.
 func validateRedirectURL(redirectURL, defaultURL string) error {
 	u, err := url.Parse(redirectURL)
-	if err != nil || u.Host == "" {
+	if err != nil || u.Host == "" || u.User != nil {
+		return ErrRedirectDenied
+	}
+	scheme := strings.ToLower(u.Scheme)
+	isLoopback := u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1"
+	if scheme != "https" && !(scheme == "http" && isLoopback) {
 		return ErrRedirectDenied
 	}
 	if defaultURL == "" {
-		if u.Scheme == "https" {
-			return nil
-		}
-		if u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1") {
-			return nil
-		}
-		return ErrRedirectDenied
+		return nil
 	}
 	d, err := url.Parse(defaultURL)
 	if err != nil || d.Host == "" {
+		return ErrRedirectDenied
+	}
+	defaultScheme := strings.ToLower(d.Scheme)
+	if defaultScheme == "https" && scheme != "https" {
 		return ErrRedirectDenied
 	}
 	if !strings.EqualFold(u.Hostname(), d.Hostname()) {

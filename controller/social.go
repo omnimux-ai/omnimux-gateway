@@ -3,12 +3,12 @@ package controller
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"html"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -62,7 +62,11 @@ func socialOAuthBrowserCookieValid(c *gin.Context, state string) bool {
 		return false
 	}
 	value, err := c.Cookie(socialOAuthBrowserCookieName(state))
-	return err == nil && value == socialOAuthBrowserCookieValue(state)
+	if err != nil {
+		return false
+	}
+	expected := socialOAuthBrowserCookieValue(state)
+	return subtle.ConstantTimeCompare([]byte(value), []byte(expected)) == 1
 }
 
 func clearSocialOAuthBrowserCookie(c *gin.Context, state string) {
@@ -210,6 +214,7 @@ type socialConnectRequest struct {
 
 // SocialConnect POST /api/social/v1/connect
 func SocialConnect(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	var req socialConnectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ApiErrorMsg(c, "invalid request body")
@@ -220,19 +225,55 @@ func SocialConnect(c *gin.Context) {
 		socialError(c, err)
 		return
 	}
-	if strings.EqualFold(req.Provider, social.ProviderTikTokDirect) {
-		if parsed, parseErr := url.Parse(authURL); parseErr == nil {
-			setSocialOAuthBrowserCookie(c, parsed.Query().Get("state"))
-		}
-	}
 	common.ApiSuccess(c, gin.H{"auth_url": authURL, "platform": social.NormalizePlatform(req.Platform), "provider": req.Provider})
+}
+
+// SocialTikTokOAuthStart redeems a one-time launch ticket in the user's browser,
+// binds the fresh OAuth state to that browser via an HttpOnly cookie, and redirects
+// to the server-validated TikTok authorize URL.
+// fork: tiktok-direct
+// GET /api/social/v1/oauth/tiktok/start?ticket=...
+func SocialTikTokOAuthStart(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("X-Frame-Options", "DENY")
+	c.Header("X-Content-Type-Options", "nosniff")
+	renderStartError := func(status int, msg string) {
+		c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox")
+		c.Data(status, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 授权失败", msg, "")))
+	}
+	ticket := c.Query("ticket")
+	if ticket == "" {
+		renderStartError(http.StatusBadRequest, "授权链接无效或已过期，请返回客户端重新发起连接。")
+		return
+	}
+	res, err := socialSvc.StartTikTokOAuth(c.Request.Context(), ticket)
+	if err != nil {
+		switch {
+		case errors.Is(err, social.ErrTikTokOAuthTicketExpired):
+			renderStartError(http.StatusBadRequest, "授权链接已过期，请返回客户端重新发起连接。")
+		case errors.Is(err, social.ErrTikTokOAuthTicketInvalid):
+			renderStartError(http.StatusBadRequest, "授权链接无效或已使用，请返回客户端重新发起连接。")
+		case errors.Is(err, social.ErrDisabled), errors.Is(err, social.ErrTikTokDirectNotConfigured):
+			renderStartError(http.StatusServiceUnavailable, "TikTok 授权服务暂不可用，请稍后重试。")
+		default:
+			renderStartError(http.StatusBadRequest, "无法启动 TikTok 授权，请返回客户端重新发起连接。")
+		}
+		return
+	}
+	c.Header("Content-Security-Policy", "frame-ancestors 'none'")
+	setSocialOAuthBrowserCookie(c, res.State)
+	c.Redirect(http.StatusFound, res.AuthorizeURL)
 }
 
 // SocialTikTokCallback handles the official TikTok OAuth redirect (anonymous, state-bound).
 // fork: tiktok-direct
 // GET (and POST for defensive parity) /api/social/v1/oauth/tiktok/callback?code=...&state=...
 func SocialTikTokCallback(c *gin.Context) {
-	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("X-Frame-Options", "DENY")
+	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox")
 	c.Header("X-Content-Type-Options", "nosniff")
 	code := c.Query("code")
 	state := c.Query("state")
@@ -250,11 +291,13 @@ func SocialTikTokCallback(c *gin.Context) {
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 授权失败", "authorization flow does not belong to this browser", "")))
 		return
 	}
-	defer clearSocialOAuthBrowserCookie(c, state)
+	// Clear the one-time browser binding cookie before writing the response so Set-Cookie is sent.
+	clearSocialOAuthBrowserCookie(c, state)
 	res, err := socialSvc.HandleTikTokCallback(c.Request.Context(), code, state)
 	if err != nil {
 		sanitized := err.Error()
-		if strings.Contains(strings.ToLower(sanitized), "bearer") || strings.Contains(strings.ToLower(sanitized), "client_secret") {
+		lower := strings.ToLower(sanitized)
+		if strings.Contains(lower, "bearer") || strings.Contains(lower, "client_secret") || strings.Contains(sanitized, state) || strings.Contains(sanitized, code) {
 			sanitized = "upstream request failed"
 		}
 		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 授权失败", sanitized, "")))
