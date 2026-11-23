@@ -221,6 +221,85 @@ func TestPublishVideoToInboxByURL(t *testing.T) {
 	assert.NotContains(t, gotBody, "post_info")
 }
 
+func TestPublishPhotoToInboxByURL(t *testing.T) {
+	t.Run("multi-photo carousel with explicit zero cover index and false is_aigc", func(t *testing.T) {
+		var gotPath, gotAuth, gotBody string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotAuth = r.Header.Get("Authorization")
+			buf := make([]byte, 8192)
+			n, _ := r.Body.Read(buf)
+			gotBody = string(buf[:n])
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"publish_id":"pub-photo-draft-1"}}`))
+		}))
+		defer srv.Close()
+
+		c := NewClient(srv.URL)
+		zero := 0
+		isAIGC := false
+		res, err := c.PublishPhotoToInboxByURL(
+			context.Background(),
+			"at-photo-1",
+			[]string{
+				"https://omnimux.ai/api/social/v1/public/media/tok-1",
+				"https://omnimux.ai/api/social/v1/public/media/tok-2",
+			},
+			&PhotoDraftOptions{
+				Title:           "Spring Lookbook",
+				Description:     "Two-slide carousel #ootd",
+				PhotoCoverIndex: &zero,
+				IsAIGC:          &isAIGC,
+			},
+		)
+		require.NoError(t, err)
+		assert.Equal(t, "pub-photo-draft-1", res.PublishID)
+		assert.Equal(t, "/v2/post/publish/content/init/", gotPath)
+		assert.Equal(t, "Bearer at-photo-1", gotAuth)
+		assert.Contains(t, gotBody, `"post_mode":"MEDIA_UPLOAD"`)
+		assert.Contains(t, gotBody, `"media_type":"PHOTO"`)
+		assert.Contains(t, gotBody, `"source":"PULL_FROM_URL"`)
+		assert.Contains(t, gotBody, `"photo_images":["https://omnimux.ai/api/social/v1/public/media/tok-1","https://omnimux.ai/api/social/v1/public/media/tok-2"]`)
+		assert.Contains(t, gotBody, `"photo_cover_index":0`)
+		assert.Contains(t, gotBody, `"title":"Spring Lookbook"`)
+		assert.Contains(t, gotBody, `"description":"Two-slide carousel #ootd"`)
+		assert.Contains(t, gotBody, `"is_aigc":false`)
+		assert.NotContains(t, gotBody, "privacy_level")
+		assert.NotContains(t, gotBody, "disable_comment")
+		assert.NotContains(t, gotBody, "disable_duet")
+		assert.NotContains(t, gotBody, "disable_stitch")
+		assert.NotContains(t, gotBody, "brand_content_toggle")
+		assert.NotContains(t, gotBody, "brand_organic_toggle")
+	})
+
+	t.Run("nil options omits post_info and photo_cover_index", func(t *testing.T) {
+		var gotBody string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			buf := make([]byte, 4096)
+			n, _ := r.Body.Read(buf)
+			gotBody = string(buf[:n])
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"publish_id":"pub-photo-draft-min"}}`))
+		}))
+		defer srv.Close()
+
+		c := NewClient(srv.URL)
+		res, err := c.PublishPhotoToInboxByURL(context.Background(), "at-min", []string{"https://omnimux.ai/api/social/v1/public/media/tok-only"}, nil)
+		require.NoError(t, err)
+		assert.Equal(t, "pub-photo-draft-min", res.PublishID)
+		assert.Contains(t, gotBody, `"post_mode":"MEDIA_UPLOAD"`)
+		assert.Contains(t, gotBody, `"media_type":"PHOTO"`)
+		assert.NotContains(t, gotBody, "post_info")
+		assert.NotContains(t, gotBody, "photo_cover_index")
+	})
+
+	t.Run("empty photo_images fails locally", func(t *testing.T) {
+		c := NewClient("http://127.0.0.1:1")
+		_, err := c.PublishPhotoToInboxByURL(context.Background(), "at-1", nil, nil)
+		require.Error(t, err)
+	})
+}
+
 func TestPublishWithOptionsMapsComplianceFields(t *testing.T) {
 	var gotVideoBody, gotPhotoBody string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

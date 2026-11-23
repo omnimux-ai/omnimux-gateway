@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +36,8 @@ const (
 	tikTokRefreshRedisLockTTL      = 20 * time.Second
 	tikTokRefreshRedisWaitLimit    = 5 * time.Second
 	tikTokRefreshRedisPollInterval = 50 * time.Millisecond
+
+	tikTokMaxPhotoItems = 35
 )
 
 var (
@@ -727,19 +730,248 @@ func (s *Service) TikTokCapabilities(acc *model.SocialAccount) (uploadDraft, dir
 	return s.tiktokCapabilitiesFor(acc)
 }
 
-// uploadTikTokDraft sends one video to the creator's TikTok inbox. The creator
-// finishes editing and posting inside TikTok; title and privacy options do not apply.
-func (s *Service) uploadTikTokDraft(ctx context.Context, client *tiktok.Client, accessToken string, mediaItems []map[string]any) (*tiktok.PublishInitResponse, error) {
-	if len(mediaItems) != 1 {
-		return nil, fmt.Errorf("%w: tiktok draft upload accepts exactly one video", ErrMediaInvalid)
+func isKnownTikTokImageExt(ext string) bool {
+	switch ext {
+	case ".jpg", ".jpeg", ".webp", ".png", ".gif", ".bmp", ".svg", ".heic", ".heif", ".avif", ".tif", ".tiff":
+		return true
+	default:
+		return false
 	}
-	item := mediaItems[0]
-	typ := strings.ToLower(fmt.Sprint(item["type"]))
-	u := strings.TrimSpace(fmt.Sprint(item["url"]))
-	if typ == "image" || isImageURL(u) {
-		return nil, fmt.Errorf("%w: tiktok draft upload supports video only; photo posts require video.publish", ErrMediaInvalid)
+}
+
+func isSupportedTikTokPhotoExt(ext string) bool {
+	switch ext {
+	case ".jpg", ".jpeg", ".webp":
+		return true
+	default:
+		return false
 	}
-	wrapped, err := s.WrapTikTokVerifiedMediaURL(u)
+}
+
+func isSupportedTikTokPhotoMIME(ct string) bool {
+	switch ct {
+	case "image/jpeg", "image/jpg", "image/webp":
+		return true
+	default:
+		return false
+	}
+}
+
+func isKnownTikTokVideoExt(ext string) bool {
+	switch ext {
+	case ".mp4", ".mov", ".webm", ".m4v", ".avi", ".mpeg", ".mpg":
+		return true
+	default:
+		return false
+	}
+}
+
+func itemStringValue(m map[string]any, key string) string {
+	if m == nil {
+		return ""
+	}
+	if v, ok := m[key].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
+}
+
+func itemContentType(rawItems []map[string]any, idx int) string {
+	if idx < 0 || idx >= len(rawItems) || rawItems[idx] == nil {
+		return ""
+	}
+	ct := firstString(rawItems[idx], "content_type", "contentType", "mime_type", "mimeType")
+	if semi := strings.IndexByte(ct, ';'); semi >= 0 {
+		ct = ct[:semi]
+	}
+	return strings.ToLower(strings.TrimSpace(ct))
+}
+
+// classifyTikTokMediaItems validates media URLs, rejects mixed photo+video payloads,
+// enforces TikTok's 1..35 JPEG/WebP photo rules (bounded by maxConfigured when set),
+// and enforces single-video payloads.
+func classifyTikTokMediaItems(rawItems, normalizedItems []map[string]any, maxConfigured int) (isPhoto bool, urls []string, err error) {
+	if len(normalizedItems) == 0 {
+		return false, nil, fmt.Errorf("%w: tiktok direct requires at least one media item (video or photo)", ErrMediaInvalid)
+	}
+	type classifiedItem struct {
+		url string
+		ext string
+		ct  string
+	}
+	var hasImage, hasVideo bool
+	items := make([]classifiedItem, 0, len(normalizedItems))
+	for i, m := range normalizedItems {
+		rawURL := itemStringValue(m, "url")
+		if rawURL == "" {
+			return false, nil, fmt.Errorf("%w: empty media url", ErrMediaInvalid)
+		}
+		parsed, parseErr := url.Parse(rawURL)
+		if parseErr != nil || parsed == nil || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
+			return false, nil, fmt.Errorf("%w: invalid media url", ErrMediaInvalid)
+		}
+		scheme := strings.ToLower(parsed.Scheme)
+		if scheme != "https" && scheme != "http" {
+			return false, nil, fmt.Errorf("%w: media url must use https", ErrMediaInvalid)
+		}
+		ext := strings.ToLower(path.Ext(parsed.Path))
+		typ := strings.ToLower(itemStringValue(m, "type"))
+		if typ == "photo" {
+			typ = "image"
+		}
+		ct := itemContentType(rawItems, i)
+		if typ != "" && typ != "image" && typ != "video" {
+			return false, nil, fmt.Errorf("%w: unsupported tiktok media type %q", ErrMediaInvalid, typ)
+		}
+		imgSignal := typ == "image" || strings.HasPrefix(ct, "image/") || isKnownTikTokImageExt(ext)
+		vidSignal := typ == "video" || strings.HasPrefix(ct, "video/") || isKnownTikTokVideoExt(ext)
+		if imgSignal && vidSignal {
+			return false, nil, fmt.Errorf("%w: conflicting media type and format in media_items[%d]", ErrMediaInvalid, i)
+		}
+		if ct != "" && !strings.HasPrefix(ct, "image/") && !strings.HasPrefix(ct, "video/") {
+			return false, nil, fmt.Errorf("%w: unsupported tiktok content_type %q", ErrMediaInvalid, ct)
+		}
+		if imgSignal {
+			hasImage = true
+		} else if vidSignal || (ext == "" && typ == "" && ct == "") {
+			hasVideo = true
+		} else {
+			return false, nil, fmt.Errorf("%w: unsupported tiktok media format %q", ErrMediaInvalid, ext)
+		}
+		items = append(items, classifiedItem{url: rawURL, ext: ext, ct: ct})
+	}
+	if hasImage && hasVideo {
+		return false, nil, fmt.Errorf("%w: tiktok does not allow mixing photos and videos in one post", ErrMediaInvalid)
+	}
+	if hasImage {
+		limit := tikTokMaxPhotoItems
+		if maxConfigured > 0 && maxConfigured < limit {
+			limit = maxConfigured
+		}
+		if len(items) < 1 || len(items) > limit {
+			return false, nil, fmt.Errorf("%w: tiktok photo post accepts 1 to %d images", ErrMediaInvalid, limit)
+		}
+		urls = make([]string, 0, len(items))
+		for _, it := range items {
+			if it.ct != "" && !isSupportedTikTokPhotoMIME(it.ct) {
+				return false, nil, fmt.Errorf("%w: tiktok photo posts support JPEG and WebP only (got %s)", ErrMediaInvalid, it.ct)
+			}
+			if it.ext != "" && !isSupportedTikTokPhotoExt(it.ext) {
+				return false, nil, fmt.Errorf("%w: tiktok photo posts support JPEG and WebP only (got %s)", ErrMediaInvalid, it.ext)
+			}
+			if it.ct == "" && it.ext == "" {
+				return false, nil, fmt.Errorf("%w: tiktok photo posts require a JPEG or WebP image url or content_type", ErrMediaInvalid)
+			}
+			urls = append(urls, it.url)
+		}
+		return true, urls, nil
+	}
+	if len(items) != 1 {
+		return false, nil, fmt.Errorf("%w: tiktok video post accepts exactly one video", ErrMediaInvalid)
+	}
+	return false, []string{items[0].url}, nil
+}
+
+func resolveTikTokPhotoDraftOptions(in CreatePostInput, photoCount int) (*tiktok.PhotoDraftOptions, error) {
+	var title, desc string
+	var coverIdx *int
+	var isAIGC *bool
+	if in.TikTokOptions != nil {
+		title = strings.TrimSpace(in.TikTokOptions.Title)
+		desc = strings.TrimSpace(in.TikTokOptions.Description)
+		coverIdx = in.TikTokOptions.PhotoCoverIndex
+		isAIGC = in.TikTokOptions.IsAIGC
+	}
+	if title == "" {
+		title = strings.TrimSpace(in.Title)
+	}
+	if desc == "" {
+		desc = strings.TrimSpace(in.Description)
+	}
+	if desc == "" {
+		desc = strings.TrimSpace(in.Content)
+	}
+	if coverIdx == nil {
+		coverIdx = in.PhotoCoverIndex
+	}
+	if isAIGC == nil {
+		isAIGC = in.IsAIGC
+	}
+	if coverIdx != nil && (*coverIdx < 0 || *coverIdx >= photoCount) {
+		return nil, fmt.Errorf("%w: photo_cover_index %d out of range [0,%d)", ErrMediaInvalid, *coverIdx, photoCount)
+	}
+	if title == "" && desc == "" && coverIdx == nil && isAIGC == nil {
+		return nil, nil
+	}
+	return &tiktok.PhotoDraftOptions{
+		Title:           title,
+		Description:     desc,
+		PhotoCoverIndex: coverIdx,
+		IsAIGC:          isAIGC,
+	}, nil
+}
+
+func applyTikTokDirectExtraOptions(opts *tiktok.PostOptions, in CreatePostInput, isPhoto bool, photoCount int) (string, error) {
+	title := strings.TrimSpace(in.Content)
+	var optTitle, optDesc string
+	var coverIdx *int
+	var isAIGC *bool
+	if in.TikTokOptions != nil {
+		optTitle = strings.TrimSpace(in.TikTokOptions.Title)
+		optDesc = strings.TrimSpace(in.TikTokOptions.Description)
+		coverIdx = in.TikTokOptions.PhotoCoverIndex
+		isAIGC = in.TikTokOptions.IsAIGC
+	}
+	if optTitle == "" {
+		optTitle = strings.TrimSpace(in.Title)
+	}
+	if optTitle != "" {
+		title = optTitle
+	}
+	if optDesc == "" {
+		optDesc = strings.TrimSpace(in.Description)
+	}
+	if coverIdx == nil {
+		coverIdx = in.PhotoCoverIndex
+	}
+	if isAIGC == nil {
+		isAIGC = in.IsAIGC
+	}
+	if isPhoto {
+		if coverIdx != nil && (*coverIdx < 0 || *coverIdx >= photoCount) {
+			return "", fmt.Errorf("%w: photo_cover_index %d out of range [0,%d)", ErrMediaInvalid, *coverIdx, photoCount)
+		}
+		opts.Description = optDesc
+		opts.PhotoCoverIndex = coverIdx
+	}
+	opts.IsAIGC = isAIGC
+	return title, nil
+}
+
+// uploadTikTokDraft sends either a single video (/v2/post/publish/inbox/video/init/)
+// or a photo carousel (/v2/post/publish/content/init/ with post_mode="MEDIA_UPLOAD")
+// to the creator's TikTok inbox. Scope: video.upload.
+func (s *Service) uploadTikTokDraft(ctx context.Context, client *tiktok.Client, accessToken string, in CreatePostInput, mediaItems []map[string]any) (*tiktok.PublishInitResponse, error) {
+	isPhoto, rawURLs, err := classifyTikTokMediaItems(in.MediaItems, mediaItems, s.cfg.MaxMediaItems)
+	if err != nil {
+		return nil, err
+	}
+	if isPhoto {
+		draftOpts, err := resolveTikTokPhotoDraftOptions(in, len(rawURLs))
+		if err != nil {
+			return nil, err
+		}
+		wrappedURLs := make([]string, 0, len(rawURLs))
+		for _, u := range rawURLs {
+			wrapped, werr := s.WrapTikTokVerifiedMediaURL(u)
+			if werr != nil {
+				return nil, werr
+			}
+			wrappedURLs = append(wrappedURLs, wrapped)
+		}
+		return client.PublishPhotoToInboxByURL(ctx, accessToken, wrappedURLs, draftOpts)
+	}
+	wrapped, err := s.WrapTikTokVerifiedMediaURL(rawURLs[0])
 	if err != nil {
 		return nil, err
 	}
@@ -755,8 +987,7 @@ func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *m
 	if len(mediaItems) == 0 {
 		return nil, fmt.Errorf("%w: tiktok direct requires at least one media item (video or photo)", ErrMediaInvalid)
 	}
-	firstURL := fmt.Sprint(mediaItems[0]["url"])
-	if strings.TrimSpace(firstURL) == "" {
+	if itemStringValue(mediaItems[0], "url") == "" {
 		return nil, fmt.Errorf("%w: empty media url", ErrMediaInvalid)
 	}
 	uploadDraft, directPost := s.tiktokCapabilitiesFor(acc)
@@ -776,45 +1007,39 @@ func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *m
 	client := s.tiktokClient()
 
 	var pub *tiktok.PublishInitResponse
-	title := in.Content
 	if !directPost {
-		pub, err = s.uploadTikTokDraft(ctx, client, accessToken, mediaItems)
+		pub, err = s.uploadTikTokDraft(ctx, client, accessToken, in, mediaItems)
 	} else {
 		postOpts, optsErr := resolveTikTokPostOptions(in.TikTokOptions)
 		if optsErr != nil {
 			return nil, optsErr
 		}
+		isPhoto, rawURLs, mediaErr := classifyTikTokMediaItems(in.MediaItems, mediaItems, s.cfg.MaxMediaItems)
+		if mediaErr != nil {
+			return nil, mediaErr
+		}
+		title, extraErr := applyTikTokDirectExtraOptions(postOpts, in, isPhoto, len(rawURLs))
+		if extraErr != nil {
+			return nil, extraErr
+		}
 		// Capability check per TikTok guidelines (best-effort; failure does not block v1).
 		_, _ = client.QueryCreatorInfo(ctx, accessToken)
-		{
-			typ := strings.ToLower(fmt.Sprint(mediaItems[0]["type"]))
-			u := firstURL
-			if typ == "image" || isImageURL(u) {
-				urls := make([]string, 0, len(mediaItems))
-				for _, m := range mediaItems {
-					uu := strings.TrimSpace(fmt.Sprint(m["url"]))
-					if uu != "" {
-						wrapped, werr := s.WrapTikTokVerifiedMediaURL(uu)
-						if werr != nil {
-							return nil, werr
-						}
-						urls = append(urls, wrapped)
-					}
-				}
-				if len(urls) == 0 {
-					return nil, fmt.Errorf("%w: empty photo urls", ErrMediaInvalid)
-				}
-				pub, err = client.PublishPhotoByURLWithOptions(ctx, accessToken, title, urls, postOpts)
-			} else {
-				if u == "" {
-					return nil, fmt.Errorf("%w: empty video url", ErrMediaInvalid)
-				}
-				wrapped, werr := s.WrapTikTokVerifiedMediaURL(u)
+		if isPhoto {
+			urls := make([]string, 0, len(rawURLs))
+			for _, uu := range rawURLs {
+				wrapped, werr := s.WrapTikTokVerifiedMediaURL(uu)
 				if werr != nil {
 					return nil, werr
 				}
-				pub, err = client.PublishVideoByURLWithOptions(ctx, accessToken, title, wrapped, postOpts)
+				urls = append(urls, wrapped)
 			}
+			pub, err = client.PublishPhotoByURLWithOptions(ctx, accessToken, title, urls, postOpts)
+		} else {
+			wrapped, werr := s.WrapTikTokVerifiedMediaURL(rawURLs[0])
+			if werr != nil {
+				return nil, werr
+			}
+			pub, err = client.PublishVideoByURLWithOptions(ctx, accessToken, title, wrapped, postOpts)
 		}
 	}
 	if err != nil {
@@ -825,8 +1050,15 @@ func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *m
 	if directPost {
 		publishMode = "direct"
 	}
+	previewText := in.Content
+	if previewText == "" && in.TikTokOptions != nil {
+		previewText = firstNonEmpty(in.TikTokOptions.Title, in.TikTokOptions.Description)
+	}
+	if previewText == "" {
+		previewText = firstNonEmpty(in.Title, in.Description)
+	}
 	reqSnap, _ := common.Marshal(map[string]any{
-		"content_preview": truncate(in.Content, 200),
+		"content_preview": truncate(previewText, 200),
 		"account_ids":     in.AccountIDs,
 		"publish_now":     in.PublishNow,
 		"scheduled_for":   in.ScheduledFor,
@@ -840,7 +1072,7 @@ func (s *Service) createPostTikTokDirect(ctx context.Context, userId int, acc *m
 		ProviderPostID:  pub.PublishID,
 		IdempotencyKey:  in.IdempotencyKey,
 		Status:          "submitted",
-		ContentPreview:  truncate(in.Content, 200),
+		ContentPreview:  truncate(previewText, 200),
 		RequestSnapshot: string(reqSnap),
 	}
 	if err := model.CreateSocialPost(ledger); err != nil {
@@ -872,9 +1104,11 @@ func (s *Service) refreshTikTokPostStatus(ctx context.Context, p *model.SocialPo
 		return
 	}
 	mapped := mapTikTokPublishStatus(st.Status)
-	if mapped != "" && mapped != p.Status {
+	if mapped != "" {
 		snap, _ := common.Marshal(map[string]any{"status": st.Status, "fail_reason": st.FailReason, "publish_id": st.PublishID})
-		_ = model.UpdateSocialPostResult(p.ID, mapped, p.ProviderPostID, string(snap))
+		if mapped != p.Status || p.ResultSnapshot != string(snap) {
+			_ = model.UpdateSocialPostResult(p.ID, mapped, p.ProviderPostID, string(snap))
+		}
 	}
 }
 
@@ -901,21 +1135,13 @@ func mapTikTokPublishStatus(s string) string {
 		return "published"
 	case "FAILED", "FAIL":
 		return "failed"
-	case "PROCESSING_DOWNLOAD", "PROCESSING_UPLOAD", "SEND_TO_USER_INBOX", "PUBLISH_INITIATED":
+	case "SEND_TO_USER_INBOX":
+		return "sent_to_inbox"
+	case "PROCESSING_DOWNLOAD", "PROCESSING_UPLOAD", "PUBLISH_INITIATED":
 		return "processing"
 	default:
 		return ""
 	}
-}
-
-func isImageURL(u string) bool {
-	u = strings.ToLower(u)
-	for _, ext := range []string{".png", ".jpg", ".jpeg", ".gif", ".webp"} {
-		if strings.Contains(u, ext) {
-			return true
-		}
-	}
-	return false
 }
 
 // disconnectTikTokDirect revokes upstream token (best effort) and marks the account disconnected.

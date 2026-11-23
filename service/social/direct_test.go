@@ -5,6 +5,7 @@ package social
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -404,33 +405,273 @@ func TestCreatePostTikTokDraftUpload(t *testing.T) {
 	assert.NotContains(t, gotBody, "post_info")
 }
 
-func TestCreatePostTikTokDraftRejectsPhoto(t *testing.T) {
-	setupDirectDB(t)
-	cfg := testDirectConfig(t, "http://stub")
-	s := NewService(cfg)
-	require.NoError(t, model.DB.Create(&model.User{Id: 13, Username: "u13"}).Error)
-	enc, err := SealToken("at-13", cfg.SocialTokenEncKey)
-	require.NoError(t, err)
-	require.NoError(t, model.DB.Create(&model.SocialAccount{
-		UserId:               13,
-		Provider:             ProviderTikTokDirect,
-		ProviderAccountID:    "oid-13",
-		Platform:             "tiktok",
-		Status:               model.SocialAccountStatusActive,
-		AccessTokenEncrypted: enc,
-		ScopesGranted:        "user.info.basic,video.upload",
-	}).Error)
-	var acc model.SocialAccount
-	require.NoError(t, model.DB.Where("user_id = ?", 13).First(&acc).Error)
+func TestCreatePostTikTokDraftPhotoCarousel(t *testing.T) {
+	t.Run("single JPEG and multi-photo JPEG/WebP carousel upload via MEDIA_UPLOAD with wrapped URLs", func(t *testing.T) {
+		setupDirectDB(t)
+		var calls int
+		var gotPath, gotBody string
+		mux := http.NewServeMux()
+		mux.HandleFunc("/v2/post/publish/content/init/", func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			gotPath = r.URL.Path
+			buf := make([]byte, 16384)
+			n, _ := r.Body.Read(buf)
+			gotBody = string(buf[:n])
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"publish_id":"photo-draft-1"}}`))
+		})
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
 
-	_, err = s.CreatePost(context.Background(), 13, CreatePostInput{
-		Provider:   ProviderTikTokDirect,
-		Content:    "photo",
-		AccountIDs: []int64{acc.ID},
-		PublishNow: true,
-		MediaItems: []map[string]any{{"url": "https://cdn.example.com/a.png", "type": "image"}},
+		cfg := testDirectConfig(t, srv.URL)
+		s := NewService(cfg)
+		require.NoError(t, model.DB.Create(&model.User{Id: 13, Username: "u13"}).Error)
+		enc, err := SealToken("at-13", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		require.NoError(t, model.DB.Create(&model.SocialAccount{
+			UserId:               13,
+			Provider:             ProviderTikTokDirect,
+			ProviderAccountID:    "oid-13",
+			Platform:             "tiktok",
+			Status:               model.SocialAccountStatusActive,
+			AccessTokenEncrypted: enc,
+			ScopesGranted:        "user.info.basic,video.upload",
+		}).Error)
+		var acc model.SocialAccount
+		require.NoError(t, model.DB.Where("user_id = ?", 13).First(&acc).Error)
+
+		// 1) Single JPEG photo without explicit options
+		post1, err := s.CreatePost(context.Background(), 13, CreatePostInput{
+			Provider:   ProviderTikTokDirect,
+			Content:    "single photo caption",
+			AccountIDs: []int64{acc.ID},
+			PublishNow: true,
+			MediaItems: []map[string]any{
+				{"url": "https://cdn.example.com/look1.jpg?sig=abc"},
+			},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "photo-draft-1", post1.ProviderPostID)
+		assert.Equal(t, "submitted", post1.Status)
+		assert.Equal(t, "/v2/post/publish/content/init/", gotPath)
+		assert.Contains(t, gotBody, `"post_mode":"MEDIA_UPLOAD"`)
+		assert.Contains(t, gotBody, `"media_type":"PHOTO"`)
+		assert.Contains(t, gotBody, `"description":"single photo caption"`)
+
+		// 2) Multi-photo JPEG + WebP + extensionless content_type with explicit photo_cover_index=0 and is_aigc=false.
+		// Direct-post-only privacy/interaction fields must be omitted in MEDIA_UPLOAD.
+		zero := 0
+		isAIGC := false
+		tr := true
+		post2, err := s.CreatePost(context.Background(), 13, CreatePostInput{
+			Provider:   ProviderTikTokDirect,
+			AccountIDs: []int64{acc.ID},
+			PublishNow: true,
+			MediaItems: []map[string]any{
+				{"url": "https://cdn.example.com/slide1.jpeg?X-Amz-Signature=1"},
+				{"url": "https://cdn.example.com/slide2.webp"},
+				{"url": "https://cdn.example.com/asset/slide3", "type": "image", "content_type": "image/webp"},
+			},
+			TikTokOptions: &TikTokPostOptions{
+				Title:             "Lookbook Title",
+				Description:       "Lookbook Description",
+				PhotoCoverIndex:   &zero,
+				IsAIGC:            &isAIGC,
+				PrivacyLevel:      "PUBLIC_TO_EVERYONE",
+				AllowComment:      &tr,
+				AllowDuet:         &tr,
+				AllowStitch:       &tr,
+				CommercialContent: &tr,
+				YourBrand:         &tr,
+			},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "photo-draft-1", post2.ProviderPostID)
+		assert.Equal(t, 2, calls)
+
+		var payload struct {
+			PostMode   string `json:"post_mode"`
+			MediaType  string `json:"media_type"`
+			SourceInfo struct {
+				Source          string   `json:"source"`
+				PhotoImages     []string `json:"photo_images"`
+				PhotoCoverIndex *int     `json:"photo_cover_index"`
+			} `json:"source_info"`
+			PostInfo map[string]any `json:"post_info"`
+		}
+		require.NoError(t, common.Unmarshal([]byte(gotBody), &payload))
+		assert.Equal(t, "MEDIA_UPLOAD", payload.PostMode)
+		assert.Equal(t, "PHOTO", payload.MediaType)
+		assert.Equal(t, "PULL_FROM_URL", payload.SourceInfo.Source)
+		require.NotNil(t, payload.SourceInfo.PhotoCoverIndex)
+		assert.Equal(t, 0, *payload.SourceInfo.PhotoCoverIndex)
+		require.Len(t, payload.SourceInfo.PhotoImages, 3)
+
+		wantOriginals := []string{
+			"https://cdn.example.com/slide1.jpeg?X-Amz-Signature=1",
+			"https://cdn.example.com/slide2.webp",
+			"https://cdn.example.com/asset/slide3",
+		}
+		for i, wrapped := range payload.SourceInfo.PhotoImages {
+			require.True(t, strings.HasPrefix(wrapped, "https://omnimux.ai/api/social/v1/public/media/"), "image %d must be wrapped: %s", i, wrapped)
+			tok := strings.TrimPrefix(wrapped, "https://omnimux.ai/api/social/v1/public/media/")
+			unwrapped, uerr := s.OpenPublicMediaPullToken(tok)
+			require.NoError(t, uerr)
+			assert.Equal(t, wantOriginals[i], unwrapped)
+		}
+		assert.Equal(t, "Lookbook Title", payload.PostInfo["title"])
+		assert.Equal(t, "Lookbook Description", payload.PostInfo["description"])
+		assert.Equal(t, false, payload.PostInfo["is_aigc"])
+		assert.Contains(t, gotBody, `"photo_cover_index":0`)
+		assert.Contains(t, gotBody, `"is_aigc":false`)
+		assert.NotContains(t, gotBody, "privacy_level")
+		assert.NotContains(t, gotBody, "disable_comment")
+		assert.NotContains(t, gotBody, "disable_duet")
+		assert.NotContains(t, gotBody, "disable_stitch")
+		assert.NotContains(t, gotBody, "brand_content_toggle")
+		assert.NotContains(t, gotBody, "brand_organic_toggle")
 	})
-	require.ErrorIs(t, err, ErrMediaInvalid)
+
+	t.Run("rejects unsupported image format, mixed media, over-limit counts, bad cover index, and SSRF URLs", func(t *testing.T) {
+		setupDirectDB(t)
+		cfg := testDirectConfig(t, "https://api.example.com")
+		cfg.MaxMediaItems = 40
+		s := NewService(cfg)
+		require.NoError(t, model.DB.Create(&model.User{Id: 14, Username: "u14"}).Error)
+		enc, err := SealToken("at-14", cfg.SocialTokenEncKey)
+		require.NoError(t, err)
+		require.NoError(t, model.DB.Create(&model.SocialAccount{
+			UserId:               14,
+			Provider:             ProviderTikTokDirect,
+			ProviderAccountID:    "oid-14",
+			Platform:             "tiktok",
+			Status:               model.SocialAccountStatusActive,
+			AccessTokenEncrypted: enc,
+			ScopesGranted:        "user.info.basic,video.upload",
+		}).Error)
+		var acc model.SocialAccount
+		require.NoError(t, model.DB.Where("user_id = ?", 14).First(&acc).Error)
+
+		thirtySixPhotos := make([]map[string]any, 36)
+		for i := range thirtySixPhotos {
+			thirtySixPhotos[i] = map[string]any{"url": fmt.Sprintf("https://cdn.example.com/p%d.jpg", i)}
+		}
+		negIdx := -1
+		oobIdx := 2
+		cases := []struct {
+			name string
+			in   CreatePostInput
+		}{
+			{
+				name: "PNG unsupported",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{{"url": "https://cdn.example.com/a.png", "type": "image"}},
+				},
+			},
+			{
+				name: "GIF unsupported",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{{"url": "https://cdn.example.com/a.gif"}},
+				},
+			},
+			{
+				name: "extensionless image without content_type rejected",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{{"url": "https://cdn.example.com/asset/1", "type": "image"}},
+				},
+			},
+			{
+				name: "unsupported image content_type rejected",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{{"url": "https://cdn.example.com/asset/1", "type": "image", "content_type": "image/png"}},
+				},
+			},
+			{
+				name: "mixed photo and video rejected",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{
+						{"url": "https://cdn.example.com/a.jpg", "type": "image"},
+						{"url": "https://cdn.example.com/v.mp4", "type": "video"},
+					},
+				},
+			},
+			{
+				name: "exceeds TikTok 35-photo limit",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: thirtySixPhotos,
+				},
+			},
+			{
+				name: "negative photo_cover_index rejected",
+				in: CreatePostInput{
+					Provider:        ProviderTikTokDirect,
+					AccountIDs:      []int64{acc.ID},
+					MediaItems:      []map[string]any{{"url": "https://cdn.example.com/a.jpg"}},
+					PhotoCoverIndex: &negIdx,
+				},
+			},
+			{
+				name: "out-of-range photo_cover_index rejected",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{{"url": "https://cdn.example.com/a.jpg"}, {"url": "https://cdn.example.com/b.webp"}},
+					TikTokOptions: &TikTokPostOptions{
+						PhotoCoverIndex: &oobIdx,
+					},
+				},
+			},
+			{
+				name: "private IP SSRF photo URL rejected",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{{"url": "https://10.0.0.1/secret.jpg"}},
+				},
+			},
+			{
+				name: "non-HTTPS photo URL rejected",
+				in: CreatePostInput{
+					Provider:   ProviderTikTokDirect,
+					AccountIDs: []int64{acc.ID},
+					MediaItems: []map[string]any{{"url": "http://cdn.example.com/a.jpg"}},
+				},
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := s.CreatePost(context.Background(), 14, tc.in)
+				require.ErrorIs(t, err, ErrMediaInvalid)
+			})
+		}
+
+		// Also verify configured MaxMediaItems cap is respected when lower than 35.
+		cfgCap := testDirectConfig(t, "https://api.example.com")
+		cfgCap.MaxMediaItems = 2
+		sCap := NewService(cfgCap)
+		_, err = sCap.CreatePost(context.Background(), 14, CreatePostInput{
+			Provider:   ProviderTikTokDirect,
+			AccountIDs: []int64{acc.ID},
+			MediaItems: []map[string]any{
+				{"url": "https://cdn.example.com/1.jpg"},
+				{"url": "https://cdn.example.com/2.jpg"},
+				{"url": "https://cdn.example.com/3.jpg"},
+			},
+		})
+		require.ErrorIs(t, err, ErrMediaInvalid)
+	})
 }
 
 func TestTikTokPublishCapabilities(t *testing.T) {
@@ -553,8 +794,124 @@ func TestDisconnectDirect(t *testing.T) {
 func TestMapTikTokPublishStatus(t *testing.T) {
 	assert.Equal(t, "published", mapTikTokPublishStatus("PUBLISH_COMPLETE"))
 	assert.Equal(t, "failed", mapTikTokPublishStatus("FAILED"))
+	assert.Equal(t, "failed", mapTikTokPublishStatus("FAIL"))
+	assert.Equal(t, "sent_to_inbox", mapTikTokPublishStatus("SEND_TO_USER_INBOX"))
 	assert.Equal(t, "processing", mapTikTokPublishStatus("PROCESSING_UPLOAD"))
+	assert.Equal(t, "processing", mapTikTokPublishStatus("PROCESSING_DOWNLOAD"))
+	assert.Equal(t, "processing", mapTikTokPublishStatus("PUBLISH_INITIATED"))
 	assert.Equal(t, "", mapTikTokPublishStatus("SOMETHING_ELSE"))
+
+	assert.False(t, isTerminalStatus("sent_to_inbox"))
+	assert.False(t, isTerminalStatus("processing"))
+	assert.False(t, isTerminalStatus("submitted"))
+	assert.True(t, isTerminalStatus("published"))
+	assert.True(t, isTerminalStatus("failed"))
+}
+
+func TestGetPostTikTokSentToInboxContinuesPolling(t *testing.T) {
+	cases := []struct {
+		name           string
+		finalUpstream  string
+		finalFail      string
+		wantFinalState string
+	}{
+		{
+			name:           "sent_to_inbox transitions to published on later refresh",
+			finalUpstream:  "PUBLISH_COMPLETE",
+			wantFinalState: "published",
+		},
+		{
+			name:           "sent_to_inbox transitions to failed on later refresh",
+			finalUpstream:  "FAILED",
+			finalFail:      "user_cancelled",
+			wantFinalState: "failed",
+		},
+	}
+
+	for idx, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupDirectDB(t)
+			var statusCalls atomic.Int32
+			statuses := []struct {
+				status     string
+				failReason string
+			}{
+				{status: "PROCESSING_UPLOAD"},
+				{status: "SEND_TO_USER_INBOX"},
+				{status: tc.finalUpstream, failReason: tc.finalFail},
+			}
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v2/post/publish/status/fetch/", func(w http.ResponseWriter, r *http.Request) {
+				callIdx := int(statusCalls.Add(1)) - 1
+				if callIdx >= len(statuses) {
+					callIdx = len(statuses) - 1
+				}
+				cur := statuses[callIdx]
+				w.Header().Set("Content-Type", "application/json")
+				resp, _ := common.Marshal(map[string]any{
+					"data": map[string]any{
+						"status":      cur.status,
+						"fail_reason": cur.failReason,
+						"publish_id":  "pub-inbox-poll",
+					},
+					"error": map[string]any{"code": "ok", "message": ""},
+				})
+				_, _ = w.Write(resp)
+			})
+			srv := httptest.NewServer(mux)
+			defer srv.Close()
+
+			cfg := testDirectConfig(t, srv.URL)
+			s := NewService(cfg)
+			userID := 110 + idx
+			require.NoError(t, model.DB.Create(&model.User{Id: userID, Username: fmt.Sprintf("u%d", userID)}).Error)
+			enc, err := SealToken("at-poll", cfg.SocialTokenEncKey)
+			require.NoError(t, err)
+			acc := &model.SocialAccount{
+				UserId:               userID,
+				Provider:             ProviderTikTokDirect,
+				ProviderAccountID:    fmt.Sprintf("oid-poll-%d", idx),
+				Platform:             "tiktok",
+				Status:               model.SocialAccountStatusActive,
+				AccessTokenEncrypted: enc,
+				ScopesGranted:        "user.info.basic,video.upload",
+			}
+			require.NoError(t, model.DB.Create(acc).Error)
+			post := &model.SocialPost{
+				UserId:          userID,
+				Provider:        ProviderTikTokDirect,
+				ProviderPostID:  "pub-inbox-poll",
+				Status:          "submitted",
+				RequestSnapshot: fmt.Sprintf(`{"account_ids":[%d]}`, acc.ID),
+			}
+			require.NoError(t, model.CreateSocialPost(post))
+
+			// Poll 1: PROCESSING_UPLOAD -> processing
+			p1, err := s.GetPost(context.Background(), userID, ProviderTikTokDirect, post.ID, true)
+			require.NoError(t, err)
+			assert.Equal(t, "processing", p1.Status)
+			assert.Contains(t, p1.ResultSnapshot, `"status":"PROCESSING_UPLOAD"`)
+
+			// Poll 2: SEND_TO_USER_INBOX -> sent_to_inbox (non-terminal)
+			p2, err := s.GetPost(context.Background(), userID, ProviderTikTokDirect, post.ID, true)
+			require.NoError(t, err)
+			assert.Equal(t, "sent_to_inbox", p2.Status)
+			assert.Contains(t, p2.ResultSnapshot, `"status":"SEND_TO_USER_INBOX"`)
+
+			// Poll 3: refresh=1 from sent_to_inbox MUST continue polling upstream
+			p3, err := s.GetPost(context.Background(), userID, ProviderTikTokDirect, post.ID, true)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantFinalState, p3.Status)
+			assert.Contains(t, p3.ResultSnapshot, `"status":"`+tc.finalUpstream+`"`)
+			assert.Equal(t, int32(3), statusCalls.Load())
+
+			// Poll 4: once terminal (published/failed), refresh=1 does NOT call upstream again
+			p4, err := s.GetPost(context.Background(), userID, ProviderTikTokDirect, post.ID, true)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantFinalState, p4.Status)
+			assert.Equal(t, int32(3), statusCalls.Load())
+		})
+	}
 }
 
 func TestConsumeStateSingleUse(t *testing.T) {

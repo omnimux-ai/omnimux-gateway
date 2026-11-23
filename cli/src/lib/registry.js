@@ -190,12 +190,22 @@ const LEAVES = [
   },
   {
     name: "social",
-    description: "Social Ops: connect accounts, upload media, publish",
+    description: "Social Ops (official TikTok direct): connect accounts, query creator-info, upload media, publish drafts/posts",
     auth: "full",
     risk: "write",
     dryRun: false,
-    flags: [{ name: "provider", type: "string", description: "Required for accounts/connect/disconnect/post/post-status: tiktok_direct | zernio" }],
-    examples: ["omnimux social accounts --provider=tiktok_direct", "omnimux social accounts --provider=zernio"],
+    flags: [
+      {
+        name: "provider",
+        type: "string",
+        description: "Official direct provider: tiktok_direct (required for accounts/connect/disconnect/post/post-status; default for creator-info; zernio is retired)",
+      },
+    ],
+    examples: [
+      "omnimux social accounts --provider=tiktok_direct",
+      "omnimux social creator-info 12 --provider=tiktok_direct",
+      "omnimux social post --provider=tiktok_direct --accounts 12 --media https://cdn.example.com/a.jpg --title 'Draft' --photo-cover-index 0 --is-aigc=false",
+    ],
   },
   {
     name: "hosted",

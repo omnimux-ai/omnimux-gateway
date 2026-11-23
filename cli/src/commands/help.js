@@ -38,8 +38,8 @@ Commands:
                                     Install each package skill as .agents/skills/<id> (default link)
   skill update [--user|--project]   Re-sync / migrate legacy whole-tree installs to flat layout
   skill uninstall --user|--project  Remove skill installs for a scope
-  social status|accounts|connect|disconnect|media|post|post-status
-                                    Social Ops (bind / upload media / publish via OmniMux)
+  social status|accounts|connect|disconnect|creator-info|media|post|post-status
+                                    Social Ops (official TikTok direct via OmniMux)
   hosted status|skus|channels|channel|brand|post|batch|tasks|task|cancel|upload|buy|addon|renew|order
                                     Hosted distribution channels (GeeLark cloud accounts)
   influencer options                Character choices, video specifications and availability

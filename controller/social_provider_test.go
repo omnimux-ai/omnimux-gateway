@@ -561,3 +561,144 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		assert.Contains(t, postRec.Body.String(), `"code":"SOCIAL_TIKTOK_SCOPE_MISSING"`)
 	})
 }
+
+func TestSocialTikTokPhotoDraftAndInboxStatusHTTP(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	oldDB, oldService := model.DB, socialSvc
+	model.DB = db
+	t.Cleanup(func() { model.DB, socialSvc = oldDB, oldService; _ = sqlDB.Close() })
+	require.NoError(t, db.AutoMigrate(&model.SocialAccount{}, &model.SocialPost{}, &model.SocialSeat{}))
+
+	var gotInitBody string
+	var statusPolls atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v2/post/publish/content/init/", func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, 16384)
+		n, _ := r.Body.Read(buf)
+		gotInitBody = string(buf[:n])
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"publish_id":"pub-http-photo-1"},"error":{"code":"ok","message":""}}`))
+	})
+	mux.HandleFunc("/v2/post/publish/status/fetch/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if statusPolls.Add(1) == 1 {
+			_, _ = w.Write([]byte(`{"data":{"status":"SEND_TO_USER_INBOX","publish_id":"pub-http-photo-1"},"error":{"code":"ok","message":""}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"status":"PUBLISH_COMPLETE","publish_id":"pub-http-photo-1"},"error":{"code":"ok","message":""}}`))
+	})
+	upstream := httptest.NewServer(mux)
+	t.Cleanup(upstream.Close)
+
+	encKey := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	setSocialService(social.NewService(social.Config{
+		Enabled:             true,
+		Platforms:           []string{"tiktok"},
+		TikTokDirectEnabled: true,
+		TikTokClientKey:     "test-key",
+		TikTokClientSecret:  "test-secret",
+		TikTokRedirectURI:   "https://omnimux.ai/api/social/v1/oauth/tiktok/callback",
+		TikTokBaseURL:       upstream.URL,
+		TikTokScopes:        "user.info.basic,video.upload",
+		SocialTokenEncKey:   encKey,
+		MaxMediaItems:       35,
+	}))
+
+	encTok, err := social.SealToken("at-http-photo", encKey)
+	require.NoError(t, err)
+	acc := &model.SocialAccount{
+		UserId:               7,
+		Provider:             social.ProviderTikTokDirect,
+		ProviderAccountID:    "oid-http-photo",
+		Platform:             "tiktok",
+		Status:               model.SocialAccountStatusActive,
+		AccessTokenEncrypted: encTok,
+		ScopesGranted:        "user.info.basic,video.upload",
+	}
+	require.NoError(t, db.Create(acc).Error)
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) { c.Set("id", 7); c.Next() })
+	router.POST("/api/social/v1/posts", SocialCreatePost)
+	router.GET("/api/social/v1/posts/:id", SocialGetPost)
+
+	postReqBody := fmt.Sprintf(`{
+		"provider":"tiktok_direct",
+		"account_ids":[%d],
+		"media_items":[
+			{"url":"https://cdn.example.com/slide1.jpg"},
+			{"url":"https://cdn.example.com/slide2.webp"}
+		],
+		"tiktok_options":{
+			"title":"Carousel Draft",
+			"description":"Two photos",
+			"photo_cover_index":0,
+			"is_aigc":false,
+			"privacy_level":"PUBLIC_TO_EVERYONE"
+		}
+	}`, acc.ID)
+	req := httptest.NewRequest(http.MethodPost, "/api/social/v1/posts", strings.NewReader(postReqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+	var created struct {
+		Data struct {
+			ID     int64  `json:"id"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &created))
+	assert.Equal(t, "submitted", created.Data.Status)
+	assert.Contains(t, gotInitBody, `"post_mode":"MEDIA_UPLOAD"`)
+	assert.Contains(t, gotInitBody, `"media_type":"PHOTO"`)
+	assert.Contains(t, gotInitBody, `"photo_cover_index":0`)
+	assert.Contains(t, gotInitBody, `"is_aigc":false`)
+	assert.NotContains(t, gotInitBody, "privacy_level")
+
+	// First refresh returns sent_to_inbox with original upstream result.status preserved.
+	get1 := httptest.NewRecorder()
+	router.ServeHTTP(get1, httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/social/v1/posts/%d?provider=tiktok_direct&refresh=1", created.Data.ID), nil))
+	require.Equal(t, http.StatusOK, get1.Code, get1.Body.String())
+	var statusResp1 struct {
+		Data struct {
+			Status string         `json:"status"`
+			Result map[string]any `json:"result"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(get1.Body.Bytes(), &statusResp1))
+	assert.Equal(t, "sent_to_inbox", statusResp1.Data.Status)
+	assert.Equal(t, "SEND_TO_USER_INBOX", statusResp1.Data.Result["status"])
+
+	// Second refresh continues polling from sent_to_inbox and transitions to published.
+	get2 := httptest.NewRecorder()
+	router.ServeHTTP(get2, httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/social/v1/posts/%d?provider=tiktok_direct&refresh=1", created.Data.ID), nil))
+	require.Equal(t, http.StatusOK, get2.Code, get2.Body.String())
+	var statusResp2 struct {
+		Data struct {
+			Status string         `json:"status"`
+			Result map[string]any `json:"result"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(get2.Body.Bytes(), &statusResp2))
+	assert.Equal(t, "published", statusResp2.Data.Status)
+	assert.Equal(t, "PUBLISH_COMPLETE", statusResp2.Data.Result["status"])
+
+	// Invalid photo format and mixed media return 400 SOCIAL_MEDIA_INVALID.
+	for _, badBody := range []string{
+		fmt.Sprintf(`{"provider":"tiktok_direct","account_ids":[%d],"media_items":[{"url":"https://cdn.example.com/a.png"}]}`, acc.ID),
+		fmt.Sprintf(`{"provider":"tiktok_direct","account_ids":[%d],"media_items":[{"url":"https://cdn.example.com/a.jpg"},{"url":"https://cdn.example.com/v.mp4"}]}`, acc.ID),
+	} {
+		badReq := httptest.NewRequest(http.MethodPost, "/api/social/v1/posts", strings.NewReader(badBody))
+		badReq.Header.Set("Content-Type", "application/json")
+		badRec := httptest.NewRecorder()
+		router.ServeHTTP(badRec, badReq)
+		assert.Equal(t, http.StatusBadRequest, badRec.Code, badRec.Body.String())
+		assert.Contains(t, badRec.Body.String(), `"code":"SOCIAL_MEDIA_INVALID"`)
+	}
+}
