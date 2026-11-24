@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/social"
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,7 @@ import (
 )
 
 const socialPublicMediaTimeout = 60 * time.Second
+const maxTikTokWebhookBodyBytes = 64 << 10 // 64 KiB
 
 const socialOAuthBrowserCookiePrefix = "social_tiktok_oauth_"
 const socialOAuthBrowserCookieTTL = 10 * time.Minute
@@ -731,4 +733,100 @@ func jsonRawOrNil(s string) any {
 		return s
 	}
 	return v
+}
+
+// SocialTikTokWebhook POST /api/social/v1/webhooks/tiktok
+// fork: tiktok-webhooks — fail-closed, HMAC-SHA256 verified Content Posting webhook endpoint.
+func SocialTikTokWebhook(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+
+	path := ""
+	if c.Request != nil && c.Request.URL != nil {
+		path = c.Request.URL.Path
+	}
+
+	if !socialSvc.TikTokWebhookReady() {
+		logger.LogWarn(c.Request.Context(), common.LogText("TikTok webhook rejected reason=webhook_disabled path=%q client_ip=%s", path, c.ClientIP()))
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "tiktok webhook is disabled",
+			"code":    "SOCIAL_WEBHOOK_DISABLED",
+		})
+		return
+	}
+
+	var rawBody []byte
+	if c.Request.Body != nil {
+		var err error
+		rawBody, err = io.ReadAll(io.LimitReader(c.Request.Body, maxTikTokWebhookBodyBytes+1))
+		if err != nil {
+			logger.LogWarn(c.Request.Context(), common.LogText("TikTok webhook failed to read body path=%q client_ip=%s", path, c.ClientIP()))
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "failed to read request body",
+				"code":    "SOCIAL_WEBHOOK_INVALID",
+			})
+			return
+		}
+		if len(rawBody) > maxTikTokWebhookBodyBytes {
+			logger.LogWarn(c.Request.Context(), common.LogText("TikTok webhook rejected reason=payload_too_large path=%q client_ip=%s max_bytes=%d", path, c.ClientIP(), maxTikTokWebhookBodyBytes))
+			c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, gin.H{
+				"success": false,
+				"message": "request body too large",
+				"code":    "SOCIAL_WEBHOOK_PAYLOAD_TOO_LARGE",
+			})
+			return
+		}
+	}
+
+	_, err := socialSvc.HandleTikTokWebhook(c.Request.Context(), c.Request.Header.Values("TikTok-Signature"), rawBody)
+	if err != nil {
+		if errors.Is(err, social.ErrTikTokWebhookDisabled) {
+			logger.LogWarn(c.Request.Context(), common.LogText("TikTok webhook rejected reason=webhook_disabled path=%q client_ip=%s", path, c.ClientIP()))
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": "tiktok webhook is disabled",
+				"code":    "SOCIAL_WEBHOOK_DISABLED",
+			})
+			return
+		}
+		var authErr *social.TikTokWebhookAuthError
+		if errors.As(err, &authErr) {
+			if authErr.Reason == social.TikTokWebhookRejectTimestampOutOfWindow {
+				logger.LogWarn(c.Request.Context(), common.LogText(
+					"TikTok webhook auth failed reason=%s sig_age_seconds=%d tolerance_seconds=%d path=%q client_ip=%s",
+					authErr.Reason, authErr.SigAgeSeconds, authErr.ToleranceSeconds, path, c.ClientIP(),
+				))
+			} else {
+				logger.LogWarn(c.Request.Context(), common.LogText(
+					"TikTok webhook auth failed reason=%s path=%q client_ip=%s",
+					authErr.Reason, path, c.ClientIP(),
+				))
+			}
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"message": "unauthorized",
+				"code":    "SOCIAL_WEBHOOK_UNAUTHORIZED",
+			})
+			return
+		}
+		if errors.Is(err, social.ErrTikTokWebhookBadPayload) {
+			logger.LogWarn(c.Request.Context(), common.LogText("TikTok webhook rejected reason=invalid_payload path=%q client_ip=%s", path, c.ClientIP()))
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "invalid webhook payload",
+				"code":    "SOCIAL_WEBHOOK_INVALID",
+			})
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "internal error",
+			"code":    "SOCIAL_WEBHOOK_INTERNAL_ERROR",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

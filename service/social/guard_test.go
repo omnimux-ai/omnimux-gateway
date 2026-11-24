@@ -358,3 +358,82 @@ func TestStatusNamesOfficialSourceOnly(t *testing.T) {
 	assert.Equal(t, ProviderZernio, got["provider"])
 	assert.Equal(t, []string{"tiktok", "instagram"}, got["platforms"])
 }
+
+func TestConfigTikTokWebhookDefaultsClampingAndStatus(t *testing.T) {
+	t.Run("default off and default tolerance 300s", func(t *testing.T) {
+		t.Setenv("SOCIAL_OPS_ENABLED", "")
+		t.Setenv("TIKTOK_DIRECT_ENABLED", "")
+		t.Setenv("TIKTOK_WEBHOOK_ENABLED", "")
+		t.Setenv("TIKTOK_WEBHOOK_TOLERANCE_SECONDS", "")
+		t.Setenv("TIKTOK_CLIENT_KEY", "")
+		t.Setenv("TIKTOK_CLIENT_SECRET", "")
+		t.Setenv("TIKTOK_SANDBOX_ENABLED", "")
+
+		cfg := LoadConfig()
+		assert.False(t, cfg.TikTokWebhookEnabled)
+		assert.Equal(t, 300, cfg.TikTokWebhookToleranceSeconds)
+		assert.Equal(t, 300, int(cfg.TikTokWebhookTolerance().Seconds()))
+		assert.False(t, cfg.TikTokWebhookConfigured())
+		assert.False(t, cfg.TikTokWebhookActive())
+	})
+
+	t.Run("tolerance clamps to [30, 3600] and falls back on invalid", func(t *testing.T) {
+		cases := []struct {
+			raw  string
+			want int
+		}{
+			{"", 300},
+			{"not-an-int", 300},
+			{"-10", 30},
+			{"0", 30},
+			{"29", 30},
+			{"30", 30},
+			{"600", 600},
+			{"3600", 3600},
+			{"7200", 3600},
+		}
+		for _, tc := range cases {
+			t.Setenv("TIKTOK_WEBHOOK_TOLERANCE_SECONDS", tc.raw)
+			cfg := LoadConfig()
+			assert.Equal(t, tc.want, cfg.TikTokWebhookToleranceSeconds, "raw=%q", tc.raw)
+			assert.Equal(t, tc.want, int(cfg.TikTokWebhookTolerance().Seconds()), "raw=%q", tc.raw)
+		}
+	})
+
+	t.Run("status preserves top-level webhook_configured and exposes tiktok_direct booleans", func(t *testing.T) {
+		svc := NewService(Config{
+			Enabled:              true,
+			WebhookSecret:        "legacy-zernio-secret",
+			TikTokDirectEnabled:  true,
+			TikTokWebhookEnabled: true,
+			TikTokClientKey:      "prod-key",
+			TikTokClientSecret:   "prod-secret",
+			TikTokRedirectURI:    defaultTikTokRedirectURI,
+		})
+		status := svc.Status()
+		assert.Equal(t, true, status["webhook_configured"])
+		td, ok := status["tiktok_direct"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, true, td["webhook_enabled"])
+		assert.Equal(t, true, td["webhook_configured"])
+
+		// Sandbox enabled without sandbox secret fails closed for webhook_configured too.
+		sbxSvc := NewService(Config{
+			Enabled:              true,
+			TikTokDirectEnabled:  true,
+			TikTokWebhookEnabled: true,
+			TikTokClientKey:      "prod-key",
+			TikTokClientSecret:   "prod-secret",
+			TikTokSandboxEnabled: true,
+			TikTokSandboxClientKey: "sbx-key",
+			TikTokRedirectURI:    defaultTikTokRedirectURI,
+		})
+		sbxStatus := sbxSvc.Status()
+		assert.Equal(t, false, sbxStatus["webhook_configured"])
+		sbxTD, ok := sbxStatus["tiktok_direct"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, true, sbxTD["webhook_enabled"])
+		assert.Equal(t, false, sbxTD["webhook_configured"])
+		assert.False(t, sbxSvc.TikTokWebhookReady())
+	})
+}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -94,4 +95,43 @@ func TestSocialTikTokOAuthCallbackAliasAccessLogRedaction(t *testing.T) {
 	assert.Contains(t, logLine, "GET /oauth/tiktok/callback")
 	assert.NotContains(t, logLine, "secret-code-123")
 	assert.NotContains(t, logLine, "secret-state-456")
+}
+
+func TestSocialTikTokWebhookFullRouterWiringAndFailClosed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	require.NotPanics(t, func() {
+		SetRouter(engine, WebAssets{IndexPage: []byte(searchPageTestShell)})
+	})
+
+	registered := map[string]string{}
+	for _, route := range engine.Routes() {
+		registered[route.Method+" "+route.Path] = route.Handler
+	}
+	handler, ok := registered["POST /api/social/v1/webhooks/tiktok"]
+	require.True(t, ok, "POST /api/social/v1/webhooks/tiktok must be registered")
+	assert.Contains(t, handler, "SocialTikTokWebhook")
+	_, getRegistered := registered["GET /api/social/v1/webhooks/tiktok"]
+	assert.False(t, getRegistered, "GET /api/social/v1/webhooks/tiktok must not be registered")
+
+	// Default-off full-router POST returns 403 Forbidden (not UserAuth 401) with security headers.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/social/v1/webhooks/tiktok", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
+	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+
+	// Request exceeding AnonymousRequestBodyLimit (512 KiB runtime default) returns 413 with security headers.
+	prevLimitKB := constant.AnonymousRequestBodyLimitKB
+	constant.AnonymousRequestBodyLimitKB = 512
+	t.Cleanup(func() { constant.AnonymousRequestBodyLimitKB = prevLimitKB })
+	bigBody := bytes.Repeat([]byte("a"), 512<<10+1)
+	recBig := httptest.NewRecorder()
+	reqBig := httptest.NewRequest(http.MethodPost, "/api/social/v1/webhooks/tiktok", bytes.NewReader(bigBody))
+	engine.ServeHTTP(recBig, reqBig)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, recBig.Code)
+	assert.Equal(t, "no-store", recBig.Header().Get("Cache-Control"))
+	assert.Equal(t, "nosniff", recBig.Header().Get("X-Content-Type-Options"))
 }

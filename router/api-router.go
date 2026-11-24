@@ -244,6 +244,12 @@ func SetApiRouter(router *gin.Engine) {
 			socialRoute.GET("/oauth/tiktok/start", middleware.CriticalRateLimit(), controller.SocialTikTokOAuthStart)
 			socialRoute.GET("/oauth/tiktok/callback", controller.SocialTikTokCallback)
 			socialRoute.POST("/oauth/tiktok/callback", controller.SocialTikTokCallback)
+			// fork: tiktok-webhooks — public signed webhook receiver (fail-closed when TIKTOK_WEBHOOK_ENABLED=false).
+			socialRoute.POST("/webhooks/tiktok", func(c *gin.Context) {
+				c.Header("Cache-Control", "no-store")
+				c.Header("X-Content-Type-Options", "nosniff")
+				c.Next()
+			}, anonymousRequestBodyLimit, controller.SocialTikTokWebhook)
 			socialRoute.GET("/public/media/:token", middleware.DownloadRateLimit(), controller.SocialPublicMediaProxy)
 			socialAuthed := socialRoute.Group("/")
 			socialAuthed.Use(middleware.UserAuth())
