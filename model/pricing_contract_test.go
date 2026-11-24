@@ -1,6 +1,8 @@
 package model
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -41,6 +43,67 @@ func TestPricingRowWithoutAContractIsUnchanged(t *testing.T) {
 	assert.NotContains(t, string(body), "contract")
 	assert.NotContains(t, string(body), "brand_id")
 	assert.NotContains(t, string(body), "brand_name")
+}
+
+func TestEffectiveVideoVersionIgnoresBrandDisplayChanges(t *testing.T) {
+	buildVideoContract := func(brandID, brandName, iconPath string) modelcontracts.Contract {
+		dir := t.TempDir()
+		raw := `{
+			"model_id": "probe-video",
+			"family": "video",
+			"status": "documented",
+			"vendor": "` + brandName + `",
+			"brand_id": "` + brandID + `",
+			"brand_name": "` + brandName + `",
+			"brand_icon_path": "` + iconPath + `",
+			"gateway": {
+				"profile": "apimart_video",
+				"request_model": "seedance-2-5",
+				"operations": ["video_multi_ref"],
+				"mode_kinds": {"video_multi_ref": "image_reference"}
+			},
+			"reference_images": {"min": 1, "max": 6},
+			"durations_seconds": {"min": 4, "max": 30},
+			"resolutions": ["480p", "720p"],
+			"aspect_ratios": ["16:9", "9:16"],
+			"output_formats": ["mp4"]
+		}`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "probe-video.json"), []byte(raw), 0o600))
+		doc, err := modelcontracts.Build(dir)
+		require.NoError(t, err)
+		c, ok := doc.Models["probe-video"]
+		require.True(t, ok)
+		return c
+	}
+
+	c0 := buildVideoContract("acme", "Acme", "")
+	c1 := buildVideoContract("acme-labs", "Acme Labs", "M12 2L22 20H2Z")
+	require.Equal(t, c0.ContractVersion, c1.ContractVersion, "brand display changes must not alter ContractVersion")
+
+	p0 := Pricing{
+		ModelName: "probe-video",
+		BrandID:   c0.BrandID,
+		BrandName: c0.BrandName,
+		Contract:  &c0,
+		videoOperationsByGroup: map[string][]modelcontracts.Operation{
+			"default": c0.Operations,
+		},
+	}
+	p1 := Pricing{
+		ModelName: "probe-video",
+		BrandID:   c1.BrandID,
+		BrandName: c1.BrandName,
+		Contract:  &c1,
+		videoOperationsByGroup: map[string][]modelcontracts.Operation{
+			"default": c1.Operations,
+		},
+	}
+	v0 := p0.VideoCapabilitiesForGroups(map[string]float64{"default": 1})
+	v1 := p1.VideoCapabilitiesForGroups(map[string]float64{"default": 1})
+	require.NotNil(t, v0)
+	require.NotNil(t, v1)
+	require.NotEmpty(t, v0.Version)
+	assert.Equal(t, v0.Version, v1.Version, "brand display changes must not alter effective_video.version")
 }
 
 func prepareCatalogPricingFixtures(t *testing.T) {

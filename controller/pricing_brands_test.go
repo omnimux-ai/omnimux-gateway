@@ -32,6 +32,20 @@ func TestFilterPricingBrandsIncludesOnlyVisibleModels(t *testing.T) {
 		"bytedance": {ID: "bytedance", Name: "ByteDance"},
 	}, got)
 	assert.NotContains(t, got, "hidden")
+
+	assert.Nil(t, filterPricingBrands(nil, brands))
+	assert.Nil(t, filterPricingBrands([]model.Pricing{{ModelName: "no-brand"}}, nil))
+
+	fallback := filterPricingBrands([]model.Pricing{
+		{
+			ModelName: "custom-acme",
+			BrandID:   "acme",
+			Contract:  &modelcontracts.Contract{BrandID: "acme", BrandName: "Acme AI"},
+		},
+	}, nil)
+	assert.Equal(t, map[string]modelcontracts.BrandMeta{
+		"acme": {ID: "acme", Name: "Acme AI"},
+	}, fallback)
 }
 
 func TestGetPricingPublishesCanonicalBrandMetadataAndPreservesVendors(t *testing.T) {
@@ -44,6 +58,19 @@ func TestGetPricingPublishesCanonicalBrandMetadataAndPreservesVendors(t *testing
 		common.MemoryCacheEnabled = originalMemoryCacheEnabled
 		model.InvalidatePricingCache()
 	})
+
+	require.NoError(t, db.Create(&model.Vendor{
+		Id:     42,
+		Name:   "OpenAI",
+		Icon:   "OpenAI",
+		Status: 1,
+	}).Error)
+	require.NoError(t, db.Create(&model.Model{
+		ModelName: "gpt-image-2.5",
+		VendorID:  42,
+		Icon:      "OpenAI",
+		Status:    1,
+	}).Error)
 
 	require.NoError(t, db.Create(&model.Channel{
 		Id:     811,
@@ -73,11 +100,13 @@ func TestGetPricingPublishesCanonicalBrandMetadataAndPreservesVendors(t *testing
 	require.Equal(t, http.StatusOK, recorder.Code)
 
 	var payload struct {
-		Success bool                              `json:"success"`
-		Vendors []model.PricingVendor             `json:"vendors"`
+		Success bool                                `json:"success"`
+		Vendors []model.PricingVendor               `json:"vendors"`
 		Brands  map[string]modelcontracts.BrandMeta `json:"brands"`
 		Data    []struct {
 			ModelName string `json:"model_name"`
+			VendorID  int    `json:"vendor_id"`
+			Icon      string `json:"icon"`
 			BrandID   string `json:"brand_id"`
 			BrandName string `json:"brand_name"`
 			Contract  *struct {
@@ -90,7 +119,19 @@ func TestGetPricingPublishesCanonicalBrandMetadataAndPreservesVendors(t *testing
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
 	require.True(t, payload.Success)
 
+	require.NotEmpty(t, payload.Vendors, "legacy top-level vendors list must remain populated")
+	var foundOpenAIVendor bool
+	for _, v := range payload.Vendors {
+		if v.ID == 42 && v.Name == "OpenAI" && v.Icon == "OpenAI" {
+			foundOpenAIVendor = true
+			break
+		}
+	}
+	assert.True(t, foundOpenAIVendor, "legacy vendor entry (id=42, name=OpenAI, icon=OpenAI) must be preserved")
+
 	byModel := make(map[string]struct {
+		vendorID  int
+		icon      string
 		brandID   string
 		brandName string
 		contract  *struct {
@@ -101,6 +142,8 @@ func TestGetPricingPublishesCanonicalBrandMetadataAndPreservesVendors(t *testing
 	})
 	for _, row := range payload.Data {
 		byModel[row.ModelName] = struct {
+			vendorID  int
+			icon      string
 			brandID   string
 			brandName string
 			contract  *struct {
@@ -108,7 +151,7 @@ func TestGetPricingPublishesCanonicalBrandMetadataAndPreservesVendors(t *testing
 				BrandName       string `json:"brand_name"`
 				ContractVersion string `json:"contractVersion"`
 			}
-		}{brandID: row.BrandID, brandName: row.BrandName, contract: row.Contract}
+		}{vendorID: row.VendorID, icon: row.Icon, brandID: row.BrandID, brandName: row.BrandName, contract: row.Contract}
 	}
 
 	require.Contains(t, byModel, "seedance-2-5")
@@ -119,6 +162,8 @@ func TestGetPricingPublishesCanonicalBrandMetadataAndPreservesVendors(t *testing
 	assert.Equal(t, "ByteDance", byModel["seedance-2-5"].contract.BrandName)
 
 	require.Contains(t, byModel, "gpt-image-2.5")
+	assert.Equal(t, 42, byModel["gpt-image-2.5"].vendorID, "legacy row vendor_id must remain intact")
+	assert.Equal(t, "OpenAI", byModel["gpt-image-2.5"].icon, "legacy row icon must remain intact")
 	assert.Equal(t, "openai", byModel["gpt-image-2.5"].brandID)
 	assert.Equal(t, "OpenAI", byModel["gpt-image-2.5"].brandName)
 

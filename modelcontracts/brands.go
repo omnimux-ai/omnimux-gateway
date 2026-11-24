@@ -83,35 +83,37 @@ var canonicalBrandNames = map[string]string{
 }
 
 // ValidateBrandID ensures a brand slug is lowercase kebab-case and bounded.
+// Leading/trailing whitespace is rejected fail-closed.
 func ValidateBrandID(id string) error {
-	trimmed := strings.TrimSpace(id)
-	if trimmed == "" {
+	if id == "" {
 		return fmt.Errorf("brand_id must not be empty")
 	}
-	if len(trimmed) > 64 {
-		return fmt.Errorf("brand_id %q exceeds 64 bytes", trimmed)
+	if len(id) > 64 {
+		return fmt.Errorf("brand_id %q exceeds 64 bytes", id)
 	}
-	if !brandIDPattern.MatchString(trimmed) {
-		return fmt.Errorf("brand_id %q must match %s", trimmed, brandIDPattern.String())
+	if !brandIDPattern.MatchString(id) {
+		return fmt.Errorf("brand_id %q must match %s", id, brandIDPattern.String())
 	}
 	return nil
 }
 
 // ValidateBrandIconPath validates an optional 24x24 monochrome SVG `<path d>`
-// fallback string. Raw `<svg>` markup, attributes, URLs, scripts, and oversize
-// payloads are rejected fail-closed.
+// fallback string. Raw `<svg>` markup, attributes, URLs, scripts, oversize
+// payloads, and leading/trailing whitespace are rejected fail-closed.
 func ValidateBrandIconPath(path string) error {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
+	if path == "" {
 		return nil
 	}
-	if len(trimmed) > MaxBrandIconPathBytes {
-		return fmt.Errorf("brand_icon_path exceeds %d bytes (got %d)", MaxBrandIconPathBytes, len(trimmed))
+	if len(path) > MaxBrandIconPathBytes {
+		return fmt.Errorf("brand_icon_path exceeds %d bytes (got %d)", MaxBrandIconPathBytes, len(path))
 	}
-	if trimmed[0] != 'M' && trimmed[0] != 'm' {
+	if strings.TrimSpace(path) != path {
+		return fmt.Errorf("brand_icon_path must not have leading or trailing whitespace")
+	}
+	if path[0] != 'M' && path[0] != 'm' {
 		return fmt.Errorf("brand_icon_path must begin with an SVG moveto command (M/m)")
 	}
-	if !brandIconPathPattern.MatchString(trimmed) {
+	if !brandIconPathPattern.MatchString(path) {
 		return fmt.Errorf("brand_icon_path contains disallowed characters (must match %s)", brandIconPathPattern.String())
 	}
 	return nil

@@ -59,8 +59,9 @@ type Contract struct {
 	// every contract so a caller holding one object can parse it without the
 	// enclosing document.
 	SchemaVersion string `json:"schemaVersion"`
-	// ContractVersion is a deterministic 16-hex content hash of this contract,
-	// computed with the field itself excluded. Any projected change moves it.
+	// ContractVersion is a deterministic 16-hex content hash of this contract's
+	// capability envelope, computed with ContractVersion and display-only brand
+	// fields (BrandID, BrandName) excluded. Any capability/operation change moves it.
 	ContractVersion string `json:"contractVersion,omitempty"`
 	// ExecutionStatus states whether this model has a verified executable
 	// gateway path. `live` requires at least one executable operation; `stub`

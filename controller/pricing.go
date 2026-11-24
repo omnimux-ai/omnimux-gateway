@@ -76,6 +76,8 @@ func filterPricingBrands(pricing []model.Pricing, brands map[string]modelcontrac
 		if brandID == "" && item.Contract != nil {
 			brandID = item.Contract.BrandID
 			brandName = item.Contract.BrandName
+		} else if brandName == "" && item.Contract != nil && item.Contract.BrandID == brandID {
+			brandName = item.Contract.BrandName
 		}
 		if brandID == "" {
 			continue

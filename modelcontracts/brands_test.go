@@ -93,7 +93,7 @@ func TestValidateBrandIDAndIconPath(t *testing.T) {
 	assert.NoError(t, ValidateBrandID("typesafe-ai"))
 	assert.NoError(t, ValidateBrandID("x"))
 
-	for _, bad := range []string{"", "OpenAI", "foo_bar", "foo bar", "-leading", "trailing-", "a--b", strings.Repeat("a", 65)} {
+	for _, bad := range []string{"", " ", " openai", "openai\n", "OpenAI", "foo_bar", "foo bar", "-leading", "trailing-", "a--b", strings.Repeat("a", 65)} {
 		assert.Error(t, ValidateBrandID(bad), "expected invalid brand_id: %q", bad)
 	}
 
@@ -102,6 +102,10 @@ func TestValidateBrandIDAndIconPath(t *testing.T) {
 	assert.NoError(t, ValidateBrandIconPath("m3.5,4.25 a6 6 0 1 0 12 0 c0-3-2.5-5-6-5z"))
 
 	malicious := []string{
+		"   ",
+		" M0 0Z",
+		"M0 0Z\n",
+		strings.Repeat(" ", MaxBrandIconPathBytes+1) + "M0 0Z",
 		`<svg><path d="M0 0h24v24H0z"/></svg>`,
 		`M0 0"><script>alert(1)</script>`,
 		`https://evil.example/logo.svg`,
@@ -114,6 +118,29 @@ func TestValidateBrandIDAndIconPath(t *testing.T) {
 	for _, bad := range malicious {
 		assert.Error(t, ValidateBrandIconPath(bad), "expected rejected icon_path: %q", bad)
 	}
+}
+
+func TestDocumentVersionTracksBrandsMetadata(t *testing.T) {
+	base := &Document{
+		SchemaVersion: SchemaVersion,
+		Models:        map[string]Contract{},
+		Brands: map[string]BrandMeta{
+			"acme": {ID: "acme", Name: "Acme"},
+		},
+	}
+	v0 := Version(base)
+	require.NotEmpty(t, v0)
+
+	updated := &Document{
+		SchemaVersion: SchemaVersion,
+		Models:        map[string]Contract{},
+		Brands: map[string]BrandMeta{
+			"acme": {ID: "acme", Name: "Acme Labs", IconPath: "M12 2L22 20H2Z"},
+		},
+	}
+	v1 := Version(updated)
+	require.NotEmpty(t, v1)
+	assert.NotEqual(t, v0, v1, "document version must reflect brands dictionary updates")
 }
 
 func TestBuildValidatesBrandMappingAndOptionalIconPath(t *testing.T) {
@@ -163,6 +190,15 @@ func TestBuildValidatesBrandMappingAndOptionalIconPath(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "conflicting brand_name")
+	})
+
+	t.Run("conflicting brand_icon_path for same brand_id fails build", func(t *testing.T) {
+		_, err := buildSpecDirResult(t, map[string]string{
+			"a.json": `{"model_id":"a","family":"llm","brand_id":"acme","brand_name":"Acme","brand_icon_path":"M0 0h24v24H0z"}`,
+			"b.json": `{"model_id":"b","family":"llm","brand_id":"acme","brand_name":"Acme","brand_icon_path":"M2 2h20v20H2z"}`,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "conflicting brand_icon_path")
 	})
 
 	t.Run("unsafe brand_icon_path fails build", func(t *testing.T) {
