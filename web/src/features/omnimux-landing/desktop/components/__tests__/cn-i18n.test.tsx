@@ -18,19 +18,20 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
-  cleanup,
-  render,
-  screen,
-  within,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import {
   createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
@@ -58,6 +59,8 @@ function stubNavigatorLangs(tags: readonly string[]) {
 beforeEach(() => {
   window.localStorage.clear()
   window.history.replaceState(null, '', '/')
+  document.documentElement.lang = ''
+  document.title = ''
   stubNavigatorLangs(['zh-CN'])
 })
 
@@ -118,7 +121,9 @@ describe('landing locale data', () => {
   it('keeps capability boundaries out of every locale', () => {
     for (const copy of Object.values(LANDING_COPIES)) {
       const blob = JSON.stringify(copy)
-      expect(blob).not.toMatch(/50万\+|1000万\+|官方认证|guaranteed viral|TikTok Shop official/i)
+      expect(blob).not.toMatch(
+        /50万\+|1000万\+|官方认证|guaranteed viral|TikTok Shop official/i
+      )
     }
   })
 
@@ -150,7 +155,9 @@ describe('landing locale data', () => {
 describe('DesktopLanding language switching', () => {
   it('renders Simplified Chinese by default and a compact language trigger', async () => {
     await renderLanding()
-    const trigger = screen.getByRole('button', { name: '中 · 页面语言：简体中文' })
+    const trigger = screen.getByRole('button', {
+      name: '中 · 页面语言：简体中文',
+    })
     expect(trigger.textContent).toBe('中')
     expect(screen.getByText('发现、复刻和裂变')).toBeTruthy()
   })
@@ -158,7 +165,9 @@ describe('DesktopLanding language switching', () => {
   it('switches the page to English and persists the choice', async () => {
     const user = userEvent.setup()
     await renderLanding()
-    await user.click(screen.getByRole('button', { name: '中 · 页面语言：简体中文' }))
+    await user.click(
+      screen.getByRole('button', { name: '中 · 页面语言：简体中文' })
+    )
     const menu = document.querySelector('.cn-langmenu')
     expect(menu).toBeTruthy()
     await user.click(within(menu as HTMLElement).getByText('English'))
@@ -166,8 +175,10 @@ describe('DesktopLanding language switching', () => {
     expect(window.localStorage.getItem(LANDING_LANG_STORAGE_KEY)).toBe('en')
     expect(new URL(window.location.href).searchParams.get('lang')).toBe('en')
     expect(window.location.pathname).toBe('/')
-    expect(document.documentElement.lang).toBe('en')
-    expect(document.title).toBe(LANDING_COPIES.en.meta.title)
+    await waitFor(() => {
+      expect(document.documentElement.lang).toBe('en')
+      expect(document.title).toBe(LANDING_COPIES.en.meta.title)
+    })
   })
 
   it('honours a stored language on initial render', async () => {
@@ -176,8 +187,10 @@ describe('DesktopLanding language switching', () => {
     expect(
       screen.getByRole('button', { name: '日 · ページの言語：日本語' })
     ).toBeTruthy()
-    expect(document.documentElement.lang).toBe('ja')
-    expect(document.title).toBe(LANDING_COPIES.ja.meta.title)
+    await waitFor(() => {
+      expect(document.documentElement.lang).toBe('ja')
+      expect(document.title).toBe(LANDING_COPIES.ja.meta.title)
+    })
   })
 })
 
