@@ -266,7 +266,7 @@
   "Waffo webhook rejected reason=webhook_disabled path=%q client_ip=%s": "Waffo webhook 被拒绝 reason=webhook_disabled path=%q client_ip=%s",
   "Waffo webhook signature verification failed path=%q client_ip=%s signature=%q body=%q": "Waffo webhook 验签失败 path=%q client_ip=%s signature=%q body=%q",
   "Waffo webhook verified and parsed event_type=%s merchant_order_id=%s order_status=%s client_ip=%s": "Waffo webhook 验签并解析成功 event_type=%s merchant_order_id=%s order_status=%s client_ip=%s",
-  "Warning: Refresh cookie is not secure and refresh/logout Origin validation is disabled. Please set SESSION_COOKIE_SECURE=true in production.": "警告：SESSION_COOKIE_SECURE 未开启。登录 Cookie 可经 HTTP 明文传输，续期登录和退出登录接口接受任意来源（Origin）的请求。生产环境请设置 SESSION_COOKIE_SECURE=true。",
+  "Warning: Refresh cookie is not secure and refresh/logout Origin validation is disabled. Please set SESSION_COOKIE_SECURE=true and SESSION_COOKIE_TRUSTED_URL in production.": "警告：SESSION_COOKIE_SECURE 未开启。登录 Cookie 可经 HTTP 明文传输，续期登录和退出登录接口接受任意来源（Origin）的请求。生产环境请同时设置 SESSION_COOKIE_SECURE=true 和 SESSION_COOKIE_TRUSTED_URL。",
   "Warning: failed to migrate %s.%s to decimal: %v": "警告：把字段 %s.%s 的类型改为 decimal 失败: %v",
   "Warning: failed to query metadata for %s.%s: %v": "警告：查询字段 %s.%s 的类型信息失败: %v",
   "[OAuth-Discord] ExchangeToken decode error: %s": "[OAuth-Discord] ExchangeToken 解析响应失败: %s",

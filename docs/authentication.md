@@ -5,8 +5,8 @@
 ## 鉴权模型
 
 - Access Token 是有效期 15 分钟的 JWT，只保存在浏览器内存中，通过 `Authorization: Bearer <token>` 发送。
-- Refresh Token 是随机不透明值，有效期最长 30 天。浏览器只通过 `HttpOnly`、`SameSite=Strict` Cookie 持有它；服务端仅保存 HMAC 摘要，并在每次刷新时轮换。
-- `new_api_has_session` 是 Refresh Cookie 的会话提示，值恒为 `1`，`Path=/`、非 `HttpOnly`，与 Refresh Cookie 同时写入、同时清除、同一过期时间。它只声明"曾签发过 Refresh Cookie"，不含任何凭据，也不参与任何鉴权判定；伪造它唯一的效果是自费一次注定失败的 refresh。它存在的原因是 Refresh Cookie 被 `HttpOnly` 和 `Path=/api/user/auth` 双重限制，`/` 上的页面无法判断自己是否匿名，否则每次冷启动都要发一次注定 401 的 refresh，而该请求还会占用按 IP 计数的 `CriticalRateLimit` 配额。
+- Refresh Token 是随机不透明值，有效期最长 30 天。浏览器只通过 `HttpOnly`、`SameSite=Strict` Cookie 持有它；服务端仅保存 HMAC 摘要，并在每次刷新时轮换。本地 HTTP 模式（`SESSION_COOKIE_SECURE=false` 或未配置）使用 `new_api_refresh`（`Path=/api/user/auth`）；HTTPS Secure 模式（`SESSION_COOKIE_SECURE=true`）使用 `__Host-new_api_refresh`（`Path=/`、无 `Domain`、`Secure`，符合 RFC 6265bis `__Host-` 前缀约束）。
+- `new_api_has_session` 是 Refresh Cookie 的会话提示，值恒为 `1`，`Path=/`、非 `HttpOnly`、`SameSite=Strict`，其 `Secure` 属性跟随 `SESSION_COOKIE_SECURE`，与 Refresh Cookie 同时写入、同时清除、同一过期时间。它只声明"曾签发过 Refresh Cookie"，不含任何凭据，也不参与任何鉴权判定；伪造它唯一的效果是自费一次注定失败的 refresh。它存在的原因是 Refresh Cookie 始终为 `HttpOnly`（本地 HTTP 模式还限定在 `Path=/api/user/auth`，Secure 模式为 `__Host-` `Path=/`），`/` 上的前端脚本无法读取它来判断自己是否匿名，否则每次冷启动都要发一次注定 401 的 refresh，而该请求还会占用按 IP 计数的 `CriticalRateLimit` 配额。
 - `user_sessions` 是登录会话控制面，记录设备、IP、登录方式、最后活跃时间、到期时间和撤销状态。数据库中的 Session 状态是最终权威；撤销传播速度取决于下文所述的 Redis 拓扑。
 - 用户的密码、状态、角色或安全因子发生安全相关变化时，`auth_version` 会递增并使旧登录会话失效。订阅带来的分组升降级只刷新授权缓存，不会退出任何登录设备。
 - Redis 缓存保存用户鉴权快照和登录会话快照。版本栅栏和撤销 tombstone 防止旧缓存重新授权；Session 快照使用跟随 `SYNC_FREQUENCY` 的短 TTL，缓存未命中或未启用 Redis 时回退到数据库校验。
@@ -93,21 +93,21 @@
 
 ## Refresh/Logout 的 Origin 校验
 
-refresh/logout 的 Origin 防护与 Refresh Cookie 的 Secure 模式绑定：
+refresh/logout 的 Origin 防护与全站认证 Cookie 的 Secure 模式绑定：
 
-- 未配置 `SESSION_COOKIE_SECURE` 或显式设为 `false` 时，Refresh Cookie 可用于本地 HTTP，refresh/logout 的 OriginGuard 关闭，并且不得配置 `SESSION_COOKIE_TRUSTED_URL`。这使 `http://localhost` 上不同端口的 Rsbuild/Vite 开发代理可以正常转发请求。该模式仅用于可信的本地开发环境，不应暴露到公网。
-- `SESSION_COOKIE_SECURE=true` 时，Refresh Cookie 仅通过 HTTPS 发送，同时启用严格 OriginGuard。`POST /api/user/auth/refresh` 和 `POST /api/user/auth/logout` 会校验浏览器的 `Origin`；缺少 `Origin` 时只接受合法的单一 `Referer` 作为回退。允许来源包括请求自身的精确 Origin，以及 `SESSION_COOKIE_TRUSTED_URL` 中配置的精确 Origin。
+- 未配置 `SESSION_COOKIE_SECURE` 或显式设为 `false` 时，认证 Cookie 可用于本地 HTTP（Refresh Cookie 为 `new_api_refresh`，`Path=/api/user/auth`），refresh/logout 的 OriginGuard 关闭，并且不得配置 `SESSION_COOKIE_TRUSTED_URL`。这使 `http://localhost` 上不同端口的 Rsbuild/Vite 开发代理可以正常转发请求。启动时会打印黄色安全告警，提醒生产环境同时配置 `SESSION_COOKIE_SECURE=true` 和 `SESSION_COOKIE_TRUSTED_URL`。该模式仅用于可信的本地开发环境，不应暴露到公网。
+- `SESSION_COOKIE_SECURE=true` 时，Refresh Cookie 切换为 `__Host-new_api_refresh`（`Path=/`、无 `Domain`、`Secure`），仅通过 HTTPS 发送，同时启用严格 OriginGuard。`POST /api/user/auth/refresh` 和 `POST /api/user/auth/logout` 会校验浏览器的单一 `Origin`；缺少 `Origin` 时只接受合法的单一 `Referer` 作为回退。允许来源包括请求自身的精确 Origin，以及 `SESSION_COOKIE_TRUSTED_URL` 中配置的精确 Origin。
 
-Secure 模式的 Origin 校验不信任客户端直接发送的 `X-Forwarded-Proto`。TLS 在反向代理终止时，应将面板的公开 HTTPS Origin 明确写入 `SESSION_COOKIE_TRUSTED_URL`。
+Secure 模式的 Origin 校验与 Cookie `Secure` 属性都不信任客户端直接发送的 `X-Forwarded-Proto`。TLS 在反向代理终止时，应显式配置 `SESSION_COOKIE_SECURE=true`，并将面板的全部公开 HTTPS Origin 写入 `SESSION_COOKIE_TRUSTED_URL`。
 
-`SESSION_COOKIE_TRUSTED_URL` 现在具有明确的新语义：它是 refresh/logout Cookie 端点的可信 Origin 列表，不是 CORS 白名单。配置规则如下：
+`SESSION_COOKIE_TRUSTED_URL` 具有明确语义：它是 refresh/logout Cookie 端点的可信 Origin 列表（同时用于公有文件投递同域隔离校验），不是 CORS 白名单。配置规则如下：
 
 - 仅在 `SESSION_COOKIE_SECURE=true` 时配置；多个值用英文逗号分隔。
 - 每项必须是精确的 HTTPS Origin，例如 `https://panel.example.com` 或 `https://panel.example.com:8443`。
 - 不接受通配符、路径、查询参数、用户信息或域名后缀匹配。
 - 不会修改 relay、旧 billing dashboard、`/api/usage/token` 或 `/api/log/token` 的 CORS 行为。浏览器使用 `sk-` key 直连 relay 的场景保持不变。
 
-本地 HTTP 开发示例（OriginGuard 关闭）：
+本地 HTTP 开发示例（OriginGuard 关闭，启动时打印本地模式告警）：
 
 ```env
 SESSION_SECRET=<local-random-value>
@@ -115,15 +115,37 @@ SESSION_COOKIE_SECURE=false
 # SESSION_COOKIE_TRUSTED_URL 不得设置
 ```
 
-生产 HTTPS 示例（OriginGuard 开启）：
+生产 HTTPS 示例（OriginGuard 开启，含反向代理 TLS 终止场景）：
 
 ```env
 SESSION_SECRET=<high-entropy-random-value>
 SESSION_COOKIE_SECURE=true
 SESSION_COOKIE_TRUSTED_URL=https://panel.example.com,https://admin.example.com
+TRUSTED_PROXIES=<reverse-proxy-ip-or-cidr>
 ```
 
-该开关只控制面板 Refresh Cookie 和 refresh/logout 的 OriginGuard，不会修改 relay、旧 billing dashboard、`/api/usage/token` 或 `/api/log/token` 的 CORS 行为。
+### 覆盖范围与反向代理 TLS 终止检查清单
+
+`SESSION_COOKIE_SECURE` 统一控制以下后端 Cookie 与校验行为，且**不会**修改 relay、旧 billing dashboard、`/api/usage/token` 或 `/api/log/token` 的 CORS 行为：
+
+- 面板 Refresh Cookie（`new_api_refresh` / `__Host-new_api_refresh`）及 `POST /api/user/auth/refresh`、`POST /api/user/auth/logout` 的 `OriginGuard`；
+- 会话提示 Cookie `new_api_has_session` 的 `Secure` 属性；
+- 标准 OAuth 登录浏览器绑定 Cookie（`oauth_login_<hash>` / `__Host-oauth_login_<hash>`）；
+- TikTok Direct 社媒授权浏览器绑定 Cookie（`social_tiktok_oauth_<hash>` / `__Host-social_tiktok_oauth_<hash>`）；
+- 公开 TikTok 工具页 Turnstile 通行证 Cookie（`omx_tt_pass` 的 `Secure` 属性；Go 进程直连终止 TLS 时同样强制 `Secure`，不信任未校验的 `X-Forwarded-Proto`）。
+
+反向代理（如 Nginx、Caddy 或 CDN）终止 TLS 并以 HTTP 转发至网关时，请按以下清单配置：
+
+1. 显式设置 `SESSION_COOKIE_SECURE=true` 与 `SESSION_COOKIE_TRUSTED_URL`，列出全部对外访问的精确 HTTPS Origin（包括主域、`www.` 域名及非默认端口）；
+2. 显式配置 `TRUSTED_PROXIES` 仅信任实际反代 IP/CIDR（用于客户端 IP 解析与限流），不要指望 `X-Forwarded-Proto` 替代 `SESSION_COOKIE_SECURE` 或 `SESSION_COOKIE_TRUSTED_URL`；
+3. 反向代理需原样透传浏览器的 `Origin` / `Referer` 请求头，且不要改写上游 `Set-Cookie` 的 `Path`、`Domain` 或 `Secure` 属性，避免破坏 `__Host-` 前缀规则。
+
+### 从 `false` 切换到 `true`（及多节点与回滚）影响
+
+- 切换后 Refresh Cookie 名称由 `new_api_refresh`（`Path=/api/user/auth`）变为 `__Host-new_api_refresh`（`Path=/`）。存量已登录会话的浏览器内存 Access Token 在剩余有效期（≤15 分钟）内继续可用；下一次 `POST /api/user/auth/refresh` 因不含 `__Host-new_api_refresh` 会返回 401，并由服务端在同一响应中通过 `ClearRefreshCookie` 自动清理旧 `new_api_refresh` 与 `new_api_has_session`，用户重新登录一次即可。
+- 切换瞬间处于 10 分钟窗口内的标准 OAuth 与 TikTok Direct 授权回调会因 `__Host-` 前缀不匹配失败一次，重新发起授权即可。
+- 多节点部署必须同步切换所有节点的 `SESSION_COOKIE_SECURE`，避免节点间混跑 `true`/`false` 导致 Cookie 名称不一致引发登录态抖动。
+- 如需回滚至 `SESSION_COOKIE_SECURE=false`（同时移除 `SESSION_COOKIE_TRUSTED_URL`），同样仅引发一次重新登录，无数据损失。
 
 ## 可信代理与 IP 限流
 
@@ -191,6 +213,7 @@ Proof 同时绑定用户、登录会话、用户鉴权版本、会话版本和 s
 - `user_sessions.previous_refresh_hash` 会从定长 `char(64)` 迁移为 `varchar(64)`。应用会兼容读取历史定长字段留下的空格填充；迁移后的目标结构必须保持幂等，连续启动不应反复执行列类型变更。
 - 仅 master 节点定时清理过期登录会话、超过配置保留期的 revoked 会话和已过保留期的 AuthFlow。
 - 未配置 `TRUSTED_PROXIES` 时会兼容信任回环和常见私网代理；使用公网负载均衡器、`100.64.0.0/10`、链路本地地址或自定义 CNI 网段的部署仍需显式配置。需要严格忽略所有转发头时设置为 `none`。
+- 已有部署将 `SESSION_COOKIE_SECURE` 从 `false`（或未配置）切换为 `true` 时，须配套设置 `SESSION_COOKIE_TRUSTED_URL` 并在多节点间同步切换；存量会话会在下次刷新时因切换为 `__Host-new_api_refresh` 触发一次自动清理旧 Cookie 与重新登录。
 - Redis 限流从近似滑动窗口改为原子固定窗口，存在明确的边界双倍突发语义。
 - 用户级模型成功请求限流的 UTC 时间戳在滚动升级期间存在一个窗口的混合格式过渡，期间可能临时误放行或误拒绝。
 - 自建客户端应按新的 AuthBundle、`flow_token` 和 Security Proof 契约升级；PAT 客户端可直接移除 `New-Api-User`。

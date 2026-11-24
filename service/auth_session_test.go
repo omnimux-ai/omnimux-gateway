@@ -446,6 +446,10 @@ func TestUserAuthVersionInvalidatesExistingSession(t *testing.T) {
 }
 
 func TestReadRefreshCookieRejectsDuplicateNames(t *testing.T) {
+	previousSecure := common.SessionCookieSecure
+	common.SessionCookieSecure = false
+	t.Cleanup(func() { common.SessionCookieSecure = previousSecure })
+
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -457,6 +461,34 @@ func TestReadRefreshCookieRejectsDuplicateNames(t *testing.T) {
 	value, err := ReadRefreshCookie(c)
 	require.NoError(t, err)
 	assert.Equal(t, "only", value)
+}
+
+func TestReadRefreshCookieSecureMode(t *testing.T) {
+	previousSecure := common.SessionCookieSecure
+	common.SessionCookieSecure = true
+	t.Cleanup(func() { common.SessionCookieSecure = previousSecure })
+
+	newCtx := func(cookieHeader string) *gin.Context {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/user/auth/refresh", nil)
+		if cookieHeader != "" {
+			c.Request.Header.Set("Cookie", cookieHeader)
+		}
+		return c
+	}
+
+	_, err := ReadRefreshCookie(newCtx("new_api_refresh=legacy-only"))
+	assert.ErrorIs(t, err, ErrRefreshTokenInvalid, "secure mode must reject legacy non-__Host- refresh cookie")
+
+	_, err = ReadRefreshCookie(newCtx("__Host-new_api_refresh=first; __Host-new_api_refresh=second"))
+	assert.ErrorIs(t, err, ErrRefreshTokenInvalid, "secure mode must reject duplicate __Host- refresh cookies")
+
+	_, err = ReadRefreshCookie(newCtx("__Host-new_api_refresh=   "))
+	assert.ErrorIs(t, err, ErrRefreshTokenInvalid)
+
+	value, err := ReadRefreshCookie(newCtx("new_api_refresh=legacy; __Host-new_api_refresh=secure-only"))
+	require.NoError(t, err)
+	assert.Equal(t, "secure-only", value)
 }
 
 func TestRefreshCookieUsesHostPrefixInSecureMode(t *testing.T) {
@@ -477,6 +509,161 @@ func TestRefreshCookieUsesHostPrefixInSecureMode(t *testing.T) {
 	}
 	require.NotNil(t, refreshCookie)
 	assert.Equal(t, "/", refreshCookie.Path)
+	assert.Empty(t, refreshCookie.Domain)
 	assert.True(t, refreshCookie.Secure)
 	assert.True(t, refreshCookie.HttpOnly)
+	assert.Equal(t, http.SameSiteStrictMode, refreshCookie.SameSite)
+	assert.Positive(t, refreshCookie.MaxAge)
+}
+
+func TestWriteAndClearRefreshCookieAttributesAcrossModes(t *testing.T) {
+	findCookiesByName := func(cookies []*http.Cookie) map[string]*http.Cookie {
+		byName := make(map[string]*http.Cookie, len(cookies))
+		for _, cookie := range cookies {
+			byName[cookie.Name] = cookie
+		}
+		return byName
+	}
+
+	t.Run("HTTPS secure mode writes __Host- refresh cookie and clears legacy name", func(t *testing.T) {
+		previousSecure := common.SessionCookieSecure
+		common.SessionCookieSecure = true
+		t.Cleanup(func() { common.SessionCookieSecure = previousSecure })
+
+		writeRec := httptest.NewRecorder()
+		writeCtx, _ := gin.CreateTestContext(writeRec)
+		writeCtx.Request = httptest.NewRequest(http.MethodPost, "/api/user/auth/refresh", nil)
+		WriteRefreshCookie(writeCtx, "not-a-session-token")
+
+		written := writeRec.Result().Cookies()
+		require.Len(t, written, 2)
+		byName := findCookiesByName(written)
+
+		refresh := byName[SecureRefreshCookieName]
+		require.NotNil(t, refresh)
+		assert.Equal(t, "not-a-session-token", refresh.Value)
+		assert.Equal(t, "/", refresh.Path)
+		assert.Empty(t, refresh.Domain)
+		assert.True(t, refresh.Secure)
+		assert.True(t, refresh.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, refresh.SameSite)
+		assert.Positive(t, refresh.MaxAge)
+		assert.False(t, refresh.Expires.IsZero())
+
+		hint := byName[SessionHintCookieName]
+		require.NotNil(t, hint)
+		assert.Equal(t, SessionHintCookieValue, hint.Value)
+		assert.Equal(t, "/", hint.Path)
+		assert.Empty(t, hint.Domain)
+		assert.True(t, hint.Secure)
+		assert.False(t, hint.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, hint.SameSite)
+		assert.Equal(t, refresh.MaxAge, hint.MaxAge)
+
+		clearRec := httptest.NewRecorder()
+		clearCtx, _ := gin.CreateTestContext(clearRec)
+		clearCtx.Request = httptest.NewRequest(http.MethodPost, "/api/user/auth/logout", nil)
+		ClearRefreshCookie(clearCtx)
+
+		cleared := clearRec.Result().Cookies()
+		require.Len(t, cleared, 3)
+		clearedByName := findCookiesByName(cleared)
+
+		clearedSecure := clearedByName[SecureRefreshCookieName]
+		require.NotNil(t, clearedSecure)
+		assert.Empty(t, clearedSecure.Value)
+		assert.Equal(t, "/", clearedSecure.Path)
+		assert.Empty(t, clearedSecure.Domain)
+		assert.True(t, clearedSecure.Secure)
+		assert.True(t, clearedSecure.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, clearedSecure.SameSite)
+		assert.Negative(t, clearedSecure.MaxAge)
+
+		clearedLegacy := clearedByName[RefreshCookieName]
+		require.NotNil(t, clearedLegacy)
+		assert.Empty(t, clearedLegacy.Value)
+		assert.Equal(t, "/api/user/auth", clearedLegacy.Path)
+		assert.Empty(t, clearedLegacy.Domain)
+		assert.True(t, clearedLegacy.Secure)
+		assert.True(t, clearedLegacy.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, clearedLegacy.SameSite)
+		assert.Negative(t, clearedLegacy.MaxAge)
+
+		clearedHint := clearedByName[SessionHintCookieName]
+		require.NotNil(t, clearedHint)
+		assert.Empty(t, clearedHint.Value)
+		assert.Equal(t, "/", clearedHint.Path)
+		assert.Empty(t, clearedHint.Domain)
+		assert.True(t, clearedHint.Secure)
+		assert.False(t, clearedHint.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, clearedHint.SameSite)
+		assert.Negative(t, clearedHint.MaxAge)
+	})
+
+	t.Run("local HTTP mode writes non-secure refresh cookie and clears without __Host- cookie", func(t *testing.T) {
+		previousSecure := common.SessionCookieSecure
+		common.SessionCookieSecure = false
+		t.Cleanup(func() { common.SessionCookieSecure = previousSecure })
+
+		writeRec := httptest.NewRecorder()
+		writeCtx, _ := gin.CreateTestContext(writeRec)
+		writeCtx.Request = httptest.NewRequest(http.MethodPost, "/api/user/auth/refresh", nil)
+		WriteRefreshCookie(writeCtx, "not-a-session-token")
+
+		written := writeRec.Result().Cookies()
+		require.Len(t, written, 2)
+		byName := findCookiesByName(written)
+		assert.Nil(t, byName[SecureRefreshCookieName])
+
+		refresh := byName[RefreshCookieName]
+		require.NotNil(t, refresh)
+		assert.Equal(t, "not-a-session-token", refresh.Value)
+		assert.Equal(t, "/api/user/auth", refresh.Path)
+		assert.Empty(t, refresh.Domain)
+		assert.False(t, refresh.Secure)
+		assert.True(t, refresh.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, refresh.SameSite)
+		assert.Positive(t, refresh.MaxAge)
+		assert.False(t, refresh.Expires.IsZero())
+
+		hint := byName[SessionHintCookieName]
+		require.NotNil(t, hint)
+		assert.Equal(t, SessionHintCookieValue, hint.Value)
+		assert.Equal(t, "/", hint.Path)
+		assert.Empty(t, hint.Domain)
+		assert.False(t, hint.Secure)
+		assert.False(t, hint.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, hint.SameSite)
+		assert.Equal(t, refresh.MaxAge, hint.MaxAge)
+
+		clearRec := httptest.NewRecorder()
+		clearCtx, _ := gin.CreateTestContext(clearRec)
+		clearCtx.Request = httptest.NewRequest(http.MethodPost, "/api/user/auth/logout", nil)
+		ClearRefreshCookie(clearCtx)
+
+		cleared := clearRec.Result().Cookies()
+		require.Len(t, cleared, 2)
+		clearedByName := findCookiesByName(cleared)
+		assert.Nil(t, clearedByName[SecureRefreshCookieName])
+
+		clearedRefresh := clearedByName[RefreshCookieName]
+		require.NotNil(t, clearedRefresh)
+		assert.Empty(t, clearedRefresh.Value)
+		assert.Equal(t, "/api/user/auth", clearedRefresh.Path)
+		assert.Empty(t, clearedRefresh.Domain)
+		assert.False(t, clearedRefresh.Secure)
+		assert.True(t, clearedRefresh.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, clearedRefresh.SameSite)
+		assert.Negative(t, clearedRefresh.MaxAge)
+
+		clearedHint := clearedByName[SessionHintCookieName]
+		require.NotNil(t, clearedHint)
+		assert.Empty(t, clearedHint.Value)
+		assert.Equal(t, "/", clearedHint.Path)
+		assert.Empty(t, clearedHint.Domain)
+		assert.False(t, clearedHint.Secure)
+		assert.False(t, clearedHint.HttpOnly)
+		assert.Equal(t, http.SameSiteStrictMode, clearedHint.SameSite)
+		assert.Negative(t, clearedHint.MaxAge)
+	})
 }

@@ -1,10 +1,13 @@
 package common
 
 import (
+	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -218,4 +221,109 @@ func TestInitSessionCookieSettingsRejectsNonOriginURLs(t *testing.T) {
 			require.Error(t, InitSessionCookieSettings())
 		})
 	}
+}
+
+func TestInitSessionCookieSettingsExplicitFalseAndCaseInsensitive(t *testing.T) {
+	t.Run("explicit false without trusted url succeeds", func(t *testing.T) {
+		resetSessionCookieSettingsAfterTest(t)
+		t.Setenv("SESSION_COOKIE_SECURE", "false")
+		t.Setenv("SESSION_COOKIE_TRUSTED_URL", "")
+
+		require.NoError(t, InitSessionCookieSettings())
+		assert.False(t, SessionCookieSecure)
+		assert.Empty(t, SessionCookieTrustedURLs)
+	})
+
+	t.Run("explicit uppercase FALSE without trusted url succeeds", func(t *testing.T) {
+		resetSessionCookieSettingsAfterTest(t)
+		t.Setenv("SESSION_COOKIE_SECURE", "FALSE")
+		t.Setenv("SESSION_COOKIE_TRUSTED_URL", "")
+
+		require.NoError(t, InitSessionCookieSettings())
+		assert.False(t, SessionCookieSecure)
+		assert.Empty(t, SessionCookieTrustedURLs)
+	})
+
+	t.Run("explicit false with trusted url fails closed", func(t *testing.T) {
+		resetSessionCookieSettingsAfterTest(t)
+		t.Setenv("SESSION_COOKIE_SECURE", "false")
+		t.Setenv("SESSION_COOKIE_TRUSTED_URL", "https://example.com")
+
+		err := InitSessionCookieSettings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "SESSION_COOKIE_TRUSTED_URL requires SESSION_COOKIE_SECURE=true")
+		assert.False(t, SessionCookieSecure)
+		assert.Empty(t, SessionCookieTrustedURLs)
+	})
+
+	t.Run("uppercase TRUE with trusted url enables secure mode", func(t *testing.T) {
+		resetSessionCookieSettingsAfterTest(t)
+		t.Setenv("SESSION_COOKIE_SECURE", "TRUE")
+		t.Setenv("SESSION_COOKIE_TRUSTED_URL", "https://example.com")
+
+		require.NoError(t, InitSessionCookieSettings())
+		assert.True(t, SessionCookieSecure)
+		assert.Equal(t, []string{"https://example.com"}, SessionCookieTrustedURLs)
+	})
+}
+
+func TestInitSessionCookieSettingsRejectsInvalidBooleanValues(t *testing.T) {
+	for _, raw := range []string{"1", "0", "yes", "no", "on", "invalid"} {
+		t.Run(raw, func(t *testing.T) {
+			resetSessionCookieSettingsAfterTest(t)
+			t.Setenv("SESSION_COOKIE_SECURE", raw)
+			t.Setenv("SESSION_COOKIE_TRUSTED_URL", "https://example.com")
+
+			err := InitSessionCookieSettings()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "SESSION_COOKIE_SECURE must be true or false")
+			assert.False(t, SessionCookieSecure)
+			assert.Empty(t, SessionCookieTrustedURLs)
+		})
+	}
+}
+
+func TestLogStartupSuccessSessionCookieWarning(t *testing.T) {
+	previousSecure := SessionCookieSecure
+	previousLanguage := DefaultLanguage
+	LogWriterMu.Lock()
+	previousWriter := gin.DefaultWriter
+	LogWriterMu.Unlock()
+	t.Cleanup(func() {
+		SessionCookieSecure = previousSecure
+		SetLogLanguage(previousLanguage)
+		LogWriterMu.Lock()
+		gin.DefaultWriter = previousWriter
+		LogWriterMu.Unlock()
+	})
+
+	captureStartup := func(secure bool, lang string) string {
+		SessionCookieSecure = secure
+		SetLogLanguage(lang)
+		var buf bytes.Buffer
+		LogWriterMu.Lock()
+		gin.DefaultWriter = &buf
+		LogWriterMu.Unlock()
+		LogStartupSuccess(time.Now(), "3000")
+		return buf.String()
+	}
+
+	t.Run("insecure mode emits english warning with trusted url hint", func(t *testing.T) {
+		out := captureStartup(false, "")
+		assert.Contains(t, out, "Warning: Refresh cookie is not secure and refresh/logout Origin validation is disabled. Please set SESSION_COOKIE_SECURE=true and SESSION_COOKIE_TRUSTED_URL in production.")
+	})
+
+	t.Run("insecure mode emits zh-CN translated warning with trusted url hint", func(t *testing.T) {
+		out := captureStartup(false, "zh-CN")
+		assert.Contains(t, out, "警告：SESSION_COOKIE_SECURE 未开启")
+		assert.Contains(t, out, "SESSION_COOKIE_SECURE=true")
+		assert.Contains(t, out, "SESSION_COOKIE_TRUSTED_URL")
+	})
+
+	t.Run("secure mode suppresses insecure cookie warning", func(t *testing.T) {
+		out := captureStartup(true, "")
+		assert.NotContains(t, out, "SESSION_COOKIE_SECURE")
+		assert.NotContains(t, out, "SESSION_COOKIE_TRUSTED_URL")
+		assert.NotContains(t, out, "Refresh cookie is not secure")
+	})
 }

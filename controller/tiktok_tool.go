@@ -224,7 +224,7 @@ func issueTikTokToolPass(c *gin.Context, now time.Time) {
 	value := expires + "." + tiktokToolSign("pass", expires, tiktokToolNetwork(tiktokToolClientIP(c)), tiktokToolAgent(c))
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name: tiktokToolPassCookie, Value: value, Path: "/api/tools/tiktok",
-		MaxAge: int(tiktokToolPassTTL.Seconds()), HttpOnly: true, Secure: c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https"),
+		MaxAge: int(tiktokToolPassTTL.Seconds()), HttpOnly: true, Secure: common.SessionCookieSecure || c.Request.TLS != nil,
 		SameSite: http.SameSiteStrictMode,
 	})
 }

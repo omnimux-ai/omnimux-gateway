@@ -5528,7 +5528,7 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "new_api_refresh",
-        "description": "仅 refresh/logout 使用的 HttpOnly、SameSite=Strict Cookie"
+        "description": "仅 refresh/logout 使用的 HttpOnly、SameSite=Strict Cookie；本地 HTTP 模式为 new_api_refresh（Path=/api/user/auth），启用 SESSION_COOKIE_SECURE=true 时切换为 __Host-new_api_refresh（Path=/、Secure）"
       },
       "SecurityProof": {
         "type": "apiKey",

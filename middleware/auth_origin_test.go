@@ -133,3 +133,130 @@ func TestSessionCookieOriginGuardDoesNotTrustForwardedProtoFromClient(t *testing
 
 	assert.Equal(t, http.StatusForbidden, response.Code)
 }
+
+func TestSessionCookieOriginGuardReverseProxyTLSTermination(t *testing.T) {
+	previousSecure := common.SessionCookieSecure
+	previousTrustedURLs := common.SessionCookieTrustedURLs
+	common.SessionCookieSecure = true
+	common.SessionCookieTrustedURLs = []string{"https://panel.example.com", "https://admin.example.com:8443"}
+	t.Cleanup(func() {
+		common.SessionCookieSecure = previousSecure
+		common.SessionCookieTrustedURLs = previousTrustedURLs
+	})
+
+	tests := []struct {
+		name           string
+		origin         string
+		referer        string
+		forwardedProto string
+		expected       int
+	}{
+		{
+			name:     "trusted HTTPS origin allowed when TLS terminates at reverse proxy",
+			origin:   "https://panel.example.com",
+			expected: http.StatusNoContent,
+		},
+		{
+			name:     "trusted HTTPS origin with explicit port allowed over plain HTTP upstream",
+			origin:   "https://admin.example.com:8443",
+			expected: http.StatusNoContent,
+		},
+		{
+			name:     "trusted HTTPS referer fallback allowed when origin is omitted",
+			referer:  "https://panel.example.com/settings?tab=security",
+			expected: http.StatusNoContent,
+		},
+		{
+			name:           "untrusted HTTPS origin rejected even with X-Forwarded-Proto",
+			origin:         "https://evil.example.com",
+			forwardedProto: "https",
+			expected:       http.StatusForbidden,
+		},
+		{
+			name:     "HTTP downgrade of trusted host rejected",
+			origin:   "http://panel.example.com",
+			expected: http.StatusForbidden,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			router.POST("/api/user/auth/refresh", SessionCookieOriginGuard(), func(c *gin.Context) {
+				c.Status(http.StatusNoContent)
+			})
+			request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:3000/api/user/auth/refresh", nil)
+			request.Host = "127.0.0.1:3000"
+			if test.origin != "" {
+				request.Header.Set("Origin", test.origin)
+			}
+			if test.referer != "" {
+				request.Header.Set("Referer", test.referer)
+			}
+			if test.forwardedProto != "" {
+				request.Header.Set("X-Forwarded-Proto", test.forwardedProto)
+			}
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			assert.Equal(t, test.expected, response.Code)
+			assert.Empty(t, response.Header().Get("Access-Control-Allow-Origin"))
+		})
+	}
+}
+
+func TestSessionCookieOriginGuardRejectsMultipleAndCommaSeparatedHeaders(t *testing.T) {
+	previousSecure := common.SessionCookieSecure
+	previousTrustedURLs := common.SessionCookieTrustedURLs
+	common.SessionCookieSecure = true
+	common.SessionCookieTrustedURLs = []string{"https://panel.example.com"}
+	t.Cleanup(func() {
+		common.SessionCookieSecure = previousSecure
+		common.SessionCookieTrustedURLs = previousTrustedURLs
+	})
+
+	tests := []struct {
+		name    string
+		prepare func(req *http.Request)
+	}{
+		{
+			name: "multiple Origin headers",
+			prepare: func(req *http.Request) {
+				req.Header.Add("Origin", "https://panel.example.com")
+				req.Header.Add("Origin", "https://panel.example.com")
+			},
+		},
+		{
+			name: "comma-separated Origin header",
+			prepare: func(req *http.Request) {
+				req.Header.Set("Origin", "https://panel.example.com, https://evil.example.com")
+			},
+		},
+		{
+			name: "multiple Referer headers without Origin",
+			prepare: func(req *http.Request) {
+				req.Header.Add("Referer", "https://panel.example.com/a")
+				req.Header.Add("Referer", "https://panel.example.com/b")
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			router.POST("/api/user/auth/logout", SessionCookieOriginGuard(), func(c *gin.Context) {
+				c.Status(http.StatusNoContent)
+			})
+			request := httptest.NewRequest(http.MethodPost, "https://panel.example.com/api/user/auth/logout", nil)
+			request.Host = "panel.example.com"
+			test.prepare(request)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			assert.Equal(t, http.StatusForbidden, response.Code)
+			assert.Empty(t, response.Header().Get("Access-Control-Allow-Origin"))
+		})
+	}
+}
