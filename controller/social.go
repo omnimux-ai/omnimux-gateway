@@ -9,6 +9,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/social"
+	"github.com/QuantumNous/new-api/service/social/tiktok"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -99,10 +101,143 @@ func setSocialService(s *social.Service) {
 	socialSvc = s
 }
 
+var (
+	validTikTokUpstreamCodeRe  = regexp.MustCompile(`^[a-z0-9_.-]{1,64}$`)
+	validTikTokUpstreamLogIDRe = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
+)
+
+// tikTokBlockedMessageSubstrings prevents secret leakage and avoids legacy
+// desktop quota-classifier false positives on TikTok upstream error messages.
+var tikTokBlockedMessageSubstrings = []string{
+	"bearer",
+	"api key",
+	"client_secret",
+	"quota exceeded",
+	"usage limit reached",
+	"insufficient quota",
+}
+
+type tikTokErrorClassification struct {
+	httpStatus int
+	code       string
+	fallback   string
+}
+
+func sanitizeTikTokSocialMessage(raw, fallback string) string {
+	msg := strings.TrimSpace(raw)
+	if msg == "" {
+		return fallback
+	}
+	normalized := strings.Join(strings.Fields(strings.ToLower(msg)), " ")
+	for _, blocked := range tikTokBlockedMessageSubstrings {
+		if strings.Contains(normalized, blocked) {
+			return fallback
+		}
+	}
+	return msg
+}
+
+func classifyTikTokSocialError(err error, apiErr *tiktok.APIError) tikTokErrorClassification {
+	var normCode string
+	var status int
+	var endpoint string
+	if apiErr != nil {
+		normCode = strings.ToLower(strings.TrimSpace(apiErr.Code))
+		status = apiErr.Status
+		endpoint = strings.ToLower(strings.TrimSpace(apiErr.Endpoint))
+	}
+
+	// Transient rate limit takes precedence over refresh/endpoint checks so a
+	// transient 429 during token refresh is never misclassified as an invalid token.
+	if normCode == "rate_limit_exceeded" || status == http.StatusTooManyRequests {
+		return tikTokErrorClassification{
+			httpStatus: http.StatusTooManyRequests,
+			code:       "SOCIAL_TIKTOK_RATE_LIMITED",
+			fallback:   "TikTok rate limit reached; please retry later",
+		}
+	}
+	if normCode == "spam_risk_user_banned_from_posting" {
+		return tikTokErrorClassification{
+			httpStatus: http.StatusConflict,
+			code:       "SOCIAL_TIKTOK_POSTING_BANNED",
+			fallback:   "TikTok account is restricted from posting",
+		}
+	}
+	switch normCode {
+	case "spam_risk_too_many_posts",
+		"reached_active_user_cap",
+		"spam_risk_too_many_pending_share",
+		"unaudited_client_can_only_post_to_private_accounts",
+		"url_ownership_unverified":
+		return tikTokErrorClassification{
+			httpStatus: http.StatusConflict,
+			code:       "SOCIAL_TIKTOK_PUBLISH_RESTRICTED",
+			fallback:   "TikTok posting limit reached",
+		}
+	}
+	if normCode == "scope_not_authorized" {
+		return tikTokErrorClassification{
+			httpStatus: http.StatusConflict,
+			code:       "SOCIAL_TIKTOK_SCOPE_MISSING",
+			fallback:   "TikTok publishing scope is not authorized; please reconnect account",
+		}
+	}
+	if errors.Is(err, social.ErrTikTokTokenExpired) || endpoint == "refresh" {
+		return tikTokErrorClassification{
+			httpStatus: http.StatusConflict,
+			code:       "SOCIAL_TIKTOK_TOKEN_INVALID",
+			fallback:   "TikTok authorization expired or invalid; please reconnect account",
+		}
+	}
+	switch normCode {
+	case "access_token_invalid",
+		"token_expired",
+		"invalid_token",
+		"token_revoked",
+		"invalid_grant",
+		"refresh_token_invalid":
+		return tikTokErrorClassification{
+			httpStatus: http.StatusConflict,
+			code:       "SOCIAL_TIKTOK_TOKEN_INVALID",
+			fallback:   "TikTok authorization expired or invalid; please reconnect account",
+		}
+	}
+	return tikTokErrorClassification{
+		httpStatus: http.StatusBadGateway,
+		code:       "SOCIAL_TIKTOK_UPSTREAM_ERROR",
+		fallback:   "TikTok upstream request failed",
+	}
+}
+
+func writeTikTokSocialError(c *gin.Context, err error, apiErr *tiktok.APIError) {
+	cls := classifyTikTokSocialError(err, apiErr)
+	rawMsg := ""
+	if apiErr != nil {
+		rawMsg = apiErr.Message
+	} else if err != nil {
+		rawMsg = err.Error()
+	}
+	payload := gin.H{
+		"success": false,
+		"message": sanitizeTikTokSocialMessage(rawMsg, cls.fallback),
+		"code":    cls.code,
+	}
+	if apiErr != nil {
+		if upstreamCode := strings.TrimSpace(apiErr.Code); validTikTokUpstreamCodeRe.MatchString(upstreamCode) {
+			payload["upstream_code"] = upstreamCode
+		}
+		if upstreamLogID := strings.TrimSpace(apiErr.LogID); validTikTokUpstreamLogIDRe.MatchString(upstreamLogID) {
+			payload["upstream_log_id"] = upstreamLogID
+		}
+	}
+	c.JSON(cls.httpStatus, payload)
+}
+
 func socialError(c *gin.Context, err error) {
 	if err == nil {
 		return
 	}
+	var tikTokErr *tiktok.APIError
 	switch {
 	case errors.Is(err, social.ErrProviderInvalid):
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "code": "invalid-provider"})
@@ -111,7 +246,11 @@ func socialError(c *gin.Context, err error) {
 		c.JSON(http.StatusGone, gin.H{"success": false, "message": err.Error(), "code": "provider-retired"})
 	// fork: tiktok-draft-upload — the account token does not grant a publish scope.
 	case errors.Is(err, social.ErrTikTokPublishScopeMissing):
-		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "code": "SOCIAL_TIKTOK_SCOPE_MISSING"})
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"message": sanitizeTikTokSocialMessage(err.Error(), "TikTok publishing scope is not authorized; please reconnect account"),
+			"code":    "SOCIAL_TIKTOK_SCOPE_MISSING",
+		})
 	case errors.Is(err, social.ErrAccountProviderMismatch):
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "code": "account-provider-mismatch"})
 	case errors.Is(err, social.ErrPostProviderMismatch):
@@ -145,6 +284,9 @@ func socialError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "社媒绑定席位已过期，请续费或解绑", "code": "SOCIAL_SEAT_EXPIRED"})
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "not found", "code": "SOCIAL_NOT_FOUND"})
+	// fork: tiktok-direct — structured TikTok upstream error mapping (never 401/403).
+	case errors.As(err, &tikTokErr) || errors.Is(err, social.ErrTikTokTokenExpired):
+		writeTikTokSocialError(c, err, tikTokErr)
 	default:
 		// Do not leak upstream secrets; client errors already sanitized in service layer.
 		msg := err.Error()

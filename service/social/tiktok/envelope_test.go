@@ -63,6 +63,6 @@ func TestV2SuccessEnvelope(t *testing.T) {
 }
 
 func TestTokenOKWithoutDataStillFails(t *testing.T) {
-	_, err := parseToken([]byte(`{"error":{"code":"ok"}}`))
+	_, err := parseToken([]byte(`{"error":{"code":"ok"}}`), "token", http.StatusOK)
 	require.ErrorContains(t, err, "empty access_token")
 }

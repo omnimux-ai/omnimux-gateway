@@ -89,6 +89,9 @@ func TestExchangeTokenFlatError(t *testing.T) {
 			_, err := NewClient(srv.URL).ExchangeToken(context.Background(), "ck", "cs", "code", "https://cb")
 			var apiErr *APIError
 			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, tc.status, apiErr.Status)
+			assert.Equal(t, "token", apiErr.Endpoint)
+			assert.NotContains(t, apiErr.Error(), "HTTP 0")
 			assert.NotEmpty(t, apiErr.Code)
 			assert.NotEmpty(t, apiErr.Message)
 			assert.NotEmpty(t, apiErr.LogID)
@@ -366,4 +369,172 @@ func TestQueryCreatorInfo(t *testing.T) {
 	assert.False(t, info.CommentDisabled)
 	assert.True(t, info.DuetDisabled)
 	assert.True(t, info.StitchDisabled)
+}
+
+func TestHTTP200BusinessErrorsPopulateStatusEndpointAndLogID(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name         string
+		body         string
+		wantEndpoint string
+		wantCode     string
+		wantMessage  string
+		wantLogID    string
+		call         func(*Client) error
+	}{
+		{
+			name:         "ExchangeToken nested error",
+			body:         `{"error":{"code":"invalid_grant","message":"code expired","log_id":"log-exchange-200"}}`,
+			wantEndpoint: "token",
+			wantCode:     "invalid_grant",
+			wantMessage:  "code expired",
+			wantLogID:    "log-exchange-200",
+			call: func(c *Client) error {
+				_, err := c.ExchangeToken(ctx, "ck", "cs", "code", "https://cb")
+				return err
+			},
+		},
+		{
+			name:         "RefreshToken flat string error keeps refresh endpoint",
+			body:         `{"error":"invalid_grant","error_description":"refresh token revoked","log_id":"log-refresh-flat-200"}`,
+			wantEndpoint: "refresh",
+			wantCode:     "invalid_grant",
+			wantMessage:  "refresh token revoked",
+			wantLogID:    "log-refresh-flat-200",
+			call: func(c *Client) error {
+				_, err := c.RefreshToken(ctx, "ck", "cs", "rt-1")
+				return err
+			},
+		},
+		{
+			name:         "RefreshToken nested error_code fallback keeps refresh endpoint",
+			body:         `{"error":{"error_code":"refresh_token_invalid","message":"bad refresh","log_id":"log-refresh-nested-200"}}`,
+			wantEndpoint: "refresh",
+			wantCode:     "refresh_token_invalid",
+			wantMessage:  "bad refresh",
+			wantLogID:    "log-refresh-nested-200",
+			call: func(c *Client) error {
+				_, err := c.RefreshToken(ctx, "ck", "cs", "rt-1")
+				return err
+			},
+		},
+		{
+			name:         "GetUserInfo nested error",
+			body:         `{"data":{"user":{}},"error":{"code":"access_token_invalid","message":"token invalid","log_id":"log-userinfo-200"}}`,
+			wantEndpoint: "user_info",
+			wantCode:     "access_token_invalid",
+			wantMessage:  "token invalid",
+			wantLogID:    "log-userinfo-200",
+			call: func(c *Client) error {
+				_, err := c.GetUserInfo(ctx, "at-1")
+				return err
+			},
+		},
+		{
+			name:         "GetUserInfo error_code and top-level log_id fallback",
+			body:         `{"data":{"user":{}},"error":{"error_code":"scope_not_authorized","message":"missing scope"},"log_id":"log-userinfo-top-200"}`,
+			wantEndpoint: "user_info",
+			wantCode:     "scope_not_authorized",
+			wantMessage:  "missing scope",
+			wantLogID:    "log-userinfo-top-200",
+			call: func(c *Client) error {
+				_, err := c.GetUserInfo(ctx, "at-1")
+				return err
+			},
+		},
+		{
+			name:         "QueryCreatorInfo nested error",
+			body:         `{"data":{},"error":{"code":"spam_risk_too_many_posts","message":"too many posts today","log_id":"log-creator-200"}}`,
+			wantEndpoint: "creator_info",
+			wantCode:     "spam_risk_too_many_posts",
+			wantMessage:  "too many posts today",
+			wantLogID:    "log-creator-200",
+			call: func(c *Client) error {
+				_, err := c.QueryCreatorInfo(ctx, "at-1")
+				return err
+			},
+		},
+		{
+			name:         "PublishVideoByURLWithOptions nested error",
+			body:         `{"data":{},"error":{"code":"unaudited_client_can_only_post_to_private_accounts","message":"private accounts only","log_id":"log-pub-video-200"}}`,
+			wantEndpoint: "publish",
+			wantCode:     "unaudited_client_can_only_post_to_private_accounts",
+			wantMessage:  "private accounts only",
+			wantLogID:    "log-pub-video-200",
+			call: func(c *Client) error {
+				_, err := c.PublishVideoByURLWithOptions(ctx, "at-1", "title", "https://example.com/v.mp4", &PostOptions{PrivacyLevel: "SELF_ONLY"})
+				return err
+			},
+		},
+		{
+			name:         "PublishPhotoByURLWithOptions error_code fallback",
+			body:         `{"data":{},"error":{"error_code":"url_ownership_unverified","message":"verify domain","log_id":"log-pub-photo-200"}}`,
+			wantEndpoint: "publish",
+			wantCode:     "url_ownership_unverified",
+			wantMessage:  "verify domain",
+			wantLogID:    "log-pub-photo-200",
+			call: func(c *Client) error {
+				_, err := c.PublishPhotoByURLWithOptions(ctx, "at-1", "title", []string{"https://example.com/p.jpg"}, &PostOptions{PrivacyLevel: "SELF_ONLY"})
+				return err
+			},
+		},
+		{
+			name:         "GetPublishStatus nested error",
+			body:         `{"data":{},"error":{"code":"rate_limit_exceeded","message":"slow down","log_id":"log-status-200"}}`,
+			wantEndpoint: "publish_status",
+			wantCode:     "rate_limit_exceeded",
+			wantMessage:  "slow down",
+			wantLogID:    "log-status-200",
+			call: func(c *Client) error {
+				_, err := c.GetPublishStatus(ctx, "at-1", "pub-1")
+				return err
+			},
+		},
+		{
+			name:         "PublishVideoToInboxByURL nested error",
+			body:         `{"data":{},"error":{"code":"spam_risk_too_many_pending_share","message":"too many drafts","log_id":"log-inbox-200"}}`,
+			wantEndpoint: "video_inbox_init",
+			wantCode:     "spam_risk_too_many_pending_share",
+			wantMessage:  "too many drafts",
+			wantLogID:    "log-inbox-200",
+			call: func(c *Client) error {
+				_, err := c.PublishVideoToInboxByURL(ctx, "at-1", "https://example.com/v.mp4")
+				return err
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+
+			err := tc.call(NewClient(srv.URL))
+			require.Error(t, err)
+			var apiErr *APIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusOK, apiErr.Status)
+			assert.Equal(t, tc.wantEndpoint, apiErr.Endpoint)
+			assert.Equal(t, tc.wantCode, apiErr.Code)
+			assert.Equal(t, tc.wantMessage, apiErr.Message)
+			assert.Equal(t, tc.wantLogID, apiErr.LogID)
+			assert.NotContains(t, apiErr.Error(), "HTTP 0")
+			assert.Contains(t, apiErr.Error(), "HTTP 200")
+		})
+	}
+
+	t.Run("parseToken defaults zero status to HTTP 200 and preserves endpoint", func(t *testing.T) {
+		_, err := parseToken([]byte(`{"error":{"code":"invalid_grant","message":"bad","log_id":"log-zero-status"}}`), "refresh", 0)
+		var apiErr *APIError
+		require.ErrorAs(t, err, &apiErr)
+		assert.Equal(t, http.StatusOK, apiErr.Status)
+		assert.Equal(t, "refresh", apiErr.Endpoint)
+		assert.Equal(t, "invalid_grant", apiErr.Code)
+		assert.Equal(t, "log-zero-status", apiErr.LogID)
+		assert.NotContains(t, apiErr.Error(), "HTTP 0")
+	})
 }
