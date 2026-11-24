@@ -19,12 +19,19 @@ func TestPricingRowPublishesTheContractWhenPresent(t *testing.T) {
 	contract, ok := modelcontracts.For("seedance-2-5")
 	require.True(t, ok, "seedance-2-5 has no shipped contract")
 
-	body, err := common.Marshal(Pricing{ModelName: "seedance-2-5", Contract: &contract})
+	body, err := common.Marshal(Pricing{
+		ModelName: "seedance-2-5",
+		BrandID:   contract.BrandID,
+		BrandName: contract.BrandName,
+		Contract:  &contract,
+	})
 	require.NoError(t, err)
 
 	serialized := string(body)
 	assert.Contains(t, serialized, `"contract"`)
 	assert.Contains(t, serialized, `"model_id":"seedance-2-5"`)
+	assert.Contains(t, serialized, `"brand_id":"bytedance"`)
+	assert.Contains(t, serialized, `"brand_name":"ByteDance"`)
 	assert.Contains(t, serialized, `"durations_seconds"`)
 }
 
@@ -32,6 +39,8 @@ func TestPricingRowWithoutAContractIsUnchanged(t *testing.T) {
 	body, err := common.Marshal(Pricing{ModelName: "no-such-model"})
 	require.NoError(t, err)
 	assert.NotContains(t, string(body), "contract")
+	assert.NotContains(t, string(body), "brand_id")
+	assert.NotContains(t, string(body), "brand_name")
 }
 
 func prepareCatalogPricingFixtures(t *testing.T) {

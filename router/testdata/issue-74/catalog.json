@@ -6,6 +6,8 @@
           "adaptive",
           "16:9"
         ],
+        "brand_id": "example",
+        "brand_name": "Example",
         "contractVersion": "d9bff40815cc5e32",
         "durations_seconds": {
           "max": 6,
@@ -441,7 +443,7 @@
         },
         "version": "e086f5bb6394f409"
       },
-      "version": "b3484b5b9b76cda1"
+      "version": "f9923009828afa50"
     },
     "message": "",
     "success": true
@@ -450,14 +452,24 @@
     "auto_groups": [
       "default"
     ],
+    "brands": {
+      "example": {
+        "id": "example",
+        "name": "Example"
+      }
+    },
     "data": [
       {
+        "brand_id": "example",
+        "brand_name": "Example",
         "completion_ratio": 0,
         "contract": {
           "aspect_ratios": [
             "adaptive",
             "16:9"
           ],
+          "brand_id": "example",
+          "brand_name": "Example",
           "contractVersion": "d9bff40815cc5e32",
           "durations_seconds": {
             "max": 6,

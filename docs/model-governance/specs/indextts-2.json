@@ -2,6 +2,8 @@
  "model_id": "indextts-2",
  "family": "audio",
  "vendor": "Bilibili",
+ "brand_id": "indextts",
+ "brand_name": "Index TTS2",
  "vendor_model_id": "indextts2-v1",
  "capability": "语音/音频生成（IndexTTS-2 智能声音克隆与情绪语音合成）",
  "operations": [

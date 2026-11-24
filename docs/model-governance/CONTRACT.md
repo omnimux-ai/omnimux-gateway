@@ -214,6 +214,26 @@ the keys in `reasoning_efforts`.
 `/api/pricing` 同一响应中可见且 `enable_groups` 非空时才会出现在顶层
 `defaults`；否则该键省略，绝不返回不可选的 model ID。
 
+### 3.7 跨端品牌语义契约（`brand_id` / `brand_name` / 可选 `brand_icon_path`）
+
+```jsonc
+{
+  "vendor": "Bilibili",
+  "brand_id": "indextts",          // 可选：当展示品牌 slug 与 vendor 映射表不同时显式声明
+  "brand_name": "Index TTS2",      // 可选：面向跨端一致展示的品牌名
+  "brand_icon_path": "M12 2..."    // 可选：24x24 单色 SVG <path d> 安全降级路径
+}
+```
+
+- `modelcontracts.Build` 依据 `vendor` 查规范映射表（`modelcontracts/brands.go`）或读取档案显式声明的 `brand_id` / `brand_name`，输出到：
+  - 每个模型契约与 `/api/pricing` 行对象的只读展示字段 `brand_id`、`brand_name`；
+  - 文档与 `/api/pricing` 顶层 `brands` 字典（仅包含当前响应可见模型引用的品牌，保留既有 DB `vendors` / `vendor_id` / `icon` 向后兼容）。
+- 门禁硬约束（由 `make model-contract-check` 强制校验）：
+  1. `brand_id` 须为小写 kebab-case slug（`^[a-z0-9]+(?:-[a-z0-9]+)*$`，≤ 64 字节）；未映射的 `vendor` 必须显式声明 `brand_id`/`brand_name` 或先登记到 `modelcontracts/brands.go`。
+  2. 同一 `brand_id` 在所有档案中的 `brand_name` 与非空 `brand_icon_path` 必须一致，防止拼写漂移。
+  3. 若提供 `brand_icon_path`，须以 `M`/`m` 开头、仅含 `^[MmLlHhVvCcSsQqTtAaZz0-9.,\s+-]+$` 字符且 ≤ 4096 字节，严禁原始 `<svg>`、脚本或外链 URL。
+- **执行哈希解耦**：`brand_id`、`brand_name` 与 `brands` 字典严格属于只读展示元数据，**不参与计费、路由、`contractVersion` 或 `effective_video.version` 计算**，纯展示品牌调整不会触发客户端能力指纹失效。
+
 ## 四、门禁约定（机器校验）
 
 公开仓从根目录运行以下检查：
