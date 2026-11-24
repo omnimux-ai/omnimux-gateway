@@ -547,19 +547,44 @@ func TestParseTaskResult_ActualVideoDuration(t *testing.T) {
 			want: 10,
 		},
 		{
+			name: "result.usage.duration",
+			body: `{"code":200,"data":{"id":"t4u","status":"completed","result":{"videos":[{"url":"https://cdn.example/v.mp4"}],"usage":{"duration":11}}}}`,
+			want: 11,
+		},
+		{
 			name: "data.usage.seconds",
 			body: `{"code":200,"data":{"id":"t5","status":"completed","usage":{"seconds":9},"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
 			want: 9,
 		},
 		{
-			name: "data.duration",
-			body: `{"code":200,"data":{"id":"t6","status":"completed","duration":7,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
+			name: "data.video_duration",
+			body: `{"code":200,"data":{"id":"t6a","status":"completed","video_duration":7,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
 			want: 7,
 		},
 		{
-			name: "flat top-level duration",
-			body: `{"id":"t7","status":"completed","duration":6,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}`,
+			name: "data.actual_duration",
+			body: `{"code":200,"data":{"id":"t6b","status":"completed","actual_duration":13,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
+			want: 13,
+		},
+		{
+			name: "flat top-level usage.seconds",
+			body: `{"id":"t7u","status":"completed","usage":{"seconds":14},"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}`,
+			want: 14,
+		},
+		{
+			name: "flat top-level video_duration",
+			body: `{"id":"t7a","status":"completed","video_duration":6,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}`,
 			want: 6,
+		},
+		{
+			name: "flat top-level actual_duration",
+			body: `{"id":"t7b","status":"completed","actual_duration":15,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}`,
+			want: 15,
+		},
+		{
+			name: "flat top-level elapsed duration ignored in favor of result.videos[0].duration",
+			body: `{"id":"t8","status":"completed","duration":166,"result":{"videos":[{"url":"https://cdn.example/v.mp4","duration":8}]}}`,
+			want: 8,
 		},
 	}
 
@@ -582,6 +607,30 @@ func TestParseTaskResult_ActualVideoDuration(t *testing.T) {
 			body: `{"code":200,"data":{"id":"t1","status":"completed","result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
 		},
 		{
+			name: "flat top-level elapsed duration 166 ignored without media duration",
+			body: `{"id":"t_flat_166","status":"completed","duration":166,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}`,
+		},
+		{
+			name: "flat top-level elapsed duration 12 ignored without media duration",
+			body: `{"id":"t_flat_12","status":"completed","duration":12,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}`,
+		},
+		{
+			name: "flat top-level bare seconds ignored without media duration",
+			body: `{"id":"t_flat_sec","status":"completed","seconds":12,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}`,
+		},
+		{
+			name: "nested data.duration ignored without media duration",
+			body: `{"code":200,"data":{"id":"t_data_dur","status":"completed","duration":12,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
+		},
+		{
+			name: "nested data.seconds ignored without media duration",
+			body: `{"code":200,"data":{"id":"t_data_sec","status":"completed","seconds":12,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
+		},
+		{
+			name: "nested data.actual_time ignored without media duration",
+			body: `{"code":200,"data":{"id":"t_data_time","status":"completed","actual_time":12,"result":{"videos":[{"url":"https://cdn.example/v.mp4"}]}}}`,
+		},
+		{
 			name: "zero duration",
 			body: `{"code":200,"data":{"id":"t2","status":"completed","result":{"videos":[{"url":"https://cdn.example/v.mp4","duration":0}]}}}`,
 		},
@@ -590,8 +639,8 @@ func TestParseTaskResult_ActualVideoDuration(t *testing.T) {
 			body: `{"code":200,"data":{"id":"t3","status":"completed","result":{"videos":[{"url":"https://cdn.example/v.mp4","duration":-5}]}}}`,
 		},
 		{
-			name: "corrupt video duration does not fall through to data.duration",
-			body: `{"code":200,"data":{"id":"t4","status":"completed","duration":10,"result":{"videos":[{"url":"https://cdn.example/v.mp4","duration":-1}]}}}`,
+			name: "corrupt video duration does not fall through to data.video_duration",
+			body: `{"code":200,"data":{"id":"t4","status":"completed","video_duration":10,"result":{"videos":[{"url":"https://cdn.example/v.mp4","duration":-1}]}}}`,
 		},
 		{
 			name: "NaN string duration",
@@ -603,19 +652,19 @@ func TestParseTaskResult_ActualVideoDuration(t *testing.T) {
 		},
 		{
 			name: "failed status ignores duration",
-			body: `{"code":200,"data":{"id":"t7","status":"failed","duration":8,"error":{"message":"boom"}}}`,
+			body: `{"code":200,"data":{"id":"t7","status":"failed","video_duration":8,"error":{"message":"boom"}}}`,
 		},
 		{
 			name: "in-progress status ignores duration",
-			body: `{"code":200,"data":{"id":"t8","status":"processing","duration":30}}`,
+			body: `{"code":200,"data":{"id":"t8","status":"processing","video_duration":30}}`,
 		},
 		{
 			name: "music task does not populate video seconds",
-			body: `{"code":200,"data":{"id":"t9","status":"completed","duration":120,"result":{"music":[{"audio_url":"https://cdn.example/a.mp3","duration":120}]}}}`,
+			body: `{"code":200,"data":{"id":"t9","status":"completed","video_duration":120,"result":{"music":[{"audio_url":"https://cdn.example/a.mp3","duration":120}]}}}`,
 		},
 		{
 			name: "image task does not populate video seconds",
-			body: `{"code":200,"data":{"id":"t10","status":"completed","duration":5,"result":{"images":[{"url":"https://cdn.example/i.png"}]}}}`,
+			body: `{"code":200,"data":{"id":"t10","status":"completed","video_duration":5,"result":{"images":[{"url":"https://cdn.example/i.png"}]}}}`,
 		},
 	}
 

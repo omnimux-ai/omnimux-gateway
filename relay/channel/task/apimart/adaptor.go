@@ -509,8 +509,6 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 			Usage          map[string]any `json:"usage"`
 			ActualDuration any            `json:"actual_duration"`
 			VideoDuration  any            `json:"video_duration"`
-			Duration       any            `json:"duration"`
-			Seconds        any            `json:"seconds"`
 			Error          *struct {
 				Message string `json:"message"`
 			} `json:"error"`
@@ -522,8 +520,6 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 		Usage          map[string]any `json:"usage"`
 		ActualDuration any            `json:"actual_duration"`
 		VideoDuration  any            `json:"video_duration"`
-		Duration       any            `json:"duration"`
-		Seconds        any            `json:"seconds"`
 	}
 	if err := common.Unmarshal(respBody, &envelope); err != nil {
 		return nil, errors.Wrap(err, "unmarshal apimart task")
@@ -550,8 +546,6 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 		dataDirect = map[string]any{
 			"actual_duration": envelope.Data.ActualDuration,
 			"video_duration":  envelope.Data.VideoDuration,
-			"duration":        envelope.Data.Duration,
-			"seconds":         envelope.Data.Seconds,
 		}
 	}
 	if u := extractMediaURL(resultMap); u != "" {
@@ -570,8 +564,6 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 			flatDirect := map[string]any{
 				"actual_duration": envelope.ActualDuration,
 				"video_duration":  envelope.VideoDuration,
-				"duration":        envelope.Duration,
-				"seconds":         envelope.Seconds,
 			}
 			if sec, ok := extractActualVideoDuration(resultMap, dataUsage, dataDirect, envelope.Usage, flatDirect); ok {
 				info.UsageFacts = map[string]any{"seconds": sec}
@@ -674,7 +666,15 @@ func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *rela
 	return actualQuota
 }
 
-var actualDurationKeys = []string{"actual_duration", "video_duration", "duration", "seconds"}
+// mediaDurationKeys applies to media artifacts and billing usage sub-objects
+// where bare duration/seconds represent output media length.
+var mediaDurationKeys = []string{"actual_duration", "video_duration", "duration", "seconds"}
+
+// envelopeDurationKeys applies to outer task envelopes (data.* and flat root),
+// where bare duration/seconds frequently carry wall-clock task execution time
+// rather than output video length. Only unambiguous media duration keys are
+// accepted on outer envelopes; unrecognized layouts fail closed to reserved quota.
+var envelopeDurationKeys = []string{"actual_duration", "video_duration"}
 
 func isNonVideoResult(task *model.Task, result map[string]any) bool {
 	if task != nil && task.IsImageTask() {
@@ -704,11 +704,11 @@ func isNonVideoResult(task *model.Task, result map[string]any) bool {
 	return false
 }
 
-func extractDurationFromMap(m map[string]any) (seconds float64, found bool, valid bool) {
+func extractDurationFromMap(m map[string]any, keys []string) (seconds float64, found bool, valid bool) {
 	if m == nil {
 		return 0, false, false
 	}
-	for _, key := range actualDurationKeys {
+	for _, key := range keys {
 		v, ok := m[key]
 		if !ok || v == nil {
 			continue
@@ -726,27 +726,35 @@ func extractActualVideoDuration(result, dataUsage, dataDirect, flatUsage, flatDi
 	if result != nil {
 		if arr, ok := result["videos"].([]any); ok && len(arr) > 0 {
 			if item, ok := arr[0].(map[string]any); ok {
-				if sec, found, valid := extractDurationFromMap(item); found {
+				if sec, found, valid := extractDurationFromMap(item, mediaDurationKeys); found {
 					return sec, valid
 				}
 			}
 		}
 		if videoObj, ok := result["video"].(map[string]any); ok {
-			if sec, found, valid := extractDurationFromMap(videoObj); found {
+			if sec, found, valid := extractDurationFromMap(videoObj, mediaDurationKeys); found {
 				return sec, valid
 			}
 		}
-		if sec, found, valid := extractDurationFromMap(result); found {
+		if sec, found, valid := extractDurationFromMap(result, mediaDurationKeys); found {
 			return sec, valid
 		}
 		if usageObj, ok := result["usage"].(map[string]any); ok {
-			if sec, found, valid := extractDurationFromMap(usageObj); found {
+			if sec, found, valid := extractDurationFromMap(usageObj, mediaDurationKeys); found {
 				return sec, valid
 			}
 		}
 	}
-	for _, m := range []map[string]any{dataUsage, dataDirect, flatUsage, flatDirect} {
-		if sec, found, valid := extractDurationFromMap(m); found {
+	for _, candidate := range []struct {
+		fields map[string]any
+		keys   []string
+	}{
+		{dataUsage, mediaDurationKeys},
+		{dataDirect, envelopeDurationKeys},
+		{flatUsage, mediaDurationKeys},
+		{flatDirect, envelopeDurationKeys},
+	} {
+		if sec, found, valid := extractDurationFromMap(candidate.fields, candidate.keys); found {
 			return sec, valid
 		}
 	}
