@@ -131,29 +131,39 @@ func (e *apiErrorBody) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (env *tokenEnvelope) apiError(endpoint string, status int) *APIError {
-	if env == nil || env.Error == nil {
+func (e *apiErrorBody) apiError(endpoint string, status int, fallbackLogID string) *APIError {
+	if e == nil {
 		return nil
 	}
-	code := env.Error.Code
+	if status == 0 {
+		status = http.StatusOK
+	}
+	code := e.Code
 	if code == "" {
-		code = env.Error.ErrorCode
+		code = e.ErrorCode
 	}
-	msg := env.Error.Message
-	if msg == "" {
-		msg = env.ErrorDescription
-	}
-	logID := env.Error.LogID
+	logID := e.LogID
 	if logID == "" {
-		logID = env.LogID
+		logID = fallbackLogID
 	}
 	return &APIError{
 		Status:   status,
 		Code:     code,
-		Message:  msg,
+		Message:  e.Message,
 		LogID:    logID,
 		Endpoint: endpoint,
 	}
+}
+
+func (env *tokenEnvelope) apiError(endpoint string, status int) *APIError {
+	if env == nil || env.Error == nil {
+		return nil
+	}
+	ae := env.Error.apiError(endpoint, status, env.LogID)
+	if ae.Message == "" {
+		ae.Message = env.ErrorDescription
+	}
+	return ae
 }
 
 func (c *Client) doForm(ctx context.Context, endpoint, path string, form url.Values, bearer string) ([]byte, int, error) {
@@ -214,9 +224,13 @@ func (c *Client) doRaw(ctx context.Context, endpoint string, req *http.Request) 
 		if e2 := common.Unmarshal(raw, &eb); e2 == nil {
 			if parsed := eb.apiError(endpoint, resp.StatusCode); parsed != nil {
 				ae = parsed
-			} else if eb.ErrorDescription != "" {
-				ae.Message = eb.ErrorDescription
-				ae.LogID = eb.LogID
+			} else {
+				if eb.ErrorDescription != "" {
+					ae.Message = eb.ErrorDescription
+				}
+				if eb.LogID != "" {
+					ae.LogID = eb.LogID
+				}
 			}
 		}
 		if ae.Message == "" {
@@ -231,7 +245,7 @@ func (c *Client) doRaw(ctx context.Context, endpoint string, req *http.Request) 
 	return raw, resp.StatusCode, nil
 }
 
-func parseToken(raw []byte) (*Token, error) {
+func parseToken(raw []byte, endpoint string, status int) (*Token, error) {
 	var env tokenEnvelope
 	if err := common.Unmarshal(raw, &env); err != nil {
 		return nil, err
@@ -251,7 +265,13 @@ func parseToken(raw []byte) (*Token, error) {
 		}, nil
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, env.apiError("token", 0)
+		if endpoint == "" {
+			endpoint = "token"
+		}
+		if status == 0 {
+			status = http.StatusOK
+		}
+		return nil, env.apiError(endpoint, status)
 	}
 	return nil, errors.New("tiktok: token: empty access_token")
 }
@@ -264,11 +284,11 @@ func (c *Client) ExchangeToken(ctx context.Context, clientKey, clientSecret, cod
 	form.Set("code", code)
 	form.Set("grant_type", "authorization_code")
 	form.Set("redirect_uri", redirectURI)
-	raw, _, err := c.doForm(ctx, "token", tokenPath, form, "")
+	raw, status, err := c.doForm(ctx, "token", tokenPath, form, "")
 	if err != nil {
 		return nil, err
 	}
-	return parseToken(raw)
+	return parseToken(raw, "token", status)
 }
 
 // RefreshToken refreshes an access token.
@@ -278,11 +298,11 @@ func (c *Client) RefreshToken(ctx context.Context, clientKey, clientSecret, refr
 	form.Set("client_secret", clientSecret)
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", refreshToken)
-	raw, _, err := c.doForm(ctx, "refresh", refreshPath, form, "")
+	raw, status, err := c.doForm(ctx, "refresh", refreshPath, form, "")
 	if err != nil {
 		return nil, err
 	}
-	return parseToken(raw)
+	return parseToken(raw, "refresh", status)
 }
 
 // Revoke revokes an access token (best effort).
@@ -309,6 +329,7 @@ type userInfoEnvelope struct {
 		User UserInfo `json:"user"`
 	} `json:"data"`
 	Error *apiErrorBody `json:"error"`
+	LogID string        `json:"log_id"`
 }
 
 // GetUserInfo fetches profile for the authorized account.
@@ -322,7 +343,7 @@ func (c *Client) GetUserInfo(ctx context.Context, accessToken string) (*UserInfo
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	raw, _, err := c.doRaw(ctx, "user_info", req)
+	raw, status, err := c.doRaw(ctx, "user_info", req)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +352,7 @@ func (c *Client) GetUserInfo(ctx context.Context, accessToken string) (*UserInfo
 		return nil, err
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "user_info"}
+		return nil, env.Error.apiError("user_info", status, env.LogID)
 	}
 	if env.Data.User.OpenID == "" {
 		return nil, errors.New("tiktok: user_info: empty open_id")
@@ -431,19 +452,20 @@ func buildPostInfo(title, defaultPrivacy string, opts *PostOptions) map[string]a
 
 // QueryCreatorInfo is required before publishing per TikTok UX guidelines.
 func (c *Client) QueryCreatorInfo(ctx context.Context, accessToken string) (*CreatorInfo, error) {
-	raw, _, err := c.doJSON(ctx, "creator_info", http.MethodPost, creatorInfoPath, map[string]any{}, accessToken)
+	raw, status, err := c.doJSON(ctx, "creator_info", http.MethodPost, creatorInfoPath, map[string]any{}, accessToken)
 	if err != nil {
 		return nil, err
 	}
 	var env struct {
 		Data  CreatorInfo   `json:"data"`
 		Error *apiErrorBody `json:"error"`
+		LogID string        `json:"log_id"`
 	}
 	if err := common.Unmarshal(raw, &env); err != nil {
 		return nil, err
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "creator_info"}
+		return nil, env.Error.apiError("creator_info", status, env.LogID)
 	}
 	return &env.Data, nil
 }
@@ -534,19 +556,20 @@ func (c *Client) PublishPhotoToInboxByURL(ctx context.Context, accessToken strin
 }
 
 func (c *Client) publishInit(ctx context.Context, accessToken, path string, body any) (*PublishInitResponse, error) {
-	raw, _, err := c.doJSON(ctx, "publish", http.MethodPost, path, body, accessToken)
+	raw, status, err := c.doJSON(ctx, "publish", http.MethodPost, path, body, accessToken)
 	if err != nil {
 		return nil, err
 	}
 	var env struct {
 		Data  PublishInitResponse `json:"data"`
 		Error *apiErrorBody       `json:"error"`
+		LogID string              `json:"log_id"`
 	}
 	if err := common.Unmarshal(raw, &env); err != nil {
 		return nil, err
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "publish"}
+		return nil, env.Error.apiError("publish", status, env.LogID)
 	}
 	if env.Data.PublishID == "" {
 		return nil, errors.New("tiktok: publish: empty publish_id")
@@ -564,19 +587,20 @@ type PublishStatus struct {
 // GetPublishStatus fetches publish task status.
 func (c *Client) GetPublishStatus(ctx context.Context, accessToken, publishID string) (*PublishStatus, error) {
 	body := map[string]any{"publish_id": publishID}
-	raw, _, err := c.doJSON(ctx, "publish_status", http.MethodPost, statusPath, body, accessToken)
+	raw, status, err := c.doJSON(ctx, "publish_status", http.MethodPost, statusPath, body, accessToken)
 	if err != nil {
 		return nil, err
 	}
 	var env struct {
 		Data  PublishStatus `json:"data"`
 		Error *apiErrorBody `json:"error"`
+		LogID string        `json:"log_id"`
 	}
 	if err := common.Unmarshal(raw, &env); err != nil {
 		return nil, err
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "publish_status"}
+		return nil, env.Error.apiError("publish_status", status, env.LogID)
 	}
 	return &env.Data, nil
 }
@@ -591,7 +615,7 @@ func (c *Client) PublishVideoToInboxByURL(ctx context.Context, accessToken, vide
 			"video_url": videoURL,
 		},
 	}
-	raw, _, err := c.doJSON(ctx, "video_inbox_init", http.MethodPost, videoInboxPath, body, accessToken)
+	raw, status, err := c.doJSON(ctx, "video_inbox_init", http.MethodPost, videoInboxPath, body, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -600,12 +624,13 @@ func (c *Client) PublishVideoToInboxByURL(ctx context.Context, accessToken, vide
 			PublishID string `json:"publish_id"`
 		} `json:"data"`
 		Error *apiErrorBody `json:"error"`
+		LogID string        `json:"log_id"`
 	}
 	if err := common.Unmarshal(raw, &env); err != nil {
 		return nil, err
 	}
 	if env.Error != nil && env.Error.Code != "ok" {
-		return nil, &APIError{Code: env.Error.Code, Message: env.Error.Message, Endpoint: "video_inbox_init"}
+		return nil, env.Error.apiError("video_inbox_init", status, env.LogID)
 	}
 	if env.Data.PublishID == "" {
 		return nil, errors.New("tiktok: video inbox init: empty publish_id")
