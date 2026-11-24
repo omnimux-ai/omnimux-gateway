@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -327,5 +328,76 @@ func TestTikTokToolClientIPTrustsCloudflareHeaderOnlyFromPrivateProxy(t *testing
 		ctx.Request.RemoteAddr = tc.peer
 		ctx.Request.Header.Set("CF-Connecting-IP", tc.header)
 		assert.Equal(t, tc.want, tiktokToolClientIP(ctx), tc.peer)
+	}
+}
+
+func TestTikTokToolPassCookieAttributesAndSecureMatrix(t *testing.T) {
+	previousSecure := common.SessionCookieSecure
+	t.Cleanup(func() { common.SessionCookieSecure = previousSecure })
+
+	cases := []struct {
+		name           string
+		sessionSecure  bool
+		directTLS      bool
+		forwardedProto string
+		wantSecure     bool
+	}{
+		{
+			name:          "HTTPS production config sets Secure without TLS or proxy headers",
+			sessionSecure: true,
+			wantSecure:    true,
+		},
+		{
+			name:          "direct TLS sets Secure even when SessionCookieSecure is false",
+			sessionSecure: false,
+			directTLS:     true,
+			wantSecure:    true,
+		},
+		{
+			name:          "local HTTP keeps Secure false",
+			sessionSecure: false,
+			wantSecure:    false,
+		},
+		{
+			name:           "local HTTP ignores forged X-Forwarded-Proto header",
+			sessionSecure:  false,
+			forwardedProto: "https",
+			wantSecure:     false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tiktokToolTestEnv(t)
+			common.SessionCookieSecure = tc.sessionSecure
+
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/api/tools/tiktok/verify", strings.NewReader(`{"token":"matrix-`+tc.name+`"}`))
+			ctx.Request.RemoteAddr = "198.51.100.23:4000"
+			ctx.Request.Host = "omnimux.ai"
+			ctx.Request.Header.Set("Origin", "https://omnimux.ai")
+			ctx.Request.Header.Set("User-Agent", "test-browser")
+			if tc.directTLS {
+				ctx.Request.TLS = &tls.ConnectionState{}
+			}
+			if tc.forwardedProto != "" {
+				ctx.Request.Header.Set("X-Forwarded-Proto", tc.forwardedProto)
+			}
+
+			VerifyTikTokToolTurnstile(ctx)
+			require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+			cookies := recorder.Result().Cookies()
+			require.Len(t, cookies, 1)
+			cookie := cookies[0]
+			assert.Equal(t, tiktokToolPassCookie, cookie.Name)
+			assert.Equal(t, "/api/tools/tiktok", cookie.Path)
+			assert.Empty(t, cookie.Domain)
+			assert.True(t, cookie.HttpOnly)
+			assert.Equal(t, http.SameSiteStrictMode, cookie.SameSite)
+			assert.Equal(t, int(tiktokToolPassTTL.Seconds()), cookie.MaxAge)
+			assert.Equal(t, tc.wantSecure, cookie.Secure)
+		})
 	}
 }

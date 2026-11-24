@@ -50,7 +50,7 @@ func LogStartupSuccess(startTime time.Time, port string) {
 		// Warn when the local HTTP compatibility mode disables cookie transport
 		// security and refresh/logout Origin validation.
 		fmt.Fprintf(gin.DefaultWriter, "\n")
-		fmt.Fprintf(gin.DefaultWriter, "  \033[33m%s\033[0m\n", LogText("Warning: Refresh cookie is not secure and refresh/logout Origin validation is disabled. Please set SESSION_COOKIE_SECURE=true in production."))
+		fmt.Fprintf(gin.DefaultWriter, "  \033[33m%s\033[0m\n", LogText("Warning: Refresh cookie is not secure and refresh/logout Origin validation is disabled. Please set SESSION_COOKIE_SECURE=true and SESSION_COOKIE_TRUSTED_URL in production."))
 		fmt.Fprintf(gin.DefaultWriter, "\n")
 	}
 
