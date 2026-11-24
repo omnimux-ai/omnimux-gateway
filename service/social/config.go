@@ -68,6 +68,10 @@ type Config struct {
 	// Overridable for tests.
 	TikTokBaseURL      string
 	TikTokAuthorizeURL string
+	// fork: tiktok-webhooks — official Content Posting webhook gate (default off, fail-closed).
+	TikTokWebhookEnabled bool
+	// TikTokWebhookToleranceSeconds bounds replay age for TikTok-Signature t (clamped to [30, 3600]).
+	TikTokWebhookToleranceSeconds int
 	// SocialTokenEncKey is a base64 32B AES-GCM key for encrypting direct OAuth tokens
 	// at rest. Empty means direct account creation fails closed (no plaintext tokens).
 	SocialTokenEncKey string
@@ -81,8 +85,11 @@ type Config struct {
 }
 
 const (
-	defaultSocialMediaMaxBytes   = 512 << 20 // 512 MiB
-	defaultSocialMediaPresignTTL = 15 * time.Minute
+	defaultSocialMediaMaxBytes           = 512 << 20 // 512 MiB
+	defaultSocialMediaPresignTTL         = 15 * time.Minute
+	defaultTikTokWebhookToleranceSeconds = 300
+	minTikTokWebhookToleranceSeconds     = 30
+	maxTikTokWebhookToleranceSeconds     = 3600
 )
 
 func LoadConfig() Config {
@@ -128,6 +135,11 @@ func LoadConfig() Config {
 	cfg.TikTokScopes = strings.TrimSpace(common.GetEnvOrDefaultString("TIKTOK_SCOPES", defaultTikTokScopes))
 	cfg.TikTokBaseURL = strings.TrimRight(common.GetEnvOrDefaultString("TIKTOK_BASE_URL", defaultTikTokBaseURL), "/")
 	cfg.TikTokAuthorizeURL = strings.TrimSpace(common.GetEnvOrDefaultString("TIKTOK_AUTHORIZE_URL", defaultTikTokAuthorizeURL))
+	// fork: tiktok-webhooks
+	cfg.TikTokWebhookEnabled = common.GetEnvOrDefaultBool("TIKTOK_WEBHOOK_ENABLED", false)
+	cfg.TikTokWebhookToleranceSeconds = clampTikTokWebhookTolerance(
+		common.GetEnvOrDefault("TIKTOK_WEBHOOK_TOLERANCE_SECONDS", defaultTikTokWebhookToleranceSeconds),
+	)
 	cfg.SocialTokenEncKey = strings.TrimSpace(os.Getenv("SOCIAL_TOKEN_ENC_KEY"))
 	// fork: social-media-own-storage
 	cfg.MediaStorageMaxBytes = int64(common.GetEnvOrDefault("SOCIAL_MEDIA_MAX_BYTES", defaultSocialMediaMaxBytes))
@@ -211,4 +223,39 @@ func (c Config) TikTokCredentials() (key, secret string) {
 func (c Config) TikTokDirectConfigured() bool {
 	key, secret := c.TikTokCredentials()
 	return key != "" && secret != "" && c.TikTokRedirectURI != ""
+}
+
+func clampTikTokWebhookTolerance(seconds int) int {
+	if seconds < minTikTokWebhookToleranceSeconds {
+		return minTikTokWebhookToleranceSeconds
+	}
+	if seconds > maxTikTokWebhookToleranceSeconds {
+		return maxTikTokWebhookToleranceSeconds
+	}
+	return seconds
+}
+
+// TikTokWebhookTolerance returns the effective replay window duration,
+// defaulting to 300s when unset and clamped to [30s, 3600s].
+// fork: tiktok-webhooks
+func (c Config) TikTokWebhookTolerance() time.Duration {
+	if c.TikTokWebhookToleranceSeconds <= 0 {
+		return time.Duration(defaultTikTokWebhookToleranceSeconds) * time.Second
+	}
+	return time.Duration(clampTikTokWebhookTolerance(c.TikTokWebhookToleranceSeconds)) * time.Second
+}
+
+// TikTokWebhookConfigured reports whether active TikTok app credentials are
+// present for webhook HMAC verification and client_key matching.
+// fork: tiktok-webhooks
+func (c Config) TikTokWebhookConfigured() bool {
+	key, secret := c.TikTokCredentials()
+	return key != "" && secret != ""
+}
+
+// TikTokWebhookActive reports whether the TikTok webhook endpoint is enabled
+// and ready to accept signed deliveries.
+// fork: tiktok-webhooks
+func (c Config) TikTokWebhookActive() bool {
+	return c.Enabled && c.TikTokDirectActive() && c.TikTokWebhookEnabled && c.TikTokWebhookConfigured()
 }

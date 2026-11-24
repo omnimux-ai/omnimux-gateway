@@ -1105,10 +1105,20 @@ func (s *Service) refreshTikTokPostStatus(ctx context.Context, p *model.SocialPo
 	}
 	mapped := mapTikTokPublishStatus(st.Status)
 	if mapped != "" {
-		snap, _ := common.Marshal(map[string]any{"status": st.Status, "fail_reason": st.FailReason, "publish_id": st.PublishID})
-		if mapped != p.Status || p.ResultSnapshot != string(snap) {
-			_ = model.UpdateSocialPostResult(p.ID, mapped, p.ProviderPostID, string(snap))
+		publishID := strings.TrimSpace(st.PublishID)
+		if publishID == "" {
+			publishID = p.ProviderPostID
 		}
+		// fork: tiktok-webhooks — share the locked monotonic transition guard with webhooks
+		// so a slow poll can never regress terminal status or clobber webhook post_ids.
+		_, _, _ = model.ApplySocialPostStateUpdateByID(p.ID, model.SocialPostStateUpdate{
+			TargetStatus: mapped,
+			SnapshotFields: map[string]any{
+				"status":      st.Status,
+				"fail_reason": st.FailReason,
+				"publish_id":  publishID,
+			},
+		})
 	}
 }
 
