@@ -134,7 +134,16 @@ type ChannelOtherSettings struct {
 	// rejection. Empty follows the default allow policy. Accepted values:
 	// "", "allow", "safe", "strict".
 	ToolLossPolicy string `json:"tool_loss_policy,omitempty"`
+	// VideoTierBillingPolicy controls whether a video task adaptor applies its
+	// built-in resolution/mode tier table. Accepted values: "", "preset", "none".
+	// Empty keeps the built-in preset table for backward compatibility.
+	VideoTierBillingPolicy string `json:"video_tier_billing_policy,omitempty"`
 }
+
+const (
+	VideoTierBillingPolicyPreset = "preset"
+	VideoTierBillingPolicyNone   = "none"
+)
 
 const (
 	ImageTaskProtocolOpenAIMultipart = "openai_multipart"
@@ -280,6 +289,31 @@ func (s *ChannelOtherSettings) ValidateToolLossPolicy() error {
 	default:
 		return fmt.Errorf("invalid tool_loss_policy: %s", s.ToolLossPolicy)
 	}
+}
+
+// EffectiveVideoTierBillingPolicy resolves the validated channel-level video
+// tier billing policy. Empty defaults to VideoTierBillingPolicyPreset for
+// backward compatibility; any unknown value fails closed.
+func (s *ChannelOtherSettings) EffectiveVideoTierBillingPolicy() (string, error) {
+	if s == nil {
+		return VideoTierBillingPolicyPreset, nil
+	}
+	switch s.VideoTierBillingPolicy {
+	case "", VideoTierBillingPolicyPreset:
+		return VideoTierBillingPolicyPreset, nil
+	case VideoTierBillingPolicyNone:
+		return VideoTierBillingPolicyNone, nil
+	default:
+		return "", fmt.Errorf("invalid video_tier_billing_policy: %q", s.VideoTierBillingPolicy)
+	}
+}
+
+// ValidateVideoTierBillingPolicy validates the channel-level video tier
+// billing policy. Empty keeps the built-in preset table for backward
+// compatibility.
+func (s *ChannelOtherSettings) ValidateVideoTierBillingPolicy() error {
+	_, err := s.EffectiveVideoTierBillingPolicy()
+	return err
 }
 
 const (

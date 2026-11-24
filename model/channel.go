@@ -1090,6 +1090,9 @@ func (channel *Channel) ValidateSettings() error {
 	if err := channelOtherSettings.ValidateImageTaskContract(); err != nil {
 		return err
 	}
+	if err := channelOtherSettings.ValidateVideoTierBillingPolicy(); err != nil {
+		return err
+	}
 	if preset := common.GetAdvancedCustomPreset(channel.Type); preset != nil {
 		channelOtherSettings.AdvancedCustom = preset
 	}

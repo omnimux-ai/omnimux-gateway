@@ -1562,3 +1562,326 @@ func (h *videoCapabilityRouteHarness) requireMismatch(t *testing.T, path, token 
 	require.NoError(t, model.DB.Model(&model.Task{}).Where("user_id = ?", h.userID).Count(&tasksAfter).Error)
 	assert.Equal(t, tasksBefore, tasksAfter)
 }
+
+func TestApiMartVideoTierBillingPolicyAndAutoDurationSettlement(t *testing.T) {
+	t.Run("channel save validation enforces video_tier_billing_policy", func(t *testing.T) {
+		for _, raw := range []string{"", kitdto.VideoTierBillingPolicyPreset, kitdto.VideoTierBillingPolicyNone} {
+			ch := &model.Channel{Type: constant.ChannelTypeApiMart}
+			ch.SetOtherSettings(kitdto.ChannelOtherSettings{VideoTierBillingPolicy: raw})
+			require.NoError(t, ch.ValidateSettings(), raw)
+		}
+		for _, invalid := range []string{"custom", "flat", "NONE", " "} {
+			ch := &model.Channel{Type: constant.ChannelTypeApiMart}
+			ch.SetOtherSettings(kitdto.ChannelOtherSettings{VideoTierBillingPolicy: invalid})
+			err := ch.ValidateSettings()
+			require.Error(t, err, invalid)
+			assert.Contains(t, err.Error(), "video_tier_billing_policy")
+		}
+	})
+
+	h := newVideoCapabilityRouteHarness(t)
+	// Disable managed video rules for this test so phase-one apimart routing
+	// exercises seedance-2-5 directly across 480p, 720p, 1080p, and duration=-1.
+	modelcontracts.SetVideoCapabilities(nil)
+	require.NoError(t, model.DB.Where("model = ?", "seedance-2-5").Delete(&model.Ability{}).Error)
+
+	var (
+		pollMu   sync.Mutex
+		pollBody = `{"code":200,"data":{"id":"auto-task","status":"completed","result":{"videos":[{"url":"http://127.0.0.1/clip.mp4","duration":8}]}}}`
+		nextID   int
+	)
+	setPollBody := func(body string) {
+		pollMu.Lock()
+		pollBody = body
+		pollMu.Unlock()
+	}
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			pollMu.Lock()
+			body := pollBody
+			pollMu.Unlock()
+			_, _ = io.WriteString(w, body)
+			return
+		}
+		var req map[string]any
+		require.NoError(t, common.DecodeJson(r.Body, &req))
+		key := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		h.mu.Lock()
+		h.attempts = append(h.attempts, videoCapabilityAttempt{key: key, path: r.URL.Path, body: req})
+		nextID++
+		taskID := fmt.Sprintf("auto-task-%d", nextID)
+		h.mu.Unlock()
+		_, _ = fmt.Fprintf(w, `{"code":200,"data":[{"status":"submitted","task_id":%q}]}`, taskID)
+	}))
+	t.Cleanup(upstream.Close)
+
+	originalResolver := service.GetTaskAdaptorFunc
+	t.Cleanup(func() { service.GetTaskAdaptorFunc = originalResolver })
+	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
+		return relay.GetTaskAdaptor(platform)
+	}
+	// Keep async perf_metrics Redis sampling off so t.Cleanup restoring RedisEnabled stays race-free under -race.
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{"perf_metrics_setting.enabled": "false"}))
+	t.Cleanup(func() {
+		assert.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{"perf_metrics_setting.enabled": "true"}))
+	})
+
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"seedance-2-5":0.01}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"tier-preset":0.75,"tier-none":0.75,"tier-invalid":0.75,"tier-free":0}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"Default","tier-preset":"Preset","tier-none":"None","tier-invalid":"Invalid","tier-free":"Free"}`))
+
+	addChannel := func(group, policy string) int {
+		ch := model.Channel{
+			Type:     constant.ChannelTypeApiMart,
+			Key:      group,
+			Name:     group,
+			Models:   "seedance-2-5",
+			Group:    group,
+			BaseURL:  &upstream.URL,
+			Status:   common.ChannelStatusEnabled,
+			Priority: common.GetPointer(int64(10)),
+			AutoBan:  common.GetPointer(0),
+		}
+		if policy != "" {
+			ch.SetOtherSettings(kitdto.ChannelOtherSettings{VideoTierBillingPolicy: policy})
+		}
+		require.NoError(t, model.DB.Create(&ch).Error)
+		require.NoError(t, ch.AddAbilities(nil))
+		return ch.Id
+	}
+
+	presetChannelID := addChannel("tier-preset", kitdto.VideoTierBillingPolicyPreset)
+	noneChannelID := addChannel("tier-none", kitdto.VideoTierBillingPolicyNone)
+	addChannel("tier-invalid", "bogus")
+	addChannel("tier-free", kitdto.VideoTierBillingPolicyNone)
+
+	const submitPath = "/v1/video/generations"
+	const imageURL = "https://cdn.example.com/ref.png"
+
+	t.Run("preset and none channels isolate tier multipliers without double discount", func(t *testing.T) {
+		// ModelPrice=0.01 => 5000 quota/s; GroupRatio=0.75 => 3750 quota/s; duration=4 => base 15000.
+		// Preset 480p with reference image applies 0.0576/0.216 => 15000 * 0.0576 / 0.216 = 4000.
+		presetResp := h.submit(t, submitPath, "", map[string]any{
+			"model":      "seedance-2-5@tier-preset",
+			"operation":  "first_frame",
+			"prompt":     "animate",
+			"duration":   4,
+			"resolution": "480p",
+			"image_with_roles": []map[string]string{
+				{"url": imageURL, "role": "first_frame"},
+			},
+		})
+		require.Equal(t, http.StatusOK, presetResp.Code, presetResp.Body.String())
+		presetTask := h.latestTask(t)
+		assert.Equal(t, presetChannelID, presetTask.ChannelId)
+		assert.Equal(t, 4000, presetTask.Quota)
+		require.NotNil(t, presetTask.PrivateData.BillingContext)
+		assert.False(t, presetTask.PrivateData.BillingContext.AutoDurationBilling)
+		assert.InDelta(t, 0.0576/0.216, presetTask.PrivateData.BillingContext.OtherRatios["tier"], 1e-9)
+
+		// None policy disables built-in tier table => 3750 * 4 = 15000, no tier key.
+		noneResp := h.submit(t, submitPath, "", map[string]any{
+			"model":      "seedance-2-5@tier-none",
+			"operation":  "first_frame",
+			"prompt":     "animate",
+			"duration":   4,
+			"resolution": "480p",
+			"image_with_roles": []map[string]string{
+				{"url": imageURL, "role": "first_frame"},
+			},
+		})
+		require.Equal(t, http.StatusOK, noneResp.Code, noneResp.Body.String())
+		noneTask := h.latestTask(t)
+		assert.Equal(t, noneChannelID, noneTask.ChannelId)
+		assert.Equal(t, 15000, noneTask.Quota)
+		require.NotNil(t, noneTask.PrivateData.BillingContext)
+		assert.False(t, noneTask.PrivateData.BillingContext.AutoDurationBilling)
+		assert.Equal(t, map[string]float64{"seconds": 4}, noneTask.PrivateData.BillingContext.OtherRatios)
+	})
+
+	t.Run("seedance-2-5 1080p allowed under none and rejected under preset or invalid policy", func(t *testing.T) {
+		beforeAttempts := h.attemptCount()
+		beforeBalances, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+
+		preset1080 := h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-preset", "operation": "text_to_video",
+			"prompt": "city", "duration": 4, "resolution": "1080p",
+		})
+		assert.Equal(t, http.StatusBadRequest, preset1080.Code, preset1080.Body.String())
+
+		invalidPolicyResp := h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-invalid", "operation": "text_to_video",
+			"prompt": "city", "duration": 4, "resolution": "720p",
+		})
+		assert.Equal(t, http.StatusBadRequest, invalidPolicyResp.Code, invalidPolicyResp.Body.String())
+
+		assert.Equal(t, beforeAttempts, h.attemptCount(), "rejected billing policy/tier must never hit upstream")
+		afterReject, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, beforeBalances, afterReject)
+
+		none1080 := h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-none", "operation": "text_to_video",
+			"prompt": "city", "duration": 4, "resolution": "1080p",
+		})
+		require.Equal(t, http.StatusOK, none1080.Code, none1080.Body.String())
+		assert.Equal(t, 15000, h.latestTask(t).Quota)
+	})
+
+	t.Run("duration -1 ModelPrice path settles actual duration, enforces cap, refunds failures, and stays idempotent", func(t *testing.T) {
+		// 1) Actual 8s < 30s pre-charge (112500 -> 30000, refund 82500)
+		before, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		resp := h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-none", "operation": "text_to_video",
+			"prompt": "auto length", "duration": -1, "resolution": "1080p",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		task := h.latestTask(t)
+		require.NotNil(t, task.PrivateData.BillingContext)
+		assert.True(t, task.PrivateData.BillingContext.PerCallBilling)
+		assert.True(t, task.PrivateData.BillingContext.AutoDurationBilling)
+		assert.Equal(t, 112500, task.Quota)
+
+		upstreamID := task.GetUpstreamTaskID()
+		setPollBody(fmt.Sprintf(`{"code":200,"data":{"id":%q,"status":"completed","result":{"videos":[{"url":"%s/clip.mp4","duration":8}]}}}`, upstreamID, upstream.URL))
+		require.NoError(t, service.UpdateVideoTasks(t.Context(), task.Platform, map[int][]string{task.ChannelId: {upstreamID}}, map[string]*model.Task{upstreamID: &task}))
+
+		completed := h.latestTask(t)
+		assert.Equal(t, model.TaskStatus(model.TaskStatusSuccess), completed.Status)
+		assert.Equal(t, 30000, completed.Quota)
+		settled, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, 30000, before.wallet-settled.wallet)
+		assert.Equal(t, 30000, before.tokenRemaining-settled.tokenRemaining)
+		assert.Equal(t, 30000, settled.tokenUsed-before.tokenUsed)
+
+		// Replay poll must be a CAS no-op (no duplicate refund).
+		stale := task
+		stale.Status = model.TaskStatusSubmitted
+		stale.Quota = 112500
+		require.NoError(t, service.UpdateVideoTasks(t.Context(), stale.Platform, map[int][]string{stale.ChannelId: {upstreamID}}, map[string]*model.Task{upstreamID: &stale}))
+		afterReplay, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, settled, afterReplay)
+
+		// 2) Upstream reports duration exceeding pre-charge (45s > 30s) => keeps 30s hold (no overcharge)
+		beforeOver, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		resp = h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-none", "operation": "text_to_video",
+			"prompt": "over duration", "duration": -1, "resolution": "720p",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		overTask := h.latestTask(t)
+		overUpstreamID := overTask.GetUpstreamTaskID()
+		setPollBody(fmt.Sprintf(`{"code":200,"data":{"id":%q,"status":"completed","result":{"videos":[{"url":"%s/clip.mp4","duration":45}]}}}`, overUpstreamID, upstream.URL))
+		require.NoError(t, service.UpdateVideoTasks(t.Context(), overTask.Platform, map[int][]string{overTask.ChannelId: {overUpstreamID}}, map[string]*model.Task{overUpstreamID: &overTask}))
+		assert.Equal(t, 112500, h.latestTask(t).Quota)
+		afterOver, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, 112500, beforeOver.wallet-afterOver.wallet)
+
+		// 3) Upstream fails => full refund
+		beforeFail, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		resp = h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-none", "operation": "text_to_video",
+			"prompt": "will fail", "duration": -1, "resolution": "720p",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		failTask := h.latestTask(t)
+		failUpstreamID := failTask.GetUpstreamTaskID()
+		setPollBody(fmt.Sprintf(`{"code":200,"data":{"id":%q,"status":"failed","error":{"message":"render failed"}}}`, failUpstreamID))
+		require.NoError(t, service.UpdateVideoTasks(t.Context(), failTask.Platform, map[int][]string{failTask.ChannelId: {failUpstreamID}}, map[string]*model.Task{failUpstreamID: &failTask}))
+		assert.Equal(t, model.TaskStatus(model.TaskStatusFailure), h.latestTask(t).Status)
+		assert.Equal(t, 0, h.latestTask(t).Quota)
+		afterFail, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, beforeFail, afterFail)
+
+		// 4) Free group (GroupRatio=0) => stays 0 charge
+		beforeFree, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		resp = h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-free", "operation": "text_to_video",
+			"prompt": "free run", "duration": -1, "resolution": "720p",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		freeTask := h.latestTask(t)
+		assert.Equal(t, 0, freeTask.Quota)
+		freeUpstreamID := freeTask.GetUpstreamTaskID()
+		setPollBody(fmt.Sprintf(`{"code":200,"data":{"id":%q,"status":"completed","result":{"videos":[{"url":"%s/clip.mp4","duration":8}]}}}`, freeUpstreamID, upstream.URL))
+		require.NoError(t, service.UpdateVideoTasks(t.Context(), freeTask.Platform, map[int][]string{freeTask.ChannelId: {freeUpstreamID}}, map[string]*model.Task{freeUpstreamID: &freeTask}))
+		assert.Equal(t, 0, h.latestTask(t).Quota)
+		afterFree, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, beforeFree, afterFree)
+	})
+
+	t.Run("duration -1 TieredSnapshot path settles actual duration and caps oversized reports", func(t *testing.T) {
+		prevModes, err := common.Marshal(billing_setting.GetBillingModeCopy())
+		require.NoError(t, err)
+		prevExprs, err := common.Marshal(billing_setting.GetBillingExprCopy())
+		require.NoError(t, err)
+		loadBilling := func(modes, exprs []byte) {
+			require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+				"billing_setting.billing_mode": string(modes),
+				"billing_setting.billing_expr": string(exprs),
+			}))
+		}
+		t.Cleanup(func() { loadBilling(prevModes, prevExprs) })
+
+		modesJSON, err := common.Marshal(map[string]string{"seedance-2-5": billing_setting.BillingModeTieredExpr})
+		require.NoError(t, err)
+		exprsJSON, err := common.Marshal(map[string]string{"seedance-2-5": `tier("duration", u("seconds") * 0.01)`})
+		require.NoError(t, err)
+		loadBilling(modesJSON, exprsJSON)
+
+		// 1) Actual 8s < 30s pre-charge (112500 -> 30000)
+		before, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		resp := h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-none", "operation": "text_to_video",
+			"prompt": "tiered auto", "duration": -1, "resolution": "1080p",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		task := h.latestTask(t)
+		require.NotNil(t, task.PrivateData.BillingContext)
+		require.NotNil(t, task.PrivateData.BillingContext.TieredSnapshot)
+		assert.True(t, task.PrivateData.BillingContext.AutoDurationBilling)
+		assert.Equal(t, 112500, task.Quota)
+
+		upstreamID := task.GetUpstreamTaskID()
+		setPollBody(fmt.Sprintf(`{"code":200,"data":{"id":%q,"status":"completed","result":{"videos":[{"url":"%s/clip.mp4","duration":8}]}}}`, upstreamID, upstream.URL))
+		require.NoError(t, service.UpdateVideoTasks(t.Context(), task.Platform, map[int][]string{task.ChannelId: {upstreamID}}, map[string]*model.Task{upstreamID: &task}))
+
+		completed := h.latestTask(t)
+		assert.Equal(t, model.TaskStatus(model.TaskStatusSuccess), completed.Status)
+		assert.Equal(t, 30000, completed.Quota)
+		settled, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, 30000, before.wallet-settled.wallet)
+		assert.Equal(t, 30000, before.tokenRemaining-settled.tokenRemaining)
+
+		// 2) Upstream reports 45s (> 30s pre-charge) => keeps 30s pre-charge
+		beforeOver, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		resp = h.submit(t, submitPath, "", map[string]any{
+			"model": "seedance-2-5@tier-none", "operation": "text_to_video",
+			"prompt": "tiered over", "duration": -1, "resolution": "1080p",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		overTask := h.latestTask(t)
+		overUpstreamID := overTask.GetUpstreamTaskID()
+		setPollBody(fmt.Sprintf(`{"code":200,"data":{"id":%q,"status":"completed","result":{"videos":[{"url":"%s/clip.mp4","duration":45}]}}}`, overUpstreamID, upstream.URL))
+		require.NoError(t, service.UpdateVideoTasks(t.Context(), overTask.Platform, map[int][]string{overTask.ChannelId: {overUpstreamID}}, map[string]*model.Task{overUpstreamID: &overTask}))
+		assert.Equal(t, 112500, h.latestTask(t).Quota)
+		afterOver, err := h.readBalances(submitPath, "")
+		require.NoError(t, err)
+		assert.Equal(t, 112500, beforeOver.wallet-afterOver.wallet)
+	})
+}

@@ -1063,6 +1063,11 @@ type TaskRelayInfo struct {
 
 	ConsumeQuota bool
 
+	// AutoDurationBilling marks requests whose duration was explicitly set to
+	// -1 (auto duration) and pre-authorized at the model's upper bound so
+	// completion settlement can reconcile to the actual output duration.
+	AutoDurationBilling bool
+
 	// OriginTasks are plugin-declared public-task dependencies resolved by the
 	// host. Driver hooks receive these as ctx.originTasks; presenters do not.
 	OriginTasks []OriginTaskRef

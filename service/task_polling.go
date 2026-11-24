@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -740,7 +742,8 @@ func truncateBase64(s string) string {
 //
 // 表达式求值失败会保留预扣额度，因此也视为已接管，避免错误全退。
 func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor, task *model.Task, taskResult *relaycommon.TaskInfo) bool {
-	if bc := task.PrivateData.BillingContext; bc != nil && bc.TieredSnapshot != nil {
+	bc := task.PrivateData.BillingContext
+	if bc != nil && bc.TieredSnapshot != nil {
 		// 用量表达式结算只适用于成功任务；失败任务由调用方全额退款。
 		if task.Status == model.TaskStatusFailure {
 			return false
@@ -751,9 +754,21 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 			logger.LogInfo(ctx, fmt.Sprintf("任务 %s 请求域定价，跳过差额结算", task.TaskID))
 			return false
 		}
-		result, usageFacts, err := EvaluateTaskCompletionUsage(bc.TieredSnapshot, taskResult.UsageFacts)
+		if bc.AutoDurationBilling && !autoDurationCompletionFactsValid(bc.TieredSnapshot.UsageFacts, taskResult) {
+			logger.LogWarn(ctx, common.LogText("task %s auto-duration completion usage is invalid or exceeds reserved duration, keeping the pre-consumed quota", task.TaskID))
+			return true
+		}
+		var completionFacts map[string]any
+		if taskResult != nil {
+			completionFacts = taskResult.UsageFacts
+		}
+		result, usageFacts, err := EvaluateTaskCompletionUsage(bc.TieredSnapshot, completionFacts)
 		if err != nil {
 			logger.LogWarn(ctx, common.LogText("task %s expression settlement failed, keeping the pre-consumed quota: %v", task.TaskID, err))
+			return true
+		}
+		if bc.AutoDurationBilling && result.ActualQuotaAfterGroup > task.Quota {
+			logger.LogWarn(ctx, common.LogText("task %s auto-duration settled quota %d exceeds pre-consumed quota %d, keeping the pre-consumed quota", task.TaskID, result.ActualQuotaAfterGroup, task.Quota))
 			return true
 		}
 		if result.Clamp != nil {
@@ -764,9 +779,12 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 		RecalculateTaskQuota(ctx, task, result.ActualQuotaAfterGroup, common.NewMessage("Settled by the task usage expression"), result.Clamp)
 		return true
 	}
-	// 按次计费的成功任务保持预扣；失败任务由调用方全额退款。
-	if bc := task.PrivateData.BillingContext; bc != nil && bc.PerCallBilling {
+	// 按次计费的成功任务默认保持预扣；仅自动时长预扣（AutoDurationBilling）允许进入适配器终态对账。
+	if bc != nil && bc.PerCallBilling && !bc.AutoDurationBilling {
 		logger.LogInfo(ctx, common.LogText("task %s is billed per request, skipping difference settlement", task.TaskID))
+		return false
+	}
+	if bc != nil && bc.AutoDurationBilling && task.Status == model.TaskStatusFailure {
 		return false
 	}
 	// 优先让 adaptor 决定最终额度。
@@ -774,8 +792,12 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 		RecalculateTaskQuota(ctx, task, actualQuota, common.NewMessage("Adjusted by the channel adaptor"))
 		return true
 	}
+	// 按次计费与自动时长预扣未触发调整时保持预扣，不得回退到 token 重算。
+	if bc != nil && (bc.PerCallBilling || bc.AutoDurationBilling) {
+		return false
+	}
 	// 2. Free / zero-ratio group: keep precharge (usually 0); never token-fallback charge.
-	if bc := task.PrivateData.BillingContext; bc != nil && bc.GroupRatio <= 0 {
+	if bc != nil && bc.GroupRatio <= 0 {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s GroupRatio=%.4f，跳过 token 差额结算以保持免费/预扣", task.TaskID, bc.GroupRatio))
 		return false
 	}
@@ -788,6 +810,60 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 		return RecalculateTaskQuotaByTokens(ctx, task, tokens)
 	}
 	return false
+}
+
+func autoDurationCompletionFactsValid(reservedFacts map[string]any, taskResult *relaycommon.TaskInfo) bool {
+	if taskResult == nil || len(taskResult.UsageFacts) == 0 {
+		return true
+	}
+	reportedRaw, exists := taskResult.UsageFacts["seconds"]
+	if !exists {
+		return true
+	}
+	reported, ok := parseBoundedTaskSeconds(reportedRaw)
+	if !ok {
+		return false
+	}
+	if reservedRaw, hasReserved := reservedFacts["seconds"]; hasReserved {
+		if reserved, reservedOK := parseBoundedTaskSeconds(reservedRaw); reservedOK && reported > reserved {
+			return false
+		}
+	}
+	return true
+}
+
+func parseBoundedTaskSeconds(v any) (float64, bool) {
+	var sec float64
+	switch t := v.(type) {
+	case float64:
+		sec = t
+	case float32:
+		sec = float64(t)
+	case int:
+		sec = float64(t)
+	case int64:
+		sec = float64(t)
+	case uint:
+		sec = float64(t)
+	case uint64:
+		sec = float64(t)
+	case string:
+		s := strings.TrimSpace(t)
+		if s == "" {
+			return 0, false
+		}
+		parsed, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return 0, false
+		}
+		sec = parsed
+	default:
+		return 0, false
+	}
+	if math.IsNaN(sec) || math.IsInf(sec, 0) || sec <= 0 || sec > float64(relaycommon.MaxTaskDurationSeconds) {
+		return 0, false
+	}
+	return sec, true
 }
 
 func classifyPollHTTP(statusCode int) string {

@@ -1100,11 +1100,14 @@ func taskFundingSnapshot(c *gin.Context, info *relaycommon.RelayInfo, platform c
 	}
 	task.PrivateData.NodeName = common.NodeName
 	billing := &model.TaskBillingContext{
-		ModelPrice: info.PriceData.ModelPrice, GroupRatio: info.PriceData.GroupRatioInfo.GroupRatio,
-		ModelRatio: info.PriceData.ModelRatio, OtherRatios: info.PriceData.OtherRatios(),
-		OriginModelName: info.OriginModelName,
-		PerCallBilling:  common.StringsContains(constant.TaskPricePatches, info.OriginModelName) || info.PriceData.UsePrice,
-		TieredSnapshot:  info.TieredBillingSnapshot,
+		ModelPrice:          info.PriceData.ModelPrice,
+		GroupRatio:          info.PriceData.GroupRatioInfo.GroupRatio,
+		ModelRatio:          info.PriceData.ModelRatio,
+		OtherRatios:         info.PriceData.OtherRatios(),
+		OriginModelName:     info.OriginModelName,
+		PerCallBilling:      common.StringsContains(constant.TaskPricePatches, info.OriginModelName) || info.PriceData.UsePrice,
+		AutoDurationBilling: info.TaskRelayInfo != nil && info.AutoDurationBilling,
+		TieredSnapshot:      info.TieredBillingSnapshot,
 	}
 	encoded, err := common.Marshal(billing)
 	if err != nil {
