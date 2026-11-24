@@ -62,6 +62,41 @@ func filterPricingDefaults(pricing []model.Pricing, defaults map[string]string) 
 	return filtered
 }
 
+// filterPricingBrands keeps only canonical brand entries referenced by visible
+// rows in this pricing response so the top-level dictionary never leaks hidden
+// or delisted brands.
+func filterPricingBrands(pricing []model.Pricing, brands map[string]modelcontracts.BrandMeta) map[string]modelcontracts.BrandMeta {
+	if len(pricing) == 0 {
+		return nil
+	}
+	filtered := make(map[string]modelcontracts.BrandMeta)
+	for _, item := range pricing {
+		brandID := item.BrandID
+		brandName := item.BrandName
+		if brandID == "" && item.Contract != nil {
+			brandID = item.Contract.BrandID
+			brandName = item.Contract.BrandName
+		} else if brandName == "" && item.Contract != nil && item.Contract.BrandID == brandID {
+			brandName = item.Contract.BrandName
+		}
+		if brandID == "" {
+			continue
+		}
+		if _, exists := filtered[brandID]; exists {
+			continue
+		}
+		if meta, ok := brands[brandID]; ok {
+			filtered[brandID] = meta
+		} else if brandName != "" {
+			filtered[brandID] = modelcontracts.BrandMeta{ID: brandID, Name: brandName}
+		}
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
 func pricingGroupView(c *gin.Context) (string, map[string]string, map[string]float64) {
 	groupRatio := ratio_setting.GetGroupRatioCopy()
 	var group string
@@ -171,6 +206,9 @@ func GetPricing(c *gin.Context) {
 	}
 	if defaults := filterPricingDefaults(pricing, modelcontracts.All().Defaults); len(defaults) > 0 {
 		response["defaults"] = defaults
+	}
+	if brands := filterPricingBrands(pricing, modelcontracts.All().Brands); len(brands) > 0 {
+		response["brands"] = brands
 	}
 	c.JSON(200, response)
 }

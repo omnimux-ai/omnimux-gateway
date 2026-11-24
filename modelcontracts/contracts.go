@@ -59,8 +59,9 @@ type Contract struct {
 	// every contract so a caller holding one object can parse it without the
 	// enclosing document.
 	SchemaVersion string `json:"schemaVersion"`
-	// ContractVersion is a deterministic 16-hex content hash of this contract,
-	// computed with the field itself excluded. Any projected change moves it.
+	// ContractVersion is a deterministic 16-hex content hash of this contract's
+	// capability envelope, computed with ContractVersion and display-only brand
+	// fields (BrandID, BrandName) excluded. Any capability/operation change moves it.
 	ContractVersion string `json:"contractVersion,omitempty"`
 	// ExecutionStatus states whether this model has a verified executable
 	// gateway path. `live` requires at least one executable operation; `stub`
@@ -71,6 +72,11 @@ type Contract struct {
 	// "not implemented" apart from "not applicable".
 	ExecutionReason string `json:"execution_reason,omitempty"`
 	Family          string `json:"family,omitempty"`
+	// BrandID and BrandName publish the canonical user-facing brand identity
+	// across clients. They are purely presentational and are excluded from
+	// ContractVersion so brand metadata updates never invalidate execution hashes.
+	BrandID         string `json:"brand_id,omitempty"`
+	BrandName       string `json:"brand_name,omitempty"`
 	Status          string `json:"status,omitempty"`
 	Basis           string `json:"basis,omitempty"`
 	ServiceNotes    string `json:"service_notes,omitempty"`
@@ -164,10 +170,11 @@ type Endpoint struct {
 
 // Document is the whole shipped payload.
 type Document struct {
-	SchemaVersion string              `json:"schemaVersion"`
-	Version       string              `json:"version"`
-	Defaults      map[string]string   `json:"defaults,omitempty"`
-	Models        map[string]Contract `json:"models"`
+	SchemaVersion string               `json:"schemaVersion"`
+	Version       string               `json:"version"`
+	Defaults      map[string]string    `json:"defaults,omitempty"`
+	Brands        map[string]BrandMeta `json:"brands,omitempty"`
+	Models        map[string]Contract  `json:"models"`
 }
 
 // specFile mirrors the subset of the governance spec schema this package
@@ -177,6 +184,10 @@ type Document struct {
 type specFile struct {
 	ModelID                string            `json:"model_id"`
 	Family                 string            `json:"family"`
+	Vendor                 string            `json:"vendor,omitempty"`
+	BrandID                string            `json:"brand_id,omitempty"`
+	BrandName              string            `json:"brand_name,omitempty"`
+	BrandIconPath          string            `json:"brand_icon_path,omitempty"`
 	Status                 string            `json:"status"`
 	Basis                  string            `json:"basis,omitempty"`
 	ServiceNotes           string            `json:"service_notes,omitempty"`
@@ -301,7 +312,12 @@ func Build(specDir string) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	brands, err := projectBrands(specs)
+	if err != nil {
+		return nil, err
+	}
 	doc.Defaults = defaults
+	doc.Brands = brands
 	doc.Version = Version(doc)
 	return doc, nil
 }
@@ -360,12 +376,18 @@ func projectContract(spec specFile) (Contract, error) {
 	if err != nil {
 		return Contract{}, err
 	}
+	brand, err := resolveSpecBrand(spec)
+	if err != nil {
+		return Contract{}, err
+	}
 	contract := Contract{
 		ModelID:                spec.ModelID,
 		SchemaVersion:          SchemaVersion,
 		ExecutionStatus:        executionStatus,
 		ExecutionReason:        executionReason,
 		Family:                 spec.Family,
+		BrandID:                brand.ID,
+		BrandName:              brand.Name,
 		Status:                 spec.Status,
 		Basis:                  spec.Basis,
 		ServiceNotes:           spec.ServiceNotes,
@@ -598,10 +620,13 @@ func addMediaUnknowns(list *unknownList, limits *MediaLimits, path string) {
 	}
 }
 
-// contractVersion hashes the contract with its own version field excluded, so
-// the hash is stable and cannot depend on itself.
+// contractVersion hashes the contract with its own version field and purely
+// presentational brand fields excluded, so the capability hash stays stable
+// when display-only brand metadata changes.
 func contractVersion(contract Contract) (string, error) {
 	contract.ContractVersion = ""
+	contract.BrandID = ""
+	contract.BrandName = ""
 	body, err := common.Marshal(contract)
 	if err != nil {
 		return "", err
@@ -639,6 +664,21 @@ func Version(doc *Document) string {
 		digest.Write([]byte(operation))
 		digest.Write([]byte{0})
 		digest.Write([]byte(doc.Defaults[operation]))
+		digest.Write([]byte{0})
+	}
+	brandIDs := make([]string, 0, len(doc.Brands))
+	for brandID := range doc.Brands {
+		brandIDs = append(brandIDs, brandID)
+	}
+	sort.Strings(brandIDs)
+	for _, brandID := range brandIDs {
+		body, err := common.Marshal(doc.Brands[brandID])
+		if err != nil {
+			continue
+		}
+		digest.Write([]byte(brandID))
+		digest.Write([]byte{0})
+		digest.Write(body)
 		digest.Write([]byte{0})
 	}
 	for _, id := range ids {

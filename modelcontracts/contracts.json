@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "fe2de6155a91302e",
+  "version": "713901b8c301fa1f",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -9,6 +9,88 @@
     "text_to_video": "seedance-2-5",
     "vision_chat": "gemini-3.8-flash"
   },
+  "brands": {
+    "alibaba": {
+      "id": "alibaba",
+      "name": "Alibaba"
+    },
+    "anthropic": {
+      "id": "anthropic",
+      "name": "Anthropic"
+    },
+    "bytedance": {
+      "id": "bytedance",
+      "name": "ByteDance"
+    },
+    "deepseek": {
+      "id": "deepseek",
+      "name": "DeepSeek"
+    },
+    "google": {
+      "id": "google",
+      "name": "Google"
+    },
+    "grok": {
+      "id": "grok",
+      "name": "xAI"
+    },
+    "indextts": {
+      "id": "indextts",
+      "name": "Index TTS2"
+    },
+    "instagram": {
+      "id": "instagram",
+      "name": "Instagram"
+    },
+    "kimi": {
+      "id": "kimi",
+      "name": "Kimi"
+    },
+    "kling": {
+      "id": "kling",
+      "name": "Kling"
+    },
+    "midjourney": {
+      "id": "midjourney",
+      "name": "Midjourney"
+    },
+    "minimax": {
+      "id": "minimax",
+      "name": "MiniMax"
+    },
+    "muse": {
+      "id": "muse",
+      "name": "Muse"
+    },
+    "openai": {
+      "id": "openai",
+      "name": "OpenAI"
+    },
+    "suno": {
+      "id": "suno",
+      "name": "Suno"
+    },
+    "tiktok": {
+      "id": "tiktok",
+      "name": "TikTok"
+    },
+    "typesafe-ai": {
+      "id": "typesafe-ai",
+      "name": "TypeSafe AI"
+    },
+    "x": {
+      "id": "x",
+      "name": "X"
+    },
+    "youtube": {
+      "id": "youtube",
+      "name": "YouTube"
+    },
+    "zhipu": {
+      "id": "zhipu",
+      "name": "Zhipu"
+    }
+  },
   "models": {
     "bigasr-auc": {
       "model_id": "bigasr-auc",
@@ -16,6 +98,8 @@
       "contractVersion": "145aa8fba5745e1f",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "speech_to_text"
@@ -146,6 +230,8 @@
       "contractVersion": "94f37ed6f90edfcb",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -211,6 +297,8 @@
       "contractVersion": "47ae63ad06368d5b",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -276,6 +364,8 @@
       "contractVersion": "531aff253e3a6d1c",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -341,6 +431,8 @@
       "contractVersion": "46f9f7c6504ecf0d",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -406,6 +498,8 @@
       "contractVersion": "e56b0043a044c598",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -471,6 +565,8 @@
       "contractVersion": "f9c7d86e2ded89b1",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -536,6 +632,8 @@
       "contractVersion": "73bc366b03a97b93",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -601,6 +699,8 @@
       "contractVersion": "cf84f979b0d5f7b8",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "anthropic",
+      "brand_name": "Anthropic",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -666,6 +766,8 @@
       "contractVersion": "74e14496b1543935",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "deepseek",
+      "brand_name": "DeepSeek",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -739,6 +841,8 @@
       "contractVersion": "923780d82e86499c",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "deepseek",
+      "brand_name": "DeepSeek",
       "status": "partial",
       "operation_ids": [
         "chat"
@@ -798,6 +902,8 @@
       "contractVersion": "b630b6e66f5873c1",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "deepseek",
+      "brand_name": "DeepSeek",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -837,6 +943,8 @@
       "contractVersion": "266ed9399c29b572",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "partial",
       "operation_ids": [
         "speech_to_text"
@@ -890,6 +998,8 @@
       "contractVersion": "dc332d3caaa769e5",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -993,6 +1103,8 @@
       "contractVersion": "6bb0ab5c88b1cb29",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -1102,6 +1214,8 @@
       "contractVersion": "b0c94941555d4dbc",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -1211,6 +1325,8 @@
       "contractVersion": "ff096a6a34b82ad1",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -1320,6 +1436,8 @@
       "contractVersion": "e8a9b9f9ba9d0576",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -1429,6 +1547,8 @@
       "contractVersion": "07b8294f1b59ae07",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -1538,6 +1658,8 @@
       "contractVersion": "aa5b9b8c14adcaba",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -1647,6 +1769,8 @@
       "contractVersion": "1dea91f13568829d",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "text_to_image",
@@ -1845,6 +1969,8 @@
       "contractVersion": "87a5e10f670a9be1",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -1954,6 +2080,8 @@
       "contractVersion": "273710d23339de05",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2063,6 +2191,8 @@
       "contractVersion": "0977a6c3062ac761",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2172,6 +2302,8 @@
       "contractVersion": "06b9ba51572b1bbb",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2281,6 +2413,8 @@
       "contractVersion": "f61010cc5e7501f0",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2390,6 +2524,8 @@
       "contractVersion": "1467310d5639eadb",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2499,6 +2635,8 @@
       "contractVersion": "84e75c1b37c61d38",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2608,6 +2746,8 @@
       "contractVersion": "fa417e0e596d457f",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2737,6 +2877,8 @@
       "contractVersion": "df8ab751122c7086",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "partial",
       "basis": "line_restricted",
       "service_notes": "使用 Gemini 原生内容接口，输出为文字或结构化结果。支持独立系统指令、PNG 单图与多图、MP4 视频、视频与图片联合输入、PDF、结构化结果、流式返回、低思考档和单轮函数调用请求。函数调用结果由调用方执行。短素材示例不代表最大容量；音频准确性、其他格式、长素材、最大上下文和最大输出未建立服务承诺。",
@@ -2831,6 +2973,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "partial",
       "operation_ids": [
         "text_to_video",
@@ -2948,6 +3092,8 @@
       "contractVersion": "f3c6e9b3096ad521",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "zhipu",
+      "brand_name": "Zhipu",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -2987,6 +3133,8 @@
       "contractVersion": "d3ab4a0388a48b91",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "zhipu",
+      "brand_name": "Zhipu",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -3026,6 +3174,8 @@
       "contractVersion": "4867b28b8a9de98c",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "zhipu",
+      "brand_name": "Zhipu",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -3065,6 +3215,8 @@
       "contractVersion": "6926d5df87315e38",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -3124,6 +3276,8 @@
       "contractVersion": "99e28ba6ca54ed9c",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -3183,6 +3337,8 @@
       "contractVersion": "6488e7260f885fa6",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -3242,6 +3398,8 @@
       "contractVersion": "7bb5055dc4143366",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -3301,6 +3459,8 @@
       "contractVersion": "7d0ea89c9bae037e",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -3360,6 +3520,8 @@
       "contractVersion": "dc8457c7bc99e828",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "basis": "line_restricted",
       "service_notes": "标准服务使用 JSON 提交，每次生成一张中等质量 PNG 图片，数量省略或为 1，质量省略或为 medium。仅支持合同列明的七种精确像素尺寸，3:4 与 4:3 使用 1360 像素边。最多一张 JPEG、PNG 或 WebP 参考图，不超过 5MiB、4000 万像素，任一边不超过 23170 像素。完整提示词（包括角色附加说明）须同时不超过 8192 个 Unicode 字符、16384 个 UTF-8 字节和按本服务 o200k_base 计数的 5000 个提示词 token；超出明确拒绝，不截断、不缩写，部分较长描述也可能被拒绝。角色双视图及多视角功能保留。更高质量、多张输出、多参考、透明背景、遮罩及其他未审规格明确拒绝。",
@@ -3619,6 +3781,8 @@
       "contractVersion": "dc977f63ea12095f",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "operation_ids": [
         "text_to_image",
@@ -3826,6 +3990,8 @@
       "contractVersion": "df27d56c6a965ba6",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "basis": "line_restricted",
       "service_notes": "本条目描述 OmniMux 角色生图的受限服务，不代表供应商完整能力，也不证明当前所有渠道已通过四模式审核或已启用。文生图、单参考生图、整图修改和局部编辑的新单仅请求 high 质量、1024x576、单张 PNG，通过客户成品 URL 交付；用户不选择供应商或分组。1024x576 和 high 是提交值，原图实际尺寸以供应商交付文件为准，不保证精确 1024x576 或精确 16:9；成品原图不缩放、不裁切或重编码，保留实际尺寸。历史已保存的 2048x1152 任务仅按原始请求恢复和核对，不改写规格或自动重发。文生图无参考，其余模式仅一张来源图；已审核线路还须兼容本次输入格式，不静默转码或降级。来源图接受 JPEG、PNG、WebP 的服务校验，来源图最多 5MiB、4000 万像素、单边 23170 像素；局部编辑的源图和遮罩均须为同尺寸 PNG，均不得含 任何 PNG eXIf 数据块，遮罩原始文件须严格小于 4,000,000 字节（最大 3,999,999 字节），并须同时含完全透明的编辑像素和完全不透明的保护像素。brief 和 edit_instruction 各最多 4000 个 Unicode 码点；最终提示词（包含角色附加说明）须同时不超过 8192 个 Unicode 码点、16384 个 UTF-8 字节和按本服务 o200k_base 计数的 5000 个词元；不截断，输入首尾空白可能按入口规则去除。该计数不是供应商账单词元数，不能据此保证采购成本封顶。网页角色创建按有无上传参考图自动处理，不提供模式手选或整图、局部编辑入口；上传图片仅借鉴风格，不锁定参考人物身份，明确描述和选定特征优先。账号创建接口及现有命令行仅保留角色文生图、单参考及多视角；多视角仍保持已生成角色身份。以上四种模式说明为既有底层能力及输入约束，不代表网页均提供对应入口；原始 /v1/images/generations 与 /v1/images/edits 本轮不开放该型号。仅已审核且兼容本次模式和素材的线路参与；只有内置规则允许且能够证明尚未创建供应商任务才可切换，整个请求最多一次首发及一次备用，不重复已尝试渠道。沿用首次报价与同一份费用预留，换线不追加客户收费；已接单、超时、断连或缺回执只核对原单，不自动重发。可用性以当前已审核线路和提交前报价为准，不承诺两家健康供应商始终可用。",
@@ -4027,6 +4193,8 @@
       "contractVersion": "72f235637dcada26",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "grok",
+      "brand_name": "xAI",
       "status": "partial",
       "operation_ids": [
         "chat"
@@ -4088,6 +4256,8 @@
       "contractVersion": "90ee578d9f6d982e",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "grok",
+      "brand_name": "xAI",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -4150,6 +4320,8 @@
       "contractVersion": "130eeee5c6c09056",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "grok",
+      "brand_name": "xAI",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -4331,6 +4503,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "grok",
+      "brand_name": "xAI",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -4458,6 +4632,8 @@
       "contractVersion": "3fbc00d4730bf51a",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "indextts",
+      "brand_name": "Index TTS2",
       "status": "documented",
       "operation_ids": [
         "text_to_speech",
@@ -4593,6 +4769,8 @@
       "contractVersion": "3833fc33c14ad15b",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "instagram",
+      "brand_name": "Instagram",
       "status": "partial",
       "operation_ids": [
         "fetch_post"
@@ -4647,6 +4825,8 @@
       "contractVersion": "6998e5f0cb4c73e6",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "instagram",
+      "brand_name": "Instagram",
       "status": "partial",
       "operation_ids": [
         "list_user_posts"
@@ -4701,6 +4881,8 @@
       "contractVersion": "7d0b558bd6224100",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "instagram",
+      "brand_name": "Instagram",
       "status": "partial",
       "operation_ids": [
         "general_search"
@@ -4755,6 +4937,8 @@
       "contractVersion": "55427864d70ba010",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "instagram",
+      "brand_name": "Instagram",
       "status": "partial",
       "operation_ids": [
         "fetch_user_profile"
@@ -4809,6 +4993,8 @@
       "contractVersion": "09b71e2bb062d364",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "typesafe-ai",
+      "brand_name": "TypeSafe AI",
       "status": "partial",
       "operation_ids": [
         "chat"
@@ -4856,6 +5042,8 @@
       "contractVersion": "e8bbc0b63e34ca59",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "kimi",
+      "brand_name": "Kimi",
       "status": "partial",
       "operation_ids": [
         "chat"
@@ -4951,6 +5139,8 @@
       "contractVersion": "f3acd9dd65a28e6c",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "kimi",
+      "brand_name": "Kimi",
       "status": "partial",
       "operation_ids": [
         "chat"
@@ -5046,6 +5236,8 @@
       "contractVersion": "71a0b854bd290e7d",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "kimi",
+      "brand_name": "Kimi",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -5142,6 +5334,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "kling",
+      "brand_name": "Kling",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -5271,6 +5465,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "kling",
+      "brand_name": "Kling",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -5376,6 +5572,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "kling",
+      "brand_name": "Kling",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -5517,6 +5715,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "kling",
+      "brand_name": "Kling",
       "status": "documented",
       "operation_ids": [
         "motion_control"
@@ -5575,6 +5775,8 @@
       "contractVersion": "c9e428fb61dfc4b1",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "minimax",
+      "brand_name": "MiniMax",
       "status": "documented",
       "basis": "line_restricted",
       "operation_ids": [
@@ -5932,6 +6134,8 @@
       "contractVersion": "427f0b7e82dc5854",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "minimax",
+      "brand_name": "MiniMax",
       "status": "documented",
       "basis": "line_restricted",
       "operation_ids": [
@@ -6020,6 +6224,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "minimax",
+      "brand_name": "MiniMax",
       "status": "documented",
       "basis": "line_restricted",
       "operation_ids": [
@@ -6160,6 +6366,8 @@
       "contractVersion": "f7d36e6d9a9663ae",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "minimax",
+      "brand_name": "MiniMax",
       "status": "documented",
       "basis": "line_restricted",
       "operation_ids": [
@@ -6317,6 +6525,8 @@
       "contractVersion": "7a5bbd1bf6ab65a0",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "minimax",
+      "brand_name": "MiniMax",
       "status": "documented",
       "basis": "line_restricted",
       "operation_ids": [
@@ -6589,6 +6799,8 @@
       "contractVersion": "8ca133eeca53d5fc",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "midjourney",
+      "brand_name": "Midjourney",
       "status": "partial",
       "operation_ids": [
         "text_to_image",
@@ -6768,6 +6980,8 @@
       "contractVersion": "ecb415d0ea1dad97",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "midjourney",
+      "brand_name": "Midjourney",
       "status": "partial",
       "operation_ids": [
         "text_to_image",
@@ -6947,6 +7161,8 @@
       "contractVersion": "b20197a892915a81",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "muse",
+      "brand_name": "Muse",
       "status": "partial",
       "basis": "line_restricted",
       "operation_ids": [
@@ -7178,6 +7394,8 @@
       "contractVersion": "1bc98d8b0a3565eb",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "muse",
+      "brand_name": "Muse",
       "status": "partial",
       "basis": "line_restricted",
       "gateway_protocol": "openai_video",
@@ -7397,6 +7615,8 @@
       "contractVersion": "834c6396049d7315",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "text_to_image",
@@ -7595,6 +7815,8 @@
       "contractVersion": "91f5731ae6dc97de",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "text_to_image"
@@ -7741,6 +7963,8 @@
       "contractVersion": "7fb0db18c27374d0",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "text_to_image",
@@ -7930,6 +8154,8 @@
       "contractVersion": "4f330e19066f9e75",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "google",
+      "brand_name": "Google",
       "status": "documented",
       "operation_ids": [
         "text_to_image",
@@ -8125,6 +8351,8 @@
       "contractVersion": "98bd4b2d5dcf9e5b",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "alibaba",
+      "brand_name": "Alibaba",
       "status": "documented",
       "operation_ids": [
         "text_to_image",
@@ -8318,6 +8546,8 @@
       "contractVersion": "dc91eefb4cf1d428",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "text_to_speech",
@@ -8550,6 +8780,8 @@
       "contractVersion": "07a1e8893f7a73a3",
       "execution_status": "live",
       "family": "llm",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "chat"
@@ -8601,6 +8833,8 @@
       "contractVersion": "094a1775ba021b2e",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -8909,6 +9143,8 @@
       "contractVersion": "867cdf19a2393079",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -9270,6 +9506,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "partial",
       "operation_ids": [
         "text_to_video",
@@ -9408,6 +9646,8 @@
       "contractVersion": "571c315b44e7b1b6",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -9769,6 +10009,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "partial",
       "operation_ids": [
         "unknown_routing_dependent"
@@ -9823,6 +10065,8 @@
       "contractVersion": "7bd90e0916f978da",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -10405,6 +10649,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "basis": "line_restricted",
       "operation_ids": [
@@ -10554,6 +10800,8 @@
       "contractVersion": "cc72d5fcc688e8df",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "speech_to_text"
@@ -10684,6 +10932,8 @@
       "contractVersion": "24706650c285e18f",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "partial",
       "operation_ids": [
         "text_to_image",
@@ -10858,6 +11108,8 @@
       "contractVersion": "f924342c00710751",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "text_to_image"
@@ -10977,6 +11229,8 @@
       "contractVersion": "b6aa6196e9046ff6",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "suno",
+      "brand_name": "Suno",
       "status": "documented",
       "operation_ids": [
         "text_to_music"
@@ -11023,6 +11277,8 @@
       "contractVersion": "6ac863606c36699b",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "suno",
+      "brand_name": "Suno",
       "status": "documented",
       "operation_ids": [
         "sound_effect_generation"
@@ -11066,6 +11322,8 @@
       "contractVersion": "11bd03ed2eb28733",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_creator_milestones"
@@ -11107,6 +11365,8 @@
       "contractVersion": "e00ed1b1d664c157",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "creator_search_detail"
@@ -11148,6 +11408,8 @@
       "contractVersion": "a2a933b03e3f279e",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "creator_search_insights"
@@ -11189,6 +11451,8 @@
       "contractVersion": "f9428475c4b4f971",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "creator_search_trend"
@@ -11230,6 +11494,8 @@
       "contractVersion": "77ccebc494a994db",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "creator_search_videos"
@@ -11271,6 +11537,8 @@
       "contractVersion": "b35cc2c4d654ccc2",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "resolve_live_room"
@@ -11312,6 +11580,8 @@
       "contractVersion": "ff2c423609955ebf",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "list_user_posts"
@@ -11367,6 +11637,8 @@
       "contractVersion": "96c53cb46b36d950",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "search_videos"
@@ -11422,6 +11694,8 @@
       "contractVersion": "cdb6685c76b74f17",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "list_categories"
@@ -11463,6 +11737,8 @@
       "contractVersion": "e624cc20d9f5385e",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "list_category_products"
@@ -11504,6 +11780,8 @@
       "contractVersion": "14844491eb76bf68",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_creator"
@@ -11545,6 +11823,8 @@
       "contractVersion": "3e0cc6a4468aa32b",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "list_live_products"
@@ -11586,6 +11866,8 @@
       "contractVersion": "a6b17181a46d9ef8",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "list_live_products"
@@ -11627,6 +11909,8 @@
       "contractVersion": "58659e2ce193976b",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_product"
@@ -11668,6 +11952,8 @@
       "contractVersion": "4f3a247d5d8691ef",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "resolve_product_link"
@@ -11709,6 +11995,8 @@
       "contractVersion": "27b3a16fd1976067",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_product"
@@ -11750,6 +12038,8 @@
       "contractVersion": "805e8c1cf3550f09",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_reviews"
@@ -11791,6 +12081,8 @@
       "contractVersion": "f74d5347887eb720",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_reviews"
@@ -11832,6 +12124,8 @@
       "contractVersion": "faaa4931ae7020af",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "search_products"
@@ -11873,6 +12167,8 @@
       "contractVersion": "786d16581ae4581e",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "search_suggest"
@@ -11914,6 +12210,8 @@
       "contractVersion": "a9fad27b3a42777f",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "search_products"
@@ -11955,6 +12253,8 @@
       "contractVersion": "2c57a0d868a21e9a",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "list_seller_products"
@@ -11996,6 +12296,8 @@
       "contractVersion": "70015a1e190e977c",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "list_seller_products"
@@ -12037,6 +12339,8 @@
       "contractVersion": "3a4cf03bf431dae0",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "resolve_shop_link"
@@ -12078,6 +12382,8 @@
       "contractVersion": "af18e1d2f4e0145d",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_user_profile"
@@ -12132,6 +12438,8 @@
       "contractVersion": "a683590a3373192d",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "tiktok",
+      "brand_name": "TikTok",
       "status": "partial",
       "operation_ids": [
         "fetch_video"
@@ -12186,6 +12494,8 @@
       "contractVersion": "23387ef1743594de",
       "execution_status": "live",
       "family": "image",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
       "status": "documented",
       "operation_ids": [
         "image_to_image"
@@ -12320,6 +12630,8 @@
       "contractVersion": "e2ff354fe51d7c1d",
       "execution_status": "live",
       "family": "video",
+      "brand_id": "alibaba",
+      "brand_name": "Alibaba",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -12784,6 +13096,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "alibaba",
+      "brand_name": "Alibaba",
       "status": "documented",
       "operation_ids": [
         "text_to_video",
@@ -12919,6 +13233,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "alibaba",
+      "brand_name": "Alibaba",
       "status": "documented",
       "operation_ids": [
         "video_multi_ref",
@@ -13018,6 +13334,8 @@
       "execution_status": "stub",
       "execution_reason": "no verified gateway operation profile is published for this model",
       "family": "video",
+      "brand_id": "alibaba",
+      "brand_name": "Alibaba",
       "status": "documented",
       "operation_ids": [
         "video_multi_ref",
@@ -13116,6 +13434,8 @@
       "contractVersion": "aa5135de7afbb730",
       "execution_status": "live",
       "family": "audio",
+      "brand_id": "openai",
+      "brand_name": "OpenAI",
       "status": "documented",
       "operation_ids": [
         "speech_to_text",
@@ -13232,6 +13552,8 @@
       "contractVersion": "9c5bc9fc53e148d4",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "x",
+      "brand_name": "X",
       "status": "partial",
       "operation_ids": [
         "list_user_posts"
@@ -13287,6 +13609,8 @@
       "contractVersion": "9f59df0437741f49",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "x",
+      "brand_name": "X",
       "status": "partial",
       "operation_ids": [
         "search_timeline"
@@ -13342,6 +13666,8 @@
       "contractVersion": "bb7750708797b72e",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "x",
+      "brand_name": "X",
       "status": "partial",
       "operation_ids": [
         "fetch_tweet"
@@ -13396,6 +13722,8 @@
       "contractVersion": "9b90213e2a4f019a",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "x",
+      "brand_name": "X",
       "status": "partial",
       "operation_ids": [
         "fetch_user_profile"
@@ -13450,6 +13778,8 @@
       "contractVersion": "d91a6a109d98aa87",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "youtube",
+      "brand_name": "YouTube",
       "status": "partial",
       "operation_ids": [
         "list_channel_videos"
@@ -13505,6 +13835,8 @@
       "contractVersion": "c0ecd8484b1128f5",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "youtube",
+      "brand_name": "YouTube",
       "status": "partial",
       "operation_ids": [
         "search_videos"
@@ -13559,6 +13891,8 @@
       "contractVersion": "fdf815d432b4bbf7",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "youtube",
+      "brand_name": "YouTube",
       "status": "partial",
       "operation_ids": [
         "fetch_channel"
@@ -13613,6 +13947,8 @@
       "contractVersion": "ee8022fd7adbfbbc",
       "execution_status": "live",
       "family": "data",
+      "brand_id": "youtube",
+      "brand_name": "YouTube",
       "status": "partial",
       "operation_ids": [
         "fetch_video"

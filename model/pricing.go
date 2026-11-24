@@ -48,6 +48,10 @@ type Pricing struct {
 	Icon                   string                               `json:"icon,omitempty"`
 	Tags                   string                               `json:"tags,omitempty"`
 	VendorID               int                                  `json:"vendor_id,omitempty"`
+	// fork: OmniMux — canonical cross-client brand identity projected from
+	// modelcontracts. Strictly presentational; never feeds billing or routing.
+	BrandID                string                               `json:"brand_id,omitempty"`
+	BrandName              string                               `json:"brand_name,omitempty"`
 	QuotaType              int                                  `json:"quota_type"`
 	ModelRatio             float64                              `json:"model_ratio"`
 	ModelPrice             float64                              `json:"model_price"`
@@ -619,6 +623,8 @@ func readPricingSnapshot(db *gorm.DB, requireComplete bool) (pricingSnapshot, er
 		// which leaves the row byte-identical to before this field existed.
 		if contract, ok := modelcontracts.For(model); ok {
 			pricing.Contract = &contract
+			pricing.BrandID = contract.BrandID
+			pricing.BrandName = contract.BrandName
 		}
 
 		// 补充模型元数据（描述、标签、供应商、状态、入库更新时间）
