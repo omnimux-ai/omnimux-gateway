@@ -19,14 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearch } from '@tanstack/react-router'
 import { Plus, Compass, History } from 'lucide-react'
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -41,10 +34,7 @@ import './influencer.css'
 import {
   deletePublishedPreset,
   fetchInfluencerTasks,
-  fetchPaymentImageCatalog,
   fetchPricing,
-  fetchTaskRecord,
-  INFLUENCER_MOTION_ACTION,
   fetchPublishedPresets,
   fetchTaxonomy,
   fetchUserGroups,
@@ -78,6 +68,8 @@ import { useGenerationQueueNotice } from './hooks/use-generation-queue-notice'
 import { useLoginGate } from './hooks/use-login-gate'
 import { RECREATE_MAX_IMAGES, useMotion } from './hooks/use-motion'
 import { useMultiViewSubmit } from './hooks/use-multiview'
+import { usePaywallRecovery } from './hooks/use-paywall-recovery'
+import { usePreviewStack } from './hooks/use-preview-stack'
 import {
   useInfluencerHistory,
   useMotionSubmit,
@@ -89,24 +81,11 @@ import { normalizeSelection } from './lib/builder-draft'
 import { imageModels, quoteCredits, resolveImageRoute } from './lib/catalog'
 import { submitFailureText, toastInfluencerError } from './lib/error-copy'
 import { readExploreTab, writeExploreTab } from './lib/explore-tab'
-import {
-  describeFailReason,
-  isInsufficientQuotaFailure,
-} from './lib/fail-reason'
-import {
-  historicalPaywallTarget,
-  quoteImageGenerationRoute,
-  sheetSubmitBody,
-  type GenerationRequest,
-  type HistoryPaywallRequest,
-  type PaywallTarget,
-  type SubmitSheet,
-} from './lib/generation-recovery'
+import { sheetSubmitBody, type SubmitSheet } from './lib/generation-recovery'
 import { takeGuestDraft } from './lib/guest'
 import { hiddenTaskIds, hideTask } from './lib/hidden'
 import {
   isSuccessStatus,
-  isTerminalStatus,
   parentTaskId,
   parseTaskMeta,
   taskAbsoluteImageUrl,
@@ -114,7 +93,7 @@ import {
   taskImageUrl,
   taskKind,
 } from './lib/history'
-import { isInsufficientQuotaError } from './lib/insufficient-credits'
+import type { PaywallOrigin } from './lib/insufficient-credits'
 import {
   readPresetsCache,
   readTaxonomyCache,
@@ -138,11 +117,6 @@ import {
   publishedPresets,
   usablePresets,
 } from './lib/presets'
-import {
-  classifyReference,
-  type PreviewEntry,
-  type PreviewMediaKind,
-} from './lib/preview-reference'
 import { rollableCount } from './lib/randomize'
 import { referenceVideoCandidate } from './lib/reference-candidates'
 import { readSource, writeSource } from './lib/source'
@@ -169,13 +143,6 @@ import type {
   WorkbenchMode,
 } from './types'
 
-type PaywallRequest = PaywallTarget | HistoryPaywallRequest
-
-interface PaywallSession {
-  id: number
-  request: PaywallRequest
-}
-
 export function InfluencerWorkbench() {
   const { t } = useTranslation()
   const search = useSearch({ strict: false }) as { recreate?: string }
@@ -193,13 +160,7 @@ export function InfluencerWorkbench() {
   )
   const motion = useMotion()
   const accountId = useAuthStore((state) => state.auth.user?.id)
-  const previousAccount = useRef(accountId)
   const resetMotion = motion.reset
-  useEffect(() => {
-    if (previousAccount.current === accountId) return
-    previousAccount.current = accountId
-    resetMotion()
-  }, [accountId, resetMotion])
 
   const closeVideoPicker = motion.closeVideoPicker
   const closeCharacterPicker = motion.closeCharacterPicker
@@ -249,7 +210,6 @@ export function InfluencerWorkbench() {
   })
   // 历史记录聚合显示：图片与视频任务不分页签，统一按时间排序混排。
   const historyQ = useInfluencerHistory(!isGuest)
-  const sheetHistoryQ = historyQ
   // Keep all observed children for the submission guard, including off-page parents.
   const storedBoards = useMemo(() => {
     const byParent = new Map<string, TaskRecord[]>()
@@ -262,10 +222,6 @@ export function InfluencerWorkbench() {
     }
     return byParent
   }, [historyQ.items])
-  const currentStoredBoards = useRef(storedBoards)
-  useLayoutEffect(() => {
-    currentStoredBoards.current = storedBoards
-  }, [storedBoards])
   // Both pickers read this one merged page set. A motion-only query here used
   // to stay cold until the video panel opened, so the first open waited for a
   // list request; loading more may also fetch an image page, which is cheap
@@ -290,12 +246,6 @@ export function InfluencerWorkbench() {
   const resetBuilder = builder.reset
   const setImageModel = builder.setModel
   const currentImageModel = builder.state.model
-  const previousBuilderAccount = useRef(accountId)
-  useEffect(() => {
-    if (previousBuilderAccount.current === accountId) return
-    previousBuilderAccount.current = accountId
-    resetBuilder()
-  }, [accountId, resetBuilder])
   // Restore the look a visitor assembled on the landing page or before
   // signing in — consumed once, for guests and signed-in users alike.
   const draftRestored = useRef(false)
@@ -343,7 +293,6 @@ export function InfluencerWorkbench() {
     motion.characterUploading ||
     motion.videoMetadataLoading ||
     motion.videoPreparing
-  const submitInFlight = useRef<Promise<TaskRecord | null> | null>(null)
   const pending = useMemo(
     () => [...sheetSubmit.tasks, ...motionSubmit.tasks],
     [sheetSubmit.tasks, motionSubmit.tasks]
@@ -368,33 +317,22 @@ export function InfluencerWorkbench() {
     [multiView.childByParent, multiView.submittingParent, storedBoards]
   )
   const uploadLibrary = useUploadLibrary()
-  // The history preview is a stack: references open above the record that cites them.
-  const [previewStack, setPreviewStack] = useState<PreviewEntry[]>([])
-  const previewRequest = useRef(0)
-  /** Opens one record on its own, or closes the preview when given null. */
-  const setViewTask = useCallback((task: TaskRecord | null) => {
-    previewRequest.current += 1
-    setPreviewStack(task ? [{ kind: 'task', task }] : [])
-  }, [])
-  // Detail follows the same current record as the gallery, not the opening snapshot.
-  const selectedAccount = useRef(accountId)
-  useEffect(() => {
-    previewRequest.current += 1
-    setPreviewStack([])
-    return () => {
-      previewRequest.current += 1
-    }
-  }, [accountId])
-  const viewStack = useMemo<PreviewEntry[]>(() => {
-    if (selectedAccount.current !== accountId) return []
-    return previewStack.map((entry) => {
-      if (entry.kind !== 'task') return entry
-      const current = historyQ.items.find(
-        (item) => item.task_id === entry.task.task_id
-      )
-      return current ? { ...entry, task: current } : entry
-    })
-  }, [previewStack, historyQ.items, accountId])
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => hiddenTaskIds())
+  const {
+    viewStack,
+    setViewTask,
+    onOpenReference,
+    onPreviewVideo,
+    onPreviewImage,
+    onPreviewBack,
+    closePreview,
+  } = usePreviewStack({
+    accountId,
+    historyItems: historyQ.items,
+    uploadedImages: uploadLibrary.images,
+    uploadedVideos: uploadLibrary.videos,
+    hiddenIds,
+  })
   const [mobileCreating, setMobileCreating] = useState(() => !search.recreate)
   const [source, setSource] = useState<InfluencerSource>(() => readSource())
   const [exploreTab, setExploreTab] = useState<InfluencerExploreTab>(() =>
@@ -406,6 +344,14 @@ export function InfluencerWorkbench() {
   const [multiViewParent, setMultiViewParent] = useState<TaskRecord | null>(
     null
   )
+  const previousAccount = useRef(accountId)
+  useEffect(() => {
+    if (previousAccount.current === accountId) return
+    previousAccount.current = accountId
+    resetMotion()
+    resetBuilder()
+    setMultiViewParent(null)
+  }, [accountId, resetMotion, resetBuilder])
   const [publishTask, setPublishTask] = useState<TaskRecord | null>(null)
   const [publishing, setPublishing] = useState(false)
   const recreateHandled = useRef(false)
@@ -512,140 +458,44 @@ export function InfluencerWorkbench() {
   // from the reference clip is also the recreation's pre-submit amount.
   const videoQuote = motionQuote
 
-  const [paywall, setPaywall] = useState<PaywallSession | null>(null)
-  const activePaywall = useRef<PaywallSession | null>(null)
-  const completingPaywall = useRef<PaywallSession | null>(null)
-  const paywallSequence = useRef(0)
-  const queuedFailures = useRef<HistoryPaywallRequest[]>([])
-  const currentAccount = useRef(accountId)
-  const acceptedGenerations = useRef(new Map<string, PaywallTarget>())
-  const handledFailures = useRef(new Set<string>())
-  const activeHistory = useRef(new Set<string>())
-
-  const clearPaywall = useCallback(() => {
-    activePaywall.current = null
-    setPaywall(null)
-  }, [])
-
-  const openPaywall = useCallback((request: PaywallRequest) => {
-    if (activePaywall.current) return
-    if ('task' in request) {
-      queuedFailures.current = queuedFailures.current.filter(
-        (entry) => entry.task.task_id !== request.task.task_id
-      )
-    }
-    const next = { id: ++paywallSequence.current, request }
-    activePaywall.current = next
-    setPaywall(next)
-  }, [])
-
-  const openNextPaywall = useCallback(() => {
-    if (activePaywall.current || completingPaywall.current) return
-    const next = queuedFailures.current.shift()
-    if (next) openPaywall(next)
-  }, [openPaywall])
-
-  const closePaywall = useCallback(() => {
-    clearPaywall()
-    openNextPaywall()
-  }, [clearPaywall, openNextPaywall])
-
-  useEffect(() => {
-    if (currentAccount.current === accountId) return
-    currentAccount.current = accountId
-    acceptedGenerations.current.clear()
-    handledFailures.current.clear()
-    activeHistory.current.clear()
-    queuedFailures.current = []
-    completingPaywall.current = null
-    submitInFlight.current = null
-    clearPaywall()
-    setMultiViewParent(null)
-  }, [accountId, clearPaywall])
-
   const { submit: submitMotionTask } = motionSubmit
-  const submitGeneration = useCallback(
-    async (
-      generation: GenerationRequest,
-      required: number | null,
-      retryRequest?: PaywallRequest
-    ) => {
-      if (submitInFlight.current || currentAccount.current !== accountId) {
-        return false
-      }
-      const { origin } = generation
-      const target = { origin, required, generation }
-      const onError = (error: unknown) => {
-        if (currentAccount.current !== accountId) return
-        if (isInsufficientQuotaError(error)) {
-          openPaywall(retryRequest ?? target)
-          return
-        }
-        if (origin === 'image') {
-          toastInfluencerError(t, error, 'Something went wrong!')
-        } else if (origin === 'video') {
-          toast.error(
-            submitFailureText(t, error, {
-              prefixKey: 'Video generation failed to start: {{msg}}',
-              fallbackKey:
-                'Video generation failed to start. Please try again.',
-            })
-          )
-        } else {
-          toast.error(
-            submitFailureText(t, error, {
-              prefixKey: 'Multi-view generation failed: {{msg}}',
-              fallbackKey: 'Multi-view generation failed',
-            })
-          )
-        }
-      }
-      let request: Promise<TaskRecord | null>
-      switch (generation.origin) {
-        case 'image':
-          request = submit(generation.body, onError)
-          break
-        case 'video':
-          request = submitMotionTask(generation.body, onError)
-          break
-        case 'multiview':
-          request = submitMultiViewTask(
-            generation.body,
-            currentStoredBoards.current.get(generation.body.parentTaskId)
-          )
-          break
-      }
-      submitInFlight.current = request
-      try {
-        const record = await request
-        if (!record || currentAccount.current !== accountId) return false
-        acceptedGenerations.current.set(record.task_id, target)
-        void queryClient.invalidateQueries({
-          queryKey: ['influencer', 'history'],
-        })
-        if (origin !== 'multiview') {
-          setSource('history')
-          setMobileCreating(false)
-          writeSource('history')
-        }
-        return true
-      } catch (error) {
-        onError(error)
-        return false
-      } finally {
-        if (submitInFlight.current === request) submitInFlight.current = null
-      }
-    },
-    [
-      accountId,
-      openPaywall,
-      queryClient,
-      submit,
-      submitMotionTask,
-      submitMultiViewTask,
-      t,
-    ]
-  )
+  const onGenerationAccepted = useCallback((origin: PaywallOrigin) => {
+    if (origin !== 'multiview') {
+      setSource('history')
+      setMobileCreating(false)
+      writeSource('history')
+    }
+  }, [])
+  const onResumeAccepted = useCallback(() => {
+    setViewTask(null)
+    setMultiViewParent(null)
+  }, [setViewTask])
+  const {
+    paywall,
+    paywallTarget,
+    isSubmitInFlight,
+    submitGeneration,
+    onTopUpTask,
+    closePaywall,
+    checkResumeAfterPayment,
+    handleSubscribed,
+  } = usePaywallRecovery({
+    accountId,
+    isGuest,
+    historyItems: historyQ.items,
+    submittedGenerations,
+    storedBoards,
+    pricing: pricingQ.isError ? undefined : pricingQ.data,
+    groups: groupsQ.isError ? undefined : groupsQ.data,
+    outputCapabilities: motion.outputCapabilities,
+    hasActiveMultiView,
+    submitSheet: submit,
+    submitMotion: submitMotionTask,
+    submitMultiView: submitMultiViewTask,
+    confirmMultiViewTerminal,
+    onGenerationAccepted,
+    onResumeAccepted,
+  })
 
   const canGenerate = useMemo(() => {
     if (!taxonomy) return false
@@ -705,7 +555,7 @@ export function InfluencerWorkbench() {
         !taxonomy ||
         builder.isImageUploading() ||
         generationBusy ||
-        submitInFlight.current
+        isSubmitInFlight()
       ) {
         return false
       }
@@ -752,6 +602,7 @@ export function InfluencerWorkbench() {
       imageRoute,
       imageGroup,
       quote,
+      isSubmitInFlight,
       submitGeneration,
       t,
     ]
@@ -763,7 +614,7 @@ export function InfluencerWorkbench() {
       motion.isCharacterUploading() ||
       builder.isImageUploading() ||
       generationBusy ||
-      submitInFlight.current
+      isSubmitInFlight()
     ) {
       return
     }
@@ -802,7 +653,15 @@ export function InfluencerWorkbench() {
         videoQuote?.credits ?? null
       )
     }
-  }, [builder, generationBusy, motion, submitGeneration, videoQuote, t])
+  }, [
+    builder,
+    generationBusy,
+    isSubmitInFlight,
+    motion,
+    submitGeneration,
+    videoQuote,
+    t,
+  ])
 
   /** 被硬冲突修正掉的选项必须说出来，否则用户只会看到自己没点过的一项消失。 */
   const notifyRemovedPicks = useCallback(
@@ -1024,11 +883,7 @@ export function InfluencerWorkbench() {
         requireLogin('multiview', currentDraft(), () => {})
         return false
       }
-      if (
-        builder.isImageUploading() ||
-        generationBusy ||
-        submitInFlight.current
-      ) {
+      if (builder.isImageUploading() || generationBusy || isSubmitInFlight()) {
         return false
       }
       if (!canDeriveMultiView(task)) return false
@@ -1055,201 +910,9 @@ export function InfluencerWorkbench() {
       requireLogin,
       currentDraft,
       multiViewBody,
+      isSubmitInFlight,
       submitGeneration,
       t,
-    ]
-  )
-
-  const onTopUpTask = useCallback(
-    (task: TaskRecord, parent?: TaskRecord) => {
-      openPaywall({
-        task,
-        parent,
-        accepted: acceptedGenerations.current.get(task.task_id),
-      })
-    },
-    [openPaywall]
-  )
-
-  const paywallTarget = useMemo(() => {
-    if (!paywall) return null
-    const request = paywall.request
-    const target =
-      'task' in request
-        ? historicalPaywallTarget(
-            request,
-            historyQ.items,
-            pricingQ.isError ? undefined : pricingQ.data,
-            groupsQ.isError ? undefined : groupsQ.data,
-            motion.outputCapabilities
-          )
-        : request
-    if (target.generation?.origin !== 'multiview') return target
-    if (hasActiveMultiView(target.generation.body.parentTaskId)) {
-      return { origin: target.origin, required: null }
-    }
-    return target
-  }, [
-    groupsQ.data,
-    groupsQ.isError,
-    hasActiveMultiView,
-    historyQ.items,
-    motion.outputCapabilities,
-    paywall,
-    pricingQ.data,
-    pricingQ.isError,
-  ])
-  const currentPaywallTarget = useRef(paywallTarget)
-  useLayoutEffect(() => {
-    currentPaywallTarget.current = paywallTarget
-  }, [paywallTarget])
-
-  const shownPaywall = useRef(0)
-  useEffect(() => {
-    if (
-      !paywall ||
-      !paywallTarget ||
-      shownPaywall.current === paywall.id ||
-      currentAccount.current !== accountId ||
-      activePaywall.current !== paywall
-    ) {
-      return
-    }
-    shownPaywall.current = paywall.id
-    trackInfluencerEvent(INFLUENCER_ANALYTICS_EVENTS.PAYWALL_VIEW, {
-      origin: paywallTarget.origin,
-      required_credits: paywallTarget.required ?? -1,
-    })
-  }, [accountId, paywall, paywallTarget])
-
-  useEffect(() => {
-    if (isGuest) return
-    const candidates = new Map<string, TaskRecord>()
-    for (const task of submittedGenerations) {
-      if (acceptedGenerations.current.has(task.task_id)) {
-        candidates.set(task.task_id, task)
-      }
-    }
-    for (const task of historyQ.items) {
-      if (!task.task_id) continue
-      if (!isTerminalStatus(task.status)) {
-        activeHistory.current.add(task.task_id)
-        continue
-      }
-      const wasActive = activeHistory.current.delete(task.task_id)
-      const submitted = candidates.get(task.task_id)
-      if (submitted && !isTerminalStatus(submitted.status)) {
-        candidates.set(task.task_id, task)
-        const generation = acceptedGenerations.current.get(
-          task.task_id
-        )?.generation
-        if (
-          generation?.origin === 'multiview' &&
-          isInsufficientQuotaFailure(task.fail_reason)
-        ) {
-          confirmMultiViewTerminal(generation.body.parentTaskId, task)
-        }
-      } else if (wasActive && isInsufficientQuotaFailure(task.fail_reason)) {
-        candidates.set(task.task_id, task)
-      }
-    }
-    for (const [id, task] of candidates) {
-      if (!id || !isTerminalStatus(task.status)) continue
-      if (isSuccessStatus(task)) {
-        acceptedGenerations.current.delete(id)
-        continue
-      }
-      if (handledFailures.current.has(id)) continue
-      handledFailures.current.add(id)
-      if (isInsufficientQuotaFailure(task.fail_reason)) {
-        const current = activePaywall.current?.request
-        if (!current || !('task' in current) || current.task.task_id !== id) {
-          queuedFailures.current.push({
-            task,
-            accepted: acceptedGenerations.current.get(id),
-          })
-        }
-        continue
-      }
-      acceptedGenerations.current.delete(id)
-      if (taskKind(task) === 'sheet') {
-        toast.error(describeFailReason(t, task.fail_reason).message)
-      }
-    }
-    openNextPaywall()
-  }, [
-    submittedGenerations,
-    historyQ.items,
-    confirmMultiViewTerminal,
-    isGuest,
-    openNextPaywall,
-    t,
-  ])
-
-  const checkResumeAfterPayment = useCallback(async () => {
-    if (
-      !paywall ||
-      activePaywall.current !== paywall ||
-      useAuthStore.getState().auth.user?.id !== accountId
-    ) {
-      return false
-    }
-    if (!('task' in paywall.request)) return true
-    const generation = currentPaywallTarget.current?.generation
-    if (!generation) return false
-    if (generation.origin === 'video') return true
-    try {
-      const [pricing, groups] = await fetchPaymentImageCatalog()
-      return Boolean(quoteImageGenerationRoute(generation, pricing, groups))
-    } catch {
-      // Keep the successful top-up when a route cannot be confirmed.
-      return false
-    }
-  }, [accountId, paywall])
-
-  const handleSubscribed = useCallback(
-    async (canResume: boolean) => {
-      if (!paywall || activePaywall.current !== paywall) return
-      if (submitInFlight.current) await submitInFlight.current.catch(() => null)
-      if (
-        activePaywall.current !== paywall ||
-        currentAccount.current !== accountId ||
-        useAuthStore.getState().auth.user?.id !== accountId
-      ) {
-        return
-      }
-      const target = currentPaywallTarget.current
-      if (!target) return
-      completingPaywall.current = paywall
-      clearPaywall()
-      trackInfluencerEvent(INFLUENCER_ANALYTICS_EVENTS.PAYWALL_SUBSCRIBED, {
-        origin: target.origin,
-      })
-      try {
-        if (!canResume || !target.generation) return
-        const accepted = await submitGeneration(
-          target.generation,
-          target.required,
-          paywall.request
-        )
-        if (accepted && currentAccount.current === accountId) {
-          setViewTask(null)
-          setMultiViewParent(null)
-        }
-      } finally {
-        if (completingPaywall.current === paywall) {
-          completingPaywall.current = null
-          openNextPaywall()
-        }
-      }
-    },
-    [
-      accountId,
-      clearPaywall,
-      openNextPaywall,
-      paywall,
-      setViewTask,
-      submitGeneration,
     ]
   )
 
@@ -1268,8 +931,8 @@ export function InfluencerWorkbench() {
   useEffect(() => {
     if (recreateHandled.current) return
     const target = search.recreate
-    if (!target || !taxonomy || !sheetHistoryQ.items.length) return
-    const local = sheetHistoryQ.items.find(
+    if (!target || !taxonomy || !historyQ.items.length) return
+    const local = historyQ.items.find(
       (x) => x.task_id === target || String(x.id) === target
     )
     if (local) {
@@ -1298,9 +961,8 @@ export function InfluencerWorkbench() {
     return () => {
       cancelled = true
     }
-  }, [search.recreate, taxonomy, sheetHistoryQ.items, onRecreate])
+  }, [search.recreate, taxonomy, historyQ.items, onRecreate])
 
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => hiddenTaskIds())
   const visibleTasks = useMemo(
     () =>
       historyQ.items.filter((x) => !hiddenIds.has(String(x.task_id || x.id))),
@@ -1344,77 +1006,6 @@ export function InfluencerWorkbench() {
     [hasActiveMultiView, requireLogin, currentDraft, setViewTask, t]
   )
 
-  /** Read-only when the record is a derived board or was removed from the gallery. */
-  const previewTaskEntry = useCallback(
-    (task: TaskRecord): PreviewEntry => ({
-      kind: 'task',
-      task,
-      readOnly:
-        taskKind(task) === 'multiview' ||
-        hiddenIds.has(String(task.task_id || task.id)),
-    }),
-    [hiddenIds]
-  )
-  const onOpenReference = useCallback(
-    (url: string, media: PreviewMediaKind) => {
-      const request = ++previewRequest.current
-      const push = (entry: PreviewEntry) => {
-        if (request !== previewRequest.current) return
-        // A reference can also open the shared playback window on its own:
-        // the workbench slots and the video picker reuse this same entry point.
-        setPreviewStack((stack) => (stack.length ? [...stack, entry] : [entry]))
-      }
-      const found = classifyReference(url, media, historyQ.items, [
-        ...uploadLibrary.images,
-        ...uploadLibrary.videos,
-      ])
-      if ('entry' in found) {
-        push(
-          found.entry.kind === 'task'
-            ? previewTaskEntry(found.entry.task)
-            : found.entry
-        )
-        return
-      }
-      // Not on a loaded history page: read that one owned record.
-      void fetchTaskRecord(found.taskId, {
-        action: media === 'video' ? INFLUENCER_MOTION_ACTION : undefined,
-        with_artifacts: true,
-      })
-        .then((task) => {
-          push(
-            task && task.task_id === found.taskId
-              ? previewTaskEntry(task)
-              : { kind: 'unknown', url, media }
-          )
-        })
-        .catch(() => push({ kind: 'unknown', url, media }))
-    },
-    [
-      historyQ.items,
-      uploadLibrary.images,
-      uploadLibrary.videos,
-      previewTaskEntry,
-    ]
-  )
-  /** Reads a reference into the one shared playback window; no second preview layer. */
-  const onPreviewVideo = useCallback(
-    (url: string) => onOpenReference(url, 'video'),
-    [onOpenReference]
-  )
-  /** Images share the same preview window; only the classified media differs. */
-  const onPreviewImage = useCallback(
-    (url: string) => onOpenReference(url, 'image'),
-    [onOpenReference]
-  )
-  const onPreviewBack = useCallback(() => {
-    previewRequest.current += 1
-    setPreviewStack((stack) => stack.slice(0, -1))
-  }, [])
-  const closePreview = useCallback(() => {
-    previewRequest.current += 1
-    setPreviewStack([])
-  }, [])
   /** Fills the video form with an existing reference, as Turn to motion does; never submits. */
   const showVideoForm = useCallback(() => {
     onWorkbenchModeChange('video')
@@ -1705,10 +1296,7 @@ export function InfluencerWorkbench() {
         isFetchingMore={historyQ.isFetchingMore}
         loadMoreFailed={historyQ.loadMoreFailed}
         onLoadMore={historyQ.loadMore}
-        onView={(task) => {
-          selectedAccount.current = accountId
-          setViewTask(task)
-        }}
+        onView={setViewTask}
         onReloadPreview={() => {
           void historyQ.retry?.()
         }}
@@ -2072,9 +1660,7 @@ export function InfluencerWorkbench() {
             : null
         }
         resumeGeneration={Boolean(paywallTarget?.generation)}
-        onClose={() => {
-          if (activePaywall.current === paywall) closePaywall()
-        }}
+        onClose={closePaywall}
         checkResume={checkResumeAfterPayment}
         onSubscribed={handleSubscribed}
       />
