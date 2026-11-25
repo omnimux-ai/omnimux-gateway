@@ -13,4 +13,9 @@ var builtinBillingExpr = map[string]string{
 	// Do not infer service-tier discounts from incoming request parameters:
 	// channels filter service_tier by default, so it may not reach the upstream.
 	"gpt-6-astra": `len <= 272000 ? tier("standard", p * 10 + c * 50 + cr * 1 + cc * 12.5) : tier("long_context", p * 20 + c * 75 + cr * 2 + cc * 25)`,
+	// https://docs.volcengine.com/docs/6561/1359370 (Doubao-Seed-TTS-3.0, 2026-11-25).
+	// Post-paid 1.5 CNY / 10k billable chars (150 CNY / 1M chars, ~21 USD / 1M chars);
+	// Han ideographs count as 2 chars, other runes as 1 char, reported in prompt tokens (p).
+	"seed-tts-3.0":        `tier("standard", p * 21)`,
+	"doubao-seed-tts-3.0": `tier("standard", p * 21)`,
 }

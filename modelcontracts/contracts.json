@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "713901b8c301fa1f",
+  "version": "6e70bbf96c4f65f3",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -8540,240 +8540,6 @@
         "max_bytes_each": 10485760
       }
     },
-    "seed-audio-1.0": {
-      "model_id": "seed-audio-1.0",
-      "schemaVersion": "2.0",
-      "contractVersion": "dc91eefb4cf1d428",
-      "execution_status": "live",
-      "family": "audio",
-      "brand_id": "bytedance",
-      "brand_name": "ByteDance",
-      "status": "documented",
-      "operation_ids": [
-        "text_to_speech",
-        "voice_clone",
-        "reference_audio_generation",
-        "reference_image_generation"
-      ],
-      "operations": [
-        {
-          "id": "text_to_speech",
-          "executable": true,
-          "inputs": [
-            {
-              "slot": "prompt",
-              "type": "text",
-              "required": true
-            },
-            {
-              "slot": "reference_audio",
-              "type": "audio",
-              "role": "reference",
-              "required": false,
-              "max": 3,
-              "allowedMimes": [
-                "wav",
-                "mp3",
-                "pcm",
-                "ogg_opus"
-              ],
-              "maxSizeMb": 10,
-              "maxDurationSec": 30
-            }
-          ],
-          "parameters": [],
-          "output": {
-            "type": "audio",
-            "formats": [
-              "wav",
-              "mp3",
-              "pcm",
-              "ogg_opus"
-            ]
-          }
-        },
-        {
-          "id": "voice_clone",
-          "executable": true,
-          "inputs": [
-            {
-              "slot": "prompt",
-              "type": "text",
-              "required": true
-            },
-            {
-              "slot": "reference_audio",
-              "type": "audio",
-              "role": "reference",
-              "required": false,
-              "max": 3,
-              "allowedMimes": [
-                "wav",
-                "mp3",
-                "pcm",
-                "ogg_opus"
-              ],
-              "maxSizeMb": 10,
-              "maxDurationSec": 30
-            }
-          ],
-          "parameters": [],
-          "output": {
-            "type": "audio",
-            "formats": [
-              "wav",
-              "mp3",
-              "pcm",
-              "ogg_opus"
-            ]
-          }
-        },
-        {
-          "id": "reference_audio_generation",
-          "executable": true,
-          "inputs": [
-            {
-              "slot": "prompt",
-              "type": "text",
-              "required": true
-            },
-            {
-              "slot": "reference_audio",
-              "type": "audio",
-              "role": "reference",
-              "required": false,
-              "max": 3,
-              "allowedMimes": [
-                "wav",
-                "mp3",
-                "pcm",
-                "ogg_opus"
-              ],
-              "maxSizeMb": 10,
-              "maxDurationSec": 30
-            }
-          ],
-          "parameters": [],
-          "output": {
-            "type": "audio",
-            "formats": [
-              "wav",
-              "mp3",
-              "pcm",
-              "ogg_opus"
-            ]
-          }
-        },
-        {
-          "id": "reference_image_generation",
-          "executable": true,
-          "inputs": [
-            {
-              "slot": "prompt",
-              "type": "text",
-              "required": true
-            },
-            {
-              "slot": "reference_image",
-              "type": "image",
-              "role": "reference",
-              "required": false,
-              "max": 1,
-              "allowedMimes": [
-                "jpeg",
-                "png",
-                "webp"
-              ],
-              "maxSizeMb": 10
-            }
-          ],
-          "parameters": [],
-          "output": {
-            "type": "audio",
-            "formats": [
-              "wav",
-              "mp3",
-              "pcm",
-              "ogg_opus"
-            ]
-          }
-        }
-      ],
-      "audio_kind": "tts",
-      "input_formats": [
-        "wav",
-        "mp3",
-        "pcm",
-        "ogg_opus"
-      ],
-      "max_input_bytes": 10485760,
-      "max_input_seconds": 30,
-      "max_output_seconds": 120,
-      "languages": [
-        "English",
-        "Chinese",
-        "Japanese",
-        "Korean",
-        "Mexican Spanish",
-        "Indonesian",
-        "German",
-        "Brazilian",
-        "Portuguese",
-        "French",
-        "Thai",
-        "Vietnamese",
-        "Malay",
-        "Filipino",
-        "Italian",
-        "Russian",
-        "Dutch",
-        "Polish",
-        "Turkish",
-        "Swedish",
-        "Castilian Spanish"
-      ],
-      "output_formats": [
-        "wav",
-        "mp3",
-        "pcm",
-        "ogg_opus"
-      ],
-      "reference_images": {
-        "max": 1,
-        "formats": [
-          "jpeg",
-          "png",
-          "webp"
-        ],
-        "max_bytes_each": 10485760
-      },
-      "reference_audios": {
-        "max": 3,
-        "formats": [
-          "wav",
-          "mp3",
-          "pcm",
-          "ogg_opus"
-        ],
-        "max_bytes_each": 10485760,
-        "max_seconds_each": 30
-      },
-      "prompt_max_chars": 3000,
-      "billing": {
-        "unit": "per_token",
-        "unit_label": {
-          "en": "per 1M tokens",
-          "zh": "每百万词元"
-        },
-        "unit_price_usd": 15,
-        "model_ratio": 7.5,
-        "pricing_basis": "reported_tokens",
-        "notes": {
-          "en": "Charged by reported token usage; price is USD per 1M tokens",
-          "zh": "按上游返回的词元用量计费，单价为每百万词元美元价"
-        }
-      }
-    },
     "seed-evolving": {
       "model_id": "seed-evolving",
       "schemaVersion": "2.0",
@@ -8826,6 +8592,348 @@
       "prompt_caching": true,
       "context_window_tokens": 1048576,
       "max_output_tokens": 262144
+    },
+    "seed-tts-3.0": {
+      "model_id": "seed-tts-3.0",
+      "schemaVersion": "2.0",
+      "contractVersion": "f7164da49a6b3acc",
+      "execution_status": "live",
+      "family": "audio",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
+      "status": "documented",
+      "operation_ids": [
+        "text_to_speech",
+        "emotion_control"
+      ],
+      "operations": [
+        {
+          "id": "text_to_speech",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            }
+          ],
+          "parameters": [
+            {
+              "name": "speed",
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 2,
+              "default": 1,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "voice_settings.speed 官方取值范围 0.5–2.0"
+              }
+            },
+            {
+              "name": "volume",
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 2,
+              "default": 1,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "voice_settings.volume 官方取值范围 0.5–2.0"
+              }
+            },
+            {
+              "name": "pitch",
+              "type": "integer",
+              "minimum": -12,
+              "maximum": 12,
+              "default": 0,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "voice_settings.pitch 官方取值范围 -12–12"
+              }
+            },
+            {
+              "name": "silence_duration",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30000,
+              "default": 0,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "silence_duration 官方取值范围 0–30000 ms"
+              }
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp3",
+                "pcm",
+                "ogg_opus"
+              ],
+              "default": "mp3",
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "output_format.format 官方可选值 mp3 / pcm / ogg_opus"
+              }
+            },
+            {
+              "name": "enable_subtitle",
+              "type": "boolean",
+              "default": false,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "enable_subtitle 官方默认 false"
+              }
+            }
+          ],
+          "output": {
+            "type": "audio",
+            "formats": [
+              "mp3",
+              "pcm",
+              "ogg_opus"
+            ]
+          }
+        },
+        {
+          "id": "emotion_control",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            }
+          ],
+          "parameters": [
+            {
+              "name": "speed",
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 2,
+              "default": 1,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "voice_settings.speed 官方取值范围 0.5–2.0"
+              }
+            },
+            {
+              "name": "volume",
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 2,
+              "default": 1,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "voice_settings.volume 官方取值范围 0.5–2.0"
+              }
+            },
+            {
+              "name": "pitch",
+              "type": "integer",
+              "minimum": -12,
+              "maximum": 12,
+              "default": 0,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "voice_settings.pitch 官方取值范围 -12–12"
+              }
+            },
+            {
+              "name": "silence_duration",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30000,
+              "default": 0,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "silence_duration 官方取值范围 0–30000 ms"
+              }
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp3",
+                "pcm",
+                "ogg_opus"
+              ],
+              "default": "mp3",
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "output_format.format 官方可选值 mp3 / pcm / ogg_opus"
+              }
+            },
+            {
+              "name": "enable_subtitle",
+              "type": "boolean",
+              "default": false,
+              "limitSource": {
+                "kind": "official_docs",
+                "note": "enable_subtitle 官方默认 false"
+              }
+            }
+          ],
+          "output": {
+            "type": "audio",
+            "formats": [
+              "mp3",
+              "pcm",
+              "ogg_opus"
+            ]
+          }
+        }
+      ],
+      "unknowns": [
+        "max_input_bytes",
+        "max_input_seconds"
+      ],
+      "audio_kind": "tts",
+      "input_formats": [
+        "text",
+        "ssml"
+      ],
+      "voices": 68,
+      "languages": [
+        "af",
+        "am",
+        "ar",
+        "as",
+        "ast",
+        "az",
+        "be",
+        "bg",
+        "bn",
+        "bs",
+        "ca",
+        "ceb",
+        "ckb",
+        "cs",
+        "cy",
+        "da",
+        "de",
+        "el",
+        "en",
+        "en-GB",
+        "es",
+        "es-MX",
+        "et",
+        "fa",
+        "fi",
+        "fil",
+        "fr",
+        "fuv",
+        "gl",
+        "gu",
+        "ha",
+        "he",
+        "hi",
+        "hr",
+        "hu",
+        "hy",
+        "id",
+        "ig",
+        "is",
+        "it",
+        "ja",
+        "jv",
+        "ka",
+        "kam",
+        "kea",
+        "kk",
+        "km",
+        "kn",
+        "ko",
+        "ky",
+        "lb",
+        "lg",
+        "ln",
+        "lo",
+        "lt",
+        "luo",
+        "lv",
+        "mi",
+        "mk",
+        "ml",
+        "mn",
+        "mr",
+        "ms",
+        "mt",
+        "my",
+        "ne",
+        "nl",
+        "no",
+        "nso",
+        "ny",
+        "oc",
+        "ory",
+        "pa",
+        "pl",
+        "ps",
+        "pt",
+        "pt-BR",
+        "ro",
+        "ru",
+        "sd",
+        "sk",
+        "sl",
+        "sn",
+        "sq",
+        "sr",
+        "sv",
+        "sw",
+        "ta",
+        "te",
+        "tg",
+        "th",
+        "tr",
+        "uk",
+        "umb",
+        "ur",
+        "uz",
+        "vi",
+        "wo",
+        "xh",
+        "yo",
+        "yue",
+        "zh",
+        "zh-CN-x-beijing",
+        "zh-CN-x-changsha",
+        "zh-CN-x-dongbei",
+        "zh-CN-x-henan",
+        "zh-CN-x-hubei",
+        "zh-CN-x-kejia",
+        "zh-CN-x-minnan",
+        "zh-CN-x-nanchang",
+        "zh-CN-x-nanjing",
+        "zh-CN-x-shaanxi",
+        "zh-CN-x-shandong",
+        "zh-CN-x-shanghai",
+        "zh-CN-x-sichuan",
+        "zh-CN-x-taiwan",
+        "zh-CN-x-tangshan",
+        "zh-CN-x-tianjin",
+        "zu"
+      ],
+      "output_formats": [
+        "mp3",
+        "pcm",
+        "ogg_opus"
+      ],
+      "prompt_max_chars": 10000,
+      "billing": {
+        "unit": "per_million_chars",
+        "unit_label": {
+          "en": "per 1M billable chars",
+          "zh": "每百万计费字符"
+        },
+        "unit_price_usd": 21,
+        "pricing_basis": "input_chars",
+        "notes": {
+          "en": "Charged by input billable characters (2 per Han character, 1 per other character)",
+          "zh": "按输入计费字符数计费（汉字计 2 字符，其余计 1 字符，SSML 标签正常计费）"
+        }
+      }
     },
     "seedance-2-0": {
       "model_id": "seedance-2-0",

@@ -39,16 +39,17 @@ func AudioHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	// fork: 平台训练出的音色只允许其所有者使用（见 model.CheckVoiceCloneAccess）。
 	// 授权判定属于处理器职责，放在这里而不是渠道适配器内，避免纯请求转换函数依赖数据库。
 	//
-	// 只对平台命名空间内的音色发起归属查询：官方预置音色（509 款）以及任何外部
+	// 只对平台命名空间内的音色发起归属查询：官方预置音色（TTS 3.0 68 款）以及任何外部
 	// 音色代号都不带该前缀，因此既有配音流量不增加任何数据库开销。平台音色代号
 	// 由训练适配器强制落在该命名空间内，不会绕过本校验。
-	if strings.HasPrefix(request.Voice, taskvolcvoice.VoiceNamespacePrefix) {
-		allowed, ownErr := model.CheckVoiceCloneAccess(info.UserId, request.Voice)
+	trimmedVoice := strings.TrimSpace(request.Voice)
+	if strings.HasPrefix(trimmedVoice, taskvolcvoice.VoiceNamespacePrefix) {
+		allowed, ownErr := model.CheckVoiceCloneAccess(info.UserId, trimmedVoice)
 		if ownErr != nil {
 			return types.NewError(fmt.Errorf("voice ownership check failed: %w", ownErr), types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
 		if !allowed {
-			return types.NewError(fmt.Errorf("voice %q belongs to another user", request.Voice), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+			return types.NewError(fmt.Errorf("voice %q belongs to another user", trimmedVoice), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 		}
 	}
 

@@ -4,10 +4,16 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,4 +97,82 @@ func TestSGLangMinTokensBounds(t *testing.T) {
 			require.NotNil(t, request.MinTokens)
 		})
 	}
+}
+
+func TestVolcengineTTS3AudioValidationAndTokenCount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	newCtx := func(body string) *gin.Context {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/speech", bytes.NewBufferString(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		return c
+	}
+
+	t.Run("rejects >10000 billable chars (Han counts as 2)", func(t *testing.T) {
+		body := `{"model":"seed-tts-3.0","input":"` + strings.Repeat("汉", 5001) + `"}`
+		_, err := GetAndValidAudioRequest(newCtx(body), relayconstant.RelayModeAudioSpeech)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum")
+	})
+
+	t.Run("rejects mutually exclusive input and ssml", func(t *testing.T) {
+		body := `{"model":"seed-tts-3.0","input":"hi","metadata":{"ssml":"<speak>hi</speak>"}}`
+		_, err := GetAndValidAudioRequest(newCtx(body), relayconstant.RelayModeAudioSpeech)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "mutually exclusive")
+	})
+
+	t.Run("rejects invalid voice path and out-of-range scalar parameters", func(t *testing.T) {
+		for _, body := range []string{
+			`{"model":"seed-tts-3.0","input":"hi","voice":"."}`,
+			`{"model":"seed-tts-3.0","input":"hi","voice":"../etc"}`,
+			`{"model":"seed-tts-3.0","input":"hi","voice":"a%2Fb"}`,
+			`{"model":"seed-tts-3.0","input":"hi","speed":2.5}`,
+			`{"model":"seed-tts-3.0","input":"hi","volume":2.5}`,
+			`{"model":"seed-tts-3.0","input":"hi","pitch":13}`,
+			`{"model":"seed-tts-3.0","input":"hi","silence_duration":30001}`,
+			`{"model":"seed-tts-3.0","input":"hi","speed":1.0,"metadata":{"voice_settings":{"speed":99}}}`,
+			`{"model":"seed-tts-3.0","input":"hi","silence_duration":0,"metadata":{"silence_duration":99999}}`,
+		} {
+			_, err := GetAndValidAudioRequest(newCtx(body), relayconstant.RelayModeAudioSpeech)
+			require.Error(t, err, body)
+		}
+	})
+
+	t.Run("normalizes metadata ssml and counts Han=2 other=1 in CountRequestToken", func(t *testing.T) {
+		c := newCtx(`{"model":"seed-tts-3.0","metadata":{"ssml":"<speak>你好</speak>"}}`)
+		req, err := GetAndValidAudioRequest(c, relayconstant.RelayModeAudioSpeech)
+		require.NoError(t, err)
+		assert.Equal(t, "<speak>你好</speak>", req.SSML)
+
+		common.SetContextKey(c, constant.ContextKeyOriginalModel, "seed-tts-3.0")
+		info := &relaycommon.RelayInfo{
+			OriginModelName: "seed-tts-3.0",
+			RelayMode:       relayconstant.RelayModeAudioSpeech,
+			Request:         req,
+		}
+		tokens, countErr := service.CountRequestToken(c, req.GetTokenCountMeta(), info)
+		require.NoError(t, countErr)
+		// "<speak>" (7) + "你好" (4) + "</speak>" (8) = 19
+		assert.Equal(t, 19, tokens)
+	})
+
+	t.Run("whitespace input with ssml clears input and counts ssml billable chars", func(t *testing.T) {
+		c := newCtx(`{"model":"seed-tts-3.0","input":"   ","ssml":"<speak>你好</speak>","metadata":null,"voice_settings":null}`)
+		req, err := GetAndValidAudioRequest(c, relayconstant.RelayModeAudioSpeech)
+		require.NoError(t, err)
+		assert.Empty(t, req.Input)
+		assert.Equal(t, "<speak>你好</speak>", req.SSML)
+
+		common.SetContextKey(c, constant.ContextKeyOriginalModel, "seed-tts-3.0")
+		info := &relaycommon.RelayInfo{
+			OriginModelName: "seed-tts-3.0",
+			RelayMode:       relayconstant.RelayModeAudioSpeech,
+			Request:         req,
+		}
+		tokens, countErr := service.CountRequestToken(c, req.GetTokenCountMeta(), info)
+		require.NoError(t, countErr)
+		assert.Equal(t, 19, tokens)
+	})
 }

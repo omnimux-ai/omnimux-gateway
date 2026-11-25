@@ -1,14 +1,15 @@
 package volcvoice
 
-// 火山引擎豆包语音「音色训练」任务适配器。
+// 火山引擎豆包语音合成大模型 3.0「音色注册 / 声音复刻」任务适配器。
 //
-// 官方接口（文档编号 2534906，https://docs.volcengine.com/docs/DoubaoVoice/tone-training-http）：
+// 官方接口（seed-tts-3-0-voice-cloning-register / seed-tts-3-0-voice-query）：
 //
-//	提交训练   POST {base}/api/v3/tts/voice_clone
-//	查询状态   POST {base}/api/v3/tts/get_voice
+//	提交训练   POST https://voice.cn-beijing.volces.com/api/v3/tts/voice_clone
+//	查询状态   POST https://voice.cn-beijing.volces.com/api/v3/tts/get_voice
 //
 // 官方状态机：0 NotFound / 1 Training / 2 Success / 3 Failed / 4 Active；
-// status 为 2 或 4 时方可调用合成接口。demo_audio 仅 1 小时有效。
+// status 为 2 或 4 时方可调用合成接口，model_type=5 对应语音合成大模型 3.0。
+// demo_audio 仅 1 小时有效。
 //
 // 本适配器只负责协议翻译与状态映射：预扣费、结算与失败退款全部交给原生任务
 // 计费管道（EstimateBilling → AdjustBillingOnSubmit → AdjustBillingOnComplete），
@@ -37,18 +38,20 @@ import (
 )
 
 const (
-	// PublicModelVoiceClone 是音色训练的公开模型 ID（按次计费，独立于按秒的合成模型）。
+	// PublicModelVoiceClone 是音色训练的公开模型 ID（按次计费，独立于按字符的合成模型）。
 	PublicModelVoiceClone = "volc-voice-clone"
 
-	submitPath = "/api/v3/tts/voice_clone"
-	queryPath  = "/api/v3/tts/get_voice"
+	defaultVoiceBaseURL = "https://voice.cn-beijing.volces.com"
+	legacySpeechBaseURL = "https://openspeech.bytedance.com"
+	submitPath          = "/api/v3/tts/voice_clone"
+	queryPath           = "/api/v3/tts/get_voice"
 
 	// 官方自定义音色代号命名约束。
 	customIDMinLen = 8
 	customIDMaxLen = 256
 
 	// VoiceNamespacePrefix 是平台自建音色的专属命名空间。平台生成的音色一律带此前缀，
-	// 合成侧据此用一次前缀判断即可跳过官方预置音色（509 款）的归属查询，
+	// 合成侧据此用一次前缀判断即可跳过官方预置音色（TTS 3.0 68 款）的归属查询，
 	// 不给既有配音流量增加任何开销。
 	VoiceNamespacePrefix = "omnimux_"
 
@@ -69,12 +72,27 @@ var supportedAudioFormats = map[string]bool{
 	"wav": true, "mp3": true, "ogg": true, "m4a": true, "aac": true, "pcm": true,
 }
 
-// upstreamErrorHints 把官方错误码翻译成可读处置建议，避免用户只看到裸数字。
+// upstreamErrorHints 把火山 TTS 3.0 声音复刻错误码翻译成可读处置建议（seed-tts-3-0-voice-cloning-errors）。
 var upstreamErrorHints = map[int]string{
-	45001109: "参考文本与实际录音差异过大（WERError）：请让录音内容与 text 逐字一致，或省略 text 由服务自行识别",
-	45001110: "音频质量不达标（噪声/静音/过短）：建议更换干净录音，或开启 extra_params.enable_audio_denoise",
-	45001111: "音色代号已被占用或与官方音色冲突：请更换 custom_speaker_id",
-	45001112: "音色槽位不足或未开通「声音复刻」服务：请在豆包语音控制台确认服务状态与音色槽位",
+	45001001: "请求参数有误：请核对必填字段、音频格式及枚举取值",
+	45001101: "音频上传失败：请检查音频格式与大小（≤10MB、10~60秒）后重试",
+	45001102: "ASR 转写失败：请提供人声清晰、背景干净的录音后重试",
+	45001104: "声纹检测未通过：录音触发敏感声纹或黑名单策略，请更换授权说话人录音",
+	45001105: "获取音频数据失败：请确认 audio_data 为合法非空 base64 编码",
+	45001107: "SpeakerID 未找到：请确认 speaker_id 正确或重新注册",
+	45001108: "音频转码失败：请提供可解码的 wav/mp3/ogg/m4a/aac/pcm 音频（pcm 仅支持 24kHz 单声道）",
+	45001109: "参考文本与实际录音差异过大（WER 检测错误）：请让录音内容与 extra_params.prompt_text 逐字一致，或省略非必传语种的 prompt_text",
+	45001110: "音色删除失败：请确认 speaker_id 存在后重试",
+	45001112: "音频信噪比（SNR）检测失败：请更换更高信噪比的干净录音",
+	45001113: "降噪失败：请重试，或将 enable_audio_denoise 设为 false 后更换录音重试",
+	45001114: "音频质量较差（背景噪声大或人声过弱）：请更换干净录音",
+	45001122: "未检测到清晰人声：请提高人声占比并减少背景噪声",
+	45001123: "达到上传次数上限：该 speaker_id 已耗尽复刻次数，请更换新代号",
+	45001124: "ASR 识别文本审核拒绝：请更换合规录音内容",
+	45001125: "试听文本（demo_text）审核拒绝：请调整合规的 demo_text",
+	45001126: "试听文本（demo_text）长度错误：须为 4~300 个字符",
+	45001127: "参考音频审核拒绝：请更换有权使用且符合审核要求的录音",
+	45001128: "参考音频对应文本审核拒绝：请调整音频或 prompt_text 内容",
 }
 
 // TaskAdaptor 实现 channel.TaskAdaptor。
@@ -95,29 +113,29 @@ type TaskAdaptor struct {
 
 // voiceCloneRequest 是面向客户端暴露的训练提交请求。
 //
-// 兼容两种用法：audio_data 直接内联 base64 音频，或 audio_url 由服务端拉取。
+// 仅接收 base64 音频字节（audio_data 或别名 audio），与 TTS 3.0 官方协议保持一致。
 type voiceCloneRequest struct {
 	Model        string         `json:"model,omitempty"`
 	Action       string         `json:"action,omitempty"`
 	Audio        string         `json:"audio,omitempty"`      // 等价于 audio_data
 	AudioData    string         `json:"audio_data,omitempty"` // base64 音频字节
-	AudioURL     string         `json:"audio_url,omitempty"`
 	Format       string         `json:"format,omitempty"`
-	Text         string         `json:"text,omitempty"` // 参考文本，用于发音准确率比对
+	PromptText   string         `json:"prompt_text,omitempty"` // 参考转写文本，映射到 extra_params.prompt_text
+	Text         string         `json:"text,omitempty"`        // prompt_text 的向后兼容别名
 	Language     *int           `json:"language,omitempty"`
 	SpeakerID    string         `json:"custom_speaker_id,omitempty"`
+	ProsodyBoost *bool          `json:"prosody_boost,omitempty"`
 	DemoText     string         `json:"demo_text,omitempty"`
 	Denoise      *bool          `json:"enable_audio_denoise,omitempty"`
 	NoVolumeNorm *bool          `json:"disable_volume_normalization,omitempty"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
-// upstreamVoiceCloneBody 是发给火山的训练请求体，字段与官方文档一一对应。
+// upstreamVoiceCloneBody 是发给火山 TTS 3.0 的音色注册请求体。
 type upstreamVoiceCloneBody struct {
 	SpeakerID       string               `json:"speaker_id"`
 	CustomSpeakerID string               `json:"custom_speaker_id,omitempty"`
 	Audio           upstreamAudio        `json:"audio"`
-	Text            string               `json:"text,omitempty"`
 	Language        *int                 `json:"language,omitempty"`
 	ExtraParams     *upstreamExtraParams `json:"extra_params,omitempty"`
 }
@@ -128,6 +146,8 @@ type upstreamAudio struct {
 }
 
 type upstreamExtraParams struct {
+	PromptText                 string `json:"prompt_text,omitempty"`
+	ProsodyBoost               *bool  `json:"prosody_boost,omitempty"`
 	DemoText                   string `json:"demo_text,omitempty"`
 	EnableAudioDenoise         *bool  `json:"enable_audio_denoise,omitempty"`
 	DisableVolumeNormalization *bool  `json:"disable_volume_normalization,omitempty"`
@@ -160,14 +180,23 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 // extractVolcengineApiKey 与合成侧保持一致的鉴权兼容：
-// 渠道密钥若是传统 "appid|token" 形态则取后半段，纯 API Key 直接使用。
+// 渠道密钥若是传统 "appid|token" 形态则取第二段，纯 API Key 直接使用。
 func extractVolcengineApiKey(apiKey string) string {
 	trimmed := strings.TrimSpace(apiKey)
-	if strings.Contains(trimmed, "|") {
-		parts := strings.Split(trimmed, "|")
-		if len(parts) >= 2 && strings.TrimSpace(parts[1]) != "" {
-			return strings.TrimSpace(parts[1])
+	if _, after, ok := strings.Cut(trimmed, "|"); ok {
+		token, _, _ := strings.Cut(after, "|")
+		if token = strings.TrimSpace(token); token != "" {
+			return token
 		}
+	}
+	return trimmed
+}
+
+func resolveVoiceBaseURL(raw string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(raw), "/")
+	defaultArk := strings.TrimRight(constant.GetChannelBaseURL(constant.ChannelTypeVolcEngine), "/")
+	if trimmed == "" || trimmed == defaultArk || trimmed == legacySpeechBaseURL {
+		return defaultVoiceBaseURL
 	}
 	return trimmed
 }
@@ -220,19 +249,18 @@ func parseVoiceCloneRequest(c *gin.Context) (*voiceCloneRequest, *taskdto.TaskEr
 }
 
 func validateAudioPayload(req *voiceCloneRequest) *taskdto.TaskError {
-	if strings.TrimSpace(req.AudioData) == "" && strings.TrimSpace(req.AudioURL) == "" {
+	data := strings.TrimSpace(req.AudioData)
+	if data == "" {
 		return service.TaskErrorWrapperLocal(
-			fmt.Errorf("audio_data (base64) or audio_url is required"),
+			fmt.Errorf("audio_data (base64) is required"),
 			"audio_required", http.StatusBadRequest)
 	}
 
-	if data := strings.TrimSpace(req.AudioData); data != "" {
-		// base64 编码后长度约为原始字节的 4/3，用解码后估算值做上限判断。
-		if approx := len(data) / 4 * 3; approx > maxAudioBytes {
-			return service.TaskErrorWrapperLocal(
-				fmt.Errorf("audio exceeds the official 10MB limit"),
-				"audio_too_large", http.StatusBadRequest)
-		}
+	// base64 编码后长度约为原始字节的 4/3，用解码后估算值做上限判断。
+	if approx := len(data) / 4 * 3; approx > maxAudioBytes {
+		return service.TaskErrorWrapperLocal(
+			fmt.Errorf("audio exceeds the official 10MB limit"),
+			"audio_too_large", http.StatusBadRequest)
 	}
 
 	format := strings.ToLower(strings.TrimSpace(req.Format))
@@ -320,13 +348,11 @@ func validateCustomSpeakerID(id string) error {
 // ---------------------------------------------------------------------------
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	if a.baseURL == "" {
-		a.baseURL = strings.TrimRight(info.ChannelBaseUrl, "/")
+	base := a.baseURL
+	if base == "" && info != nil && info.ChannelMeta != nil {
+		base = info.ChannelBaseUrl
 	}
-	if a.baseURL == "" {
-		a.baseURL = "https://openspeech.bytedance.com"
-	}
-	return a.baseURL + submitPath, nil
+	return resolveVoiceBaseURL(base) + submitPath, nil
 }
 
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
@@ -354,16 +380,21 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 			Data:   strings.TrimSpace(a.parsed.AudioData),
 			Format: strings.ToLower(strings.TrimSpace(a.parsed.Format)),
 		},
-		Text:     strings.TrimSpace(a.parsed.Text),
 		Language: a.parsed.Language,
 	}
 
+	promptText := strings.TrimSpace(a.parsed.PromptText)
+	if promptText == "" {
+		promptText = strings.TrimSpace(a.parsed.Text)
+	}
 	extra := upstreamExtraParams{
+		PromptText:                 promptText,
+		ProsodyBoost:               a.parsed.ProsodyBoost,
 		DemoText:                   strings.TrimSpace(a.parsed.DemoText),
 		EnableAudioDenoise:         a.parsed.Denoise,
 		DisableVolumeNormalization: a.parsed.NoVolumeNorm,
 	}
-	if extra.DemoText != "" || extra.EnableAudioDenoise != nil || extra.DisableVolumeNormalization != nil {
+	if extra.PromptText != "" || extra.ProsodyBoost != nil || extra.DemoText != "" || extra.EnableAudioDenoise != nil || extra.DisableVolumeNormalization != nil {
 		body.ExtraParams = &extra
 	}
 
@@ -397,14 +428,18 @@ func (a *TaskAdaptor) ParseResponse(c *gin.Context, resp *http.Response, info *r
 			"upstream_voice_clone_failed", http.StatusBadRequest)
 	}
 
+	customSpeakerID := ""
+	if a.parsed != nil {
+		customSpeakerID = a.parsed.SpeakerID
+	}
 	speakerID := strings.TrimSpace(upstream.SpeakerID)
-	if speakerID == "" {
-		speakerID = a.parsed.SpeakerID
+	if speakerID == "" || speakerID == "custom_speaker_id" {
+		speakerID = customSpeakerID
 	}
 
 	taskData, err := common.Marshal(voiceCloneTaskData{
 		SpeakerID:              speakerID,
-		CustomSpeakerID:        a.parsed.SpeakerID,
+		CustomSpeakerID:        customSpeakerID,
 		Status:                 upstream.Status,
 		DemoAudio:              upstream.DemoAudio,
 		AvailableTrainingTimes: upstream.AvailableTrainingTimes,
@@ -441,15 +476,23 @@ func (a *TaskAdaptor) GetChannelName() string {
 // 轮询
 // ---------------------------------------------------------------------------
 
-// FetchTask 按音色代号回查训练状态。官方查询接口只接受 speaker_id。
+// FetchTask 按音色代号回查训练状态。
+// 按 TTS 3.0 seed-tts-3-0-voice-query 规范，按自定义名称查询时须传
+// speaker_id="custom_speaker_id" 与 custom_speaker_id=<名称>。
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, task *model.Task, proxy string) (*http.Response, error) {
 	body := map[string]string{"speaker_id": task.TaskID}
+	if strings.HasPrefix(task.TaskID, VoiceNamespacePrefix) {
+		body = map[string]string{
+			"speaker_id":        "custom_speaker_id",
+			"custom_speaker_id": task.TaskID,
+		}
+	}
 	encoded, err := common.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 
-	url := strings.TrimRight(baseUrl, "/") + queryPath
+	url := resolveVoiceBaseURL(baseUrl) + queryPath
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(encoded))
 	if err != nil {
 		return nil, err

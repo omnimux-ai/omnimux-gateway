@@ -143,7 +143,7 @@ curl -X POST "https://omnimux.ai/v1/audio/transcriptions" \
 ### 5.1 渠道配置要求（Channel Type 45）
 - **渠道类型**：`45` (VolcEngine)
 - **Base URL**：`https://openspeech.bytedance.com`
-- **支持模型**：必须包含 `seed-audio-1.0,doubao-asr-bigmodel,seedasr-auc,bigasr-auc`
+- **支持模型**：必须包含 `seed-tts-3.0,doubao-asr-bigmodel,seedasr-auc,bigasr-auc`
 - **分组**：`default,auto`
 - **API Key**：必须是火山引擎**豆包语音控制台**专属 API Key（格式通常为 UUID 或标准 36 位密钥，严禁使用火山方舟 Ark Key）。
 

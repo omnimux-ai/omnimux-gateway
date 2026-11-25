@@ -25,40 +25,49 @@ function runCli(args, env = {}) {
   return r;
 }
 
-test("voices default returns success envelope with total 509", () => {
+test("voices default returns success envelope with total 68", () => {
   const r = runCli(["voices"]);
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.stderr, "");
   const env = JSON.parse(r.stdout);
   assert.equal(env.ok, true);
   assert.equal(env.meta.command, "voices");
-  assert.equal(env.data.total, 509);
-  assert.equal(env.data.count, 509);
+  assert.equal(env.data.total, 68);
+  assert.equal(env.data.count, 68);
   assert.ok(Array.isArray(env.data.items));
-  assert.equal(env.data.items.length, 509);
+  assert.equal(env.data.items.length, 68);
 });
 
-test("voices --query 顾姐 filters correctly", () => {
-  const r = runCli(["voices", "--query", "顾姐"]);
-  assert.equal(r.status, 0, r.stderr);
-  const env = JSON.parse(r.stdout);
-  assert.equal(env.ok, true);
-  assert.equal(env.data.count, 2);
-  const names = env.data.items.map((i) => i.name);
-  assert.ok(names.every((n) => n === "顾姐"));
-});
-
-test("voices --query 顾姐 --model seed-audio-1.0 filters to 2.0 voice", () => {
-  const r = runCli(["voices", "--query", "顾姐", "--model", "seed-audio-1.0"]);
+test("voices --query 深夜播客 filters correctly", () => {
+  const r = runCli(["voices", "--query", "深夜播客"]);
   assert.equal(r.status, 0, r.stderr);
   const env = JSON.parse(r.stdout);
   assert.equal(env.ok, true);
   assert.equal(env.data.count, 1);
   const item = env.data.items[0];
-  assert.equal(item.name, "顾姐");
-  assert.equal(item.voice_type, "zh_female_gujie_uranus_bigtts");
-  assert.equal(item.resource_id, "seed-tts-2.0");
-  assert.equal(item.recommended_model, "seed-audio-1.0");
+  assert.equal(item.name, "深夜播客");
+  assert.equal(item.voice_type, "multi_male_shenyeboke_v3_uranus_bigtts");
+});
+
+test("voices --query Vivi --model seed-tts-3.0 filters to 3.0 voice", () => {
+  const r = runCli(["voices", "--query", "Vivi", "--model", "seed-tts-3.0"]);
+  assert.equal(r.status, 0, r.stderr);
+  const env = JSON.parse(r.stdout);
+  assert.equal(env.ok, true);
+  assert.equal(env.data.count, 1);
+  const item = env.data.items[0];
+  assert.equal(item.name, "Vivi");
+  assert.equal(item.voice_type, "multi_female_vv_xi_v3_uranus_bigtts");
+  assert.equal(item.resource_id, "doubao-seed-tts-3.0");
+  assert.equal(item.recommended_model, "seed-tts-3.0");
+});
+
+test("voices --model seed-audio-1.0 returns empty after legacy retirement", () => {
+  const r = runCli(["voices", "--model", "seed-audio-1.0"]);
+  assert.equal(r.status, 0, r.stderr);
+  const env = JSON.parse(r.stdout);
+  assert.equal(env.ok, true);
+  assert.equal(env.data.count, 0);
 });
 
 test("voices --scene 电商带货 returns relevant voices", () => {
@@ -75,7 +84,7 @@ test("voices --limit limits the output length", () => {
   assert.equal(r.status, 0, r.stderr);
   const env = JSON.parse(r.stdout);
   assert.equal(env.ok, true);
-  assert.equal(env.data.total, 509);
+  assert.equal(env.data.total, 68);
   assert.equal(env.data.count, 3);
   assert.equal(env.data.items.length, 3);
 });

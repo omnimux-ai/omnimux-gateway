@@ -3,8 +3,12 @@ package volcengine
 import "strings"
 
 const (
-	ModelSeedAudio10    = "seed-audio-1.0"
-	VolcengineV3TTSPath = "/api/v3/tts/create"
+	// TTS 3.0 Models & Endpoint
+	ModelSeedTTS30                = "seed-tts-3.0"
+	UpstreamModelDoubaoSeedTTS30  = "doubao-seed-tts-3.0"
+	VolcengineTTS3BaseURL         = "https://voice.cn-beijing.volces.com"
+	VolcengineTTS3PathTemplate    = "/api/v3/text-to-speech/%s/streaming"
+	VolcengineLegacySpeechBaseURL = "https://openspeech.bytedance.com"
 
 	// ASR Models
 	ModelDoubaoASRBigModel = "doubao-asr-bigmodel"
@@ -39,7 +43,7 @@ var ModelList = []string{
 	"seedance-1-0-pro-250528",
 	"doubao-seed-1-6-thinking-250715",
 	"seed-1-6-thinking-250715",
-	ModelSeedAudio10,
+	ModelSeedTTS30,
 	ModelDoubaoASRBigModel,
 	ModelSeedASRAUC,
 	ModelBigASRAUC,
