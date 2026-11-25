@@ -9,17 +9,17 @@ const { printJson } = require("../lib/output");
 const VOICES_DATA = require("../data/voices.json");
 
 const SCENE_ALIASES = {
-  电商带货: ["广告", "带货", "营销", "促销", "解说", "顾姐", "剪映同款", "抖音同款"],
-  电商: ["广告", "带货", "营销", "促销", "解说", "顾姐"],
-  带货: ["广告", "带货", "营销", "促销", "解说", "顾姐"],
-  广告营销: ["广告", "营销", "促销", "解说"],
-  影视解说: ["解说", "悬疑", "评书", "故事"],
-  解说: ["解说", "悬疑", "评书"],
-  出海: ["外语", "英语", "美式", "英式", "西语", "法语", "德语", "日语", "韩语"],
-  跨境: ["外语", "英语", "美式", "英式", "西语", "法语", "德语", "日语", "韩语"],
-  外语: ["外语音色", "外语"],
-  角色扮演: ["角色扮演"],
-  有声阅读: ["有声阅读", "小说", "故事"],
+  电商带货: ["广告", "带货", "营销", "促销", "解说", "活力", "剪映同款", "抖音同款"],
+  电商: ["广告", "带货", "营销", "促销", "解说", "活力"],
+  带货: ["广告", "带货", "营销", "促销", "解说", "活力"],
+  广告营销: ["广告", "营销", "促销", "解说", "活力"],
+  影视解说: ["解说", "悬疑", "视频配音", "TVB", "译制片", "有声阅读"],
+  解说: ["解说", "悬疑", "播客", "故事"],
+  出海: ["外语", "英语", "美式", "英式", "外语音色"],
+  跨境: ["外语", "英语", "美式", "英式", "外语音色"],
+  外语: ["外语音色", "外语", "英语"],
+  角色扮演: ["角色扮演", "视频配音", "趣味口音"],
+  有声阅读: ["有声阅读", "小说", "故事", "播客", "绘本"],
   客服: ["客服场景", "客服"],
 };
 
@@ -86,10 +86,10 @@ function filterVoices(allVoices, flags = {}) {
       if (!matchRes) return false;
     }
     if (model) {
-      if (model.includes("seed-audio") || model.includes("2.0")) {
-        if (v.resource_id !== "seed-tts-2.0") return false;
-      } else if (model.includes("1.0") || model.includes("mars")) {
-        if (v.resource_id !== "seed-tts-1.0") return false;
+      if (model.includes("seed-tts-3") || model.includes("doubao-seed-tts-3") || model.includes("3.0")) {
+        if (v.resource_id !== "doubao-seed-tts-3.0") return false;
+      } else {
+        return false;
       }
     }
     return true;
@@ -103,7 +103,8 @@ function filterVoices(allVoices, flags = {}) {
     category: v.category || "",
     language: v.language || "",
     resource_id: v.resource_id || "",
-    recommended_model: v.resource_id === "seed-tts-2.0" ? "seed-audio-1.0" : "traditional-tts",
+    recommended_model: "seed-tts-3.0",
+    capabilities: Array.isArray(v.capabilities) ? v.capabilities : [],
     tags: Array.isArray(v.tags) ? v.tags : [],
     section: v.section || "",
   }));

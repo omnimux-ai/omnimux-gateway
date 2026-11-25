@@ -80,10 +80,6 @@ func TestValidateAudioPayload(t *testing.T) {
 		assert.Equal(t, "audio_required", err.Code)
 	})
 
-	t.Run("仅提供 audio_url 通过", func(t *testing.T) {
-		assert.Nil(t, validateAudioPayload(&voiceCloneRequest{AudioURL: "https://cdn.example.com/a.mp3"}))
-	})
-
 	t.Run("不支持格式被拒", func(t *testing.T) {
 		err := validateAudioPayload(&voiceCloneRequest{AudioData: "AAAA", Format: "flac"})
 		require.NotNil(t, err)
@@ -110,14 +106,16 @@ func TestValidateAudioPayload(t *testing.T) {
 func TestBuildRequestBodyMatchesOfficialContract(t *testing.T) {
 	language := 0
 	denoise := true
+	prosody := true
 	adaptor := &TaskAdaptor{parsed: &voiceCloneRequest{
-		AudioData: "QUJDRA==",
-		Format:    "WAV",
-		Text:      "欢迎收看今天的节目",
-		Language:  &language,
-		SpeakerID: "anchor_zh_female01",
-		DemoText:  "这是一段试听文本。",
-		Denoise:   &denoise,
+		AudioData:    "QUJDRA==",
+		Format:       "WAV",
+		PromptText:   "欢迎收看今天的节目",
+		ProsodyBoost: &prosody,
+		Language:     &language,
+		SpeakerID:    "omnimux_anchor_zh_female01",
+		DemoText:     "这是一段试听文本。",
+		Denoise:      &denoise,
 	}}
 
 	reader, err := adaptor.BuildRequestBody(nil, &relaycommon.RelayInfo{})
@@ -131,23 +129,80 @@ func TestBuildRequestBodyMatchesOfficialContract(t *testing.T) {
 
 	// 官方规定：使用自定义音色时 speaker_id 必须传固定值。
 	assert.Equal(t, "custom_speaker_id", body.SpeakerID)
-	assert.Equal(t, "anchor_zh_female01", body.CustomSpeakerID)
+	assert.Equal(t, "omnimux_anchor_zh_female01", body.CustomSpeakerID)
 	assert.Equal(t, "QUJDRA==", body.Audio.Data)
 	assert.Equal(t, "wav", body.Audio.Format, "格式应归一化为小写")
-	assert.Equal(t, "欢迎收看今天的节目", body.Text)
 	require.NotNil(t, body.Language)
 	assert.Equal(t, 0, *body.Language)
 	require.NotNil(t, body.ExtraParams)
+	assert.Equal(t, "欢迎收看今天的节目", body.ExtraParams.PromptText)
+	require.NotNil(t, body.ExtraParams.ProsodyBoost)
+	assert.True(t, *body.ExtraParams.ProsodyBoost)
 	assert.Equal(t, "这是一段试听文本。", body.ExtraParams.DemoText)
 	require.NotNil(t, body.ExtraParams.EnableAudioDenoise)
 	assert.True(t, *body.ExtraParams.EnableAudioDenoise)
 }
 
-func TestBuildRequestURLCarriesOfficialPath(t *testing.T) {
-	adaptor := &TaskAdaptor{baseURL: "https://openspeech.bytedance.com"}
-	url, err := adaptor.BuildRequestURL(&relaycommon.RelayInfo{})
+func TestBuildRequestBodyMapsLegacyTextAliasToPromptText(t *testing.T) {
+	adaptor := &TaskAdaptor{parsed: &voiceCloneRequest{
+		AudioData: "QUJDRA==",
+		Text:      "兼容旧字段转写文本",
+		SpeakerID: "omnimux_legacy01",
+	}}
+	reader, err := adaptor.BuildRequestBody(nil, &relaycommon.RelayInfo{})
 	require.NoError(t, err)
-	assert.Equal(t, "https://openspeech.bytedance.com/api/v3/tts/voice_clone", url)
+	raw, err := io.ReadAll(reader)
+	require.NoError(t, err)
+
+	var body upstreamVoiceCloneBody
+	require.NoError(t, common.Unmarshal(raw, &body))
+	require.NotNil(t, body.ExtraParams)
+	assert.Equal(t, "兼容旧字段转写文本", body.ExtraParams.PromptText)
+}
+
+func TestBuildRequestURLCarriesOfficialPath(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		want    string
+	}{
+		{"empty defaults to voice.cn-beijing.volces.com", "", "https://voice.cn-beijing.volces.com/api/v3/tts/voice_clone"},
+		{"legacy openspeech remaps to voice.cn-beijing.volces.com", "https://openspeech.bytedance.com", "https://voice.cn-beijing.volces.com/api/v3/tts/voice_clone"},
+		{"custom proxy preserved", "https://proxy.example.com", "https://proxy.example.com/api/v3/tts/voice_clone"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			adaptor := &TaskAdaptor{baseURL: tc.baseURL}
+			url, err := adaptor.BuildRequestURL(&relaycommon.RelayInfo{})
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, url)
+		})
+	}
+}
+
+func TestFetchTaskSendsCustomSpeakerQueryBody(t *testing.T) {
+	var gotBody map[string]string
+	var gotPath string
+	var gotKey string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotKey = r.Header.Get("X-Api-Key")
+		raw, _ := io.ReadAll(r.Body)
+		_ = common.Unmarshal(raw, &gotBody)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"code":0,"status":2,"speaker_id":"omnimux_v1"}`))
+	}))
+	defer srv.Close()
+
+	adaptor := &TaskAdaptor{}
+	resp, err := adaptor.FetchTask(srv.URL, "appid|secret_key", &model.Task{TaskID: "omnimux_v1"}, "")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, "/api/v3/tts/get_voice", gotPath)
+	assert.Equal(t, "secret_key", gotKey)
+	assert.Equal(t, "custom_speaker_id", gotBody["speaker_id"])
+	assert.Equal(t, "omnimux_v1", gotBody["custom_speaker_id"])
 }
 
 func TestBuildRequestHeaderUsesSingleKeyAuth(t *testing.T) {
@@ -264,11 +319,11 @@ func TestParseTaskResultStatusMapping(t *testing.T) {
 
 func TestParseTaskResultTreatsUpstreamErrorAsFailure(t *testing.T) {
 	adaptor := &TaskAdaptor{}
-	info, err := adaptor.ParseTaskResult(&model.Task{TaskID: "x"}, nil, []byte(`{"code":45001112,"message":"no quota"}`))
+	info, err := adaptor.ParseTaskResult(&model.Task{TaskID: "x"}, nil, []byte(`{"code":45001112,"message":"SNR error"}`))
 	require.NoError(t, err)
 	require.NotNil(t, info)
 	assert.Equal(t, string(model.TaskStatusFailure), info.Status)
-	assert.Contains(t, info.Reason, "音色槽位", "失败原因应可读")
+	assert.Contains(t, info.Reason, "信噪比", "失败原因应可读")
 }
 
 // ---------------------------------------------------------------------------

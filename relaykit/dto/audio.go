@@ -4,8 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/QuantumNous/new-api/relaykit/types"
+)
+
+const (
+	// VolcengineTTS3MaxBillableChars is the official per-request billable
+	// character limit for Doubao TTS 3.0 (Han characters count as 2, others 1).
+	VolcengineTTS3MaxBillableChars = 10000
 )
 
 type AudioRequest struct {
@@ -33,10 +40,18 @@ type AudioRequest struct {
 	SSDVersion             string `json:"ssd_version,omitempty" form:"ssd_version"`
 	EnableEmotionDetection *bool  `json:"enable_emotion_detection,omitempty" form:"enable_emotion_detection"`
 
-	// 火山引擎 Seed-Audio 扩展入参（支持非标高级控制）
-	References  json.RawMessage `json:"references,omitempty"`
-	AudioConfig json.RawMessage `json:"audio_config,omitempty"`
-	Watermark   json.RawMessage `json:"watermark,omitempty"`
+	// fork: 火山引擎豆包语音合成 3.0（seed-tts-3.0）扩展入参
+	SSML                    string          `json:"ssml,omitempty" form:"ssml"`
+	LanguageCode            string          `json:"language_code,omitempty" form:"language_code"`
+	OutputFormat            json.RawMessage `json:"output_format,omitempty"`
+	VoiceSettings           json.RawMessage `json:"voice_settings,omitempty"`
+	EnableSubtitle          *bool           `json:"enable_subtitle,omitempty" form:"enable_subtitle"`
+	PronunciationDictionary json.RawMessage `json:"pronunciation_dictionary,omitempty"`
+	SessionID               string          `json:"session_id,omitempty" form:"session_id"`
+	Watermark               json.RawMessage `json:"watermark,omitempty"`
+	TextNormalization       *bool           `json:"text_normalization,omitempty" form:"text_normalization"`
+	EnableMarkdownFilter    *bool           `json:"enable_markdown_filter,omitempty" form:"enable_markdown_filter"`
+	SilenceDuration         *int            `json:"silence_duration,omitempty" form:"silence_duration"`
 	// vllm-omini
 	TaskType                json.RawMessage `json:"task_type,omitempty"`
 	Language                json.RawMessage `json:"language,omitempty"`
@@ -49,6 +64,30 @@ type AudioRequest struct {
 	//Stream                  json.RawMessage `json:"stream,omitempty"`
 }
 
+// IsVolcengineTTS3Model reports whether modelName identifies Volcengine Doubao TTS 3.0.
+func IsVolcengineTTS3Model(modelName string) bool {
+	lower := strings.ToLower(strings.TrimSpace(modelName))
+	return lower == "seed-tts-3.0" ||
+		lower == "doubao-seed-tts-3.0" ||
+		strings.HasPrefix(lower, "seed-tts-3") ||
+		strings.HasPrefix(lower, "doubao-seed-tts-3")
+}
+
+// CountVolcengineTTS3BillableChars counts billable characters according to
+// Volcengine Doubao TTS 3.0 rules: Han ideographs (including Japanese kanji)
+// count as 2 characters; all other runes count as 1.
+func CountVolcengineTTS3BillableChars(text string) int {
+	total := 0
+	for _, r := range text {
+		if unicode.Is(unicode.Han, r) {
+			total += 2
+		} else {
+			total++
+		}
+	}
+	return total
+}
+
 func (r *AudioRequest) GetURL() string {
 	if r.URL != "" {
 		return r.URL
@@ -57,8 +96,12 @@ func (r *AudioRequest) GetURL() string {
 }
 
 func (r *AudioRequest) GetTokenCountMeta() *types.TokenCountMeta {
+	combineText := r.Input
+	if combineText == "" && r.SSML != "" {
+		combineText = r.SSML
+	}
 	meta := &types.TokenCountMeta{
-		CombineText: r.Input,
+		CombineText: combineText,
 		TokenType:   types.TokenTypeTextNumber,
 	}
 	if strings.Contains(r.Model, "gpt") {

@@ -100,7 +100,36 @@ func CountRequestToken(c *gin.Context, meta *types.TokenCountMeta, info *relayco
 	}
 
 	model := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
+	if model == "" && info != nil {
+		model = info.OriginModelName
+	}
 	tkm := 0
+
+	if info != nil && info.RelayMode == constant2.RelayModeAudioSpeech && dto.IsVolcengineTTS3Model(model) {
+		billableText := meta.CombineText
+		if billableText == "" {
+			if audioReq, ok := info.Request.(*dto.AudioRequest); ok && audioReq != nil {
+				billableText = audioReq.Input
+				if billableText == "" {
+					billableText = audioReq.SSML
+				}
+				if billableText == "" && len(audioReq.Metadata) > 0 {
+					var m struct {
+						Text string `json:"text"`
+						SSML string `json:"ssml"`
+					}
+					if common.Unmarshal(audioReq.Metadata, &m) == nil {
+						if m.SSML != "" {
+							billableText = m.SSML
+						} else {
+							billableText = m.Text
+						}
+					}
+				}
+			}
+		}
+		return dto.CountVolcengineTTS3BillableChars(billableText), nil
+	}
 
 	if meta.TokenType == types.TokenTypeTextNumber {
 		tkm += utf8.RuneCountInString(meta.CombineText)

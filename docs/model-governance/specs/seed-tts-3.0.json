@@ -1,0 +1,310 @@
+{
+  "model_id": "seed-tts-3.0",
+  "family": "audio",
+  "vendor": "火山引擎",
+  "brand_id": "bytedance",
+  "brand_name": "ByteDance",
+  "vendor_model_id": "doubao-seed-tts-3.0",
+  "capability": "语音合成（豆包语音合成模型 3.0，支持 68 款预置音色、119 项语种/方言、Inline 情感标签与指令控制）",
+  "operations": [
+    "text_to_speech",
+    "emotion_control"
+  ],
+  "status": "documented",
+  "checked_at": "2026-11-25",
+  "sources": [
+    {
+      "claim": "上游默认 model_id 为 doubao-seed-tts-3.0，接口路径为 POST https://voice.cn-beijing.volces.com/api/v3/text-to-speech/{voice_id}/streaming",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "默认 `doubao-seed-tts-3.0`。模型须与音色及账号开通能力匹配。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "单次普通文本输入上限 10000 字符（prompt_max_chars = 10000），与 ssml 二选一",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "普通文本输入时必选，最长 `10000` 字符。与 `ssml` 二选一，不能同时提交。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "输出音频格式支持 mp3、pcm、ogg_opus，默认 mp3",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "默认 `mp3`，可选 `mp3`、`pcm`、`ogg_opus`。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "voice_settings.speed 语速倍率默认 1.0，取值范围 0.5 到 2.0",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "默认 `1.0`，取值范围 `0.5–2.0`。控制语速倍率。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "voice_settings.volume 音量倍率默认 1.0，取值范围 0.5 到 2.0",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "默认 `1.0`，取值范围 `0.5–2.0`。控制音量倍率。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "voice_settings.pitch 音高偏移默认 0，取值范围 -12 到 12",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "默认 `0`，取值范围 `-12–12`。控制音高偏移。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "silence_duration 句尾静音默认 0 ms，取值范围 0 到 30000 ms",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "默认 `0` ms，取值范围 `0–30000` ms。静音仅追加在整段文本的最后一句末尾。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "支持 enable_subtitle 返回字词级时间戳以及 instructions / Inline Tag 情感控制",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-http-streaming?lang=zh",
+      "quote": "默认 `false`。设置为 `true` 后，服务端通过 `alignment` 事件返回字词级字幕时间戳。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "官方 TTS 3.0 音色列表共收录 68 款预置音色（*_v3_uranus_bigtts），支持指令遵循、跨语种与情感标签",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/voice-list-3-0-1?lang=zh",
+      "quote": "豆包语音合成模型3.0音色列表",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "语音合成大模型 3.0 支持 119 项语种与方言代码（100 多种语言和方言）",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-language-support?lang=zh",
+      "quote": "语音合成大模型3.0 的语音合成和声音复刻支持下表中的 **100 多种语言和方言**。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "按输入文本字符数计费：汉字（含日文汉字）计 2 个字符，其余字母/假名/标点/空格计 1 个字符；按量后付费单价 1.5 元/万字符",
+      "url": "https://docs.volcengine.com/docs/doubao-voice/seed-tts-3-0-intro?lang=zh",
+      "quote": "汉字（包括日文汉字）每个计 **2 个字符**。",
+      "retrieved_at": "2026-11-25"
+    },
+    {
+      "claim": "火山引擎官方按量后付费价格：豆包语音合成模型 3.0（Doubao-Seed-TTS-3.0）为 1.5 元/万字符",
+      "url": "https://docs.volcengine.com/docs/6561/1359370?lang=zh",
+      "quote": "1.5元/万字符",
+      "retrieved_at": "2026-11-25"
+    }
+  ],
+  "audio_kind": "tts",
+  "input_formats": [
+    "text",
+    "ssml"
+  ],
+  "max_input_bytes": null,
+  "max_input_seconds": null,
+  "output_formats": [
+    "mp3",
+    "pcm",
+    "ogg_opus"
+  ],
+  "voices": 68,
+  "languages": [
+    "af",
+    "am",
+    "ar",
+    "as",
+    "ast",
+    "az",
+    "be",
+    "bg",
+    "bn",
+    "bs",
+    "ca",
+    "ceb",
+    "ckb",
+    "cs",
+    "cy",
+    "da",
+    "de",
+    "el",
+    "en",
+    "en-GB",
+    "es",
+    "es-MX",
+    "et",
+    "fa",
+    "fi",
+    "fil",
+    "fr",
+    "fuv",
+    "gl",
+    "gu",
+    "ha",
+    "he",
+    "hi",
+    "hr",
+    "hu",
+    "hy",
+    "id",
+    "ig",
+    "is",
+    "it",
+    "ja",
+    "jv",
+    "ka",
+    "kam",
+    "kea",
+    "kk",
+    "km",
+    "kn",
+    "ko",
+    "ky",
+    "lb",
+    "lg",
+    "ln",
+    "lo",
+    "lt",
+    "luo",
+    "lv",
+    "mi",
+    "mk",
+    "ml",
+    "mn",
+    "mr",
+    "ms",
+    "mt",
+    "my",
+    "ne",
+    "nl",
+    "no",
+    "nso",
+    "ny",
+    "oc",
+    "ory",
+    "pa",
+    "pl",
+    "ps",
+    "pt",
+    "pt-BR",
+    "ro",
+    "ru",
+    "sd",
+    "sk",
+    "sl",
+    "sn",
+    "sq",
+    "sr",
+    "sv",
+    "sw",
+    "ta",
+    "te",
+    "tg",
+    "th",
+    "tr",
+    "uk",
+    "umb",
+    "ur",
+    "uz",
+    "vi",
+    "wo",
+    "xh",
+    "yo",
+    "yue",
+    "zh",
+    "zh-CN-x-beijing",
+    "zh-CN-x-changsha",
+    "zh-CN-x-dongbei",
+    "zh-CN-x-henan",
+    "zh-CN-x-hubei",
+    "zh-CN-x-kejia",
+    "zh-CN-x-minnan",
+    "zh-CN-x-nanchang",
+    "zh-CN-x-nanjing",
+    "zh-CN-x-shaanxi",
+    "zh-CN-x-shandong",
+    "zh-CN-x-shanghai",
+    "zh-CN-x-sichuan",
+    "zh-CN-x-taiwan",
+    "zh-CN-x-tangshan",
+    "zh-CN-x-tianjin",
+    "zu"
+  ],
+  "prompt_max_chars": 10000,
+  "parameters": [
+    {
+      "name": "speed",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "limit_source": {
+        "kind": "official_docs",
+        "note": "voice_settings.speed 官方取值范围 0.5–2.0"
+      }
+    },
+    {
+      "name": "volume",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 2.0,
+      "default": 1.0,
+      "limit_source": {
+        "kind": "official_docs",
+        "note": "voice_settings.volume 官方取值范围 0.5–2.0"
+      }
+    },
+    {
+      "name": "pitch",
+      "type": "integer",
+      "minimum": -12,
+      "maximum": 12,
+      "default": 0,
+      "limit_source": {
+        "kind": "official_docs",
+        "note": "voice_settings.pitch 官方取值范围 -12–12"
+      }
+    },
+    {
+      "name": "silence_duration",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30000,
+      "default": 0,
+      "limit_source": {
+        "kind": "official_docs",
+        "note": "silence_duration 官方取值范围 0–30000 ms"
+      }
+    },
+    {
+      "name": "output_format",
+      "type": "enum",
+      "enum": [
+        "mp3",
+        "pcm",
+        "ogg_opus"
+      ],
+      "default": "mp3",
+      "limit_source": {
+        "kind": "official_docs",
+        "note": "output_format.format 官方可选值 mp3 / pcm / ogg_opus"
+      }
+    },
+    {
+      "name": "enable_subtitle",
+      "type": "boolean",
+      "default": false,
+      "limit_source": {
+        "kind": "official_docs",
+        "note": "enable_subtitle 官方默认 false"
+      }
+    }
+  ],
+  "unknowns": [
+    "本模型为文本/SSML 转语音合成接口，不直接接受音频文件输入，故 max_input_bytes 与 max_input_seconds 记 null"
+  ],
+  "notes": "火山引擎豆包语音合成模型 3.0（Doubao-Seed-TTS-3.0），通过网关 POST /v1/audio/speech 公开模型 ID seed-tts-3.0 路由至 POST https://voice.cn-beijing.volces.com/api/v3/text-to-speech/{voice_id}/streaming。支持 68 款 3.0 官方预置音色及 volc-voice-clone 注册的 omnimux_* 专属复刻音色，支持 119 项语种与方言、Inline 情感标签、voice_settings.instructions 表达指令与字词级字幕时间戳。按输入字符数计费（汉字=2 字符，其余=1 字符，上限 10000 字符），内置表达式默认单价 $21 / 1M 计费字符（对应官方按量后付费 1.5 元/万字符基准折算，管理员配置优先覆盖）。",
+  "billing": {
+    "unit": "per_million_chars",
+    "unit_label": {
+      "zh": "每百万计费字符",
+      "en": "per 1M billable chars"
+    },
+    "pricing_basis": "input_chars",
+    "unit_price_usd": 21.0,
+    "notes": {
+      "zh": "按输入计费字符数计费（汉字计 2 字符，其余计 1 字符，SSML 标签正常计费）",
+      "en": "Charged by input billable characters (2 per Han character, 1 per other character)"
+    }
+  }
+}

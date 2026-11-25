@@ -1,80 +1,71 @@
-# 火山引擎官方通用精品音色库检索手册（Agent 索引规范）
+# 火山引擎豆包语音合成 3.0 官方音色库检索手册（Agent 索引规范）
 
-本文档为 Agent、业务系统及开发者提供火山引擎（豆包语音大模型）官方通用精品音色库的速查表与调用指引。
-完整数据源：`docs/assets/volcengine-voices.json`（收录 509 款官方音色）。
-
----
-
-## 一、 调用技术规范（极简调用，免克隆）
-
-* **请求方式**：无需训练，直接调用语音合成接口（`POST https://openspeech.bytedance.com/api/v3/tts/unidirectional`）
-* **Resource ID**：
-  * 大模型 2.0 音色：`X-Api-Resource-Id: seed-tts-2.0`
-  * 大模型 1.0 音色：`X-Api-Resource-Id: seed-tts-1.0`
-* **Speaker**：直接传入官方 `voice_type` 代码（或在 CLI 运维工具中使用中文名别名，工具会自动解析）。
+本文档为 Agent、业务系统及开发者提供火山引擎 **豆包语音合成模型 3.0（Doubao-Seed-TTS-3.0）** 官方预置音色库的速查表与网关调用指引。
+完整数据源：`docs/assets/volcengine-voices.json`（与 `cli/src/data/voices.json` 同源，收录 68 款 3.0 官方音色）。
 
 ---
 
-## 二、 核心爆款音色速查表（按场景分类）
+## 一、调用技术规范（免克隆直用）
 
-### 1. 视频带货与广告营销（高转化、强感染力）
-| 中文音色名 | 官方 voice_type 代号 | 推荐模型 | 特色标签 | 适用内容 |
-| :--- | :--- | :--- | :--- | :--- |
-| **广告解说 2.0** | `zh_male_guanggaojieshuo_uranus_bigtts` | `seed-tts-2.0` | 剪映同款 | 电商带货、口播广告、促销催单、爆款混剪 |
-| **顾姐 2.0** | `zh_female_gujie_uranus_bigtts` | `seed-tts-2.0` | 抖音/剪映同款 | 大女主带货、职场逆袭、女性健康、情感认知 |
-| **广告解说** | `zh_male_chunhui_mars_bigtts` | `seed-tts-1.0` | 剪映同款 | 经典稳健商业广告配音 |
-| **营销小楠 2.0** | `ICL_uranus_zh_female_yingxiaokefu_v2_tob` | `seed-tts-2.0` | 官方精选 | 售前咨询、产品卖点宣讲、温和促单 |
+* **网关入口**：`POST /v1/audio/speech`（公开模型 ID：`seed-tts-3.0`）
+* **上游官方接口**：`POST https://voice.cn-beijing.volces.com/api/v3/text-to-speech/{voice_id}/streaming`（`model_id: "doubao-seed-tts-3.0"`）
+* **计费口径**：按输入字符计费（汉字/日文汉字计 2 字符，字母/假名/标点/空格/SSML 标签计 1 字符；单次上限 10,000 字符）
+* **能力支持**：全量 68 款 3.0 音色均支持指令遵循（`instructions`）、跨语种合成（119 项语种/方言，`language_code`）及 Inline 情感标签。
 
-### 2. 短视频影视与资讯解说
-| 中文音色名 | 官方 voice_type 代号 | 推荐模型 | 特色标签 | 适用内容 |
-| :--- | :--- | :--- | :--- | :--- |
-| **解说小明** | `zh_male_jieshuoxiaoming_moon_bigtts` | `seed-tts-1.0` | 抖音/豆包同款 | “注意看，这个男人叫小帅”影视解说、冷知识科普 |
-| **悬疑解说** | `zh_male_changtianyi_mars_bigtts` | `seed-tts-1.0` | 抖音/剪映同款 | 奇案破案、恐怖故事、悬疑解说 |
-| **爽快思思** | `zh_female_shuangkuaisisi_moon_bigtts` | `seed-tts-1.0` | 豆包同款 | 节奏轻快、干脆利落的日常口播与种草 |
-| **渊博小叔 2.0** | `zh_male_yuanboxiaoshu_uranus_bigtts` | `seed-tts-2.0` | 豆包/剪映同款 | 严肃科普、科技数码、财经商业分析 |
+---
 
-### 3. 通用陪伴、知性与品牌播报
-| 中文音色名 | 官方 voice_type 代号 | 推荐模型 | 特色标签 | 适用内容 |
-| :--- | :--- | :--- | :--- | :--- |
-| **知性女声 2.0** | `zh_female_zhixingnv_uranus_bigtts` | `seed-tts-2.0` | 官方精品 | 品牌故事、企业宣传片、知性新闻播报 |
-| **亲切女声 2.0** | `zh_female_qinqienv_uranus_bigtts` | `seed-tts-2.0` | 豆包同款 | 助手对话、长篇陪伴、温馨提示 |
-| **清爽男大 2.0** | `zh_male_qingshuangnanda_uranus_bigtts` | `seed-tts-2.0` | 豆包同款 | 青春阳光，年轻态潮流穿搭、校园生活 |
-| **柔美女友 2.0** | `zh_female_roumeinvyou_uranus_bigtts` | `seed-tts-2.0` | 官方精品 | 情感电台、温柔对白、剧情角色扮演 |
+## 二、代表音色速查表（按场景分类）
 
-### 4. TikTok 全球化出海多语种音色
-| 音色名称 | 语种 | 官方 voice_type 代号 | 推荐模型 |
+### 1. 通用与品牌播报
+| 音色名称 | 官方 `voice_type` 代号 | 语种 | 场景 |
 | :--- | :--- | :--- | :--- |
-| **Charlie 2.0** | 美式英语 (女) | `ICL_uranus_en_female_charlie_tob` | `seed-tts-2.0` |
-| **Noah 2.0** | 美式英语 (男) | `ICL_uranus_en_male_noah_tob` | `seed-tts-2.0` |
-| **Adam** | 美式英语 (男) | `en_male_adam_mars_bigtts` | `seed-tts-1.0` |
-| **Alastor 2.0** | 英式英语 (男) | `ICL_uranus_en_male_alastor_tob` | `seed-tts-2.0` |
-| **Ethan 2.0** | 澳洲英语 (男) | `ICL_uranus_en_male_ethan_tob` | `seed-tts-2.0` |
-| **Poppy** | 日语 (女) | `ja_female_bv520_uranus_bigtts` | `seed-tts-2.0` |
-| **Ken** | 日语 (男) | `ja_male_bv524_uranus_bigtts` | `seed-tts-2.0` |
-| **Momo** | 韩语 (女) | `ko_female_bv546_uranus_bigtts` | `seed-tts-2.0` |
-| **Rosa** | 墨西哥西语 (女) | `mx_female_bv166emotion_uranus_bigtts` | `seed-tts-2.0` |
-| **Diego** | 墨西哥西语 (男) | `mx_male_bv165dialogue_uranus_bigtts` | `seed-tts-2.0` |
-| **Sam** | 巴西葡萄牙语 (男) | `pt_male_bv172_uranus_bigtts` | `seed-tts-2.0` |
-| **Lola** | 巴西葡萄牙语 (女) | `pt_female_bv173emotion_uranus_bigtts` | `seed-tts-2.0` |
+| **Vivi 3.0** | `multi_female_vv_xi_v3_uranus_bigtts` | 中文 | 陪聊 / 通用默认 |
+| **小天 3.0** | `multi_male_taocheng_v3_uranus_bigtts` | 中文 | 通用场景 |
+| **云舟 3.0** | `multi_male_m191_v3_uranus_bigtts` | 中文 | 通用场景 |
+| **知性女声 3.0** | `multi_female_zhixingnv_v3_uranus_bigtts` | 中文 | 通用场景 |
+| **温柔小雅 3.0** | `multi_female_wenrouxiaoya_v3_uranus_bigtts` | 中文 | 通用场景 |
+| **团子 3.0** | `multi_female_tuanzi_v3_uranus_bigtts` | 中文 | 通用场景 |
+
+### 2. 视频配音、带货营销与有声阅读
+| 音色名称 | 官方 `voice_type` 代号 | 语种 | 特色标签 |
+| :--- | :--- | :--- | :--- |
+| **活力营销女 3.0** | `multi_female_huoliyingxiao_nv_v3_uranus_bigtts` | 中文 | 客服 / 营销 |
+| **悬疑解说 3.0** | `multi_male_xuanyijieshuo_v3_uranus_bigtts` | 中文 | 抖音同款、豆包同款、剪映同款 |
+| **深夜播客 3.0** | `multi_male_shenyeboke_v3_uranus_bigtts` | 中文 | 有声阅读 |
+| **TVB女声 3.0** | `multi_female_tvbnv_v3_uranus_bigtts` | 中文 | 抖音同款、豆包同款 |
+| **佩奇猪 3.0** | `multi_female_peiqi_v3_uranus_bigtts` | 中文 | 抖音同款、豆包同款、剪映同款 |
+| **安逸川妹 3.0** | `multi_female_sichuandialectfemalevoicedb_3_v3_uranus_bigtts` | 四川话 | 陪聊、趣味口音 |
+
+### 3. 外语音色（美式 / 英式英语）
+| 音色名称 | 官方 `voice_type` 代号 | 语种 | 场景 |
+| :--- | :--- | :--- | :--- |
+| **Jamie 3.0** | `multi_male_jamie_v3_uranus_bigtts` | 英语（美式口音） | 通用场景、教学场景 |
+| **Myra 3.0** | `multi_female_myra_v3_uranus_bigtts` | 英语（美式口音） | 教学场景 |
+| **Jenny 3.0** | `multi_female_jenny_v3_uranus_bigtts` | 英语（美式口音） | 客服场景 |
+| **Stokie 3.0** | `multi_female_stokie_v3_uranus_bigtts` | 英语（英式口音） | 陪聊、英式英语 |
 
 ---
 
-## 三、 Agent 消费与执行指引
+## 三、CLI 检索与网关 API 消费契约
 
-### 1. 命令行快速合成
+### 1. CLI 检索全部 68 款音色
 ```bash
-node scripts/ops/volcengine-voice/voice-tts.js \
-  --speaker "广告解说 2.0" \
-  --text "限时特惠，今天下单买一送一，马上点击左下角链接！" \
-  --output ./ad_output.mp3
+omnimux voices --model seed-tts-3.0
+omnimux voices --query 深夜播客
+omnimux voices --scene 电商带货
 ```
 
-### 2. 网关 API 消费契约
-Agent 调用 OmniMux 网关的标准 `/v1/audio/speech` 接口时，可直接在 `voice` 字段填入上述任意音色代号：
+### 2. 网关 `/v1/audio/speech` 请求示例
 ```json
 {
-  "model": "seed-audio-1.0",
-  "input": "欢迎收听今天的节目。",
-  "voice": "zh_male_guanggaojieshuo_uranus_bigtts"
+  "model": "seed-tts-3.0",
+  "input": "[happy]大家好，欢迎收听今天的节目。",
+  "voice": "multi_male_shenyeboke_v3_uranus_bigtts",
+  "language_code": "zh",
+  "instructions": "语气温柔自然，略带播客磁性",
+  "response_format": "mp3",
+  "speed": 1.0
 }
 ```
+- 需要字词级字幕时间戳时，传 `"enable_subtitle": true` 并将 `"response_format"` 设为 `"json"`（或携带 `Accept: application/json`）。
+- 需要原始 JSONL 流式事件时，携带 `Accept: application/x-ndjson`。

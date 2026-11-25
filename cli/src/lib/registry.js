@@ -38,14 +38,14 @@ const LEAVES = [
       { name: "--query", type: "string", description: "Filter by name, display name, voice ID, or tag" },
       { name: "--scene", type: "string", description: "Filter by scene/category (e.g. 电商带货, 角色扮演)" },
       { name: "--language", type: "string", description: "Filter by language (e.g. 中文, 英文)" },
-      { name: "--model", type: "string", description: "Filter by gateway model (e.g. seed-audio-1.0)" },
+      { name: "--model", type: "string", description: "Filter by gateway model (e.g. seed-tts-3.0)" },
       { name: "--limit", type: "number", description: "Limit number of results returned" },
     ],
     examples: [
       "omnimux voices",
-      "omnimux voices --query 顾姐",
+      "omnimux voices --query Vivi",
       "omnimux voices --scene 电商带货",
-      "omnimux voices --model seed-audio-1.0",
+      "omnimux voices --model seed-tts-3.0",
     ],
   },
   {

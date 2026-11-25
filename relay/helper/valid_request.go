@@ -75,6 +75,11 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 		if audioRequest.Model == "" {
 			return nil, errors.New("model is required")
 		}
+		if dto.IsVolcengineTTS3Model(audioRequest.Model) {
+			if err := validateVolcengineTTS3AudioRequest(audioRequest); err != nil {
+				return nil, err
+			}
+		}
 	default:
 		if audioRequest.Model == "" {
 			return nil, errors.New("model is required")
@@ -84,6 +89,115 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 		}
 	}
 	return audioRequest, nil
+}
+
+// fork: validateVolcengineTTS3AudioRequest enforces Doubao TTS 3.0 request
+// bounds before billing estimation: text/ssml mutual exclusion, non-empty
+// payload, 10,000 billable-character ceiling, path-safe voice_id, and scalar
+// parameter ranges.
+func validateVolcengineTTS3AudioRequest(req *dto.AudioRequest) error {
+	var meta struct {
+		Text            string `json:"text"`
+		SSML            string `json:"ssml"`
+		SilenceDuration *int   `json:"silence_duration"`
+		VoiceSettings   *struct {
+			Speed  *float64 `json:"speed"`
+			Volume *float64 `json:"volume"`
+			Pitch  *int     `json:"pitch"`
+		} `json:"voice_settings"`
+	}
+	if len(req.Metadata) > 0 {
+		if err := common.Unmarshal(req.Metadata, &meta); err != nil {
+			return fmt.Errorf("invalid metadata: %w", err)
+		}
+	}
+
+	if req.Input == "" && meta.Text != "" {
+		req.Input = meta.Text
+	}
+	if req.SSML == "" && meta.SSML != "" {
+		req.SSML = meta.SSML
+	}
+
+	hasText := strings.TrimSpace(req.Input) != ""
+	hasSSML := strings.TrimSpace(req.SSML) != ""
+	if hasText && hasSSML {
+		return errors.New("input and ssml are mutually exclusive")
+	}
+	if !hasText && !hasSSML {
+		return errors.New("input or ssml is required")
+	}
+
+	activeText := req.Input
+	if hasSSML {
+		activeText = req.SSML
+	}
+	if chars := dto.CountVolcengineTTS3BillableChars(activeText); chars > dto.VolcengineTTS3MaxBillableChars {
+		return fmt.Errorf("billable character count %d exceeds maximum %d", chars, dto.VolcengineTTS3MaxBillableChars)
+	}
+
+	voice := strings.TrimSpace(req.Voice)
+	if voice != "" {
+		if strings.Contains(voice, "..") {
+			return errors.New("invalid voice id")
+		}
+		for _, r := range voice {
+			if r <= 0x20 || r == 0x7f || r == '/' || r == '\\' || r == '?' || r == '#' {
+				return errors.New("invalid voice id")
+			}
+		}
+	}
+
+	speed := req.Speed
+	if speed == nil && meta.VoiceSettings != nil {
+		speed = meta.VoiceSettings.Speed
+	}
+	if speed != nil {
+		if math.IsNaN(*speed) || math.IsInf(*speed, 0) || *speed < 0.5 || *speed > 2.0 {
+			return errors.New("speed must be between 0.5 and 2.0")
+		}
+	}
+	if meta.VoiceSettings != nil && meta.VoiceSettings.Volume != nil {
+		v := *meta.VoiceSettings.Volume
+		if math.IsNaN(v) || math.IsInf(v, 0) || v < 0.5 || v > 2.0 {
+			return errors.New("volume must be between 0.5 and 2.0")
+		}
+	}
+	if meta.VoiceSettings != nil && meta.VoiceSettings.Pitch != nil {
+		if *meta.VoiceSettings.Pitch < -12 || *meta.VoiceSettings.Pitch > 12 {
+			return errors.New("pitch must be between -12 and 12")
+		}
+	}
+
+	silence := req.SilenceDuration
+	if silence == nil {
+		silence = meta.SilenceDuration
+	}
+	if silence != nil && (*silence < 0 || *silence > 30000) {
+		return errors.New("silence_duration must be between 0 and 30000")
+	}
+
+	if len(req.VoiceSettings) > 0 {
+		var vs struct {
+			Speed  *float64 `json:"speed"`
+			Volume *float64 `json:"volume"`
+			Pitch  *int     `json:"pitch"`
+		}
+		if err := common.Unmarshal(req.VoiceSettings, &vs); err != nil {
+			return fmt.Errorf("invalid voice_settings: %w", err)
+		}
+		if vs.Speed != nil && (math.IsNaN(*vs.Speed) || math.IsInf(*vs.Speed, 0) || *vs.Speed < 0.5 || *vs.Speed > 2.0) {
+			return errors.New("voice_settings.speed must be between 0.5 and 2.0")
+		}
+		if vs.Volume != nil && (math.IsNaN(*vs.Volume) || math.IsInf(*vs.Volume, 0) || *vs.Volume < 0.5 || *vs.Volume > 2.0) {
+			return errors.New("voice_settings.volume must be between 0.5 and 2.0")
+		}
+		if vs.Pitch != nil && (*vs.Pitch < -12 || *vs.Pitch > 12) {
+			return errors.New("voice_settings.pitch must be between -12 and 12")
+		}
+	}
+
+	return nil
 }
 
 func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {
