@@ -277,6 +277,33 @@ func TestParseResponseLeavesTrainingInProgressUnpolled(t *testing.T) {
 	assert.Nil(t, submit.Immediate, "训练中不应产生终态")
 }
 
+func TestParseResponsePreservesCustomSpeakerIDAndHandlesNilParsed(t *testing.T) {
+	t.Run("upstream echoing custom_speaker_id sentinel falls back to omnimux_*", func(t *testing.T) {
+		adaptor := &TaskAdaptor{parsed: &voiceCloneRequest{SpeakerID: "omnimux_custom01"}}
+		resp := newVoiceCloneResponse(t, `{"code":0,"speaker_id":"custom_speaker_id","status":1}`)
+
+		submit, taskErr := adaptor.ParseResponse(nil, resp, &relaycommon.RelayInfo{})
+		require.Nil(t, taskErr)
+		require.NotNil(t, submit)
+		assert.Equal(t, "omnimux_custom01", submit.UpstreamTaskID)
+
+		var data voiceCloneTaskData
+		require.NoError(t, common.Unmarshal(submit.TaskData, &data))
+		assert.Equal(t, "omnimux_custom01", data.SpeakerID)
+		assert.Equal(t, "omnimux_custom01", data.CustomSpeakerID)
+	})
+
+	t.Run("nil parsed does not panic", func(t *testing.T) {
+		adaptor := &TaskAdaptor{}
+		resp := newVoiceCloneResponse(t, `{"code":0,"speaker_id":"omnimux_direct01","status":1}`)
+
+		submit, taskErr := adaptor.ParseResponse(nil, resp, &relaycommon.RelayInfo{})
+		require.Nil(t, taskErr)
+		require.NotNil(t, submit)
+		assert.Equal(t, "omnimux_direct01", submit.UpstreamTaskID)
+	})
+}
+
 func TestParseResponseSurfacesReadableUpstreamError(t *testing.T) {
 	adaptor := &TaskAdaptor{parsed: &voiceCloneRequest{SpeakerID: "anchor_zh_female01"}}
 	resp := newVoiceCloneResponse(t, `{"code":45001109,"message":"WERError"}`)

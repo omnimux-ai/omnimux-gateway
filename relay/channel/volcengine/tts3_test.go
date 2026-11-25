@@ -13,6 +13,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -183,7 +184,7 @@ func TestBuildTTS3Request(t *testing.T) {
 
 	t.Run("rejects path traversal in voice id", func(t *testing.T) {
 		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
-		for _, bad := range []string{"../other", "a/b", "voice?x=1", "voice#frag", "bad voice"} {
+		for _, bad := range []string{".", "../other", "a/b", "a%2Fb", "voice?x=1", "voice#frag", "bad voice"} {
 			_, _, _, _, err := buildTTS3Request(info, dto.AudioRequest{
 				Model: ModelSeedTTS30,
 				Input: "hi",
@@ -191,6 +192,79 @@ func TestBuildTTS3Request(t *testing.T) {
 			})
 			require.Error(t, err, "expected invalid voice error for %q", bad)
 		}
+	})
+
+	t.Run("metadata.model_id cannot override routed model_id", func(t *testing.T) {
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+		ttsReq, _, _, _, err := buildTTS3Request(info, dto.AudioRequest{
+			Model:    ModelSeedTTS30,
+			Input:    "hello",
+			Metadata: []byte(`{"model_id":"hijacked-model"}`),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, UpstreamModelDoubaoSeedTTS30, ttsReq.ModelID)
+	})
+
+	t.Run("whitespace input with ssml clears text and serializes only ssml", func(t *testing.T) {
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+		ttsReq, _, _, chars, err := buildTTS3Request(info, dto.AudioRequest{
+			Model:    ModelSeedTTS30,
+			Input:    "   ",
+			SSML:     "<speak>你好</speak>",
+			Metadata: []byte(`{"text":"  "}`),
+		})
+		require.NoError(t, err)
+		assert.Empty(t, ttsReq.Text)
+		assert.Equal(t, "<speak>你好</speak>", ttsReq.SSML)
+		assert.Equal(t, 19, chars)
+		raw, marshalErr := common.Marshal(ttsReq)
+		require.NoError(t, marshalErr)
+		var wire map[string]any
+		require.NoError(t, common.Unmarshal(raw, &wire))
+		assert.NotContains(t, wire, "text")
+		assert.Equal(t, "<speak>你好</speak>", wire["ssml"])
+	})
+
+	t.Run("accepts string output_format and top-level volume and pitch", func(t *testing.T) {
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+		vol := 1.4
+		pitchZero := 0
+		ttsReq, _, format, _, err := buildTTS3Request(info, dto.AudioRequest{
+			Model:        ModelSeedTTS30,
+			Input:        "hello",
+			OutputFormat: []byte(`"ogg_opus"`),
+			Volume:       &vol,
+			Pitch:        &pitchZero,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "ogg_opus", format)
+		require.NotNil(t, ttsReq.OutputFormat)
+		assert.Equal(t, "ogg_opus", ttsReq.OutputFormat.Format)
+		require.NotNil(t, ttsReq.OutputFormat.SampleRate)
+		assert.Equal(t, 48000, *ttsReq.OutputFormat.SampleRate)
+		require.NotNil(t, ttsReq.VoiceSettings)
+		require.NotNil(t, ttsReq.VoiceSettings.Volume)
+		assert.Equal(t, 1.4, *ttsReq.VoiceSettings.Volume)
+		require.NotNil(t, ttsReq.VoiceSettings.Pitch)
+		assert.Equal(t, 0, *ttsReq.VoiceSettings.Pitch)
+	})
+
+	t.Run("skips explicit json null extension fields", func(t *testing.T) {
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+		ttsReq, _, format, _, err := buildTTS3Request(info, dto.AudioRequest{
+			Model:                   ModelSeedTTS30,
+			Input:                   "hello",
+			Metadata:                []byte(`null`),
+			OutputFormat:            []byte(`null`),
+			VoiceSettings:           []byte(`null`),
+			PronunciationDictionary: []byte(`null`),
+			Watermark:               []byte(`null`),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "mp3", format)
+		assert.Nil(t, ttsReq.VoiceSettings)
+		assert.Nil(t, ttsReq.PronunciationDictionary)
+		assert.Nil(t, ttsReq.Watermark)
 	})
 }
 
@@ -351,8 +425,115 @@ func TestHandleTTS3Response(t *testing.T) {
 		require.Nil(t, apiErr)
 		require.NotNil(t, usageAny)
 		assert.Contains(t, w.Header().Get("Content-Type"), "application/x-ndjson")
+		assert.Empty(t, w.Header().Get("Transfer-Encoding"))
 		assert.Contains(t, w.Body.String(), `"event":"ready"`)
 		assert.Contains(t, w.Body.String(), `"event":"final"`)
+	})
+
+	t.Run("ndjson ready then error returns mapped error with zero bytes written", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/speech", nil)
+		c.Request.Header.Set("Accept", "application/x-ndjson")
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+
+		errStream := `{"event":"ready","session_id":"s-nd-1"}` + "\n" +
+			`{"event":"error","error":{"type":"authorization_error","code":"voice_access_denied","message":"denied"}}` + "\n"
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(errStream)),
+		}
+		usageAny, apiErr := handleTTS3Response(c, resp, info, dto.AudioRequest{Model: ModelSeedTTS30}, "mp3", 4)
+		assert.Nil(t, usageAny)
+		require.NotNil(t, apiErr)
+		assert.Equal(t, http.StatusForbidden, apiErr.StatusCode)
+		assert.False(t, types.IsSkipRetryError(apiErr))
+		assert.Empty(t, w.Body.Bytes())
+	})
+
+	t.Run("ndjson ready then EOF returns 502 with zero bytes written", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/speech", nil)
+		c.Request.Header.Set("Accept", "application/x-ndjson")
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"event":"ready","session_id":"s-nd-eof"}` + "\n")),
+		}
+		usageAny, apiErr := handleTTS3Response(c, resp, info, dto.AudioRequest{Model: ModelSeedTTS30}, "mp3", 4)
+		assert.Nil(t, usageAny)
+		require.NotNil(t, apiErr)
+		assert.Equal(t, http.StatusBadGateway, apiErr.StatusCode)
+		assert.Empty(t, w.Body.Bytes())
+	})
+
+	t.Run("ndjson mid-stream error after audio skips retry and refunds instead of billing", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/speech", nil)
+		c.Request.Header.Set("Accept", "application/x-ndjson")
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+
+		errStream := strings.Join([]string{
+			`{"event":"ready","session_id":"s-nd-2"}`,
+			`{"event":"audio","audio":"` + b64_1 + `"}`,
+			`{"event":"error","error":{"type":"internal_error","code":"upstream_fail","message":"boom"}}`,
+		}, "\n") + "\n"
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(errStream)),
+		}
+		usageAny, apiErr := handleTTS3Response(c, resp, info, dto.AudioRequest{Model: ModelSeedTTS30}, "mp3", 4)
+		assert.Nil(t, usageAny)
+		require.NotNil(t, apiErr)
+		assert.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+		assert.True(t, types.IsSkipRetryError(apiErr))
+		assert.Contains(t, w.Body.String(), `"event":"ready"`)
+		assert.Contains(t, w.Body.String(), `"event":"audio"`)
+		assert.Contains(t, w.Body.String(), `"event":"error"`)
+	})
+
+	t.Run("ndjson truncated stream after audio skips retry and fails cleanly", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/speech", nil)
+		c.Request.Header.Set("Accept", "application/x-ndjson")
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+
+		truncStream := `{"event":"ready","session_id":"s-nd-3"}` + "\n" +
+			`{"event":"audio","audio":"` + b64_1 + `"}` + "\n"
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(truncStream)),
+		}
+		usageAny, apiErr := handleTTS3Response(c, resp, info, dto.AudioRequest{Model: ModelSeedTTS30}, "mp3", 4)
+		assert.Nil(t, usageAny)
+		require.NotNil(t, apiErr)
+		assert.Equal(t, http.StatusBadGateway, apiErr.StatusCode)
+		assert.True(t, types.IsSkipRetryError(apiErr))
+	})
+
+	t.Run("final event with non-closed reason is rejected even if is_final is true", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/speech", nil)
+		info := newTestTTS3RelayInfo(ModelSeedTTS30, "", "")
+
+		badFinal := strings.Join([]string{
+			`{"event":"ready","session_id":"s-bad-final"}`,
+			`{"event":"audio","audio":"` + b64_1 + `"}`,
+			`{"event":"final","is_final":true,"reason":"TTS_STREAM_FINAL_REASON_ERROR"}`,
+		}, "\n") + "\n"
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(badFinal)),
+		}
+		usageAny, apiErr := handleTTS3Response(c, resp, info, dto.AudioRequest{Model: ModelSeedTTS30}, "mp3", 4)
+		assert.Nil(t, usageAny)
+		require.NotNil(t, apiErr)
+		assert.Equal(t, http.StatusBadGateway, apiErr.StatusCode)
 	})
 
 	t.Run("mid-stream error event fails cleanly with mapped status and nil usage", func(t *testing.T) {

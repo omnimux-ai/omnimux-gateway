@@ -44,6 +44,8 @@ type AudioRequest struct {
 	SSML                    string          `json:"ssml,omitempty" form:"ssml"`
 	LanguageCode            string          `json:"language_code,omitempty" form:"language_code"`
 	OutputFormat            json.RawMessage `json:"output_format,omitempty"`
+	Volume                  *float64        `json:"volume,omitempty" form:"volume"`
+	Pitch                   *int            `json:"pitch,omitempty" form:"pitch"`
 	VoiceSettings           json.RawMessage `json:"voice_settings,omitempty"`
 	EnableSubtitle          *bool           `json:"enable_subtitle,omitempty" form:"enable_subtitle"`
 	PronunciationDictionary json.RawMessage `json:"pronunciation_dictionary,omitempty"`
@@ -97,7 +99,7 @@ func (r *AudioRequest) GetURL() string {
 
 func (r *AudioRequest) GetTokenCountMeta() *types.TokenCountMeta {
 	combineText := r.Input
-	if combineText == "" && r.SSML != "" {
+	if strings.TrimSpace(combineText) == "" && strings.TrimSpace(r.SSML) != "" {
 		combineText = r.SSML
 	}
 	meta := &types.TokenCountMeta{

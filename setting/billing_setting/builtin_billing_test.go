@@ -148,3 +148,58 @@ func TestImageModelBuiltinPricesAndOverrides(t *testing.T) {
 		})
 	}
 }
+
+func TestVolcengineTTS3BuiltinBillingAndOverrides(t *testing.T) {
+	settings := config.GlobalConfig.Get("billing_setting").(*billing_setting.BillingSetting)
+	saved := *settings
+	savedRatios, savedPrices := ratio_setting.ModelRatio2JSONString(), ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		*settings = saved
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(savedRatios))
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(savedPrices))
+	})
+
+	for _, name := range []string{"seed-tts-3.0", "doubao-seed-tts-3.0"} {
+		t.Run(name, func(t *testing.T) {
+			*settings = billing_setting.BillingSetting{BillingMode: map[string]string{}, BillingExpr: map[string]string{}}
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{}`))
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{}`))
+
+			assert.Equal(t, billing_setting.BillingModeTieredExpr, billing_setting.GetBillingMode(name))
+			expression, ok := billing_setting.GetBillingExpr(name)
+			require.True(t, ok)
+			assert.Equal(t, `tier("standard", p * 21)`, expression)
+
+			// 10,000 billable chars at $21 / 1M chars = $0.21 -> 105,000 quota at QuotaPerUnit=500000.
+			usage := &dto.Usage{PromptTokens: 10000, TotalTokens: 10000}
+			result, err := billingexpr.ComputeTieredQuota(
+				&billingexpr.BillingSnapshot{
+					ExprString:   expression,
+					ExprHash:     billingexpr.ExprHashString(expression),
+					GroupRatio:   1,
+					QuotaPerUnit: 500000,
+				},
+				service.BuildTieredTokenParams(usage, false, billingexpr.UsedVars(expression)),
+			)
+			require.NoError(t, err)
+			assert.Equal(t, 105000, result.ActualQuotaAfterGroup)
+
+			// Admin ratio / price overrides take precedence over built-in defaults.
+			encoded, err := common.Marshal(map[string]float64{name: 10.5})
+			require.NoError(t, err)
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(string(encoded)))
+			assert.Equal(t, billing_setting.BillingModeRatio, billing_setting.GetBillingMode(name))
+
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{}`))
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(string(encoded)))
+			assert.Equal(t, billing_setting.BillingModeRatio, billing_setting.GetBillingMode(name))
+
+			// Custom admin expression overrides built-in expression.
+			settings.BillingMode[name] = billing_setting.BillingModeTieredExpr
+			settings.BillingExpr[name] = `tier("custom", p * 30)`
+			actual, ok := billing_setting.GetBillingExpr(name)
+			require.True(t, ok)
+			assert.Equal(t, `tier("custom", p * 30)`, actual)
+		})
+	}
+}

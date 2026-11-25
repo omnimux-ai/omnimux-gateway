@@ -18,27 +18,27 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       控制面（Control Plane · 运维范畴）                 │
 │                                                                         │
-│   运营/录音音频/提示词 ──► [运维CLI工具 scripts/ops/volcengine-voice/]  │
+│   录音样本（Base64） ────► [网关音色复刻任务 volc-voice-clone]        │
 │                                           │                             │
 │                                           ▼                             │
-│                       火山音色训练接口 (POST /api/v3/tts/voice_clone)   │
+│                       火山音色注册接口 (POST /api/v3/tts/voice_clone)   │
 │                                           │                             │
 │                                           ▼ 产出持久唯一标识             │
-│                                      speaker_id                         │
+│                                      omnimux_xxx                        │
 │                                           │                             │
-│                                           ▼ 登记入库                    │
-│                                [前端/业务音色字典 JSON]                 │
+│                                           ▼ 登记任务所有权               │
+│                                [原生 Task 记录 user_id 归属]            │
 └───────────────────────────────────────────┬─────────────────────────────┘
-                                            │ 仅传递轻量 ID 映射
+                                            │ 仅传递轻量 ID
 ┌───────────────────────────────────────────▼─────────────────────────────┐
 │                       数据面（Data Plane · 核心网关）                    │
 │                                                                         │
-│   客户端请求 ──► POST /v1/audio/speech { model, input, voice: "S_xxx" } │
+│   客户端请求 ──► POST /v1/audio/speech { model: "seed-tts-3.0", voice } │
 │                                           │                             │
-│                                           ▼ 极速鉴权与配额扣减           │
+│                                           ▼ 归属校验与字符预扣           │
 │                                     业务网关                            │
 │                                           │                             │
-│                                           ▼ 携带 speaker: "S_xxx" 转发   │
+│                                           ▼ 路径段 {voice_id} 转发       │
 │                       火山大模型 TTS 3.0 接口 (POST /api/v3/text-to-speech/{voice_id}/streaming)│
 │                                           │                             │
 │                                           ▼ JSONL 实时流式音频          │

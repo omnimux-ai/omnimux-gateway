@@ -428,14 +428,18 @@ func (a *TaskAdaptor) ParseResponse(c *gin.Context, resp *http.Response, info *r
 			"upstream_voice_clone_failed", http.StatusBadRequest)
 	}
 
+	customSpeakerID := ""
+	if a.parsed != nil {
+		customSpeakerID = a.parsed.SpeakerID
+	}
 	speakerID := strings.TrimSpace(upstream.SpeakerID)
-	if speakerID == "" {
-		speakerID = a.parsed.SpeakerID
+	if speakerID == "" || speakerID == "custom_speaker_id" {
+		speakerID = customSpeakerID
 	}
 
 	taskData, err := common.Marshal(voiceCloneTaskData{
 		SpeakerID:              speakerID,
-		CustomSpeakerID:        a.parsed.SpeakerID,
+		CustomSpeakerID:        customSpeakerID,
 		Status:                 upstream.Status,
 		DemoAudio:              upstream.DemoAudio,
 		AvailableTrainingTimes: upstream.AvailableTrainingTimes,

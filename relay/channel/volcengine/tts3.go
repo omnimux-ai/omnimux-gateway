@@ -35,16 +35,31 @@ var openAIToTTS3VoiceMap = map[string]string{
 	"shimmer": "multi_female_tuanzi_v3_uranus_bigtts",
 }
 
+func hasJSONValue(raw []byte) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null"))
+}
+
+func isTTS3CleanFinal(ev TTS3StreamEvent) bool {
+	if ev.Event != "final" {
+		return false
+	}
+	if ev.Reason != "" {
+		return ev.Reason == tts3FinalReasonClosed
+	}
+	return ev.IsFinal
+}
+
 func resolveTTS3VoiceID(rawVoice string) (string, error) {
 	voice := strings.TrimSpace(rawVoice)
 	if voice == "" {
 		return defaultTTS3VoiceID, nil
 	}
-	if strings.Contains(voice, "..") {
+	if voice == "." || strings.Contains(voice, "..") {
 		return "", errors.New("invalid voice id")
 	}
 	for _, r := range voice {
-		if r <= 0x20 || r == 0x7f || r == '/' || r == '\\' || r == '?' || r == '#' {
+		if r <= 0x20 || r == 0x7f || r == '/' || r == '\\' || r == '?' || r == '#' || r == '%' {
 			return "", errors.New("invalid voice id")
 		}
 	}
@@ -126,21 +141,19 @@ func buildTTS3Request(info *relaycommon.RelayInfo, request dto.AudioRequest) (*T
 		ModelID: resolveTTS3ModelID(info),
 	}
 
-	// 1. Unmarshal optional Metadata first; voice_id is path-only and cannot be overridden here.
-	if len(request.Metadata) > 0 {
+	// 1. Unmarshal optional Metadata first; model_id and voice_id are controlled by routing.
+	if hasJSONValue(request.Metadata) {
 		if err := common.Unmarshal(request.Metadata, req); err != nil {
 			return nil, "", "", 0, fmt.Errorf("error unmarshalling metadata to volcengine tts 3.0 request: %w", err)
 		}
-		if req.ModelID == "" || strings.EqualFold(req.ModelID, ModelSeedTTS30) {
-			req.ModelID = resolveTTS3ModelID(info)
-		}
 	}
+	req.ModelID = resolveTTS3ModelID(info)
 
-	// 2. Apply top-level Input / SSML (mutually exclusive).
-	if request.Input != "" {
+	// 2. Apply top-level Input / SSML (mutually exclusive) and clear any inactive whitespace field.
+	if strings.TrimSpace(request.Input) != "" {
 		req.Text = request.Input
 	}
-	if request.SSML != "" {
+	if strings.TrimSpace(request.SSML) != "" {
 		req.SSML = request.SSML
 	}
 	hasText := strings.TrimSpace(req.Text) != ""
@@ -150,6 +163,11 @@ func buildTTS3Request(info *relaycommon.RelayInfo, request dto.AudioRequest) (*T
 	}
 	if !hasText && !hasSSML {
 		return nil, "", "", 0, errors.New("input or ssml is required")
+	}
+	if hasSSML {
+		req.Text = ""
+	} else {
+		req.SSML = ""
 	}
 
 	activeText := req.Text
@@ -181,26 +199,40 @@ func buildTTS3Request(info *relaycommon.RelayInfo, request dto.AudioRequest) (*T
 		req.SilenceDuration = request.SilenceDuration
 	}
 
-	if len(request.OutputFormat) > 0 {
-		var outFmt TTS3OutputFormat
-		if err := common.Unmarshal(request.OutputFormat, &outFmt); err != nil {
-			return nil, "", "", 0, fmt.Errorf("invalid output_format: %w", err)
-		}
-		if req.OutputFormat == nil {
-			req.OutputFormat = &TTS3OutputFormat{}
-		}
-		if outFmt.Format != "" {
-			req.OutputFormat.Format = outFmt.Format
-		}
-		if outFmt.SampleRate != nil {
-			req.OutputFormat.SampleRate = outFmt.SampleRate
-		}
-		if outFmt.BitRate != nil {
-			req.OutputFormat.BitRate = outFmt.BitRate
+	if hasJSONValue(request.OutputFormat) {
+		trimmed := bytes.TrimSpace(request.OutputFormat)
+		if trimmed[0] == '"' {
+			var fmtName string
+			if err := common.Unmarshal(trimmed, &fmtName); err != nil {
+				return nil, "", "", 0, fmt.Errorf("invalid output_format: %w", err)
+			}
+			if strings.TrimSpace(fmtName) != "" {
+				if req.OutputFormat == nil {
+					req.OutputFormat = &TTS3OutputFormat{}
+				}
+				req.OutputFormat.Format = strings.TrimSpace(fmtName)
+			}
+		} else {
+			var outFmt TTS3OutputFormat
+			if err := common.Unmarshal(trimmed, &outFmt); err != nil {
+				return nil, "", "", 0, fmt.Errorf("invalid output_format: %w", err)
+			}
+			if req.OutputFormat == nil {
+				req.OutputFormat = &TTS3OutputFormat{}
+			}
+			if outFmt.Format != "" {
+				req.OutputFormat.Format = outFmt.Format
+			}
+			if outFmt.SampleRate != nil {
+				req.OutputFormat.SampleRate = outFmt.SampleRate
+			}
+			if outFmt.BitRate != nil {
+				req.OutputFormat.BitRate = outFmt.BitRate
+			}
 		}
 	}
 
-	if len(request.VoiceSettings) > 0 {
+	if hasJSONValue(request.VoiceSettings) {
 		var vs TTS3VoiceSettings
 		if err := common.Unmarshal(request.VoiceSettings, &vs); err != nil {
 			return nil, "", "", 0, fmt.Errorf("invalid voice_settings: %w", err)
@@ -228,7 +260,7 @@ func buildTTS3Request(info *relaycommon.RelayInfo, request dto.AudioRequest) (*T
 		}
 	}
 
-	if len(request.PronunciationDictionary) > 0 {
+	if hasJSONValue(request.PronunciationDictionary) {
 		var dict TTS3PronunciationDictionary
 		if err := common.Unmarshal(request.PronunciationDictionary, &dict); err != nil {
 			return nil, "", "", 0, fmt.Errorf("invalid pronunciation_dictionary: %w", err)
@@ -236,7 +268,7 @@ func buildTTS3Request(info *relaycommon.RelayInfo, request dto.AudioRequest) (*T
 		req.PronunciationDictionary = &dict
 	}
 
-	if len(request.Watermark) > 0 {
+	if hasJSONValue(request.Watermark) {
 		var wm TTS3Watermark
 		if err := common.Unmarshal(request.Watermark, &wm); err != nil {
 			return nil, "", "", 0, fmt.Errorf("invalid watermark: %w", err)
@@ -244,13 +276,29 @@ func buildTTS3Request(info *relaycommon.RelayInfo, request dto.AudioRequest) (*T
 		req.Watermark = &wm
 	}
 
-	// 4. Map OpenAI standard Speed & Instructions into voice_settings when not already set.
+	// 4. Map top-level Speed, Volume, Pitch & Instructions into voice_settings when not already set.
 	if request.Speed != nil {
 		if req.VoiceSettings == nil {
 			req.VoiceSettings = &TTS3VoiceSettings{}
 		}
 		if req.VoiceSettings.Speed == nil {
 			req.VoiceSettings.Speed = request.Speed
+		}
+	}
+	if request.Volume != nil {
+		if req.VoiceSettings == nil {
+			req.VoiceSettings = &TTS3VoiceSettings{}
+		}
+		if req.VoiceSettings.Volume == nil {
+			req.VoiceSettings.Volume = request.Volume
+		}
+	}
+	if request.Pitch != nil {
+		if req.VoiceSettings == nil {
+			req.VoiceSettings = &TTS3VoiceSettings{}
+		}
+		if req.VoiceSettings.Pitch == nil {
+			req.VoiceSettings.Pitch = request.Pitch
 		}
 	}
 	if strings.TrimSpace(request.Instructions) != "" {
@@ -291,12 +339,13 @@ func buildTTS3UpstreamURL(baseURL string, voiceID string) string {
 	return fmt.Sprintf("%s"+VolcengineTTS3PathTemplate, resolveTTS3BaseURL(baseURL), url.PathEscape(voiceID))
 }
 
-func formatTTS3Error(ev *TTS3ErrorPayload) *types.NewAPIError {
+func formatTTS3Error(ev *TTS3ErrorPayload, ops ...types.NewAPIErrorOptions) *types.NewAPIError {
 	if ev == nil {
 		return types.NewErrorWithStatusCode(
 			errors.New("volcengine tts 3.0 upstream error"),
 			types.ErrorCodeBadResponse,
 			http.StatusBadGateway,
+			ops...,
 		)
 	}
 	msg := strings.TrimSpace(ev.Message)
@@ -314,6 +363,7 @@ func formatTTS3Error(ev *TTS3ErrorPayload) *types.NewAPIError {
 		errors.New(msg),
 		types.ErrorCodeBadResponse,
 		tts3ErrorHTTPStatus(ev.Type),
+		ops...,
 	)
 }
 
@@ -393,7 +443,7 @@ func handleTTS3Response(c *gin.Context, resp *http.Response, info *relaycommon.R
 					Words: ev.Words,
 				})
 			case "final":
-				if ev.Reason == tts3FinalReasonClosed || ev.IsFinal {
+				if isTTS3CleanFinal(ev) {
 					closedCleanly = true
 				}
 			case "error":
@@ -459,6 +509,7 @@ func handleTTS3NDJSONStream(c *gin.Context, body io.Reader, billableChars int) (
 	headersWritten := false
 	closedCleanly := false
 	wroteAudio := false
+	var pendingReady [][]byte
 
 	for {
 		line, readErr := reader.ReadBytes('\n')
@@ -466,48 +517,79 @@ func handleTTS3NDJSONStream(c *gin.Context, body io.Reader, billableChars int) (
 		if len(trimmed) > 0 {
 			var ev TTS3StreamEvent
 			if err := common.Unmarshal(trimmed, &ev); err != nil {
-				if !headersWritten {
+				if headersWritten {
 					return nil, types.NewErrorWithStatusCode(
 						fmt.Errorf("failed to parse volcengine tts 3.0 stream event: %w", err),
 						types.ErrorCodeBadResponseBody,
 						http.StatusBadGateway,
+						types.ErrOptionWithSkipRetry(),
 					)
 				}
-				break
+				return nil, types.NewErrorWithStatusCode(
+					fmt.Errorf("failed to parse volcengine tts 3.0 stream event: %w", err),
+					types.ErrorCodeBadResponseBody,
+					http.StatusBadGateway,
+				)
 			}
 
-			if ev.Event == "error" && !headersWritten {
+			if ev.Event == "error" {
+				if headersWritten {
+					if c != nil {
+						_, _ = c.Writer.Write(append(trimmed, '\n'))
+						c.Writer.Flush()
+					}
+					return nil, formatTTS3Error(ev.Error, types.ErrOptionWithSkipRetry())
+				}
 				return nil, formatTTS3Error(ev.Error)
 			}
-			if ev.Event == "audio" && ev.Audio != "" {
-				wroteAudio = true
-			}
-			if ev.Event == "final" && (ev.Reason == tts3FinalReasonClosed || ev.IsFinal) {
-				closedCleanly = true
-			}
 
-			if c != nil {
-				if !headersWritten {
-					c.Header("Content-Type", "application/x-ndjson; charset=utf-8")
-					c.Header("Transfer-Encoding", "chunked")
-					c.Status(http.StatusOK)
-					headersWritten = true
+			// Buffer initial ready event(s) until a real content or clean-final event arrives,
+			// so ready -> error or ready -> EOF still returns a clean HTTP error without committing 200.
+			if ev.Event == "ready" && !headersWritten {
+				pendingReady = append(pendingReady, append([]byte(nil), trimmed...))
+			} else if ev.Event == "final" && !isTTS3CleanFinal(ev) && !headersWritten {
+				// Unclean final before headers were written: fall through to return clean 502.
+			} else {
+				if ev.Event == "audio" && ev.Audio != "" {
+					wroteAudio = true
 				}
-				if _, writeErr := c.Writer.Write(append(trimmed, '\n')); writeErr != nil {
-					if wroteAudio {
-						return &dto.Usage{
-							PromptTokens:     billableChars,
-							CompletionTokens: 0,
-							TotalTokens:      billableChars,
-						}, nil
+				if isTTS3CleanFinal(ev) {
+					closedCleanly = true
+				}
+				if c != nil {
+					if !headersWritten {
+						c.Header("Content-Type", "application/x-ndjson; charset=utf-8")
+						c.Status(http.StatusOK)
+						headersWritten = true
+						for _, readyLine := range pendingReady {
+							if _, writeErr := c.Writer.Write(append(readyLine, '\n')); writeErr != nil {
+								return nil, types.NewErrorWithStatusCode(
+									fmt.Errorf("failed to stream volcengine tts 3.0 event: %w", writeErr),
+									types.ErrorCodeBadResponse,
+									http.StatusInternalServerError,
+									types.ErrOptionWithSkipRetry(),
+								)
+							}
+						}
+						pendingReady = nil
 					}
-					return nil, types.NewErrorWithStatusCode(
-						fmt.Errorf("failed to stream volcengine tts 3.0 event: %w", writeErr),
-						types.ErrorCodeBadResponse,
-						http.StatusInternalServerError,
-					)
+					if _, writeErr := c.Writer.Write(append(trimmed, '\n')); writeErr != nil {
+						if wroteAudio {
+							return &dto.Usage{
+								PromptTokens:     billableChars,
+								CompletionTokens: 0,
+								TotalTokens:      billableChars,
+							}, nil
+						}
+						return nil, types.NewErrorWithStatusCode(
+							fmt.Errorf("failed to stream volcengine tts 3.0 event: %w", writeErr),
+							types.ErrorCodeBadResponse,
+							http.StatusInternalServerError,
+							types.ErrOptionWithSkipRetry(),
+						)
+					}
+					c.Writer.Flush()
 				}
-				c.Writer.Flush()
 			}
 		}
 
@@ -515,18 +597,31 @@ func handleTTS3NDJSONStream(c *gin.Context, body io.Reader, billableChars int) (
 			if errors.Is(readErr, io.EOF) {
 				break
 			}
-			if !headersWritten {
+			if headersWritten {
 				return nil, types.NewErrorWithStatusCode(
 					fmt.Errorf("failed to read volcengine tts 3.0 stream: %w", readErr),
 					types.ErrorCodeReadResponseBodyFailed,
 					http.StatusBadGateway,
+					types.ErrOptionWithSkipRetry(),
 				)
 			}
-			break
+			return nil, types.NewErrorWithStatusCode(
+				fmt.Errorf("failed to read volcengine tts 3.0 stream: %w", readErr),
+				types.ErrorCodeReadResponseBodyFailed,
+				http.StatusBadGateway,
+			)
 		}
 	}
 
-	if !closedCleanly && !wroteAudio {
+	if !closedCleanly {
+		if headersWritten {
+			return nil, types.NewErrorWithStatusCode(
+				errors.New("volcengine tts 3.0 stream terminated before final event"),
+				types.ErrorCodeBadResponse,
+				http.StatusBadGateway,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
 		return nil, types.NewErrorWithStatusCode(
 			errors.New("volcengine tts 3.0 stream terminated before final event"),
 			types.ErrorCodeBadResponse,

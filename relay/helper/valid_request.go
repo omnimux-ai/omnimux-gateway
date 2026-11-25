@@ -106,16 +106,16 @@ func validateVolcengineTTS3AudioRequest(req *dto.AudioRequest) error {
 			Pitch  *int     `json:"pitch"`
 		} `json:"voice_settings"`
 	}
-	if len(req.Metadata) > 0 {
+	if len(req.Metadata) > 0 && strings.TrimSpace(string(req.Metadata)) != "null" {
 		if err := common.Unmarshal(req.Metadata, &meta); err != nil {
 			return fmt.Errorf("invalid metadata: %w", err)
 		}
 	}
 
-	if req.Input == "" && meta.Text != "" {
+	if strings.TrimSpace(req.Input) == "" && strings.TrimSpace(meta.Text) != "" {
 		req.Input = meta.Text
 	}
-	if req.SSML == "" && meta.SSML != "" {
+	if strings.TrimSpace(req.SSML) == "" && strings.TrimSpace(meta.SSML) != "" {
 		req.SSML = meta.SSML
 	}
 
@@ -126,6 +126,14 @@ func validateVolcengineTTS3AudioRequest(req *dto.AudioRequest) error {
 	}
 	if !hasText && !hasSSML {
 		return errors.New("input or ssml is required")
+	}
+	// Clear inactive whitespace-only fields so pre-consume token counting and
+	// upstream serialization always observe the single active payload.
+	if !hasText {
+		req.Input = ""
+	}
+	if !hasSSML {
+		req.SSML = ""
 	}
 
 	activeText := req.Input
@@ -138,46 +146,45 @@ func validateVolcengineTTS3AudioRequest(req *dto.AudioRequest) error {
 
 	voice := strings.TrimSpace(req.Voice)
 	if voice != "" {
-		if strings.Contains(voice, "..") {
+		if voice == "." || strings.Contains(voice, "..") {
 			return errors.New("invalid voice id")
 		}
 		for _, r := range voice {
-			if r <= 0x20 || r == 0x7f || r == '/' || r == '\\' || r == '?' || r == '#' {
+			if r <= 0x20 || r == 0x7f || r == '/' || r == '\\' || r == '?' || r == '#' || r == '%' {
 				return errors.New("invalid voice id")
 			}
 		}
 	}
 
-	speed := req.Speed
-	if speed == nil && meta.VoiceSettings != nil {
-		speed = meta.VoiceSettings.Speed
+	// Validate top-level and metadata scalar bounds independently so neither can bypass validation.
+	if req.Speed != nil && (math.IsNaN(*req.Speed) || math.IsInf(*req.Speed, 0) || *req.Speed < 0.5 || *req.Speed > 2.0) {
+		return errors.New("speed must be between 0.5 and 2.0")
 	}
-	if speed != nil {
-		if math.IsNaN(*speed) || math.IsInf(*speed, 0) || *speed < 0.5 || *speed > 2.0 {
-			return errors.New("speed must be between 0.5 and 2.0")
-		}
+	if req.Volume != nil && (math.IsNaN(*req.Volume) || math.IsInf(*req.Volume, 0) || *req.Volume < 0.5 || *req.Volume > 2.0) {
+		return errors.New("volume must be between 0.5 and 2.0")
 	}
-	if meta.VoiceSettings != nil && meta.VoiceSettings.Volume != nil {
-		v := *meta.VoiceSettings.Volume
-		if math.IsNaN(v) || math.IsInf(v, 0) || v < 0.5 || v > 2.0 {
-			return errors.New("volume must be between 0.5 and 2.0")
-		}
+	if req.Pitch != nil && (*req.Pitch < -12 || *req.Pitch > 12) {
+		return errors.New("pitch must be between -12 and 12")
 	}
-	if meta.VoiceSettings != nil && meta.VoiceSettings.Pitch != nil {
-		if *meta.VoiceSettings.Pitch < -12 || *meta.VoiceSettings.Pitch > 12 {
-			return errors.New("pitch must be between -12 and 12")
-		}
-	}
-
-	silence := req.SilenceDuration
-	if silence == nil {
-		silence = meta.SilenceDuration
-	}
-	if silence != nil && (*silence < 0 || *silence > 30000) {
+	if req.SilenceDuration != nil && (*req.SilenceDuration < 0 || *req.SilenceDuration > 30000) {
 		return errors.New("silence_duration must be between 0 and 30000")
 	}
+	if meta.SilenceDuration != nil && (*meta.SilenceDuration < 0 || *meta.SilenceDuration > 30000) {
+		return errors.New("silence_duration must be between 0 and 30000")
+	}
+	if meta.VoiceSettings != nil {
+		if meta.VoiceSettings.Speed != nil && (math.IsNaN(*meta.VoiceSettings.Speed) || math.IsInf(*meta.VoiceSettings.Speed, 0) || *meta.VoiceSettings.Speed < 0.5 || *meta.VoiceSettings.Speed > 2.0) {
+			return errors.New("voice_settings.speed must be between 0.5 and 2.0")
+		}
+		if meta.VoiceSettings.Volume != nil && (math.IsNaN(*meta.VoiceSettings.Volume) || math.IsInf(*meta.VoiceSettings.Volume, 0) || *meta.VoiceSettings.Volume < 0.5 || *meta.VoiceSettings.Volume > 2.0) {
+			return errors.New("voice_settings.volume must be between 0.5 and 2.0")
+		}
+		if meta.VoiceSettings.Pitch != nil && (*meta.VoiceSettings.Pitch < -12 || *meta.VoiceSettings.Pitch > 12) {
+			return errors.New("voice_settings.pitch must be between -12 and 12")
+		}
+	}
 
-	if len(req.VoiceSettings) > 0 {
+	if trimmedVS := strings.TrimSpace(string(req.VoiceSettings)); trimmedVS != "" && trimmedVS != "null" {
 		var vs struct {
 			Speed  *float64 `json:"speed"`
 			Volume *float64 `json:"volume"`

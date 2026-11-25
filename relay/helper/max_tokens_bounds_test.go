@@ -123,11 +123,17 @@ func TestVolcengineTTS3AudioValidationAndTokenCount(t *testing.T) {
 		assert.Contains(t, err.Error(), "mutually exclusive")
 	})
 
-	t.Run("rejects invalid voice path and out-of-range speed or silence", func(t *testing.T) {
+	t.Run("rejects invalid voice path and out-of-range scalar parameters", func(t *testing.T) {
 		for _, body := range []string{
+			`{"model":"seed-tts-3.0","input":"hi","voice":"."}`,
 			`{"model":"seed-tts-3.0","input":"hi","voice":"../etc"}`,
+			`{"model":"seed-tts-3.0","input":"hi","voice":"a%2Fb"}`,
 			`{"model":"seed-tts-3.0","input":"hi","speed":2.5}`,
+			`{"model":"seed-tts-3.0","input":"hi","volume":2.5}`,
+			`{"model":"seed-tts-3.0","input":"hi","pitch":13}`,
 			`{"model":"seed-tts-3.0","input":"hi","silence_duration":30001}`,
+			`{"model":"seed-tts-3.0","input":"hi","speed":1.0,"metadata":{"voice_settings":{"speed":99}}}`,
+			`{"model":"seed-tts-3.0","input":"hi","silence_duration":0,"metadata":{"silence_duration":99999}}`,
 		} {
 			_, err := GetAndValidAudioRequest(newCtx(body), relayconstant.RelayModeAudioSpeech)
 			require.Error(t, err, body)
@@ -149,6 +155,24 @@ func TestVolcengineTTS3AudioValidationAndTokenCount(t *testing.T) {
 		tokens, countErr := service.CountRequestToken(c, req.GetTokenCountMeta(), info)
 		require.NoError(t, countErr)
 		// "<speak>" (7) + "你好" (4) + "</speak>" (8) = 19
+		assert.Equal(t, 19, tokens)
+	})
+
+	t.Run("whitespace input with ssml clears input and counts ssml billable chars", func(t *testing.T) {
+		c := newCtx(`{"model":"seed-tts-3.0","input":"   ","ssml":"<speak>你好</speak>","metadata":null,"voice_settings":null}`)
+		req, err := GetAndValidAudioRequest(c, relayconstant.RelayModeAudioSpeech)
+		require.NoError(t, err)
+		assert.Empty(t, req.Input)
+		assert.Equal(t, "<speak>你好</speak>", req.SSML)
+
+		common.SetContextKey(c, constant.ContextKeyOriginalModel, "seed-tts-3.0")
+		info := &relaycommon.RelayInfo{
+			OriginModelName: "seed-tts-3.0",
+			RelayMode:       relayconstant.RelayModeAudioSpeech,
+			Request:         req,
+		}
+		tokens, countErr := service.CountRequestToken(c, req.GetTokenCountMeta(), info)
+		require.NoError(t, countErr)
 		assert.Equal(t, 19, tokens)
 	})
 }
