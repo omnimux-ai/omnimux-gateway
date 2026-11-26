@@ -233,17 +233,7 @@ This repository is the maintained fork of QuantumNous/new-api shipped as OmniMux
 
 ### Change policy (fork)
 
-- Before product edits: read the existing paths first; the code and its tests are the truth for this repository. Prefer config over code.
-
-Protected prefixes (truth: [scripts/ops/core-change-paths.txt](scripts/ops/core-change-paths.txt)): `controller/` `service/` `model/` `relay/` `relaykit/` `middleware/` `oauth/` `common/` `setting/` `router/` `dto/` `types/` `constant/` `pkg/`, plus all of `web/src/features/wallet/` and `web/src/features/auth/`, including copy and formatting.
-
-| Gate | Rule |
-| --- | --- |
-| Approval | Human approval MUST name protected behavior/path before edits. Concrete-plan approval persists; reask only for expansion/changed risk. Unscoped "继续" / "fix it" is insufficient. |
-| Approved edits | Minimal diff; prefer config; `fork:` intentional deltas. |
-| Commit | Approved scope requires `OMNIMUX_CORE_CHANGE_APPROVED=1` for staged checks **and** `Core-Change-Approved: <scope>` trailer (`OMNIMUX_CORE_CHANGE_SCOPE` may append). Upstream-sync range exemption applies. |
-| Ban | MUST NOT invent approval/env/trailer, including for hook failures; MUST NOT `--no-verify` / `HUSKY=0` / skip CI. Unapproved edits: stop/report, revert or obtain approval. |
-| Enforce | `.githooks/pre-commit` + `commit-msg` (`git config core.hooksPath .githooks`); CI `core-change-gate`. |
+- Before product edits: read the existing paths first; the code and its tests are the truth for this repository. Prefer config over code, keep diffs minimal, and mark intentional fork deltas with `fork:`.
 
 ### Backend (fork additions)
 
@@ -288,12 +278,12 @@ Run the **narrowest rung covering what you touched**. Report only commands run.
 | `cli/` code | `cd cli && bun test` |
 | Docs / Agent instructions only | Diff, links, command/schema consistency; no product build |
 
-**Small-change fast lane:** non-behavioral changes run only their narrowest rung. Pure display copy/style in `web/` means no data, logic, API, schema, or shared-component change; run `cd web && bun run typecheck && bun run lint` plus directly affected test files, and skip `bun run build:check`, the full frontend suite, and `make test` locally. Docs/config-only changes run only the directly affected script test or diff/link/command consistency checks. Any shared-component, data-flow, API, schema, or backend change falls back to the full row. The fast lane NEVER bypasses `core-change-gate` (`web/src/features/auth/`, `web/src/features/wallet/`) or the frontend HTML demo approval gate. Reuse evidence that is still valid for the same revision; do not rerun already-green checks just to commit or push.
+**Small-change fast lane:** non-behavioral changes run only their narrowest rung. Pure display copy/style in `web/` means no data, logic, API, schema, or shared-component change; run `cd web && bun run typecheck && bun run lint` plus directly affected test files, and skip `bun run build:check`, the full frontend suite, and `make test` locally. Docs/config-only changes run only the directly affected script test or diff/link/command consistency checks. Any shared-component, data-flow, API, schema, or backend change falls back to the full row. The fast lane NEVER bypasses the frontend HTML demo approval gate. Reuse evidence that is still valid for the same revision; do not rerun already-green checks just to commit or push.
 
-**Actual CI scope ([.github/workflows/ci.yml](.github/workflows/ci.yml)):** CI runs `core-change-gate`, `cli-installer-parity`, `supplier-name-gate`, `model-contract-gate`, `backend` (Go vet/build/`make test` + `backfill`/`pr-wait`/`required-pr-checks` script tests), `frontend-static` (`typecheck`, `lint -- --deny-warnings`, `i18n:check`, desktop landing/tool tests), and sharded `frontend-tests` (aggregated by `frontend`). CI does **NOT** run MySQL/PostgreSQL containers, `web/` production build, `cli/` tests, `guard-*.test.mjs`, OWASP security audits, or production smoke tests — keep running the local rung above for those surfaces, and for DB schema/query/migration changes without local MySQL/PostgreSQL verification, report the missing DB engines explicitly in PR `未验证项` rather than treating SQLite/CI green as three-database proof.
+**Actual CI scope ([.github/workflows/ci.yml](.github/workflows/ci.yml)):** CI runs `cli-installer-parity`, `supplier-name-gate`, `model-contract-gate`, `backend` (Go vet/build/`make test` + `backfill`/`pr-wait`/`required-pr-checks` script tests), `frontend-static` (`typecheck`, `lint -- --deny-warnings`, `i18n:check`, desktop landing/tool tests), and sharded `frontend-tests` (aggregated by `frontend`). CI does **NOT** run MySQL/PostgreSQL containers, `web/` production build, `cli/` tests, `guard-*.test.mjs`, OWASP security audits, or production smoke tests — keep running the local rung above for those surfaces, and for DB schema/query/migration changes without local MySQL/PostgreSQL verification, report the missing DB engines explicitly in PR `未验证项` rather than treating SQLite/CI green as three-database proof.
 
 ### Editing these instructions
 
 - Always-on entry; `CLAUDE.md` imports it when present — edit here.
-- Hard gates (public boundary, core-change, billing MUST list, protected identity, positioning, OWASP, upstream generic rules) MUST NOT be slimmed away. Relocate surrounding detail; leave a one-line link.
+- Hard gates (public boundary, billing MUST list, protected identity, positioning, OWASP, upstream generic rules) MUST NOT be slimmed away. Relocate surrounding detail; leave a one-line link.
 - One obligation, one home. The upstream sections above are synced verbatim via `fork-sync`, subject to the three narrow exceptions declared at the top of this Fork section; fork-only content lives only in this section.

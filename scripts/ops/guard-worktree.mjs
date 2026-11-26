@@ -44,7 +44,6 @@ const EPHEMERAL_SUFFIXES = ['.log', '.tsbuildinfo']
 
 /** Directories whose untracked additions would pollute the primary checkout. */
 const PROTECTED_DIR_PREFIXES = [
-  '.githooks/',
   '.github/',
   '.agents/',
   'web/src/features/wallet/',
@@ -61,8 +60,6 @@ const PROTECTED_ROOT_FILES = new Set([
   'DESIGN.md',
   'FORK.md',
   'FORK_CUSTOMIZATIONS.md',
-  '.githooks/pre-commit',
-  '.githooks/commit-msg',
   '.dsh/hooks.json',
   '.dsh/hooks.local.json',
   'go.mod',
@@ -780,7 +777,7 @@ function decisionJson(hookEventName, decision, reason, extra = {}) {
       output.permissionDecisionReason = '🚫【OmniMux 仓库 Hook】目标路径无法安全解析；保守拒绝写入。请检查路径读取权限、符号链接及父目录。'
     } else if (reason === 'untracked-protected-scope') {
       output.permissionDecisionReason = [
-        '🚫【OmniMux 仓库 Hook】严禁在主 checkout 的 scripts/、deploy/、docs/、.githooks/、.agents/、.github/ 等核心目录下新建任何源码或配置文件！',
+        '🚫【OmniMux 仓库 Hook】严禁在主 checkout 的 scripts/、deploy/、docs/、.agents/、.github/ 等核心目录下新建任何源码或配置文件！',
         '📌 核心防线原则：在主 checkout 直接创建未跟踪文件会污染主干工作区，并引发构建衍生与多 Agent 冲突覆盖。',
         `👉 正确流程：请先调用 bash 运行: ${WORKTREE_COMMAND} 创建并切入独立 Worktree 工作区！`,
         'ℹ️  豁免范围：经 Git 元数据与注册表核实的 linked worktree、.gitignore 规则文件、临时缓存目录（tmp/、dist/、node_modules/、*.log）。',

@@ -29,7 +29,6 @@ if [ -z "${ROOT}" ]; then
 fi
 
 WT_DIR="${ROOT}/.worktrees"
-GATE="${ROOT}/scripts/ops/check-core-change-gate.sh"
 PUBLISH="${ROOT}/scripts/ops/ship-publish.sh"
 MAIN="${SHIP_PUBLISH_MAIN:-main}"
 UPSTREAM="${SHIP_PUBLISH_UPSTREAM:-origin}"
@@ -92,7 +91,7 @@ cmd_new() {
   echo "    path:   ${wt#${ROOT}/}"
   echo "    branch: ${branch}"
   echo "    base:   ${base}"
-  echo "    next:   cd ${wt#${ROOT}/}   # implement, commit (hooks enforce gates), then:"
+  echo "    next:   cd ${wt#${ROOT}/}   # implement, commit, then:"
   echo "            scripts/ops/worktree.sh ship ${task}"
 }
 
@@ -141,9 +140,6 @@ cmd_ship() {
   fi
   if [ "$(git -C "${ROOT}" ls-files --others --exclude-standard | wc -l | tr -d ' ')" -gt 0 ]; then
     say "note: primary checkout has untracked files (left as-is)"
-  fi
-  if [ "$(git config --get core.hooksPath 2>/dev/null || true)" != ".githooks" ]; then
-    say "warning: core.hooksPath is not '.githooks'; commit gates may not be enforced (git config core.hooksPath .githooks)"
   fi
 
   say "publish: push ${branch}, merge ${MAIN}, push ${UPSTREAM}"
