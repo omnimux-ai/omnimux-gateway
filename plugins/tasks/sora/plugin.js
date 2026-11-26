@@ -8,30 +8,6 @@ const SEEDANCE_FLASH_CA_RESOLUTIONS = {
 const SEEDANCE_FLASH_FIXED_720P_MODELS = ["jiuyue-sd25-flash-720p"];
 const SEEDANCE_FLASH_FIXED_RATIOS = ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"];
 
-const VIDEO_SECONDS_USAGE_SCHEMA = {
-  // Requested video duration in seconds.
-  seconds: {
-    type: "number",
-    unit: "second",
-    description: { en: "Video generation unit price", zh: "视频生成单价" },
-  },
-};
-
-const SORA_USAGE_SCHEMA = {
-  ...VIDEO_SECONDS_USAGE_SCHEMA,
-  // Requested output video dimensions.
-  size: {
-    enum: ["720x1280", "1280x720", "1792x1024", "1024x1792"],
-    enumLabels: {
-      "720x1280": { en: "720x1280", zh: "720x1280" },
-      "1280x720": { en: "1280x720", zh: "1280x720" },
-      "1792x1024": { en: "1792x1024", zh: "1792x1024" },
-      "1024x1792": { en: "1024x1792", zh: "1024x1792" },
-    },
-    description: { en: "Output video dimensions", zh: "输出视频尺寸" },
-  },
-};
-
 export const meta = {
   apiVersion: 1,
   key: "sora",
@@ -48,8 +24,25 @@ export const meta = {
   fetchMode: "per_task",
   // A New API gateway serves /v1/videos as a host protocol, so no URL changes.
   upstreams: ["vendor", "new_api"],
-  usageSchema: VIDEO_SECONDS_USAGE_SCHEMA,
-  usageProfiles: [{ models: SORA_MODELS, schema: SORA_USAGE_SCHEMA }],
+  usageSchema: {
+    // Requested video duration in seconds.
+    seconds: {
+      type: "number",
+      unit: "second",
+      description: { en: "Video generation unit price", zh: "视频生成单价" },
+    },
+    // Requested output video dimensions.
+    size: {
+      enum: ["720x1280", "1280x720", "1792x1024", "1024x1792"],
+      enumLabels: {
+        "720x1280": { en: "720x1280", zh: "720x1280" },
+        "1280x720": { en: "1280x720", zh: "1280x720" },
+        "1792x1024": { en: "1792x1024", zh: "1792x1024" },
+        "1024x1792": { en: "1024x1792", zh: "1024x1792" },
+      },
+      description: { en: "Output video dimensions", zh: "输出视频尺寸" },
+    },
+  },
   protocols: [{ name: "openai_responses", models: SORA_MODELS, supports: ["stream", "sync", "background"] }, "openai_video"],
 };
 

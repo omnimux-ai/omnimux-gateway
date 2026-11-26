@@ -198,7 +198,13 @@ func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInf
 	}
 	hasUsageProfiles := len(a.plugin.Meta.UsageProfiles) > 0
 	if hasRequest && !hasUsageProfiles {
-		if err := a.validateResolvedUsageRequest(request); err != nil {
+		var err error
+		if a.isUnpinnedSeedanceFlashRequest(info) {
+			err = a.validateSeedanceFlashUsageRequest(request)
+		} else {
+			err = a.validateResolvedUsageRequest(request)
+		}
+		if err != nil {
 			return service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
 		}
 	}
@@ -272,6 +278,22 @@ func prepareRawSeedanceFlashRequest(c *gin.Context, info *relaycommon.RelayInfo)
 	}
 	c.Set("task_request", raw)
 	return nil
+}
+
+// validateSeedanceFlashUsageRequest validates canonical duration/usage bounds
+// for Seedance 2.5 Flash requests running through the OpenAI-compatible Sora
+// plugin without applying Sora's fixed 4-dimension `size` enum (Flash uses
+// aspect ratios or 480p/720p pixel sizes validated by the plugin itself).
+func (a *TaskAdaptor) validateSeedanceFlashUsageRequest(request any) error {
+	baseSchema, _ := a.plugin.Meta.UsageForModels()
+	filtered := make(map[string]pluginruntime.UsageFieldSchema, len(baseSchema))
+	for key, field := range baseSchema {
+		if key == "size" {
+			continue
+		}
+		filtered[key] = field
+	}
+	return a.validateResolvedUsageValue(jsonValue(request), filtered)
 }
 
 // prepareOrderedVideoImages keeps verified bytes in request scope across
