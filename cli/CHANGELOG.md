@@ -4,13 +4,15 @@
 
 ### Added
 
+- `omnimux social creator-info <accountId> [--provider tiktok_direct]` to query live TikTok creator publishing settings and constraints.
 - `omnimux social post` supports TikTok photo carousel drafts (`MEDIA_UPLOAD`) with `--title`, `--description`, `--photo-cover-index`, and `--is-aigc` (and matching keys in `--tiktok-options`), alongside single-video drafts and Direct Post compliance flags.
-- `omnimux social post-status` reflects the non-terminal `sent_to_inbox` status returned for `SEND_TO_USER_INBOX` deliveries.
+- `omnimux social post-status` passes through the gateway's non-terminal `sent_to_inbox` status returned for `SEND_TO_USER_INBOX` deliveries.
 
 ### Changed
 
 - Social commands (`accounts`, `connect`, `disconnect`, `post`, `post-status`, `creator-info`) converge on the official `tiktok_direct` provider; passing a retired provider fails locally before any network request with migration guidance.
-- Updated bundled audio/voice skill references for Doubao TTS 3.0 (`seed-tts-3.0`) and removed retired legacy voice model references.
+- Upgraded `omnimux voices` (embedded voice catalog, `--model` filter, `capabilities` output, and command schema/examples) to the 68 official Doubao TTS 3.0 (`seed-tts-3.0`) preset voices and retired legacy `seed-audio-1.0` voice entries.
+- Updated `omnimux update`, `install.sh`, and `install.ps1` to resolve `cli-v*` binary releases from `omnimux-ai/omnimux-gateway`.
 
 ## 0.5.1
 
