@@ -83,12 +83,80 @@ func TestEstimateVideoBilling_PerCallModelsNotUsed(t *testing.T) {
 }
 
 func TestEstimateVideoBilling_AutoDurationUsesOfficialThirtySecondHold(t *testing.T) {
-	for _, model := range []string{"seedance-2-5", "wan-3.0"} {
+	for _, model := range []string{"seedance-2-5", "seedance-2-5-flash", "seedance-2.5-flash", "wan-3.0"} {
 		r, err := estimateVideoBilling(model, map[string]any{"duration": -1})
 		require.NoError(t, err)
 		assert.Equal(t, 30.0, r["seconds"])
 	}
-	_, err := estimateVideoBilling("seedance-2-0", map[string]any{"duration": -1})
+	for _, model := range []string{"seedance-2-0", "magi-2"} {
+		_, err := estimateVideoBilling(model, map[string]any{"duration": -1})
+		require.Error(t, err, model)
+	}
+}
+
+func TestEstimateVideoBilling_Seedance25FlashAndMagi2(t *testing.T) {
+	// Seedance 2.5 Flash must use seedance25FlashRates instead of colliding with seedance25Rates.
+	for _, model := range []string{"seedance-2-5-flash", "seedance-2.5-flash-text-to-video"} {
+		r720, err := estimateVideoBillingWithRateModel("seedance-2-5-flash", model, map[string]any{"duration": 6, "resolution": "720p"})
+		require.NoError(t, err, model)
+		assert.Equal(t, 6.0, r720["seconds"])
+		_, hasTier := r720["tier"]
+		assert.False(t, hasTier, "720p is the 1.0x base tier for %s", model)
+
+		r480, err := estimateVideoBillingWithRateModel("seedance-2-5-flash", model, map[string]any{"duration": 6, "resolution": "480p"})
+		require.NoError(t, err, model)
+		assert.InDelta(t, 0.06312/0.14192, r480["tier"], 1e-9, model)
+
+		r480Input, err := estimateVideoBillingWithRateModel("seedance-2-5-flash", model, map[string]any{
+			"duration":   6,
+			"resolution": "480p",
+			"video_urls": []any{"https://cdn.example.com/ref.mp4"},
+		})
+		require.NoError(t, err, model)
+		assert.InDelta(t, 0.0384/0.14192, r480Input["tier"], 1e-9, model)
+
+		r720Input, err := estimateVideoBillingWithRateModel("seedance-2-5-flash", model, map[string]any{
+			"duration":   6,
+			"resolution": "720p",
+			"video_urls": []any{"https://cdn.example.com/ref.mp4"},
+		})
+		require.NoError(t, err, model)
+		assert.InDelta(t, 0.0864/0.14192, r720Input["tier"], 1e-9, model)
+
+		// Image-only and audio-only inputs MUST NOT get the video-input discount.
+		r720Image, err := estimateVideoBillingWithRateModel("seedance-2-5-flash", model, map[string]any{
+			"duration":         6,
+			"resolution":       "720p",
+			"image_with_roles": []any{map[string]any{"url": "https://cdn.example.com/f.png", "role": "first_frame"}},
+		})
+		require.NoError(t, err, model)
+		_, hasImageTier := r720Image["tier"]
+		assert.False(t, hasImageTier, "image-only input must stay at full 720p rate for %s", model)
+
+		r480Audio, err := estimateVideoBillingWithRateModel("seedance-2-5-flash", model, map[string]any{
+			"duration":   6,
+			"resolution": "480p",
+			"audio_urls": []any{"https://cdn.example.com/voice.mp3"},
+		})
+		require.NoError(t, err, model)
+		assert.InDelta(t, 0.06312/0.14192, r480Audio["tier"], 1e-9, "audio-only input must stay at full 480p rate for %s", model)
+
+		_, err = estimateVideoBillingWithRateModel("seedance-2-5-flash", model, map[string]any{"duration": 5, "resolution": "1080p"})
+		require.Error(t, err, "1080p must fail closed for %s", model)
+		assert.NotContains(t, err.Error(), `video_tier_billing_policy="none"`)
+	}
+
+	// MAGI-2 bills flat per second at 1080p and rejects other resolutions and out-of-range durations.
+	rMagi, err := estimateVideoBillingWithRateModel("magi-2", "magi-2-text-to-video", map[string]any{"duration": 10, "resolution": "1080p"})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]float64{"seconds": 10}, rMagi)
+
+	_, err = estimateVideoBillingWithRateModel("magi-2", "magi-2-text-to-video", map[string]any{"duration": 10, "quality": "720p"})
+	require.Error(t, err)
+
+	_, err = estimateVideoBilling("magi-2", map[string]any{"duration": 3})
+	require.Error(t, err)
+	_, err = estimateVideoBilling("magi-2", map[string]any{"duration": 31})
 	require.Error(t, err)
 }
 

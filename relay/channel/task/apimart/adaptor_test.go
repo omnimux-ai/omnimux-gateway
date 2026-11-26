@@ -94,6 +94,9 @@ func TestMapUpstreamModel(t *testing.T) {
 	assert.Equal(t, "seedance-2.0-fast", mapUpstreamModel("seedance-2-0-fast"))
 	assert.Equal(t, "seedance-2.0-mini", mapUpstreamModel("seedance-2-0-mini"))
 	assert.Equal(t, "seedance-2.5", mapUpstreamModel("seedance-2-5"))
+	assert.Equal(t, "seedance-2-5-flash", mapUpstreamModel("seedance-2-5-flash"))
+	assert.Equal(t, "seedance-2.5-flash-text-to-video", mapUpstreamModel("seedance-2.5-flash-text-to-video"))
+	assert.Equal(t, "magi-2-text-to-video", mapUpstreamModel("magi-2"))
 	assert.Equal(t, "wan3.0-video", mapUpstreamModel("wan-3.0"))
 	assert.Equal(t, "MiniMax-H3", mapUpstreamModel("minimax-h3"))
 	assert.Equal(t, "grok-imagine-video-1.5", mapUpstreamModel("grok-imagine-video-1-5"))
@@ -324,6 +327,249 @@ func TestBuildRequestBody_StripsLocalOperationAndUsesOfficialModel(t *testing.T)
 	require.NoError(t, json.NewDecoder(body).Decode(&sent))
 	assert.Equal(t, "grok-imagine-video-1.5", sent["model"])
 	assert.NotContains(t, sent, "operation")
+}
+
+func TestBuildRequestBody_EvoLinkMagi2Routes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		name      string
+		payload   string
+		wantModel string
+		check     func(t *testing.T, sent map[string]any)
+	}{
+		{
+			name:      "text_to_video maps quality and audio",
+			payload:   `{"model":"magi-2","operation":"text_to_video","prompt":"wind over sea","duration":8,"resolution":"1080P","aspect_ratio":"16:9","audio":false}`,
+			wantModel: "magi-2-text-to-video",
+			check: func(t *testing.T, sent map[string]any) {
+				assert.Equal(t, "1080p", sent["quality"])
+				assert.Equal(t, false, sent["generate_audio"])
+				assert.Equal(t, "16:9", sent["aspect_ratio"])
+				assert.Equal(t, float64(8), sent["duration"])
+				assert.NotContains(t, sent, "resolution")
+				assert.NotContains(t, sent, "audio")
+				assert.NotContains(t, sent, "operation")
+			},
+		},
+		{
+			name:      "first_last_frame flattens ordered image_urls",
+			payload:   `{"model":"magi-2","operation":"first_last_frame","aspect_ratio":"9:16","image_with_roles":[{"url":"https://cdn.example.com/last.png","role":"last_frame"},{"url":"https://cdn.example.com/first.png","role":"first_frame"}]}`,
+			wantModel: "magi-2-image-to-video",
+			check: func(t *testing.T, sent map[string]any) {
+				assert.Equal(t, []any{"https://cdn.example.com/first.png", "https://cdn.example.com/last.png"}, sent["image_urls"])
+				assert.NotContains(t, sent, "image_with_roles")
+			},
+		},
+		{
+			name:      "video_multi_ref routes to reference-to-video and preserves multimodal urls",
+			payload:   `{"model":"magi-2","operation":"video_multi_ref","image_with_roles":[{"url":"https://cdn.example.com/ref.png","role":"reference_image"}],"audio_urls":["https://cdn.example.com/voice.mp3"],"video_urls":["https://cdn.example.com/clip.mp4"]}`,
+			wantModel: "magi-2-reference-to-video",
+			check: func(t *testing.T, sent map[string]any) {
+				assert.Equal(t, []any{"https://cdn.example.com/ref.png"}, sent["image_urls"])
+				assert.Equal(t, []any{"https://cdn.example.com/clip.mp4"}, sent["video_urls"])
+				assert.Equal(t, []any{"https://cdn.example.com/voice.mp3"}, sent["audio_urls"])
+				assert.NotContains(t, sent, "image_with_roles")
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(tc.payload))
+			c.Request.Header.Set("Content-Type", "application/json")
+			info := &relaycommon.RelayInfo{
+				OriginModelName: "magi-2",
+				ChannelMeta: &relaycommon.ChannelMeta{
+					IsModelMapped:     true,
+					UpstreamModelName: "magi-2-text-to-video",
+				},
+				TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+			}
+			a := &TaskAdaptor{}
+			require.Nil(t, a.ValidateRequestAndSetAction(c, info))
+			reader, err := a.BuildRequestBody(c, info)
+			require.NoError(t, err)
+			var sent map[string]any
+			require.NoError(t, common.DecodeJson(reader, &sent))
+			assert.Equal(t, tc.wantModel, sent["model"])
+			tc.check(t, sent)
+		})
+	}
+}
+
+func TestBuildRequestBody_Seedance25FlashAPIMartVsEvoLink(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("APIMart keeps native model id and fields", func(t *testing.T) {
+		payload := `{"model":"seedance-2-5-flash","operation":"video_multi_ref","prompt":"ocean","duration":6,"resolution":"480p","aspect_ratio":"16:9","output_format":"mov","omni_reference_task_type":"reference","image_urls":["https://cdn.example.com/a.png"]}`
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(payload))
+		c.Request.Header.Set("Content-Type", "application/json")
+		info := &relaycommon.RelayInfo{
+			OriginModelName: "seedance-2-5-flash",
+			ChannelMeta:     &relaycommon.ChannelMeta{IsModelMapped: false},
+			TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+		}
+		a := &TaskAdaptor{}
+		require.Nil(t, a.ValidateRequestAndSetAction(c, info))
+		reader, err := a.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.DecodeJson(reader, &sent))
+		assert.Equal(t, "seedance-2-5-flash", sent["model"])
+		assert.Equal(t, "480p", sent["resolution"])
+		assert.Equal(t, "16:9", sent["size"])
+		assert.Equal(t, "reference", sent["omni_reference_task_type"])
+		assert.Equal(t, "mov", sent["output_format"])
+		assert.NotContains(t, sent, "operation")
+	})
+
+	t.Run("EvoLink switches across all 5 routes and translates fields", func(t *testing.T) {
+		routes := []struct {
+			payload   string
+			wantModel string
+			check     func(t *testing.T, sent map[string]any)
+		}{
+			{
+				payload:   `{"model":"seedance-2-5-flash","operation":"text_to_video","prompt":"ocean","duration":5,"resolution":"720p","aspect_ratio":"16:9","watermark":false}`,
+				wantModel: "seedance-2.5-flash-text-to-video",
+				check: func(t *testing.T, sent map[string]any) {
+					assert.Equal(t, "720p", sent["quality"])
+					assert.Equal(t, "16:9", sent["aspect_ratio"])
+					assert.NotContains(t, sent, "resolution")
+					assert.NotContains(t, sent, "size")
+					assert.NotContains(t, sent, "watermark")
+				},
+			},
+			{
+				payload:   `{"model":"seedance-2-5-flash","operation":"first_last_frame","prompt":"morph","resolution":"480p","aspect_ratio":"adaptive","image_with_roles":[{"url":"https://cdn.example.com/f.png","role":"first_frame"},{"url":"https://cdn.example.com/l.png","role":"last_frame"}]}`,
+				wantModel: "seedance-2.5-flash-image-to-video",
+				check: func(t *testing.T, sent map[string]any) {
+					assert.Equal(t, []any{"https://cdn.example.com/f.png", "https://cdn.example.com/l.png"}, sent["image_urls"])
+					assert.NotContains(t, sent, "image_with_roles")
+				},
+			},
+			{
+				payload:   `{"model":"seedance-2-5-flash","operation":"video_multi_ref","prompt":"ref","omni_reference_task_type":"reference","image_urls":["https://cdn.example.com/r.png"]}`,
+				wantModel: "seedance-2.5-flash-reference-to-video",
+				check: func(t *testing.T, sent map[string]any) {
+					assert.NotContains(t, sent, "omni_reference_task_type")
+				},
+			},
+			{
+				payload:   `{"model":"seedance-2-5-flash","operation":"video_edit","prompt":"replace sky","duration":-1,"size":"adaptive","output_format":"mp4","omni_reference_task_type":"edit","video_urls":["https://cdn.example.com/src.mp4"],"image_with_roles":[{"url":"https://cdn.example.com/style.png","role":"reference_image"}]}`,
+				wantModel: "seedance-2.5-flash-video-edit",
+				check: func(t *testing.T, sent map[string]any) {
+					assert.Equal(t, float64(-1), sent["duration"])
+					assert.Equal(t, "mp4", sent["output_format"])
+					assert.Equal(t, []any{"https://cdn.example.com/src.mp4"}, sent["video_urls"])
+					assert.Equal(t, []any{"https://cdn.example.com/style.png"}, sent["image_urls"])
+					assert.NotContains(t, sent, "image_with_roles")
+					assert.NotContains(t, sent, "omni_reference_task_type")
+				},
+			},
+			{
+				payload:   `{"model":"seedance-2-5-flash","operation":"video_extend","prompt":"continue","duration":8,"size":"adaptive","omni_reference_task_type":"extend","video_urls":["https://cdn.example.com/src.mp4"]}`,
+				wantModel: "seedance-2.5-flash-video-extend",
+				check: func(t *testing.T, sent map[string]any) {
+					assert.Equal(t, float64(8), sent["duration"])
+					assert.Equal(t, "adaptive", sent["aspect_ratio"])
+					assert.NotContains(t, sent, "omni_reference_task_type")
+				},
+			},
+		}
+		for _, tc := range routes {
+			t.Run(tc.wantModel, func(t *testing.T) {
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(tc.payload))
+				c.Request.Header.Set("Content-Type", "application/json")
+				info := &relaycommon.RelayInfo{
+					OriginModelName: "seedance-2-5-flash",
+					ChannelMeta: &relaycommon.ChannelMeta{
+						IsModelMapped:     true,
+						UpstreamModelName: "seedance-2.5-flash-text-to-video",
+					},
+					TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+				}
+				a := &TaskAdaptor{}
+				require.Nil(t, a.ValidateRequestAndSetAction(c, info))
+				reader, err := a.BuildRequestBody(c, info)
+				require.NoError(t, err)
+				var sent map[string]any
+				require.NoError(t, common.DecodeJson(reader, &sent))
+				assert.Equal(t, tc.wantModel, sent["model"])
+				tc.check(t, sent)
+			})
+		}
+	})
+
+	t.Run("explicit dotted channel mapping and omitted operation infer reference_image role", func(t *testing.T) {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", nil)
+		c.Set("task_request_raw", map[string]any{
+			"prompt":           "ref",
+			"resolution":       "480p",
+			"quality":          "720p",
+			"image_with_roles": []any{map[string]any{"url": "https://cdn.example.com/ref.png", "role": "reference_image"}},
+		})
+		info := &relaycommon.RelayInfo{
+			OriginModelName: "seedance-2-5-flash",
+			ChannelMeta: &relaycommon.ChannelMeta{
+				IsModelMapped:     true,
+				UpstreamModelName: "seedance-2.5-flash",
+			},
+		}
+		reader, err := (&TaskAdaptor{}).BuildRequestBody(c, info)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.DecodeJson(reader, &sent))
+		assert.Equal(t, "seedance-2.5-flash-reference-to-video", sent["model"])
+		assert.Equal(t, "480p", sent["quality"], "validated resolution must overwrite stale quality")
+		assert.Equal(t, []any{"https://cdn.example.com/ref.png"}, sent["image_urls"])
+	})
+}
+
+func TestParseTaskResult_EvoLinkFlatShape(t *testing.T) {
+	a := &TaskAdaptor{}
+
+	// Completed with flat results[] and wall-clock elapsed duration (must NOT become UsageFacts.seconds).
+	completed := []byte(`{"id":"task_ev_1","status":"completed","progress":100,"duration":42,"results":["https://cdn.evolink.ai/video.mp4"]}`)
+	info, err := a.ParseTaskResult(nil, nil, completed)
+	require.NoError(t, err)
+	assert.Equal(t, "task_ev_1", info.TaskID)
+	assert.Equal(t, string(model.TaskStatusSuccess), info.Status)
+	assert.Equal(t, "https://cdn.evolink.ai/video.mp4", info.Url)
+	assert.Nil(t, info.UsageFacts, "flat elapsed duration must not be misread as video duration")
+
+	// Completed with flat result_data[] object fallback.
+	resultData := []byte(`{"id":"task_ev_2","status":"completed","result_data":[{"url":"https://cdn.evolink.ai/video2.mp4"}]}`)
+	info, err = a.ParseTaskResult(nil, nil, resultData)
+	require.NoError(t, err)
+	assert.Equal(t, "https://cdn.evolink.ai/video2.mp4", info.Url)
+
+	// Processing with flat numeric and string numeric progress.
+	for _, body := range []string{
+		`{"id":"task_ev_3","status":"processing","progress":65}`,
+		`{"id":"task_ev_3s","status":"processing","progress":"65"}`,
+	} {
+		info, err = a.ParseTaskResult(nil, nil, []byte(body))
+		require.NoError(t, err)
+		assert.Equal(t, string(model.TaskStatusInProgress), info.Status)
+		assert.Equal(t, "65%", info.Progress)
+	}
+
+	// Failed with flat object error.message and bare string error.
+	failed := []byte(`{"id":"task_ev_4","status":"failed","error":{"code":"content_policy","message":"safety filter triggered"}}`)
+	info, err = a.ParseTaskResult(nil, nil, failed)
+	require.NoError(t, err)
+	assert.Equal(t, string(model.TaskStatusFailure), info.Status)
+	assert.Equal(t, "safety filter triggered", info.Reason)
+
+	failedStr := []byte(`{"id":"task_ev_5","status":"failed","error":"upstream timeout"}`)
+	info, err = a.ParseTaskResult(nil, nil, failedStr)
+	require.NoError(t, err)
+	assert.Equal(t, string(model.TaskStatusFailure), info.Status)
+	assert.Equal(t, "upstream timeout", info.Reason)
 }
 
 func TestTaskAdaptor_PolicyIsolationAndValidatedBilling(t *testing.T) {

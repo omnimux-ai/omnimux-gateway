@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "6e70bbf96c4f65f3",
+  "version": "64e1305d9c4d1c9c",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -65,6 +65,10 @@
     "openai": {
       "id": "openai",
       "name": "OpenAI"
+    },
+    "sand-ai": {
+      "id": "sand-ai",
+      "name": "Sand AI"
     },
     "suno": {
       "id": "suno",
@@ -5769,6 +5773,402 @@
         "max": 0
       }
     },
+    "magi-2": {
+      "model_id": "magi-2",
+      "schemaVersion": "2.0",
+      "contractVersion": "9a01fdc04d0bcc81",
+      "execution_status": "live",
+      "family": "video",
+      "brand_id": "sand-ai",
+      "brand_name": "Sand AI",
+      "status": "documented",
+      "operation_ids": [
+        "text_to_video",
+        "first_frame",
+        "first_last_frame",
+        "video_multi_ref"
+      ],
+      "operations": [
+        {
+          "id": "text_to_video",
+          "modeKind": "text_to_video",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1,
+              "default": 5
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "1080p"
+              ],
+              "default": "1080p",
+              "fixed": "1080p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "default": "16:9"
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video"
+          }
+        },
+        {
+          "id": "first_frame",
+          "modeKind": "first_frame",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "first_frame",
+              "type": "image",
+              "role": "first_frame",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 28.6102294921875
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1,
+              "default": 5
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "1080p"
+              ],
+              "default": "1080p",
+              "fixed": "1080p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "default": "16:9"
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video"
+          }
+        },
+        {
+          "id": "first_last_frame",
+          "modeKind": "first_last_frame",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "first_frame",
+              "type": "image",
+              "role": "first_frame",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 28.6102294921875
+            },
+            {
+              "slot": "last_frame",
+              "type": "image",
+              "role": "last_frame",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 28.6102294921875
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1,
+              "default": 5
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "1080p"
+              ],
+              "default": "1080p",
+              "fixed": "1080p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "default": "16:9"
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video"
+          }
+        },
+        {
+          "id": "video_multi_ref",
+          "modeKind": "multimodal_reference",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "reference_images",
+              "type": "image",
+              "role": "reference",
+              "required": false,
+              "min": 0,
+              "max": 10,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 28.6102294921875
+            },
+            {
+              "slot": "reference_videos",
+              "type": "video",
+              "role": "reference",
+              "required": false,
+              "min": 0,
+              "max": 5,
+              "allowedMimes": [
+                "video/mp4",
+                "video/quicktime"
+              ],
+              "maxSizeMb": 190.73486328125,
+              "maxDurationSec": 30
+            },
+            {
+              "slot": "reference_audios",
+              "type": "audio",
+              "role": "reference",
+              "required": false,
+              "min": 0,
+              "max": 5,
+              "allowedMimes": [
+                "audio/wav",
+                "audio/mpeg"
+              ],
+              "maxSizeMb": 14.30511474609375,
+              "maxDurationSec": 30
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1,
+              "default": 5
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "1080p"
+              ],
+              "default": "1080p",
+              "fixed": "1080p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "default": "16:9"
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video"
+          }
+        }
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 30,
+        "default": 5
+      },
+      "resolutions": [
+        "1080p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:3",
+        "3:4",
+        "21:9"
+      ],
+      "audio_supported": true,
+      "reference_images": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/bmp",
+          "image/tiff",
+          "image/gif",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 30000000
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 200000000,
+        "max_seconds_each": 30
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15000000,
+        "max_seconds_each": 30
+      },
+      "prompt_max_chars": 15000,
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.08,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by the requested video duration. The 1080p list rate is 0.08 USD/s with synchronized audio included at no extra charge; final pricing includes group and membership multipliers; use the platform quote before submission.",
+          "zh": "按请求的视频时长计费，1080p 单档官方标价 0.08 USD/秒（开启原生同步音频不另加价）；实际每秒费用受分组和会员倍率影响，以平台提交前报价为准。"
+        }
+      }
+    },
     "minimax-h3": {
       "model_id": "minimax-h3",
       "schemaVersion": "2.0",
@@ -10747,6 +11147,594 @@
         "notes": {
           "en": "Charged by the requested video duration. This amount is the per-second service base; the final quote includes group and membership multipliers; use the platform quote before submission.",
           "zh": "按请求的视频时长计费，此金额为每秒钟的服务基准价；实际每秒费用受分组和会员倍率影响，以平台提交前报价为准。"
+        }
+      }
+    },
+    "seedance-2-5-flash": {
+      "model_id": "seedance-2-5-flash",
+      "schemaVersion": "2.0",
+      "contractVersion": "82e7cffef8bc7db0",
+      "execution_status": "live",
+      "family": "video",
+      "brand_id": "bytedance",
+      "brand_name": "ByteDance",
+      "status": "documented",
+      "operation_ids": [
+        "text_to_video",
+        "first_frame",
+        "first_last_frame",
+        "video_multi_ref",
+        "video_edit",
+        "video_extend"
+      ],
+      "operations": [
+        {
+          "id": "text_to_video",
+          "modeKind": "text_to_video",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "480p",
+                "720p"
+              ],
+              "default": "720p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16",
+                "21:9",
+                "adaptive"
+              ]
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
+          }
+        },
+        {
+          "id": "first_frame",
+          "modeKind": "first_frame",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "first_frame",
+              "type": "image",
+              "role": "first_frame",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 30
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "480p",
+                "720p"
+              ],
+              "default": "720p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "adaptive"
+              ],
+              "default": "adaptive",
+              "fixed": "adaptive"
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
+          }
+        },
+        {
+          "id": "first_last_frame",
+          "modeKind": "first_last_frame",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "first_frame",
+              "type": "image",
+              "role": "first_frame",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 30
+            },
+            {
+              "slot": "last_frame",
+              "type": "image",
+              "role": "last_frame",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 30
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "480p",
+                "720p"
+              ],
+              "default": "720p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "adaptive"
+              ],
+              "default": "adaptive",
+              "fixed": "adaptive"
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
+          }
+        },
+        {
+          "id": "video_multi_ref",
+          "modeKind": "multimodal_reference",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "reference_images",
+              "type": "image",
+              "role": "reference",
+              "required": false,
+              "min": 0,
+              "max": 10,
+              "allowedMimes": [
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+                "image/bmp",
+                "image/tiff",
+                "image/gif",
+                "image/heic",
+                "image/heif"
+              ],
+              "maxSizeMb": 30
+            },
+            {
+              "slot": "reference_videos",
+              "type": "video",
+              "role": "reference",
+              "required": false,
+              "min": 0,
+              "max": 5,
+              "allowedMimes": [
+                "video/mp4",
+                "video/quicktime"
+              ],
+              "maxSizeMb": 200,
+              "maxDurationSec": 30
+            },
+            {
+              "slot": "reference_audios",
+              "type": "audio",
+              "role": "reference",
+              "required": false,
+              "min": 0,
+              "max": 5,
+              "allowedMimes": [
+                "audio/wav",
+                "audio/mpeg"
+              ],
+              "maxSizeMb": 15,
+              "maxDurationSec": 30
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "480p",
+                "720p"
+              ],
+              "default": "720p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16",
+                "21:9",
+                "adaptive"
+              ]
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
+          }
+        },
+        {
+          "id": "video_edit",
+          "modeKind": "video_edit",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "source_videos",
+              "type": "video",
+              "role": "source",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "video/mp4",
+                "video/quicktime"
+              ],
+              "maxSizeMb": 200,
+              "maxDurationSec": 30
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": -1,
+              "maximum": -1,
+              "default": -1,
+              "fixed": -1
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "480p",
+                "720p"
+              ],
+              "default": "720p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "adaptive"
+              ],
+              "default": "adaptive",
+              "fixed": "adaptive"
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
+          }
+        },
+        {
+          "id": "video_extend",
+          "modeKind": "video_extend",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "source_videos",
+              "type": "video",
+              "role": "source",
+              "required": true,
+              "min": 1,
+              "max": 1,
+              "allowedMimes": [
+                "video/mp4",
+                "video/quicktime"
+              ],
+              "maxSizeMb": 200,
+              "maxDurationSec": 30
+            }
+          ],
+          "parameters": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 30,
+              "step": 1
+            },
+            {
+              "name": "resolution",
+              "type": "enum",
+              "enum": [
+                "480p",
+                "720p"
+              ],
+              "default": "720p"
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "enum",
+              "enum": [
+                "adaptive"
+              ],
+              "default": "adaptive",
+              "fixed": "adaptive"
+            },
+            {
+              "name": "output_format",
+              "type": "enum",
+              "enum": [
+                "mp4",
+                "mov"
+              ]
+            },
+            {
+              "name": "generate_audio",
+              "type": "boolean",
+              "default": true
+            }
+          ],
+          "output": {
+            "type": "video",
+            "formats": [
+              "mp4",
+              "mov"
+            ]
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars"
+      ],
+      "durations_seconds": {
+        "min": 4,
+        "max": 30
+      },
+      "resolutions": [
+        "480p",
+        "720p"
+      ],
+      "aspect_ratios": [
+        "16:9",
+        "4:3",
+        "1:1",
+        "3:4",
+        "9:16",
+        "21:9",
+        "adaptive"
+      ],
+      "audio_supported": true,
+      "output_formats": [
+        "mp4",
+        "mov"
+      ],
+      "reference_images": {
+        "min": 0,
+        "max": 10,
+        "formats": [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/bmp",
+          "image/tiff",
+          "image/gif",
+          "image/heic",
+          "image/heif"
+        ],
+        "max_bytes_each": 31457280
+      },
+      "reference_videos": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "video/mp4",
+          "video/quicktime"
+        ],
+        "max_bytes_each": 209715200,
+        "max_seconds_each": 30
+      },
+      "reference_audios": {
+        "min": 0,
+        "max": 5,
+        "formats": [
+          "audio/wav",
+          "audio/mpeg"
+        ],
+        "max_bytes_each": 15728640,
+        "max_seconds_each": 30
+      },
+      "billing": {
+        "unit": "per_second",
+        "unit_label": {
+          "en": "per second",
+          "zh": "每秒"
+        },
+        "unit_price_usd": 0.145588,
+        "pricing_basis": "duration_seconds",
+        "notes": {
+          "en": "Charged by the requested video duration. The base rate anchors the official 720p list equivalent (¥0.99/s ÷ 6.8 = 0.145588 USD/s; official token pricing is 46 CNY/M tokens without video input and 28 CNY/M tokens with video input; 480p is approximately ¥0.44/s). Final pricing depends on resolution tier, group ratio, and membership multiplier; use the platform quote before submission.",
+          "zh": "按请求的视频时长计费，服务基准价锚定官方 720p 折合原价（¥0.99/秒 ÷ 6.8 = 0.145588 USD/秒；官方 token 计价为无参考视频 46 元/M tokens、含参考视频 28 元/M tokens，480p 折合约 ¥0.44/秒）。实际每秒费用受分辨率档位、分组和会员倍率影响，以平台提交前报价为准。"
         }
       }
     },

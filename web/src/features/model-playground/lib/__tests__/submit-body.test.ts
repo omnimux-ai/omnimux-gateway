@@ -136,6 +136,15 @@ describe('toSubmitBody', () => {
 
     expect(body.operation).toBe('video_edit')
     expect(body.omni_reference_task_type).toBe('edit')
+
+    const flashBody = toSubmitBody(
+      'seedance-2-5-flash',
+      'video_multi_ref',
+      schema,
+      defaultParams(schema)
+    )
+    expect(flashBody.operation).toBe('video_multi_ref')
+    expect(flashBody.omni_reference_task_type).toBe('reference')
   })
 
   test('omits the vendor sub-task field for the frame modes', () => {

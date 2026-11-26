@@ -121,7 +121,10 @@ const GENERATION_TYPE: Partial<Record<PlaygroundOperation, string>> = {
 }
 
 /** Models whose request carries the vendor sub-task field. */
-const REFERENCE_TASK_TYPE_MODELS = new Set(['seedance-2-5'])
+const REFERENCE_TASK_TYPE_MODELS = new Set([
+  'seedance-2-5',
+  'seedance-2-5-flash',
+])
 const GENERATION_TYPE_MODELS = new Set(['wan-3.0'])
 
 /**

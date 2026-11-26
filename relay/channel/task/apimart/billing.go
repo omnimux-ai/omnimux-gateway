@@ -56,6 +56,16 @@ var seedance25Rates = map[string]float64{
 	"720p-input": 0.1296,
 }
 
+// seedance-2-5-flash base = default (720p) 0.14192
+// APIMart pricing page Gold USD/s (2026-11-26): 720p 0.14192 / 720p-input 0.0864 / 480p 0.06312 / 480p-input 0.0384.
+var seedance25FlashRates = map[string]float64{
+	"default":    0.14192,
+	"480p":       0.06312,
+	"480p-input": 0.0384,
+	"720p":       0.14192,
+	"720p-input": 0.0864,
+}
+
 var klingV26Rates = map[string]float64{
 	"default":         0.0368,
 	"pro":             0.0625,
@@ -117,9 +127,9 @@ func estimateVideoBillingWithPolicy(policy, modelName, rateModel string, raw map
 		return nil, false, err
 	}
 	autoDuration := false
+	canonical, hasCanonical := canonicalPhaseOneVideoModel(modelName)
 	if sec == -1 {
-		canonical, ok := canonicalPhaseOneVideoModel(modelName)
-		if !ok || (canonical != "seedance-2-5" && canonical != "wan-3.0") {
+		if !hasCanonical || (canonical != "seedance-2-5" && canonical != "seedance-2-5-flash" && canonical != "wan-3.0") {
 			return nil, false, fmt.Errorf("duration -1 is not supported by %s", modelName)
 		}
 		// Both official APIs pre-authorize their documented 30-second cap and
@@ -128,6 +138,8 @@ func estimateVideoBillingWithPolicy(policy, modelName, rateModel string, raw map
 		autoDuration = true
 	} else if sec <= 0 {
 		sec = defaultVideoSeconds
+	} else if hasCanonical && canonical == "magi-2" && (sec < 4 || sec > 30) {
+		return nil, false, fmt.Errorf("duration must be an integer from 4 to 30 for %s", modelName)
 	}
 	if sec > relaycommon.MaxTaskDurationSeconds {
 		return nil, false, fmt.Errorf("duration must be -1 or between 1 and %d", relaycommon.MaxTaskDurationSeconds)
@@ -234,14 +246,18 @@ func parseBoundedPositiveSeconds(v any) (float64, bool) {
 func resolveTierRatio(modelName string, raw map[string]any) (float64, error) {
 	m := strings.ToLower(strings.TrimSpace(modelName))
 	switch {
+	case strings.Contains(m, "seedance-2-5-flash") || strings.Contains(m, "seedance-2.5-flash"):
+		return seedanceTierRatio(seedance25FlashRates, "default", raw, false, true)
 	case strings.Contains(m, "seedance-2-5") || strings.Contains(m, "seedance-2.5"):
-		return seedanceTierRatio(seedance25Rates, "default", raw, true)
+		return seedanceTierRatio(seedance25Rates, "default", raw, true, false)
 	case strings.Contains(m, "seedance-2-0-fast") || strings.Contains(m, "seedance-2.0-fast"):
-		return seedanceTierRatio(seedance20FastRates, "480p", raw, false)
+		return seedanceTierRatio(seedance20FastRates, "480p", raw, false, false)
 	case strings.Contains(m, "seedance-2-0-mini") || strings.Contains(m, "seedance-2.0-mini"):
-		return seedanceTierRatio(seedance20MiniRates, "480p", raw, false)
+		return seedanceTierRatio(seedance20MiniRates, "480p", raw, false, false)
 	case strings.Contains(m, "seedance-2-0") || strings.Contains(m, "seedance-2.0") || strings.Contains(m, "doubao-seedance-2.0"):
-		return seedanceTierRatio(seedance20Rates, "480p", raw, false)
+		return seedanceTierRatio(seedance20Rates, "480p", raw, false, false)
+	case strings.Contains(m, "magi-2"):
+		return magi2TierRatio(raw)
 	case strings.Contains(m, "kling-v2-6") || strings.Contains(m, "kling-v2.6"):
 		return klingTierRatio(klingV26Rates, "default", raw)
 	case strings.Contains(m, "kling-v3"):
@@ -252,6 +268,14 @@ func resolveTierRatio(modelName string, raw map[string]any) (float64, error) {
 		// Unknown video model: charge duration only (tier=1). Safer than inventing rates.
 		return 1, nil
 	}
+}
+
+func magi2TierRatio(raw map[string]any) (float64, error) {
+	res, explicit := parseResolution(raw)
+	if explicit && res != "1080p" {
+		return 0, fmt.Errorf("unsupported resolution %q for this model", res)
+	}
+	return 1, nil
 }
 
 func wan30TierRatio(raw map[string]any) (float64, error) {
@@ -272,13 +296,16 @@ func wan30TierRatio(raw map[string]any) (float64, error) {
 	return rate, nil
 }
 
-func seedanceTierRatio(rates map[string]float64, baseKey string, raw map[string]any, suggestGroupPricingOn1080p bool) (float64, error) {
+func seedanceTierRatio(rates map[string]float64, baseKey string, raw map[string]any, suggestGroupPricingOn1080p, videoInputOnly bool) (float64, error) {
 	base, ok := rates[baseKey]
 	if !ok || base <= 0 {
 		return 1, nil
 	}
 	res, explicit := parseResolution(raw)
 	hasInput := hasMediaInput(raw)
+	if videoInputOnly {
+		hasInput = hasVideoInput(raw)
+	}
 	key := res
 	if key == "" {
 		key = baseKey
@@ -353,6 +380,33 @@ func parseResolution(raw map[string]any) (res string, explicit bool) {
 		}
 	}
 	return "", false
+}
+
+func hasVideoInput(raw map[string]any) bool {
+	if raw == nil {
+		return false
+	}
+	for _, key := range []string{"video_urls", "videos", "reference_video_urls"} {
+		if v, ok := raw[key]; ok && v != nil {
+			switch t := v.(type) {
+			case string:
+				if strings.TrimSpace(t) != "" {
+					return true
+				}
+			case []any:
+				if len(t) > 0 {
+					return true
+				}
+			case []string:
+				if len(t) > 0 {
+					return true
+				}
+			default:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func hasMediaInput(raw map[string]any) bool {

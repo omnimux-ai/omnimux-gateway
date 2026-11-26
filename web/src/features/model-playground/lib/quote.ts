@@ -106,16 +106,38 @@ export function estimateQuote(
     return toQuote(result.total * ratioMultiplier)
   }
 
-  if (model.model_name === 'wan-3.0') {
-    // fork: wan30-resolution-tier-group — the public ID carries ONE base rate
-    // (`ModelPrice`, USD per output second) and its quality tiers are token
-    // groups, so the quote is `base rate × group ratio × duration`. The ratio
-    // arrives in `groupRatio` from the configured group table; no tier price is
-    // restated here. A catalog row with no base rate stays unpriced rather than
-    // being given one.
+  const isTierGroupPerSecond =
+    model.model_name === 'wan-3.0' ||
+    model.model_name === 'seedance-2-5-flash' ||
+    model.model_name === 'seedance-2.5-flash'
+  const isSingleTierPerSecondContract =
+    model.contract?.family === 'video' &&
+    model.contract.billing?.unit === 'per_second' &&
+    model.contract.billing?.pricing_basis === 'duration_seconds' &&
+    (model.contract.resolutions?.length ?? 0) === 1
+
+  if (isTierGroupPerSecond || isSingleTierPerSecondContract) {
+    // Public ID carries ONE base rate (`ModelPrice`, USD per output second),
+    // either single-resolution (e.g. magi-2 1080p) or with quality tiers
+    // realized as token groups (`groupRatio` arrives from the configured group
+    // table). Auto-duration (-1) and non-positive/invalid durations stay unpriced.
     const rate = Number(model.model_price)
     if (!Number.isFinite(rate) || rate <= 0) return null
-    const duration = Number(params.duration) || 5
+    const rawDuration = params.duration
+    let duration: number
+    if (
+      rawDuration === undefined ||
+      rawDuration === null ||
+      (typeof rawDuration === 'string' && rawDuration.trim() === '')
+    ) {
+      duration = 5
+    } else if (typeof rawDuration === 'boolean') {
+      return null
+    } else {
+      const parsedDuration = Number(rawDuration)
+      if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) return null
+      duration = parsedDuration
+    }
     return toQuote(rate * duration * ratioMultiplier)
   }
 

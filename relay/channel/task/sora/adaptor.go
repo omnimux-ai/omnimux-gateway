@@ -153,8 +153,10 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	// 动态分辨率计费倍率 (OtherRatios):
 	// Seedance 2.5: 480P 基准 1.0x (¥0.35/s), 720P 进阶 1.285714x (¥0.45/s, 0.45 / 0.35)
 	// Seedance 2.0: 480P 基准 1.0x (¥0.45/s), 720P 进阶 1.555556x (¥0.70/s, 0.70 / 0.45)
+	// Seedance 2.5 Flash uses dedicated per-tier groups and must not inherit the legacy 2.5 multiplier.
 	originModel := strings.ToLower(info.OriginModelName)
-	if is720pResolution(req) {
+	isSeedance25Flash := strings.Contains(originModel, "seedance-2-5-flash") || strings.Contains(originModel, "seedance-2.5-flash")
+	if is720pResolution(req) && !isSeedance25Flash {
 		if strings.Contains(originModel, "seedance-2-5") || strings.Contains(originModel, "seedance-2.5") {
 			ratios["resolution"] = 1.285714
 		} else if strings.Contains(originModel, "seedance-2-0") || strings.Contains(originModel, "seedance-2.0") {

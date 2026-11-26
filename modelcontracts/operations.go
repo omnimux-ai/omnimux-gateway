@@ -194,6 +194,13 @@ var apimartVideoOperations = map[string][]string{
 		operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef,
 		operationVideoEdit, operationVideoExtend,
 	},
+	"seedance-2-5-flash": {
+		operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef,
+		operationVideoEdit, operationVideoExtend,
+	},
+	"magi-2": {
+		operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef,
+	},
 	"wan-3.0": {
 		operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef,
 		operationDocumentToVideo, operationWebpageToVideo,

@@ -1,0 +1,172 @@
+{
+  "model_id": "magi-2",
+  "family": "video",
+  "vendor": "Sand AI",
+  "vendor_model_id": "magi-2",
+  "capability": "视频生成（文生视频 / 图生视频-首帧、首尾帧 / 全模态参考生视频，1080p 25fps 原生同步音画）",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "first_last_frame_to_video",
+    "reference_to_video"
+  ],
+  "gateway": {
+    "profile": "apimart_video",
+    "operations": [
+      "text_to_video",
+      "first_frame",
+      "first_last_frame",
+      "video_multi_ref"
+    ],
+    "mode_kinds": {
+      "text_to_video": "text_to_video",
+      "first_frame": "first_frame",
+      "first_last_frame": "first_last_frame",
+      "video_multi_ref": "multimodal_reference"
+    },
+    "source_claim": "网关执行档案：video_contract.go 的 operationAllowed 对 magi-2 允许 text_to_video / first_frame / first_last_frame / video_multi_ref"
+  },
+  "status": "documented",
+  "checked_at": "2026-11-26",
+  "sources": [
+    {
+      "claim": "Sand AI 官方模型 ID 为 magi-2，输出分辨率 1080p，官方按秒标价 0.08 USD/s",
+      "url": "https://platform.sand.ai/docs/model-pricing/",
+      "quote": "magi-2 | 1080p | 0.08 USD/s",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "MAGI-2 为 480B 总参数（约 28B 激活参数）模型，支持 6 种宽高比、最长 30 秒 1080p 25fps，支持最多 20 个全模态参考（最多 10 张图、5 段视频、5 段音频）",
+      "url": "https://sand.ai/blog/magi-2",
+      "quote": "MAGI-2 scales the base model more than 4× to 480B total parameters and ~28B active parameters. It supports six aspect ratios, generates up to 30 seconds at 1080p and 25 fps, combines up to 20 references (up to 10 images, 5 videos, and 5 audio clips) via omni-reference",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "文本提示词上限 15000 个 Unicode 字符；分辨率仅支持 1080p；generateAudio 默认 true；seed 范围 0 至 4294967295；媒体链接须为公开 HTTPS URL 且不超过 8192 字符",
+      "url": "https://platform.sand.ai/docs/create-generation/",
+      "quote": "Include exactly one nonblank text item of up to 15,000 Unicode code points. Only 1080p is supported. Defaults to 1080p when omitted, null, empty or whitespace-only. generateAudio Defaults to true. Audio references are accepted even when set to false. seed A value from 0 to 4294967295, inclusive, fixes the seed. A public HTTPS download URL of up to 8,192 characters.",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "输出时长范围 4–30 秒整数，支持 6 种宽高比 21:9/16:9/4:3/1:1/3:4/9:16；首帧与首尾帧或含任意参考媒体（含纯音频）时文本提示词可选",
+      "url": "https://platform.sand.ai/docs/ark-generations/",
+      "quote": "Required. Output duration of 4–30 seconds, inclusive. ratio: 21:9, 16:9, 4:3, 1:1, 3:4, 9:16. Frame inputs accept a first frame alone or a first and last frame together. The roles identify the frames in either array order. A prompt is optional. With any media, including audio alone, text is optional. At most one text item of up to 15,000 Unicode code points.",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "参考素材限制：图片 0–10 张（JPEG/PNG/WebP/BMP/TIFF/GIF/HEIC/HEIF，单张小于 30000000 字节）；视频 0–5 段（MP4/MOV，单段不超过 200000000 字节、2–30 s、总时长 ≤30 s）；音频 0–5 段（WAV/MP3，单段不超过 15000000 字节、2–30 s、总时长 ≤30 s）",
+      "url": "https://platform.sand.ai/docs/upload-asset/",
+      "quote": "Image JPEG / PNG / WebP / BMP / TIFF / GIF / HEIC / HEIF Under 30,000,000 bytes Up to 10. Video MP4 / MOV (H.264 / H.265) ≤ 200,000,000 bytes, 2–30 s Up to 5, ≤ 30 s total. Audio WAV / MP3 ≤ 15,000,000 bytes, 2–30 s Up to 5, ≤ 30 s total.",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "网关执行档案：video_contract.go 的 operationAllowed 对 magi-2 允许 text_to_video / first_frame / first_last_frame / video_multi_ref",
+      "url": "repo:relay/channel/task/apimart/video_contract.go",
+      "quote": "\"magi-2\": { opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true, },",
+      "retrieved_at": "2026-11-26"
+    }
+  ],
+  "notes": "Sand AI 官方文档（platform.sand.ai/docs 与 sand.ai/blog/magi-2）已完整核验。MAGI-2 仅支持 1080p 单档分辨率（25fps），不支持 adaptive 宽高比与自动时长 -1；首帧/首尾帧与全模态参考模式均使用 6 种显式宽高比（默认 16:9），且 generate_audio 默认开启且不另加价。参考图片/视频/音频单文件字节上限直接采用官方公布的十进制字节值（30,000,000 / 200,000,000 / 15,000,000）。",
+  "reference_images": {
+    "max": 10,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/bmp",
+      "image/tiff",
+      "image/gif",
+      "image/heic",
+      "image/heif"
+    ],
+    "max_bytes_each": 30000000,
+    "source_claim": "Sand AI 官方素材规格：参考图片最多 10 张，单张小于 30000000 字节"
+  },
+  "reference_videos": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 200000000,
+    "max_seconds_each": 30,
+    "source_claim": "Sand AI 官方素材规格：参考视频最多 5 段，单段 2–30 s 且不超过 200000000 字节，总时长 ≤30 s"
+  },
+  "reference_audios": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "audio/wav",
+      "audio/mpeg"
+    ],
+    "max_bytes_each": 15000000,
+    "max_seconds_each": 30,
+    "source_claim": "Sand AI 官方素材规格：参考音频最多 5 段，单段 2–30 s 且不超过 15000000 字节，总时长 ≤30 s"
+  },
+  "durations_seconds": {
+    "min": 4,
+    "max": 30,
+    "default": 5
+  },
+  "resolutions": [
+    "1080p"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:3",
+    "3:4",
+    "21:9"
+  ],
+  "audio_supported": true,
+  "prompt_max_chars": 15000,
+  "parameters": [
+    {
+      "name": "resolution",
+      "type": "enum",
+      "enum": [
+        "1080p"
+      ],
+      "default": "1080p",
+      "fixed": "1080p"
+    },
+    {
+      "name": "aspect_ratio",
+      "type": "enum",
+      "enum": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:3",
+        "3:4",
+        "21:9"
+      ],
+      "default": "16:9"
+    },
+    {
+      "name": "generate_audio",
+      "type": "boolean",
+      "default": true
+    }
+  ],
+  "unknowns": [
+    "输出音频采样率、声道布局与编码规格：官方未公布，仅确认原生同步音频生成且默认开启。",
+    "输出容器格式：默认输出 MP4，官方未提供可切换的 output_format 参数。"
+  ],
+  "billing": {
+    "unit": "per_second",
+    "unit_label": {
+      "zh": "每秒",
+      "en": "per second"
+    },
+    "pricing_basis": "duration_seconds",
+    "unit_price_usd": 0.08,
+    "notes": {
+      "zh": "按请求的视频时长计费，1080p 单档官方标价 0.08 USD/秒（开启原生同步音频不另加价）；实际每秒费用受分组和会员倍率影响，以平台提交前报价为准。",
+      "en": "Charged by the requested video duration. The 1080p list rate is 0.08 USD/s with synchronized audio included at no extra charge; final pricing includes group and membership multipliers; use the platform quote before submission."
+    }
+  }
+}

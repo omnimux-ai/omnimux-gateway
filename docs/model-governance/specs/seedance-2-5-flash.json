@@ -1,0 +1,194 @@
+{
+  "model_id": "seedance-2-5-flash",
+  "family": "video",
+  "vendor": "Volcengine",
+  "vendor_model_id": "doubao-seedance-2-5-flash-261115",
+  "capability": "视频生成（Seedance 2.5 Flash 轻快版：文生视频 / 首帧生视频 / 首尾帧生视频 / 全模态参考生视频 / 视频编辑 / 视频延长，480p & 720p 24fps 原生有声）",
+  "operations": [
+    "text_to_video",
+    "image_to_video",
+    "first_last_frame_to_video",
+    "reference_to_video",
+    "video_edit",
+    "video_extend"
+  ],
+  "gateway": {
+    "profile": "apimart_video",
+    "operations": [
+      "text_to_video",
+      "first_frame",
+      "first_last_frame",
+      "video_multi_ref",
+      "video_edit",
+      "video_extend"
+    ],
+    "mode_kinds": {
+      "text_to_video": "text_to_video",
+      "first_frame": "first_frame",
+      "first_last_frame": "first_last_frame",
+      "video_multi_ref": "multimodal_reference",
+      "video_edit": "video_edit",
+      "video_extend": "video_extend"
+    },
+    "source_claim": "网关执行档案：video_contract.go 的 operationAllowed 对 seedance-2-5-flash 允许 text_to_video / first_frame / first_last_frame / video_multi_ref / video_edit / video_extend"
+  },
+  "status": "documented",
+  "checked_at": "2026-11-26",
+  "sources": [
+    {
+      "claim": "火山方舟官方模型 ID 为 doubao-seedance-2-5-flash-261115，支持 480p 与 720p（8bit 位深）、帧率 24 fps、时长 4~30 秒、视频格式 mp4/mov",
+      "url": "https://docs.volcengine.com/docs/82379/1330310?lang=zh",
+      "quote": "doubao-seedance-2-5-flash-261115 480p（8bit 位深） 720p（8bit 位深） 帧率: 24 fps 时长: 4~30 秒 视频格式: mp4, mov",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "Seedance 2.5 flash 全模态参考素材上限：参考图片 0–10 张、参考视频 0–5 个、参考音频 0–5 段",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.5 flash：参考图片 0–10 张、参考视频 0–5 个、参考音频 0–5 段",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "输出分辨率可选值：Seedance 2.5 flash 默认 720p，仅支持 480p 与 720p，暂不支持 1080p 与 4K",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.5 flash：默认值 720p；可选值 480p、720p。1080p （Seedance 2.5 flash、Seedance 2.0 fast/mini 暂不支持）。4K （Seedance 2.5 flash、Seedance 2.0 fast/mini 暂不支持）。",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "输出时长取值范围 [4, 30] 秒或 -1（智能选择）；视频编辑任务要求 duration=-1",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "Seedance 2.5：默认值 -1；取值范围 [4, 30]；或设置为 -1（智能选择）",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "输出宽高比可选值 16:9/4:3/1:1/3:4/9:16/21:9/adaptive；视频编辑、视频延长、首帧与首尾帧任务仅支持 adaptive",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "可选值：16:9、4:3、1:1、3:4、9:16、21:9、adaptive（根据任务类型和输入内容自动适配宽高比）。Seedance 2.5 系列模型在视频编辑、视频延长、首帧 / 首尾帧生视频任务仅支持配置 ratio 为 adaptive。",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "单张参考图片格式 jpeg/png/webp/bmp/tiff/gif/heic/heif，大小小于 30 MB（31457280 字节）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "格式：jpeg、png、webp、bmp、tiff、gif。其中，Seedance 1.5 pro 及以上模型版本额外支持 heic、heif。大小：单张图片小于 30 MB。",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "单个参考视频格式 mp4/mov，时长 [2, 30] s（视频编辑 [4, 30] s），总时长不超过 30 s，单文件不超过 200 MB（209715200 字节）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "视频格式：mp4、mov。单个视频时长 [2, 30] s。视频编辑任务：单个视频时长 [4, 30] s。所有视频总时长不超过 30 s。大小：单个视频不超过 200 MB。",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "单个参考音频格式 wav/mp3，时长 [2, 30] s，总时长不超过 30 s，单文件不超过 15 MB（15728640 字节）",
+      "url": "https://docs.volcengine.com/docs/82379/1520757?lang=zh",
+      "quote": "格式：wav、mp3。单个音频时长 [2, 30] s，所有音频总时长不超过 30 s。大小：单个音频不超过 15 MB。",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "官方定价（火山方舟）：Seedance 2.5 flash 支持 480p/720p，无参考视频 46.00 元/M tokens、含参考视频 28.00 元/M tokens，5s 16:9 折合 480p 0.44 元/秒、720p 0.99 元/秒",
+      "url": "https://docs.volcengine.com/docs/82379/1544106?lang=zh",
+      "quote": "Seedance 2.5 flash | 480p、720p | 46.00 | 28.00（5s 16:9 折合 480p 约 0.44 元/秒、720p 约 0.99 元/秒）",
+      "retrieved_at": "2026-11-26"
+    },
+    {
+      "claim": "网关执行档案：video_contract.go 的 operationAllowed 对 seedance-2-5-flash 允许 text_to_video / first_frame / first_last_frame / video_multi_ref / video_edit / video_extend",
+      "url": "repo:relay/channel/task/apimart/video_contract.go",
+      "quote": "\"seedance-2-5-flash\": { opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true, opVideoEdit: true, opVideoExtend: true, },",
+      "retrieved_at": "2026-11-26"
+    }
+  ],
+  "notes": "火山方舟（Volcengine Ark）官方文档已完整核验（docs/82379/1330310、1520757、1544106）。厂商侧真实模型 ID 为 doubao-seedance-2-5-flash-261115。仅支持 480p 与 720p（8bit 位深、24fps），不支持 1080p 与 4K；全模态参考素材上限为参考图 0–10 张、参考视频 0–5 段、参考音频 0–5 段，支持纯音频参考。首帧、首尾帧、视频编辑与视频延长任务固定使用 adaptive 宽高比；视频编辑任务要求 duration=-1。部分分档经济线路仅接受显式 4–30 秒整数时长与 6 种固定画幅比例，请以分组说明及提交前报价为准。",
+  "reference_images": {
+    "max": 10,
+    "min": 0,
+    "formats": [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/bmp",
+      "image/tiff",
+      "image/gif",
+      "image/heic",
+      "image/heif"
+    ],
+    "max_bytes_each": 31457280,
+    "source_claim": "Seedance 2.5 flash：参考图片 0–10 张；单张图片小于 30 MB（31457280 字节）"
+  },
+  "reference_videos": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "video/mp4",
+      "video/quicktime"
+    ],
+    "max_bytes_each": 209715200,
+    "max_seconds_each": 30,
+    "source_claim": "Seedance 2.5 flash：参考视频 0–5 个，单段 [2, 30] s（编辑 [4, 30] s），总时长不超过 30 s，单个视频不超过 200 MB（209715200 字节）"
+  },
+  "reference_audios": {
+    "max": 5,
+    "min": 0,
+    "formats": [
+      "audio/wav",
+      "audio/mpeg"
+    ],
+    "max_bytes_each": 15728640,
+    "max_seconds_each": 30,
+    "source_claim": "Seedance 2.5 flash：参考音频 0–5 段，单段 [2, 30] s，总时长不超过 30 s，单个音频不超过 15 MB（15728640 字节）"
+  },
+  "durations_seconds": {
+    "min": 4,
+    "max": 30
+  },
+  "resolutions": [
+    "480p",
+    "720p"
+  ],
+  "aspect_ratios": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "21:9",
+    "adaptive"
+  ],
+  "audio_supported": true,
+  "output_formats": [
+    "mp4",
+    "mov"
+  ],
+  "prompt_max_chars": null,
+  "parameters": [
+    {
+      "name": "resolution",
+      "type": "enum",
+      "enum": [
+        "480p",
+        "720p"
+      ],
+      "default": "720p"
+    },
+    {
+      "name": "generate_audio",
+      "type": "boolean",
+      "default": true
+    }
+  ],
+  "unknowns": [
+    "提示词硬性字符上限：火山方舟官方仅给出建议字数（中文不超过 500 字、英文不超过 1000 词），未公布全局硬上限，故 prompt_max_chars 保持 null。",
+    "输出音频规格（采样率、声道布局、编码）：官方仅说明有声视频为单声道，未公布采样率与编码参数。"
+  ],
+  "billing": {
+    "unit": "per_second",
+    "unit_label": {
+      "zh": "每秒",
+      "en": "per second"
+    },
+    "pricing_basis": "duration_seconds",
+    "unit_price_usd": 0.145588,
+    "notes": {
+      "zh": "按请求的视频时长计费，服务基准价锚定官方 720p 折合原价（¥0.99/秒 ÷ 6.8 = 0.145588 USD/秒；官方 token 计价为无参考视频 46 元/M tokens、含参考视频 28 元/M tokens，480p 折合约 ¥0.44/秒）。实际每秒费用受分辨率档位、分组和会员倍率影响，以平台提交前报价为准。",
+      "en": "Charged by the requested video duration. The base rate anchors the official 720p list equivalent (¥0.99/s ÷ 6.8 = 0.145588 USD/s; official token pricing is 46 CNY/M tokens without video input and 28 CNY/M tokens with video input; 480p is approximately ¥0.44/s). Final pricing depends on resolution tier, group ratio, and membership multiplier; use the platform quote before submission."
+    }
+  }
+}

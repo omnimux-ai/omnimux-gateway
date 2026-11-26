@@ -362,6 +362,57 @@ func TestSelectVideoTierGroupFallsBackWhenGroupIsNotProvisioned(t *testing.T) {
 	setupVideoTierGroupSettings(t, `{"default":"默认"}`, `{"default":1,"wan-3.0-720p":1.2}`)
 	probe = runSelectVideoTierGroup(t, `{"model":"wan-3.0","resolution":"720p","prompt":"cat"}`, nil, nil)
 	assert.Equal(t, "default", probe.usingGroup)
+
+	// Unprovisioned seedance-2-5-flash also keeps default even when resolution is omitted.
+	probe = runSelectVideoTierGroup(t, `{"model":"seedance-2-5-flash","prompt":"cat"}`, nil, nil)
+	assert.Equal(t, http.StatusOK, probe.status)
+	assert.Equal(t, "default", probe.usingGroup)
+	assert.Empty(t, probe.header)
+}
+
+func TestSelectVideoTierGroupSeedance25Flash(t *testing.T) {
+	setupVideoTierGroupSettings(t,
+		`{"default":"默认","seedance-2-5-flash-480p":"Flash 480p","seedance-2-5-flash-720p":"Flash 720p"}`,
+		`{"default":1,"seedance-2-5-flash-480p":0.44,"seedance-2-5-flash-720p":1}`)
+
+	for _, tc := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{"480p resolution", `{"model":"seedance-2-5-flash","resolution":"480p","prompt":"cat"}`, "seedance-2-5-flash-480p"},
+		{"854x480 size", `{"model":"seedance-2-5-flash","size":"854x480","prompt":"cat"}`, "seedance-2-5-flash-480p"},
+		{"720p resolution", `{"model":"seedance-2-5-flash","resolution":"720p","prompt":"cat"}`, "seedance-2-5-flash-720p"},
+		{"1280x720 size", `{"model":"seedance-2-5-flash","size":"1280x720","prompt":"cat"}`, "seedance-2-5-flash-720p"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			probe := runSelectVideoTierGroup(t, tc.body, nil, nil)
+			assert.Equal(t, http.StatusOK, probe.status)
+			assert.Equal(t, tc.want, probe.usingGroup)
+			assert.Equal(t, tc.want, probe.tokenGroup)
+			assert.Equal(t, tc.want, probe.header)
+		})
+	}
+
+	for _, bad := range []string{
+		`{"model":"seedance-2-5-flash","prompt":"cat"}`,
+		`{"model":"seedance-2-5-flash","resolution":"1080p","prompt":"cat"}`,
+	} {
+		probe := runSelectVideoTierGroup(t, bad, nil, nil)
+		assert.Equal(t, http.StatusBadRequest, probe.status, bad)
+		assert.Contains(t, probe.body, "480p")
+		assert.Contains(t, probe.body, "720p")
+		assert.Contains(t, probe.body, "854x480")
+	}
+
+	// Partial provisioning (only 720p enabled): 480p must be rejected naming only 720p.
+	setupVideoTierGroupSettings(t,
+		`{"default":"默认","seedance-2-5-flash-720p":"Flash 720p"}`,
+		`{"default":1,"seedance-2-5-flash-720p":1}`)
+	partialProbe := runSelectVideoTierGroup(t, `{"model":"seedance-2-5-flash","resolution":"480p","prompt":"cat"}`, nil, nil)
+	assert.Equal(t, http.StatusBadRequest, partialProbe.status)
+	assert.Contains(t, partialProbe.body, "720p")
+	assert.NotContains(t, partialProbe.body, "480p")
 }
 
 // videoTierCountingBody fails every read and counts the attempts. It is how
@@ -466,7 +517,11 @@ func TestVideoTierFromResolution(t *testing.T) {
 		{720, nil, "720p"},
 		{"720", nil, "720p"},
 		{"1080", nil, "1080p"},
-		{"480p", nil, ""},
+		{"480p", nil, "480p"},
+		{"480P", nil, "480p"},
+		{"854x480", nil, "480p"},
+		{"480x854", nil, "480p"},
+		{480, nil, "480p"},
 		{"768p", nil, ""},
 		{"2K", nil, ""},
 		{"4k", nil, ""},

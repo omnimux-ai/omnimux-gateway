@@ -37,6 +37,10 @@ const TIER_GROUPS: Record<string, Record<string, string>> = {
     '720p': 'wan-3.0-720p',
     '1080p': 'wan-3.0-1080p',
   },
+  'seedance-2-5-flash': {
+    '480p': 'seedance-2-5-flash-480p',
+    '720p': 'seedance-2-5-flash-720p',
+  },
 }
 
 /** A model's catalog row, as far as tier resolution needs to read it. */
@@ -52,7 +56,11 @@ type TierSubject = Pick<PricingModel, 'model_name' | 'enable_groups'>
 export function provisionedTierGroups(
   model: TierSubject
 ): Record<string, string> | undefined {
-  const declared = TIER_GROUPS[model.model_name]
+  const canonicalName =
+    model.model_name === 'seedance-2.5-flash'
+      ? 'seedance-2-5-flash'
+      : model.model_name
+  const declared = TIER_GROUPS[canonicalName]
   if (!declared) return undefined
 
   const enabled = new Set(model.enable_groups ?? [])
