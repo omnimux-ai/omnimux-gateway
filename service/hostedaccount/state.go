@@ -23,17 +23,6 @@ func CanTransitionAccount(from, to string) bool {
 	return false
 }
 
-func TransitionAccount(id int64, from, to string) error {
-	if !CanTransitionAccount(from, to) {
-		return ErrInvalidRequest
-	}
-	return model.TransitionHostedAccount(id, from, to)
-}
-
-func ChannelCanDistribute(status string) bool {
-	return status == model.HostedAccountReady || status == model.HostedAccountActive
-}
-
 func ChannelUserFacingBlocked(status string) error {
 	switch status {
 	case model.HostedAccountSuspended:

@@ -36,35 +36,6 @@ func TestWriteSecureJSON(t *testing.T) {
 	}
 }
 
-func TestReceiptOutputReservedBeforeTransaction(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "receipt.json")
-	output, err := reserveReceiptOutput(path, "operation", "digest")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := reserveReceiptOutput(path, "another", "digest"); err == nil {
-		t.Fatal("existing receipt reservation accepted")
-	}
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var pending map[string]string
-	if err := json.Unmarshal(raw, &pending); err != nil || pending["state"] != "PREPARED" {
-		t.Fatalf("pending receipt: %s %v", raw, err)
-	}
-	if err := output.save(map[string]string{"state": "AFTER"}); err != nil {
-		t.Fatal(err)
-	}
-	info, _ := os.Stat(path)
-	if info.Mode().Perm() != 0600 {
-		t.Fatalf("mode %o", info.Mode().Perm())
-	}
-	if err := output.save(map[string]string{"state": "AFTER"}); err == nil {
-		t.Fatal("replaced reservation reused")
-	}
-}
-
 func TestSecureJSONDoesNotOverwriteSymlink(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "target.json")

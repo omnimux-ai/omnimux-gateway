@@ -153,12 +153,6 @@ func CountOccupiedUnexpired(userId int, now time.Time) (int, error) {
 	return CountOccupiedUnexpiredTx(DB, userId, now)
 }
 
-func ListUserSeats(userId int) ([]*SocialSeat, error) {
-	var rows []*SocialSeat
-	err := DB.Where("user_id = ?", userId).Order("expires_at asc, id asc").Find(&rows).Error
-	return rows, err
-}
-
 func ListOccupiedExpiredSeats(userId int, now time.Time) ([]*SocialSeat, error) {
 	var rows []*SocialSeat
 	err := DB.Where("user_id = ? AND status = ? AND expires_at <= ?", userId, SocialSeatStatusOccupied, now).
@@ -181,16 +175,6 @@ func GetOccupiedSeatForAccountTx(tx *gorm.DB, userId int, accountID int64) (*Soc
 	var seat SocialSeat
 	err := tx.Where("user_id = ? AND status = ? AND occupied_account_id = ?",
 		userId, SocialSeatStatusOccupied, accountID).First(&seat).Error
-	if err != nil {
-		return nil, err
-	}
-	return &seat, nil
-}
-
-func GetValidOccupiedSeatForAccount(userId int, accountID int64, now time.Time) (*SocialSeat, error) {
-	var seat SocialSeat
-	err := DB.Where("user_id = ? AND status = ? AND occupied_account_id = ? AND expires_at > ?",
-		userId, SocialSeatStatusOccupied, accountID, now).First(&seat).Error
 	if err != nil {
 		return nil, err
 	}
@@ -316,16 +300,6 @@ func RenewSocialSeat(seat *SocialSeat, quota int, now time.Time) error {
 	seat.OpenedQuota = quota
 	RecordSocialSeatLog(seat.UserId, SocialSeatActionRenew, seat.ID, quota, "")
 	return nil
-}
-
-func BindAccountSeat(accountID int64, userId int, seatID int64) error {
-	res := DB.Model(&SocialAccount{}).
-		Where("id = ? AND user_id = ?", accountID, userId).
-		Updates(map[string]any{
-			"seat_id":    seatID,
-			"updated_at": time.Now().UTC(),
-		})
-	return res.Error
 }
 
 func ClearSocialAccountSeatID(accountID int64, userId int) error {

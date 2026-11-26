@@ -15,10 +15,6 @@ import (
 
 var hostedSvc = hostedaccount.DefaultService()
 
-func setHostedService(s *hostedaccount.Service) {
-	hostedSvc = s
-}
-
 func hostedError(c *gin.Context, err error) {
 	if err == nil {
 		return

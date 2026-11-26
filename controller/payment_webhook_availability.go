@@ -84,10 +84,6 @@ func isWaffoPancakeTopUpEnabled() bool {
 		strings.TrimSpace(setting.WaffoPancakeProductID) != ""
 }
 
-func isWaffoPancakeWebhookConfigured() bool {
-	return isWaffoPancakeTopUpEnabled()
-}
-
 func isWaffoPancakeWebhookEnabled() bool {
 	return isWaffoPancakeTopUpEnabled()
 }

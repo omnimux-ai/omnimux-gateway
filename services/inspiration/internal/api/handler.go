@@ -4,7 +4,6 @@ package api
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -363,5 +362,3 @@ func (h *Handler) Cover(c *gin.Context, rawID string) {
 	}
 	http.ServeContent(c.Writer, c.Request, "cover", cover.LastModified, bytes.NewReader(cover.Data))
 }
-
-var errBind = errors.New("bind")

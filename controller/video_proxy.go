@@ -735,39 +735,6 @@ func writeVideoDataURL(c *gin.Context, dataURL string) error {
 	return err
 }
 
-// normalizeURLHostToBase rewrites the host:port of rawURL to the host:port of
-// baseURL when both are URLs. Used to normalize upstream container-internal
-// addresses (e.g. http://127.0.0.1:8000/...) to the configured channel address
-// (http://grok2api:8000/...) so media fetches stay inside the trusted network.
-// Returns "" when either side cannot be parsed.
-func normalizeURLHostToBase(rawURL, baseURL string) string {
-	raw, err := url.Parse(strings.TrimSpace(rawURL))
-	if err != nil || raw.Host == "" {
-		return ""
-	}
-	base, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil || base.Host == "" {
-		return ""
-	}
-	raw.Host = base.Host
-	return raw.String()
-}
-
-// sameHostAsBase reports whether the host:port of rawURL equals the host:port
-// of baseURL (case-insensitive). Used to bypass SSRF validation only for URLs
-// whose destination is the configured channel (container network) itself.
-func sameHostAsBase(rawURL, baseURL string) bool {
-	raw, err := url.Parse(strings.TrimSpace(rawURL))
-	if err != nil || raw.Host == "" {
-		return false
-	}
-	base, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil || base.Host == "" {
-		return false
-	}
-	return strings.EqualFold(raw.Host, base.Host)
-}
-
 // isSelfServerURL reports whether rawURL targets this server's own configured address.
 func isSelfServerURL(rawURL string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))

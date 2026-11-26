@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +15,14 @@ import (
 
 	"omnimux-inspiration/internal/media"
 )
+
+func readJSONFile(path string, target any) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, target)
+}
 
 type fakeCoverInspectResult struct {
 	image *media.CoverImage
