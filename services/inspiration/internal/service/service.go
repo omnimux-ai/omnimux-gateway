@@ -425,32 +425,6 @@ type preparedBulkItem struct {
 	err error
 }
 
-func (s *Service) BulkUpsert(ctx context.Context, req *BulkReq) (*BulkResult, error) {
-	if len(req.Items) > bulkMax {
-		return nil, errs.ErrBulkLimit
-	}
-	res := &BulkResult{}
-	for i := range req.Items {
-		item := &req.Items[i]
-		rec, existed, err := s.Create(ctx, item, true)
-		r := BulkItemResult{Index: i}
-		switch {
-		case err != nil:
-			r.Action = "skipped"
-			res.Skipped++
-		case existed:
-			r.Action, r.Existed = "updated", true
-			r.ID = rec.ID
-			res.Updated++
-		default:
-			r.Action, r.ID = "created", rec.ID
-			res.Created++
-		}
-		res.Items = append(res.Items, r)
-	}
-	return res, nil
-}
-
 // BulkUpsertTx 事务版（脚本导入主通道）。
 func (s *Service) BulkUpsertTx(ctx context.Context, req *BulkReq) (*BulkResult, error) {
 	if len(req.Items) > bulkMax {

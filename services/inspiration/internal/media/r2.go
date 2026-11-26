@@ -88,19 +88,6 @@ func (c *r2Client) Put(ctx context.Context, key string, body []byte, contentType
 	return fmt.Errorf("r2 put %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 }
 
-func (c *r2Client) Get(ctx context.Context, key string) (io.ReadCloser, string, error) {
-	resp, err := c.getResponse(ctx, key)
-	if err != nil {
-		return nil, "", err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		defer resp.Body.Close()
-		return nil, "", fmt.Errorf("r2 get %d", resp.StatusCode)
-	}
-	ctype := resp.Header.Get("Content-Type")
-	return resp.Body, ctype, nil
-}
-
 // getResponse shares signing while preserving status and metadata for private covers.
 func (c *r2Client) getResponse(ctx context.Context, key string) (*http.Response, error) {
 	return c.getResponseWithHeaders(ctx, key, nil)

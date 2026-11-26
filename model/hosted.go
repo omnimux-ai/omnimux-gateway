@@ -2,7 +2,6 @@ package model
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -238,17 +237,6 @@ func CountAvailableHostedAccounts(platform, region string) (int64, error) {
 	return n, err
 }
 
-func CountOpenHostedQuantity(userID int, skuID int64) (int, error) {
-	var sum int
-	err := DB.Model(&HostedOrder{}).
-		Select("COALESCE(SUM(quantity - delivered_count), 0)").
-		Where("user_id = ? AND sku_id = ? AND status IN ?", userID, skuID, []string{
-			HostedOrderPaid, HostedOrderAllocated, HostedOrderPendingFulfillment,
-		}).
-		Scan(&sum).Error
-	return sum, err
-}
-
 func GetHostedOrderForUser(id int64, userID int) (*HostedOrder, error) {
 	var o HostedOrder
 	err := DB.Where("id = ? AND user_id = ?", id, userID).First(&o).Error
@@ -362,17 +350,6 @@ func HostedAddonAmountUSD(unitPrice float64, qty, remainingDays int) (float64, e
 	return f, nil
 }
 
-func remainingHostedDays(expireAt, now int64) int {
-	if expireAt <= now {
-		return 0
-	}
-	d := int((expireAt - now + 86399) / 86400)
-	if d > HostedPeriodDays {
-		return HostedPeriodDays
-	}
-	return d
-}
-
 func HostedModels() []any {
 	return []any{
 		&HostedSKU{},
@@ -428,20 +405,6 @@ func GetOrCreateHostedEntitlementTx(tx *gorm.DB, userID int, skuID int64) (*Host
 		return nil, err
 	}
 	return &e, nil
-}
-
-func TransitionHostedAccount(id int64, from, to string) error {
-	now := hostedNow()
-	res := DB.Model(&HostedAccount{}).
-		Where("id = ? AND status = ?", id, from).
-		Updates(map[string]any{"status": to, "updated_at": now})
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected != 1 {
-		return fmt.Errorf("hosted account %d: cannot %s→%s", id, from, to)
-	}
-	return nil
 }
 
 func NormalizeHostedSKU(s *HostedSKU) {
