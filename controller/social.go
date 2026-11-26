@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/social"
@@ -374,26 +375,53 @@ func SocialTikTokOAuthStart(c *gin.Context) {
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Header("X-Frame-Options", "DENY")
 	c.Header("X-Content-Type-Options", "nosniff")
-	renderStartError := func(status int, msg string) {
+	lang := i18n.StatedLang(c)
+	isZh := strings.HasPrefix(lang, "zh")
+	renderStartError := func(status int, zhMsg, enMsg string) {
+		title, msg := "TikTok Authorization Failed", enMsg
+		if isZh {
+			title, msg = "TikTok 授权失败", zhMsg
+		}
+		c.Header("Vary", "Accept-Language")
 		c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox")
-		c.Data(status, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 授权失败", msg, "")))
+		c.Data(status, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage(lang, title, msg, "")))
 	}
 	ticket := c.Query("ticket")
 	if ticket == "" {
-		renderStartError(http.StatusBadRequest, "授权链接无效或已过期，请返回客户端重新发起连接。")
+		renderStartError(
+			http.StatusBadRequest,
+			"授权链接无效或已过期，请返回客户端重新发起连接。",
+			"Authorization link is invalid or expired. Please return to OmniMux and try again.",
+		)
 		return
 	}
 	res, err := socialSvc.StartTikTokOAuth(c.Request.Context(), ticket)
 	if err != nil {
 		switch {
 		case errors.Is(err, social.ErrTikTokOAuthTicketExpired):
-			renderStartError(http.StatusBadRequest, "授权链接已过期，请返回客户端重新发起连接。")
+			renderStartError(
+				http.StatusBadRequest,
+				"授权链接已过期，请返回客户端重新发起连接。",
+				"Authorization link has expired. Please return to OmniMux and try again.",
+			)
 		case errors.Is(err, social.ErrTikTokOAuthTicketInvalid):
-			renderStartError(http.StatusBadRequest, "授权链接无效或已使用，请返回客户端重新发起连接。")
+			renderStartError(
+				http.StatusBadRequest,
+				"授权链接无效或已使用，请返回客户端重新发起连接。",
+				"Authorization link is invalid or has already been used. Please return to OmniMux and try again.",
+			)
 		case errors.Is(err, social.ErrDisabled), errors.Is(err, social.ErrTikTokDirectNotConfigured):
-			renderStartError(http.StatusServiceUnavailable, "TikTok 授权服务暂不可用，请稍后重试。")
+			renderStartError(
+				http.StatusServiceUnavailable,
+				"TikTok 授权服务暂不可用，请稍后重试。",
+				"TikTok authorization service is temporarily unavailable. Please try again later.",
+			)
 		default:
-			renderStartError(http.StatusBadRequest, "无法启动 TikTok 授权，请返回客户端重新发起连接。")
+			renderStartError(
+				http.StatusBadRequest,
+				"无法启动 TikTok 授权，请返回客户端重新发起连接。",
+				"Unable to start TikTok authorization. Please return to OmniMux and try again.",
+			)
 		}
 		return
 	}
@@ -411,6 +439,13 @@ func SocialTikTokCallback(c *gin.Context) {
 	c.Header("X-Frame-Options", "DENY")
 	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox")
 	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Vary", "Accept-Language")
+	lang := i18n.StatedLang(c)
+	isZh := strings.HasPrefix(lang, "zh")
+	errTitle := "TikTok Authorization Failed"
+	if isZh {
+		errTitle = "TikTok 授权失败"
+	}
 	code := c.Query("code")
 	state := c.Query("state")
 	if code == "" {
@@ -420,11 +455,19 @@ func SocialTikTokCallback(c *gin.Context) {
 		state = c.PostForm("state")
 	}
 	if code == "" || state == "" {
-		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 授权失败", "missing code or state", "")))
+		msg := "missing code or state"
+		if isZh {
+			msg = "缺少授权参数（code 或 state），请返回客户端重新发起连接。"
+		}
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage(lang, errTitle, msg, "")))
 		return
 	}
 	if !socialOAuthBrowserCookieValid(c, state) {
-		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 授权失败", "authorization flow does not belong to this browser", "")))
+		msg := "authorization flow does not belong to this browser"
+		if isZh {
+			msg = "当前浏览器与发起授权的会话不一致，请在同一浏览器中重试。"
+		}
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage(lang, errTitle, msg, "")))
 		return
 	}
 	// Clear the one-time browser binding cookie before writing the response so Set-Cookie is sent.
@@ -436,7 +479,7 @@ func SocialTikTokCallback(c *gin.Context) {
 		if strings.Contains(lower, "bearer") || strings.Contains(lower, "client_secret") || strings.Contains(sanitized, state) || strings.Contains(sanitized, code) {
 			sanitized = "upstream request failed"
 		}
-		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 授权失败", sanitized, "")))
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage(lang, errTitle, sanitized, "")))
 		return
 	}
 	if res.RedirectAfter != "" {
@@ -447,7 +490,13 @@ func SocialTikTokCallback(c *gin.Context) {
 	if handle == "" {
 		handle = res.Account.Username
 	}
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage("TikTok 已连接", "账号 @"+handle+" 已绑定到 OmniMux，可以返回客户端了。", handle)))
+	title := "TikTok Connected"
+	msg := "Account @" + handle + " is connected to OmniMux. You can return to the app now."
+	if isZh {
+		title = "TikTok 已连接"
+		msg = "账号 @" + handle + " 已绑定到 OmniMux，可以返回客户端了。"
+	}
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage(lang, title, msg, handle)))
 }
 
 // HandleTikTokCallback is exported on the service for controller wiring.
@@ -467,18 +516,22 @@ const tikTokCallbackLogoSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 	`<rect x="731" y="562" width="75" height="172" rx="37.5" ry="37.5" fill="#ffffff"/>` +
 	`</g></svg>`
 
-func renderTikTokCallbackPage(title, msg, handle string) string {
+func renderTikTokCallbackPage(lang, title, msg, handle string) string {
+	htmlLang, ctaLabel := "en", "Return to OmniMux"
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "zh") {
+		htmlLang, ctaLabel = "zh", "返回 OmniMux"
+	}
 	deepLink := ""
 	if handle != "" {
-		deepLink = `<p><a href="omnimux://social/connected" style="display:inline-block;margin-top:12px;padding:10px 18px;background:#000;color:#fff;border-radius:999px;text-decoration:none">返回 OmniMux</a></p>`
+		deepLink = `<p><a href="omnimux://social/connected" style="display:inline-block;margin-top:12px;padding:10px 18px;background:#000;color:#fff;border-radius:999px;text-decoration:none">` + ctaLabel + `</a></p>`
 	}
 	safeTitle := html.EscapeString(title)
 	safeMsg := html.EscapeString(msg)
-	return `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + safeTitle + `</title>` +
+	return `<!doctype html><html lang="` + htmlLang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + safeTitle + `</title>` +
 		`<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0A0A0B;color:#EDEDED;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}main{text-align:center;max-width:420px;padding:32px}h1{font-size:22px;margin:0 0 8px}p{color:#A19F9D;font-size:14px;line-height:1.6}</style></head><body><main>` +
 		tikTokCallbackLogoSVG +
 		`<h1>` + safeTitle + `</h1><p>` + safeMsg + `</p>` + deepLink +
-		`<p style="margin-top:24px;font-size:12px;color:#5b5b5b">omnimux.ai · Twinspace Labs LLC</p></main></body></html>`
+		`<p style="margin-top:24px;font-size:12px;color:#5b5b5b">omnimux.ai — Twinspace Labs LLC</p></main></body></html>`
 }
 
 // SocialDisconnectAccount DELETE /api/social/v1/accounts/:id
