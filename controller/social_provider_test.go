@@ -241,8 +241,9 @@ func TestSocialProviderRetirement(t *testing.T) {
 }
 
 func TestRenderTikTokCallbackPageEscapesDynamicValues(t *testing.T) {
-	page := renderTikTokCallbackPage("<script>alert(1)</script>", `<img src=x onerror=alert(1)>`, "")
+	page := renderTikTokCallbackPage("en", "<script>alert(1)</script>", `<img src=x onerror=alert(1)>`, "")
 	lower := strings.ToLower(page)
+	assert.Contains(t, page, `<html lang="en">`)
 	assert.NotContains(t, page, "<script>alert(1)</script>")
 	assert.NotContains(t, lower, "<script")
 	assert.NotContains(t, lower, "<img")
@@ -256,8 +257,10 @@ func TestRenderTikTokCallbackPageEscapesDynamicValues(t *testing.T) {
 	assert.NotContains(t, lower, "url(")
 	assert.NotContains(t, page, `omnimux://social/connected`)
 
-	successPage := renderTikTokCallbackPage("TikTok 已连接", "账号 @creator 已绑定到 OmniMux，可以返回客户端了。", "creator")
+	successPage := renderTikTokCallbackPage("zh-CN", "TikTok 已连接", "账号 @creator 已绑定到 OmniMux，可以返回客户端了。", "creator")
 	successLower := strings.ToLower(successPage)
+	assert.Contains(t, successPage, `<html lang="zh">`)
+	assert.Contains(t, successPage, `>返回 OmniMux</a>`)
 	assert.Contains(t, successPage, tikTokCallbackLogoSVG)
 	assert.Contains(t, successPage, `aria-hidden="true"`)
 	assert.Contains(t, successPage, `href="omnimux://social/connected"`)
@@ -464,7 +467,8 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		router.ServeHTTP(cbRec, cbReq)
 		require.Equal(t, http.StatusOK, cbRec.Code, cbRec.Body.String())
 		assertStrictCallbackHTML(t, cbRec)
-		assert.Contains(t, cbRec.Body.String(), "TikTok 已连接")
+		assert.Contains(t, cbRec.Body.String(), "TikTok Connected")
+		assert.Contains(t, cbRec.Body.String(), ">Return to OmniMux</a>")
 		cleared := cbRec.Result().Cookies()
 		require.Len(t, cleared, 1)
 		assert.Equal(t, wantName, cleared[0].Name)
@@ -937,7 +941,7 @@ func TestSocialTikTokOAuthRootCallbackAliasEndToEnd(t *testing.T) {
 				cbRec := httptest.NewRecorder()
 				engine.ServeHTTP(cbRec, cbReq)
 				require.Equal(t, http.StatusOK, cbRec.Code, cbRec.Body.String())
-				assert.Contains(t, cbRec.Body.String(), "TikTok 已连接")
+				assert.Contains(t, cbRec.Body.String(), "TikTok Connected")
 				assert.Equal(t, rootRedirectURI, lastExchangedRedirectURI.Load())
 
 				cleared := cbRec.Result().Cookies()
@@ -1000,6 +1004,234 @@ func TestSocialTikTokOAuthRootCallbackAliasEndToEnd(t *testing.T) {
 		okRec := httptest.NewRecorder()
 		engine.ServeHTTP(okRec, okReq)
 		require.Equal(t, http.StatusOK, okRec.Code, okRec.Body.String())
-		assert.Contains(t, okRec.Body.String(), "TikTok 已连接")
+		assert.Contains(t, okRec.Body.String(), "TikTok Connected")
 	})
+}
+
+func TestSocialTikTokCallbackAcceptLanguage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	oldDB, oldService := model.DB, socialSvc
+	oldSecret, oldSecure := common.SessionSecret, common.SessionCookieSecure
+	model.DB = db
+	common.SessionSecret = "test-tiktok-i18n-secret"
+	common.SessionCookieSecure = false
+	t.Cleanup(func() {
+		model.DB, socialSvc = oldDB, oldService
+		common.SessionSecret, common.SessionCookieSecure = oldSecret, oldSecure
+		_ = sqlDB.Close()
+	})
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.SocialAccount{}, &model.SocialPost{}, &model.SocialSeat{}, &model.SocialOAuthState{}))
+	require.NoError(t, db.Create(&model.User{Id: 7, Username: "u7", Quota: 1000000}).Error)
+
+	var openIDCounter atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v2/oauth/token/":
+			oid := fmt.Sprintf("oid-i18n-%d", openIDCounter.Add(1))
+			_, _ = fmt.Fprintf(w, `{"access_token":"at-%s","refresh_token":"rt-%s","expires_in":7200,"refresh_expires_in":15552000,"open_id":"%s","scope":"user.info.basic,video.upload,video.publish","token_type":"Bearer"}`, oid, oid, oid)
+		case "/v2/user/info/":
+			oid := fmt.Sprintf("oid-i18n-%d", openIDCounter.Load())
+			_, _ = fmt.Fprintf(w, `{"data":{"user":{"open_id":"%s","display_name":"GeminiX"}},"error":{"code":"ok","message":"","log_id":"log-ui"}}`, oid)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(upstream.Close)
+
+	setSocialService(social.NewService(social.Config{
+		Enabled:             true,
+		Platforms:           []string{"tiktok"},
+		TikTokDirectEnabled: true,
+		TikTokClientKey:     "tt-ck",
+		TikTokClientSecret:  "tt-cs",
+		TikTokRedirectURI:   "https://omnimux.ai/oauth/tiktok/callback",
+		TikTokAuthorizeURL:  "https://www.tiktok.com/v2/auth/authorize/",
+		TikTokBaseURL:       upstream.URL,
+		TikTokScopes:        "user.info.basic,video.upload,video.publish",
+		SocialTokenEncKey:   base64.StdEncoding.EncodeToString(make([]byte, 32)),
+	}))
+
+	engine := gin.New()
+	engine.GET("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
+	engine.GET("/oauth/tiktok/callback", SocialTikTokCallback)
+	authed := engine.Group("/api/social/v1")
+	authed.Use(func(c *gin.Context) { c.Set("id", 7); c.Next() })
+	authed.POST("/connect", SocialConnect)
+
+	startOAuth := func(t *testing.T) (string, *http.Cookie) {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/api/social/v1/connect", strings.NewReader(`{"provider":"tiktok_direct","platform":"tiktok"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		var resp struct {
+			Data struct {
+				AuthURL string `json:"auth_url"`
+			} `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(w.Body.Bytes(), &resp))
+		startURL, err := url.Parse(resp.Data.AuthURL)
+		require.NoError(t, err)
+		startRec := httptest.NewRecorder()
+		engine.ServeHTTP(startRec, httptest.NewRequest(http.MethodGet, startURL.RequestURI(), nil))
+		require.Equal(t, http.StatusFound, startRec.Code)
+		loc, err := url.Parse(startRec.Header().Get("Location"))
+		require.NoError(t, err)
+		require.Len(t, startRec.Result().Cookies(), 1)
+		return loc.Query().Get("state"), startRec.Result().Cookies()[0]
+	}
+
+	successCases := []struct {
+		name           string
+		acceptLanguage string
+		wantLangAttr   string
+		wantTitle      string
+		wantBody       string
+		wantCTA        string
+		forbid         []string
+	}{
+		{
+			name:           "English browser gets English callback page",
+			acceptLanguage: "en-US,en;q=0.9,zh-CN;q=0.8",
+			wantLangAttr:   `<html lang="en">`,
+			wantTitle:      "TikTok Connected",
+			wantBody:       "Account @GeminiX is connected to OmniMux. You can return to the app now.",
+			wantCTA:        ">Return to OmniMux</a>",
+			forbid:         []string{"TikTok 已连接", "返回 OmniMux", "已绑定到"},
+		},
+		{
+			name:           "Chinese Simplified browser gets Chinese callback page",
+			acceptLanguage: "zh-CN,zh;q=0.9,en;q=0.8",
+			wantLangAttr:   `<html lang="zh">`,
+			wantTitle:      "TikTok 已连接",
+			wantBody:       "账号 @GeminiX 已绑定到 OmniMux，可以返回客户端了。",
+			wantCTA:        ">返回 OmniMux</a>",
+			forbid:         []string{"TikTok Connected", "Return to OmniMux"},
+		},
+		{
+			name:           "Chinese Traditional browser gets Chinese callback page",
+			acceptLanguage: "zh-TW,zh;q=0.9",
+			wantLangAttr:   `<html lang="zh">`,
+			wantTitle:      "TikTok 已连接",
+			wantBody:       "账号 @GeminiX 已绑定到 OmniMux，可以返回客户端了。",
+			wantCTA:        ">返回 OmniMux</a>",
+			forbid:         []string{"TikTok Connected", "Return to OmniMux"},
+		},
+		{
+			name:           "Absent Accept-Language defaults to English",
+			acceptLanguage: "",
+			wantLangAttr:   `<html lang="en">`,
+			wantTitle:      "TikTok Connected",
+			wantBody:       "Account @GeminiX is connected to OmniMux. You can return to the app now.",
+			wantCTA:        ">Return to OmniMux</a>",
+			forbid:         []string{"TikTok 已连接", "返回 OmniMux"},
+		},
+		{
+			name:           "Non-Chinese locale falls back to English",
+			acceptLanguage: "ja-JP,ja;q=0.9",
+			wantLangAttr:   `<html lang="en">`,
+			wantTitle:      "TikTok Connected",
+			wantBody:       "Account @GeminiX is connected to OmniMux. You can return to the app now.",
+			wantCTA:        ">Return to OmniMux</a>",
+			forbid:         []string{"TikTok 已连接", "返回 OmniMux"},
+		},
+		{
+			name:           "Malicious Accept-Language never injects HTML attributes",
+			acceptLanguage: `zh" onclick="alert(1)`,
+			wantLangAttr:   `<html lang="zh">`,
+			wantTitle:      "TikTok 已连接",
+			wantBody:       "账号 @GeminiX 已绑定到 OmniMux，可以返回客户端了。",
+			wantCTA:        ">返回 OmniMux</a>",
+			forbid:         []string{"onclick", "alert(1)"},
+		},
+	}
+
+	for _, tc := range successCases {
+		t.Run(tc.name, func(t *testing.T) {
+			state, cookie := startOAuth(t)
+			req := httptest.NewRequest(http.MethodGet, "/oauth/tiktok/callback?code=c-ok&state="+url.QueryEscape(state), nil)
+			if tc.acceptLanguage != "" {
+				req.Header.Set("Accept-Language", tc.acceptLanguage)
+			}
+			req.AddCookie(cookie)
+			rec := httptest.NewRecorder()
+			engine.ServeHTTP(rec, req)
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			assert.Equal(t, "Accept-Language", rec.Header().Get("Vary"))
+			body := rec.Body.String()
+			assert.Contains(t, body, tc.wantLangAttr)
+			assert.Contains(t, body, tc.wantTitle)
+			assert.Contains(t, body, tc.wantBody)
+			assert.Contains(t, body, tc.wantCTA)
+			assert.NotContains(t, body, "·")
+			for _, bad := range tc.forbid {
+				assert.NotContains(t, body, bad)
+			}
+		})
+	}
+
+	errorCases := []struct {
+		name           string
+		path           string
+		acceptLanguage string
+		wantLangAttr   string
+		wantTitle      string
+		wantMsg        string
+	}{
+		{
+			name:           "OAuth start missing ticket in English",
+			path:           "/api/social/v1/oauth/tiktok/start",
+			acceptLanguage: "en-US,en;q=0.9",
+			wantLangAttr:   `<html lang="en">`,
+			wantTitle:      "TikTok Authorization Failed",
+			wantMsg:        "Authorization link is invalid or expired. Please return to OmniMux and try again.",
+		},
+		{
+			name:           "OAuth start missing ticket in Chinese",
+			path:           "/api/social/v1/oauth/tiktok/start",
+			acceptLanguage: "zh-CN,zh;q=0.9",
+			wantLangAttr:   `<html lang="zh">`,
+			wantTitle:      "TikTok 授权失败",
+			wantMsg:        "授权链接无效或已过期，请返回客户端重新发起连接。",
+		},
+		{
+			name:           "Callback missing params in English",
+			path:           "/oauth/tiktok/callback",
+			acceptLanguage: "en-US",
+			wantLangAttr:   `<html lang="en">`,
+			wantTitle:      "TikTok Authorization Failed",
+			wantMsg:        "missing code or state",
+		},
+		{
+			name:           "Callback missing params in Chinese",
+			path:           "/oauth/tiktok/callback",
+			acceptLanguage: "zh-CN",
+			wantLangAttr:   `<html lang="zh">`,
+			wantTitle:      "TikTok 授权失败",
+			wantMsg:        "缺少授权参数（code 或 state），请返回客户端重新发起连接。",
+		},
+	}
+
+	for _, tc := range errorCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req.Header.Set("Accept-Language", tc.acceptLanguage)
+			rec := httptest.NewRecorder()
+			engine.ServeHTTP(rec, req)
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, "Accept-Language", rec.Header().Get("Vary"))
+			body := rec.Body.String()
+			assert.Contains(t, body, tc.wantLangAttr)
+			assert.Contains(t, body, tc.wantTitle)
+			assert.Contains(t, body, tc.wantMsg)
+			assert.NotContains(t, body, "omnimux://social/connected")
+		})
+	}
 }
