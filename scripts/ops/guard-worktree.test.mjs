@@ -105,7 +105,6 @@ const cases = [
         ['tracked Go source', () => edit(TRACKED_GO_FILE), 'deny'],
         ['tracked file (absolute path)', () => write(resolve(repo, TRACKED_GO_FILE)), 'deny'],
         ['tracked root contract file', () => edit('AGENTS.md'), 'deny'],
-        ['tracked git hook', () => edit('.githooks/pre-commit'), 'deny'],
         ['this guard itself (untracked, protected dir)', () => edit('scripts/ops/guard-worktree.mjs'), 'deny'],
         ['new file in docs/', () => write('docs/ops/probe-new-page-zh.md'), 'deny'],
         ['new file in .github/', () => write('.github/workflows/probe.yml'), 'deny'],

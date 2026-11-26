@@ -15,7 +15,6 @@ docs
 /deliverables
 /.agents
 /.dsh
-/.githooks
 /cli
 /deploy
 /scripts
