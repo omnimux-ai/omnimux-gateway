@@ -172,6 +172,56 @@ describe('estimateQuote', () => {
     ).toBeNull()
   })
 
+  test('prices single-resolution per-second contract video models like magi-2', () => {
+    const subject = model({
+      model_name: 'magi-2',
+      tags: 'Video Generation,async,task',
+      model_price: 0.08,
+      contract: {
+        model_id: 'magi-2',
+        family: 'video',
+        resolutions: ['1080p'],
+        billing: {
+          unit: 'per_second',
+          pricing_basis: 'duration_seconds',
+          unit_price_usd: 0.08,
+        },
+      },
+    })
+    const schema = buildParamSchema(subject)
+    const quote = estimateQuote(subject, { duration: '10' }, schema, 1)
+    expect(quote?.usd).toBeCloseTo(0.8, 6)
+    expect(quote?.credits).toBeCloseTo(8, 6)
+  })
+
+  test('prices seedance-2-5-flash per tier group and returns null for auto duration (-1)', () => {
+    const subject = model({
+      model_name: 'seedance-2-5-flash',
+      tags: 'Video Generation,async,task',
+      model_price: 0.145588,
+      enable_groups: ['seedance-2-5-flash-480p', 'seedance-2-5-flash-720p'],
+    })
+    const schema = buildParamSchema(subject)
+
+    const quote480 = estimateQuote(
+      subject,
+      { duration: '5', resolution: '480p' },
+      schema,
+      0.44
+    )
+    expect(quote480?.usd).toBeCloseTo(0.145588 * 5 * 0.44, 6)
+
+    expect(
+      estimateQuote(subject, { duration: '-1', resolution: '720p' }, schema, 1)
+    ).toBeNull()
+    expect(
+      estimateQuote(subject, { duration: '0', resolution: '720p' }, schema, 1)
+    ).toBeNull()
+    expect(
+      estimateQuote(subject, { duration: true, resolution: '720p' }, schema, 1)
+    ).toBeNull()
+  })
+
   test('returns null when the expression cannot be parsed instead of inventing a price', () => {
     const subject = model({
       model_name: 'broken',

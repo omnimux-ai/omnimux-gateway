@@ -1,6 +1,36 @@
 const SORA_MODELS = ["sora-2", "sora-2-pro"];
 const MUSE_VIDEO_MODEL = "muse-video";
 const SEEDANCE_VIDEO_DECODER = "seedance-2-5-openai-decoder";
+const SEEDANCE_FLASH_CA_RESOLUTIONS = {
+  "sd2.5-ca-flash-480p": "480p",
+  "sd2.5-ca-flash-720p": "720p",
+};
+const SEEDANCE_FLASH_FIXED_720P_MODELS = ["jiuyue-sd25-flash-720p"];
+const SEEDANCE_FLASH_FIXED_RATIOS = ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"];
+
+const VIDEO_SECONDS_USAGE_SCHEMA = {
+  // Requested video duration in seconds.
+  seconds: {
+    type: "number",
+    unit: "second",
+    description: { en: "Video generation unit price", zh: "视频生成单价" },
+  },
+};
+
+const SORA_USAGE_SCHEMA = {
+  ...VIDEO_SECONDS_USAGE_SCHEMA,
+  // Requested output video dimensions.
+  size: {
+    enum: ["720x1280", "1280x720", "1792x1024", "1024x1792"],
+    enumLabels: {
+      "720x1280": { en: "720x1280", zh: "720x1280" },
+      "1280x720": { en: "1280x720", zh: "1280x720" },
+      "1792x1024": { en: "1792x1024", zh: "1792x1024" },
+      "1024x1792": { en: "1024x1792", zh: "1024x1792" },
+    },
+    description: { en: "Output video dimensions", zh: "输出视频尺寸" },
+  },
+};
 
 export const meta = {
   apiVersion: 1,
@@ -18,25 +48,8 @@ export const meta = {
   fetchMode: "per_task",
   // A New API gateway serves /v1/videos as a host protocol, so no URL changes.
   upstreams: ["vendor", "new_api"],
-  usageSchema: {
-    // Requested video duration in seconds.
-    seconds: {
-      type: "number",
-      unit: "second",
-      description: { en: "Video generation unit price", zh: "视频生成单价" },
-    },
-    // Requested output video dimensions.
-    size: {
-      enum: ["720x1280", "1280x720", "1792x1024", "1024x1792"],
-      enumLabels: {
-        "720x1280": { en: "720x1280", zh: "720x1280" },
-        "1280x720": { en: "1280x720", zh: "1280x720" },
-        "1792x1024": { en: "1792x1024", zh: "1792x1024" },
-        "1024x1792": { en: "1024x1792", zh: "1024x1792" },
-      },
-      description: { en: "Output video dimensions", zh: "输出视频尺寸" },
-    },
-  },
+  usageSchema: VIDEO_SECONDS_USAGE_SCHEMA,
+  usageProfiles: [{ models: SORA_MODELS, schema: SORA_USAGE_SCHEMA }],
   protocols: [{ name: "openai_responses", models: SORA_MODELS, supports: ["stream", "sync", "background"] }, "openai_video"],
 };
 
@@ -96,6 +109,267 @@ function requestValues(req, model) {
   return values;
 }
 
+function seedanceFlashCAResolution(upstreamModel) {
+  return SEEDANCE_FLASH_CA_RESOLUTIONS[trimmed(upstreamModel).toLowerCase()] || "";
+}
+
+function isSeedanceFlashFixed720pUpstream(upstreamModel) {
+  return SEEDANCE_FLASH_FIXED_720P_MODELS.includes(trimmed(upstreamModel).toLowerCase());
+}
+
+function isSeedanceFlashOpenAIUpstream(upstreamModel) {
+  return Boolean(seedanceFlashCAResolution(upstreamModel)) || isSeedanceFlashFixed720pUpstream(upstreamModel);
+}
+
+function parseStrictSeedanceFlashInt(value) {
+  if (typeof value === "number") return Number.isInteger(value) ? value : NaN;
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (/^-?\d+$/.test(text)) return Number(text);
+  }
+  return NaN;
+}
+
+function parseSeedanceFlashSeconds(req) {
+  const hasSeconds = req.seconds !== undefined && req.seconds !== null && String(req.seconds).trim() !== "";
+  const hasDuration = req.duration !== undefined && req.duration !== null && String(req.duration).trim() !== "";
+  if (!hasSeconds && !hasDuration) return 5;
+  const parsed = [];
+  if (hasSeconds) parsed.push(parseStrictSeedanceFlashInt(req.seconds));
+  if (hasDuration) parsed.push(parseStrictSeedanceFlashInt(req.duration));
+  if (parsed.some(v => !Number.isInteger(v) || v < 4 || v > 30)) {
+    throw new Error("Seedance 2.5 Flash duration must be an integer from 4 to 30 seconds");
+  }
+  if (parsed.length > 1 && parsed[0] !== parsed[1]) {
+    throw new Error("duration and seconds must specify the same integer from 4 to 30");
+  }
+  return parsed[0];
+}
+
+function parseUrlList(value, fieldName) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error(fieldName + " must be an array of URLs");
+  return value.map(item => {
+    if (typeof item !== "string" || !item.trim()) {
+      throw new Error(fieldName + " entries must be non-empty strings");
+    }
+    return item.trim();
+  });
+}
+
+function parsePixelSize(raw) {
+  const normalized = trimmed(raw).toLowerCase().replace(/[×*]/g, "x").replace(/\s+/g, "");
+  const match = /^(\d+)x(\d+)$/.exec(normalized);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) return null;
+  const shorter = Math.min(width, height);
+  const resolution = shorter === 480 ? "480p" : shorter === 720 ? "720p" : "";
+  if (!resolution) return null;
+  const ratio = width > height ? "16:9" : height > width ? "9:16" : "1:1";
+  return { resolution, ratio };
+}
+
+function assertSeedanceFlashResolutionMatches(req, skuResolution, pixelRes) {
+  const resText = trimmed(req.resolution).toLowerCase();
+  const qualText = trimmed(req.quality).toLowerCase();
+  if (resText && qualText && resText !== qualText) {
+    throw new Error("resolution and quality must match when both are provided");
+  }
+  const declared = resText || qualText;
+  if (declared && declared !== skuResolution) {
+    throw new Error("resolution " + declared + " does not match " + skuResolution + " route");
+  }
+  if (pixelRes && pixelRes !== skuResolution) {
+    throw new Error("size resolution " + pixelRes + " does not match " + skuResolution + " route");
+  }
+}
+
+function rejectUnsupportedSeedanceFlashOperations(req) {
+  const op = trimmed(req.operation).toLowerCase();
+  const taskType = trimmed(req.omni_reference_task_type).toLowerCase();
+  if (op === "video_edit" || op === "video_extend" || taskType === "edit" || taskType === "extend") {
+    throw new Error("video_edit and video_extend are not supported on this route");
+  }
+}
+
+function buildSeedanceFlashMultipartParts(values, files) {
+  const parts = [];
+  for (const key of Object.keys(values)) {
+    const val = values[key];
+    if (val === undefined || val === null) continue;
+    if (Array.isArray(val)) {
+      parts.push({ name: key, value: JSON.stringify(val) });
+    } else if (typeof val === "object") {
+      parts.push({ name: key, value: JSON.stringify(val) });
+    } else {
+      parts.push({ name: key, value: val });
+    }
+  }
+  for (const file of files) parts.push({ name: file.field, fileRef: file.ref, filename: file.filename });
+  return parts;
+}
+
+function buildSeedanceFlashCABody(req, upstreamModel, skuResolution, files) {
+  const prompt = String(req.prompt || "");
+  if (!prompt.trim()) throw new Error("field prompt is required");
+  if (Array.from(prompt).length > 10000) {
+    throw new Error("prompt exceeds 10000 characters for this route");
+  }
+  rejectUnsupportedSeedanceFlashOperations(req);
+  const seconds = parseSeedanceFlashSeconds(req);
+
+  const rawAspect = trimmed(req.aspect_ratio);
+  const rawSize = trimmed(req.size);
+  const pixel = parsePixelSize(rawSize);
+  assertSeedanceFlashResolutionMatches(req, skuResolution, pixel ? pixel.resolution : "");
+
+  const effectiveSizeRatio = pixel ? pixel.ratio : rawSize;
+  if (rawAspect && effectiveSizeRatio && rawAspect !== effectiveSizeRatio && rawAspect !== "adaptive") {
+    throw new Error("aspect_ratio and size must match when both are provided");
+  }
+  const ratio = rawAspect || effectiveSizeRatio;
+
+  const imageSources = ["reference_image_urls", "image_urls", "images"].filter(k => req[k] !== undefined && req[k] !== null);
+  if (imageSources.length > 1) throw new Error("supply only one reference image array");
+  const refImages = imageSources.length ? parseUrlList(req[imageSources[0]], imageSources[0]) : [];
+
+  const videoSources = ["reference_video_urls", "video_urls"].filter(k => req[k] !== undefined && req[k] !== null);
+  if (videoSources.length > 1) throw new Error("supply only one reference video array");
+  const refVideos = videoSources.length ? parseUrlList(req[videoSources[0]], videoSources[0]) : [];
+
+  const audioSources = ["reference_audio_urls", "audio_urls"].filter(k => req[k] !== undefined && req[k] !== null);
+  if (audioSources.length > 1) throw new Error("supply only one reference audio array");
+  const refAudios = audioSources.length ? parseUrlList(req[audioSources[0]], audioSources[0]) : [];
+
+  let firstFrame = trimmed(req.input_reference);
+  let lastFrame = trimmed(req.last_frame);
+  if (req.image_with_roles !== undefined && req.image_with_roles !== null) {
+    if (!Array.isArray(req.image_with_roles)) throw new Error("image_with_roles must be an array");
+    for (const row of req.image_with_roles) {
+      if (!row || typeof row !== "object") throw new Error("image_with_roles entries must be objects");
+      const url = typeof row.url === "string" ? row.url.trim() : "";
+      if (!url) throw new Error("image_with_roles url is required");
+      const role = trimmed(row.role).toLowerCase();
+      if (role === "first" || role === "first_frame") {
+        if (firstFrame) throw new Error("at most one first_frame image is allowed");
+        firstFrame = url;
+      } else if (role === "last" || role === "last_frame") {
+        if (lastFrame) throw new Error("at most one last_frame image is allowed");
+        lastFrame = url;
+      } else if (role === "reference" || role === "reference_image") {
+        refImages.push(url);
+      } else {
+        throw new Error("unsupported image_with_roles role: " + role);
+      }
+    }
+  }
+  const hasUploadedFiles = (files || []).length > 0;
+  if (lastFrame && !firstFrame && !hasUploadedFiles) throw new Error("last_frame requires first_frame");
+  const hasFrames = Boolean(firstFrame || lastFrame || hasUploadedFiles);
+  const totalRefs = refImages.length + refVideos.length + refAudios.length;
+  if (hasFrames && totalRefs > 0) {
+    throw new Error("frame inputs and reference media arrays are mutually exclusive");
+  }
+  if (refImages.length > 10 || refVideos.length > 5 || refAudios.length > 5 || totalRefs > 20) {
+    throw new Error("reference media exceeds 10 images / 5 videos / 5 audios (total 20)");
+  }
+
+  let normalizedRatio = ratio;
+  if (normalizedRatio === "adaptive") {
+    if (hasFrames) {
+      // Frame-locked gateway contracts send aspect_ratio="adaptive"; omit so upstream follows the frame.
+      normalizedRatio = "";
+    } else {
+      throw new Error("aspect_ratio adaptive is not supported on this route; use one of " + SEEDANCE_FLASH_FIXED_RATIOS.join(", "));
+    }
+  } else if (normalizedRatio && !SEEDANCE_FLASH_FIXED_RATIOS.includes(normalizedRatio)) {
+    throw new Error("aspect_ratio " + normalizedRatio + " is not supported on this route; use one of " + SEEDANCE_FLASH_FIXED_RATIOS.join(", "));
+  }
+
+  const body = requestValues(req, upstreamModel);
+  for (const key of [
+    "operation",
+    "omni_reference_task_type",
+    "duration",
+    "size",
+    "quality",
+    "image_with_roles",
+    "image_urls",
+    "images",
+    "video_urls",
+    "audio_urls",
+    "reference_image_urls",
+    "reference_video_urls",
+    "reference_audio_urls",
+    "input_reference",
+    "last_frame",
+    "output_format",
+    "watermark",
+    "return_last_frame",
+    "nsfw_check",
+    "draft",
+    "draft_task_id",
+    "group",
+  ]) {
+    delete body[key];
+  }
+  body.seconds = seconds;
+  body.resolution = skuResolution;
+  if (normalizedRatio) body.aspect_ratio = normalizedRatio;
+  else delete body.aspect_ratio;
+  if (firstFrame) body.input_reference = firstFrame;
+  if (lastFrame) body.last_frame = lastFrame;
+  if (refImages.length) body.reference_image_urls = refImages;
+  if (refVideos.length) body.reference_video_urls = refVideos;
+  if (refAudios.length) body.reference_audio_urls = refAudios;
+  return body;
+}
+
+function buildSeedanceFlashFixed720pBody(req, upstreamModel, files) {
+  if (!String(req.prompt || "").trim()) throw new Error("field prompt is required");
+  rejectUnsupportedSeedanceFlashOperations(req);
+  const seconds = parseSeedanceFlashSeconds(req);
+  const rawAspect = trimmed(req.aspect_ratio);
+  const rawSize = trimmed(req.size);
+  const pixel = parsePixelSize(rawSize);
+  assertSeedanceFlashResolutionMatches(req, "720p", pixel ? pixel.resolution : "");
+
+  const effectiveSizeRatio = pixel ? pixel.ratio : rawSize;
+  if (rawAspect && effectiveSizeRatio && rawAspect !== effectiveSizeRatio) {
+    throw new Error("aspect_ratio and size must match when both are provided");
+  }
+  const ratio = rawAspect || effectiveSizeRatio;
+  const allowed720pRatios = SEEDANCE_FLASH_FIXED_RATIOS.concat(["adaptive"]);
+  if (ratio && !allowed720pRatios.includes(ratio)) {
+    throw new Error("aspect_ratio " + ratio + " is not supported on this route");
+  }
+
+  const body = requestValues(req, upstreamModel);
+  for (const key of [
+    "operation",
+    "omni_reference_task_type",
+    "duration",
+    "quality",
+    "size",
+    "output_format",
+    "watermark",
+    "return_last_frame",
+    "nsfw_check",
+    "draft",
+    "draft_task_id",
+    "group",
+  ]) {
+    delete body[key];
+  }
+  body.seconds = seconds;
+  body.resolution = "720p";
+  if (ratio) body.aspect_ratio = ratio;
+  else delete body.aspect_ratio;
+  return body;
+}
+
 export function buildSubmitRequest(ctx) {
   const req = ctx.requestBody || {};
   if (!String(req.prompt || "").trim()) throw new Error("field prompt is required");
@@ -104,6 +378,24 @@ export function buildSubmitRequest(ctx) {
   if (action === "remix") {
     headers["Content-Type"] = "application/json";
     return { url: ctx.baseUrl + "/v1/videos/" + ctx.originTaskId + "/remix", method: "POST", headers, body: requestValues(req, ctx.upstreamModel), action };
+  }
+  const files = ctx.files || [];
+  const caRes = seedanceFlashCAResolution(ctx.upstreamModel);
+  if (caRes) {
+    const body = buildSeedanceFlashCABody(req, ctx.upstreamModel, caRes, files);
+    if (files.length) {
+      return { url: ctx.baseUrl + "/v1/videos", method: "POST", headers, bodyType: "multipart", parts: buildSeedanceFlashMultipartParts(body, files) };
+    }
+    headers["Content-Type"] = "application/json";
+    return { url: ctx.baseUrl + "/v1/videos", method: "POST", headers, body };
+  }
+  if (isSeedanceFlashFixed720pUpstream(ctx.upstreamModel)) {
+    const body = buildSeedanceFlashFixed720pBody(req, ctx.upstreamModel, files);
+    if (files.length) {
+      return { url: ctx.baseUrl + "/v1/videos", method: "POST", headers, bodyType: "multipart", parts: buildSeedanceFlashMultipartParts(body, files) };
+    }
+    headers["Content-Type"] = "application/json";
+    return { url: ctx.baseUrl + "/v1/videos", method: "POST", headers, body };
   }
   if ((ctx.files || []).length) {
     const parts = [];
@@ -139,6 +431,9 @@ export function extractUsage(ctx) {
     // The decoder validates seconds. The resolution tier does not establish output dimensions.
     return { seconds: req.seconds };
   }
+  if (isSeedanceFlashOpenAIUpstream(ctx.upstreamModel)) {
+    return { seconds: parseSeedanceFlashSeconds(req) };
+  }
   let seconds = Number(req.seconds || req.duration || 4);
   if (!Number.isFinite(seconds) || seconds <= 0) seconds = 4;
   return { seconds: Math.min(seconds, 3600), size: req.size || "720x1280" };
@@ -146,9 +441,19 @@ export function extractUsage(ctx) {
 
 export function extractUsageOnComplete(task, taskResult, body) {
   const facts = {};
-  const seconds = Number((body || {}).seconds || (body || {}).duration || 0);
+  const payload = body || {};
+  const upstreamModel =
+    trimmed(payload.model) ||
+    trimmed(task && (task.upstreamModel || task.upstream_model || (task.properties && task.properties.upstream_model_name)));
+  if (isSeedanceFlashOpenAIUpstream(upstreamModel)) {
+    // Ignore ambiguous outer `duration` (often wall-clock elapsed time); accept explicit media seconds only.
+    const seconds = Number(payload.seconds || payload.video_duration || payload.actual_duration || 0);
+    if (Number.isFinite(seconds) && seconds > 0) facts.seconds = Math.min(seconds, 3600);
+    return facts;
+  }
+  const seconds = Number(payload.seconds || payload.duration || 0);
   if (Number.isFinite(seconds) && seconds > 0) facts.seconds = Math.min(seconds, 3600);
-  const size = trimmed((body || {}).size);
+  const size = trimmed(payload.size);
   if (["720x1280", "1280x720", "1792x1024", "1024x1792"].includes(size)) facts.size = size;
   return facts;
 }

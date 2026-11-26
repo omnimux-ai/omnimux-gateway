@@ -93,6 +93,9 @@ func TestResolveSeedanceUpstreamModel(t *testing.T) {
 		{name: "WeiJin sd2.5-ca480p untouched on 480p", upstreamModel: "sd2.5-ca480p", originModel: "seedance-2-5", is720p: false, want: "sd2.5-ca480p"},
 		{name: "WeiJin sd2.5-ca720p untouched on 720p", upstreamModel: "sd2.5-ca720p", originModel: "seedance-2-5", is720p: true, want: "sd2.5-ca720p"},
 		{name: "WeiJin sd2.5-720p-x2 untouched on 720p", upstreamModel: "sd2.5-720p-x2", originModel: "seedance-2-5", is720p: true, want: "sd2.5-720p-x2"},
+		{name: "CA Flash 480p SKU untouched on 480p", upstreamModel: "sd2.5-ca-flash-480p", originModel: "seedance-2-5-flash", is720p: false, want: "sd2.5-ca-flash-480p"},
+		{name: "CA Flash 720p SKU untouched on 720p", upstreamModel: "sd2.5-ca-flash-720p", originModel: "seedance-2-5-flash", is720p: true, want: "sd2.5-ca-flash-720p"},
+		{name: "Fixed 720p Flash SKU untouched on 720p", upstreamModel: "jiuyue-sd25-flash-720p", originModel: "seedance-2-5-flash", is720p: true, want: "jiuyue-sd25-flash-720p"},
 
 		// Seedance 2.0 keeps its historical resolution rewrite.
 		{name: "seedace-2.0 480p + 480p req", upstreamModel: "seedace-2.0-480p", originModel: "seedance-2-0", is720p: false, want: "seedace-2.0-480p"},
@@ -151,6 +154,21 @@ func TestEstimateBillingResolutionMultiplier(t *testing.T) {
 	ratios20 := adaptor.EstimateBilling(c20, info20)
 	assert.Equal(t, float64(10), ratios20["seconds"])
 	assert.InDelta(t, 1.555556, ratios20["resolution"], 0.0001, "2.0 720p should apply 1.555556x resolution multiplier")
+
+	// 4. Seedance 2.5 Flash 720p must NOT inherit legacy Seedance 2.5 resolution multiplier
+	for _, flashModel := range []string{"seedance-2-5-flash", "seedance-2.5-flash"} {
+		wf := httptest.NewRecorder()
+		cf, _ := gin.CreateTestContext(wf)
+		cf.Set("task_request", relaycommon.TaskSubmitReq{
+			Model:      flashModel,
+			Resolution: "720p",
+			Seconds:    "8",
+		})
+		ratiosFlash := adaptor.EstimateBilling(cf, &relaycommon.RelayInfo{OriginModelName: flashModel})
+		assert.Equal(t, float64(8), ratiosFlash["seconds"], flashModel)
+		_, hasResFlash := ratiosFlash["resolution"]
+		assert.False(t, hasResFlash, "%s must not inherit legacy 1.285714x multiplier", flashModel)
+	}
 }
 
 func TestBuildRequestBodySeedanceResolutionRouting(t *testing.T) {

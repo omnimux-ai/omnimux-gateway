@@ -110,4 +110,36 @@ describe('tierGroupForResolution', () => {
       })
     ).toBe(undefined)
   })
+
+  test('resolves seedance-2-5-flash 480p and 720p tier groups when provisioned', () => {
+    const flash = subject({
+      model_name: 'seedance-2-5-flash',
+      enable_groups: ['seedance-2-5-flash-480p', 'seedance-2-5-flash-720p'],
+    })
+    expect(tierResolutions(flash)).toEqual(['480p', '720p'])
+    expect(tierGroupForResolution(flash, { resolution: '480p' })).toBe(
+      'seedance-2-5-flash-480p'
+    )
+    expect(tierGroupForResolution(flash, { resolution: '720P' })).toBe(
+      'seedance-2-5-flash-720p'
+    )
+    expect(
+      tierGroupForResolution(
+        subject({
+          model_name: 'seedance-2.5-flash',
+          enable_groups: ['seedance-2-5-flash-480p', 'seedance-2-5-flash-720p'],
+        }),
+        { resolution: '480p' }
+      )
+    ).toBe('seedance-2-5-flash-480p')
+    expect(
+      tierGroupForResolution(
+        subject({
+          model_name: 'seedance-2-5-flash',
+          enable_groups: ['default'],
+        }),
+        { resolution: '480p' }
+      )
+    ).toBe(undefined)
+  })
 })

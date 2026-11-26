@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -937,6 +938,220 @@ func TestTaskAdaptorPreservesOpenAIVideoFailureSlotsAndOwnsLifecycle(t *testing.
 
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"id":"task_public","object":"video","model":"origin-model","status":"failed","progress":0,"created_at":10,"error":{"message":"provider rejected request","code":"provider_error"}}`, string(rendered))
+}
+
+func TestSoraPluginSeedance25FlashFullValidationPipeline(t *testing.T) {
+	source, err := plugins.Source("sora")
+	require.NoError(t, err)
+	plugin, err := pluginruntime.NewRegistry().Register(source, pluginruntime.Options{})
+	require.NoError(t, err)
+
+	newJSONContext := func(upstream, payload string) (*TaskAdaptor, *gin.Context, *relaycommon.RelayInfo) {
+		adaptor := New(plugin)
+		info := &relaycommon.RelayInfo{
+			OriginModelName: "seedance-2-5-flash",
+			ChannelMeta: &relaycommon.ChannelMeta{
+				ChannelBaseUrl:    "https://upstream.example",
+				UpstreamModelName: upstream,
+				IsModelMapped:     true,
+			},
+			TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+		}
+		adaptor.Init(info)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", strings.NewReader(payload))
+		c.Request.Header.Set("Content-Type", "application/json")
+		return adaptor, c, info
+	}
+
+	t.Run("CA Flash 480p preserves multimodal arrays, integer seconds, and aspect size through ValidateRequestAndSetAction", func(t *testing.T) {
+		payload := `{
+			"model":"seedance-2-5-flash",
+			"operation":"video_multi_ref",
+			"omni_reference_task_type":"reference",
+			"prompt":"ocean waves",
+			"seconds":8,
+			"resolution":"480p",
+			"size":"16:9",
+			"image_urls":["https://cdn.example/a.png"],
+			"video_urls":["https://cdn.example/b.mp4"],
+			"audio_urls":["https://cdn.example/c.mp3"],
+			"output_format":"mp4"
+		}`
+		adaptor, c, info := newJSONContext("sd2.5-ca-flash-480p", payload)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+
+		facts, err := adaptor.ExtractUsageFactsValidated(c, info)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"seconds": float64(8)}, facts)
+
+		reader, err := adaptor.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		bodyBytes, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.Unmarshal(bodyBytes, &sent))
+		assert.Equal(t, "sd2.5-ca-flash-480p", sent["model"])
+		assert.Equal(t, float64(8), sent["seconds"])
+		assert.Equal(t, "480p", sent["resolution"])
+		assert.Equal(t, "16:9", sent["aspect_ratio"])
+		assert.Equal(t, []any{"https://cdn.example/a.png"}, sent["reference_image_urls"])
+		assert.Equal(t, []any{"https://cdn.example/b.mp4"}, sent["reference_video_urls"])
+		assert.Equal(t, []any{"https://cdn.example/c.mp3"}, sent["reference_audio_urls"])
+		for _, stripped := range []string{"operation", "omni_reference_task_type", "duration", "size", "image_urls", "video_urls", "audio_urls", "output_format"} {
+			assert.NotContains(t, sent, stripped)
+		}
+	})
+
+	t.Run("CA Flash translates first+last frames and omits adaptive ratio locked by frame contracts", func(t *testing.T) {
+		payload := `{
+			"model":"seedance-2-5-flash",
+			"operation":"first_last_frame",
+			"prompt":"morph",
+			"duration":6,
+			"resolution":"480p",
+			"aspect_ratio":"adaptive",
+			"image_with_roles":[
+				{"url":"https://cdn.example/first.png","role":"first_frame"},
+				{"url":"https://cdn.example/last.png","role":"last_frame"}
+			]
+		}`
+		adaptor, c, info := newJSONContext("sd2.5-ca-flash-480p", payload)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+
+		reader, err := adaptor.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		bodyBytes, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.Unmarshal(bodyBytes, &sent))
+		assert.Equal(t, "https://cdn.example/first.png", sent["input_reference"])
+		assert.Equal(t, "https://cdn.example/last.png", sent["last_frame"])
+		assert.NotContains(t, sent, "aspect_ratio")
+		assert.NotContains(t, sent, "image_with_roles")
+	})
+
+	t.Run("CA Flash normalizes pixel size 854x480 and rejects invalid payloads end-to-end", func(t *testing.T) {
+		adaptor, c, info := newJSONContext("sd2.5-ca-flash-480p", `{"model":"seedance-2-5-flash","prompt":"waves","duration":5,"size":"854x480"}`)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+		reader, err := adaptor.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		bodyBytes, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.Unmarshal(bodyBytes, &sent))
+		assert.Equal(t, "480p", sent["resolution"])
+		assert.Equal(t, "16:9", sent["aspect_ratio"])
+
+		tooManyImages := make([]string, 11)
+		for i := range tooManyImages {
+			tooManyImages[i] = fmt.Sprintf(`"https://cdn.example/%d.png"`, i)
+		}
+		for _, tc := range []struct {
+			name    string
+			payload string
+		}{
+			{"auto duration -1", `{"model":"seedance-2-5-flash","prompt":"x","duration":-1}`},
+			{"duration 3", `{"model":"seedance-2-5-flash","prompt":"x","seconds":3}`},
+			{"resolution mismatch", `{"model":"seedance-2-5-flash","prompt":"x","duration":5,"resolution":"720p"}`},
+			{"empty resolution does not mask invalid quality", `{"model":"seedance-2-5-flash","prompt":"x","duration":5,"resolution":"","quality":"1080p"}`},
+			{"adaptive ratio on T2V", `{"model":"seedance-2-5-flash","prompt":"x","duration":5,"aspect_ratio":"adaptive"}`},
+			{"video_edit rejected", `{"model":"seedance-2-5-flash","prompt":"x","operation":"video_edit","duration":5,"video_urls":["https://cdn.example/v.mp4"]}`},
+			{"non-string image_urls entry", `{"model":"seedance-2-5-flash","prompt":"x","duration":5,"image_urls":[{"url":"https://cdn.example/a.png"}]}`},
+			{">10 images", `{"model":"seedance-2-5-flash","prompt":"x","duration":5,"image_urls":[` + strings.Join(tooManyImages, ",") + `]}`},
+			{"prompt >10000 chars", `{"model":"seedance-2-5-flash","prompt":"` + strings.Repeat("云", 10001) + `","duration":5}`},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				a, ctx, inf := newJSONContext("sd2.5-ca-flash-480p", tc.payload)
+				taskErr := a.ValidateRequestAndSetAction(ctx, inf)
+				require.NotNil(t, taskErr, tc.name)
+				assert.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
+			})
+		}
+	})
+
+	t.Run("multipart upload still enforces Flash validation and SKU resolution lock", func(t *testing.T) {
+		buildMultipart := func(fields map[string]string) (*bytes.Buffer, string) {
+			var buf bytes.Buffer
+			w := multipart.NewWriter(&buf)
+			for k, v := range fields {
+				require.NoError(t, w.WriteField(k, v))
+			}
+			part, err := w.CreateFormFile("input_reference", "frame.png")
+			require.NoError(t, err)
+			_, err = part.Write([]byte("png-bytes"))
+			require.NoError(t, err)
+			require.NoError(t, w.Close())
+			return &buf, w.FormDataContentType()
+		}
+
+		// Valid multipart with adaptive ratio and matching 480p succeeds and translates duration -> seconds.
+		buf, contentType := buildMultipart(map[string]string{
+			"model": "seedance-2-5-flash", "prompt": "cat", "duration": "7", "resolution": "480p", "aspect_ratio": "adaptive",
+		})
+		adaptor := New(plugin)
+		info := &relaycommon.RelayInfo{
+			OriginModelName: "seedance-2-5-flash",
+			ChannelMeta:     &relaycommon.ChannelMeta{ChannelBaseUrl: "https://upstream.example", UpstreamModelName: "sd2.5-ca-flash-480p", IsModelMapped: true},
+			TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+		}
+		adaptor.Init(info)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", buf)
+		c.Request.Header.Set("Content-Type", contentType)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+
+		// Mismatched resolution in multipart MUST be rejected instead of bypassing validation.
+		badBuf, badCT := buildMultipart(map[string]string{
+			"model": "seedance-2-5-flash", "prompt": "cat", "duration": "7", "resolution": "720p",
+		})
+		badAdaptor := New(plugin)
+		badAdaptor.Init(info)
+		badCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+		badCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", badBuf)
+		badCtx.Request.Header.Set("Content-Type", badCT)
+		taskErr := badAdaptor.ValidateRequestAndSetAction(badCtx, info)
+		require.NotNil(t, taskErr)
+		assert.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
+	})
+
+	t.Run("fixed 720p SKU normalizes pixel size/seconds and rejects mismatched resolution or video_extend", func(t *testing.T) {
+		adaptor, c, info := newJSONContext("jiuyue-sd25-flash-720p", `{
+			"model":"seedance-2-5-flash",
+			"operation":"text_to_video",
+			"prompt":"city night",
+			"duration":10,
+			"size":"1280x720",
+			"output_format":"mov"
+		}`)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+		facts, err := adaptor.ExtractUsageFactsValidated(c, info)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"seconds": float64(10)}, facts)
+
+		reader, err := adaptor.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		bodyBytes, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.Unmarshal(bodyBytes, &sent))
+		assert.Equal(t, "jiuyue-sd25-flash-720p", sent["model"])
+		assert.Equal(t, float64(10), sent["seconds"])
+		assert.Equal(t, "720p", sent["resolution"])
+		assert.Equal(t, "16:9", sent["aspect_ratio"])
+		assert.NotContains(t, sent, "operation")
+		assert.NotContains(t, sent, "output_format")
+
+		for _, bad := range []string{
+			`{"model":"seedance-2-5-flash","prompt":"x","duration":-1}`,
+			`{"model":"seedance-2-5-flash","prompt":"x","duration":5,"resolution":"480p"}`,
+			`{"model":"seedance-2-5-flash","prompt":"x","operation":"video_extend","duration":5}`,
+		} {
+			a, ctx, inf := newJSONContext("jiuyue-sd25-flash-720p", bad)
+			taskErr := a.ValidateRequestAndSetAction(ctx, inf)
+			require.NotNil(t, taskErr, bad)
+		}
+	})
 }
 
 func TestTaskAdaptorBoundsNativeUsageBeforeQuotaCalculation(t *testing.T) {

@@ -105,6 +105,66 @@ func validPhaseOneCases() []struct {
 			model     string
 			operation string
 			body      map[string]any
+		}{"seedance-2-5-flash/text", "seedance-2-5-flash", opTextToVideo, request(opTextToVideo, map[string]any{"prompt": "city", "duration": 10, "resolution": "720p", "size": "16:9"})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"seedance-2-5-flash/first", "seedance-2-5-flash", opFirstFrame, request(opFirstFrame, map[string]any{"prompt": "move", "size": "adaptive", "resolution": "480p", "image_with_roles": []any{roleImage("first")}})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"seedance-2-5-flash/first-last", "seedance-2-5-flash", opFirstLastFrame, request(opFirstLastFrame, map[string]any{"prompt": "transition", "size": "adaptive", "image_with_roles": []any{roleImage("first"), roleImage("last")}})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"seedance-2-5-flash/reference", "seedance-2-5-flash", opVideoMultiRef, request(opVideoMultiRef, map[string]any{"prompt": "reference", "audio_urls": []any{"https://cdn.example.com/voice.mp3"}, "omni_reference_task_type": "reference"})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"seedance-2-5-flash/edit", "seedance-2-5-flash", opVideoEdit, request(opVideoEdit, map[string]any{"prompt": "edit video", "video_urls": []any{"https://cdn.example.com/source.mp4"}, "size": "adaptive", "duration": -1, "output_format": "mov", "omni_reference_task_type": "edit"})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"seedance-2-5-flash/extend", "seedance-2-5-flash", opVideoExtend, request(opVideoExtend, map[string]any{"prompt": "continue video", "video_urls": []any{"https://cdn.example.com/source.mp4"}, "size": "adaptive", "duration": 8, "omni_reference_task_type": "extend"})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"magi-2/text", "magi-2", opTextToVideo, request(opTextToVideo, map[string]any{"prompt": "city", "duration": 5, "resolution": "1080p", "aspect_ratio": "16:9", "generate_audio": true, "seed": 4294967295})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"magi-2/first", "magi-2", opFirstFrame, request(opFirstFrame, map[string]any{"aspect_ratio": "9:16", "image_with_roles": []any{roleImage("first")}})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"magi-2/first-last", "magi-2", opFirstLastFrame, request(opFirstLastFrame, map[string]any{"aspect_ratio": "21:9", "image_with_roles": []any{roleImage("first"), roleImage("last")}})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
+		}{"magi-2/reference", "magi-2", opVideoMultiRef, request(opVideoMultiRef, map[string]any{"audio_urls": []any{"https://cdn.example.com/voice.mp3"}})},
+		struct {
+			name      string
+			model     string
+			operation string
+			body      map[string]any
 		}{"wan/text", "wan-3.0", opTextToVideo, request(opTextToVideo, map[string]any{"prompt": "city", "resolution": "720p", "duration": -1})},
 		struct {
 			name      string
@@ -503,6 +563,72 @@ func TestOmniFlashExtCaps(t *testing.T) {
 	require.Error(t, validateOmniFlashExtCaps(map[string]any{"resolution": "1440p", "duration": 4}))
 }
 
+func TestPhaseOneVideoContracts_Magi2AndSeedance25FlashBoundaries(t *testing.T) {
+	// MAGI-2 rejects adaptive ratio, non-1080p resolution, -1 duration, http media URL,
+	// prompt >15000 runes, seed > 4294967295, unsupported fields, and >10/5/5 references.
+	for _, tc := range []struct {
+		name string
+		body map[string]any
+		want string
+	}{
+		{"magi-2 adaptive ratio", request(opFirstFrame, map[string]any{"aspect_ratio": "adaptive", "image_with_roles": []any{roleImage("first")}}), "aspect_ratio"},
+		{"magi-2 720p rejected", request(opTextToVideo, map[string]any{"prompt": "city", "resolution": "720p"}), "resolution"},
+		{"magi-2 auto duration rejected", request(opTextToVideo, map[string]any{"prompt": "city", "duration": -1}), "duration"},
+		{"magi-2 duration 3 rejected", request(opTextToVideo, map[string]any{"prompt": "city", "duration": 3}), "duration"},
+		{"magi-2 prompt >15000 runes", request(opTextToVideo, map[string]any{"prompt": strings.Repeat("风", 15001)}), "15000"},
+		{"magi-2 http image rejected", request(opVideoMultiRef, map[string]any{"image_urls": []any{"http://cdn.example.com/a.png"}}), "HTTPS"},
+		{"magi-2 output_format rejected", request(opTextToVideo, map[string]any{"prompt": "city", "output_format": "mp4"}), "output_format"},
+		{"magi-2 seed overflow rejected", request(opTextToVideo, map[string]any{"prompt": "city", "seed": int64(4294967296)}), "4294967295"},
+		{"magi-2 http callback rejected", request(opTextToVideo, map[string]any{"prompt": "city", "callback_url": "http://example.com/cb"}), "callback_url"},
+		{"magi-2 >5 videos rejected", request(opVideoMultiRef, map[string]any{"video_urls": []any{"https://a/1.mp4", "https://a/2.mp4", "https://a/3.mp4", "https://a/4.mp4", "https://a/5.mp4", "https://a/6.mp4"}}), "5 reference videos"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := validatePhaseOneVideoRequest("magi-2", tc.body)
+			require.ErrorContains(t, err, tc.want)
+		})
+	}
+
+	// Seedance 2.5 Flash rejects 1080p/4k, >10 images, >5 videos, >5 audios, draft, and non-adaptive first_frame.
+	elevenImages := make([]any, 11)
+	for i := range elevenImages {
+		elevenImages[i] = fmt.Sprintf("https://cdn.example.com/%d.png", i)
+	}
+	for _, tc := range []struct {
+		name string
+		body map[string]any
+		want string
+	}{
+		{"flash 1080p rejected", request(opTextToVideo, map[string]any{"prompt": "city", "resolution": "1080p"}), "resolution"},
+		{"flash 4k rejected", request(opTextToVideo, map[string]any{"prompt": "city", "resolution": "4k"}), "resolution"},
+		{"flash >10 images rejected", request(opVideoMultiRef, map[string]any{"prompt": "ref", "image_urls": elevenImages}), "10 image"},
+		{"flash >5 audios rejected", request(opVideoMultiRef, map[string]any{"prompt": "ref", "audio_urls": []any{"https://a/1.mp3", "https://a/2.mp3", "https://a/3.mp3", "https://a/4.mp3", "https://a/5.mp3", "https://a/6.mp3"}}), "5 audio"},
+		{"flash first_frame requires adaptive", request(opFirstFrame, map[string]any{"prompt": "move", "size": "16:9", "image_with_roles": []any{roleImage("first")}}), "adaptive"},
+		{"flash draft rejected", request(opTextToVideo, map[string]any{"prompt": "city", "draft": true}), "draft"},
+		{"flash resolution/quality conflict rejected", request(opTextToVideo, map[string]any{"prompt": "city", "resolution": "480p", "quality": "720p"}), "resolution and quality must match"},
+		{"flash quality 1080p rejected", request(opTextToVideo, map[string]any{"prompt": "city", "quality": "1080p"}), "resolution"},
+		{"flash pixel size conflicts with resolution", request(opTextToVideo, map[string]any{"prompt": "city", "resolution": "720p", "size": "854x480"}), "conflicts with size"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := validatePhaseOneVideoRequest("seedance-2-5-flash", tc.body)
+			require.ErrorContains(t, err, tc.want)
+		})
+	}
+
+	// Dotted spelling seedance-2.5-flash must still pass through phase-one validation.
+	_, err := validatePhaseOneVideoRequest("seedance-2.5-flash", request(opTextToVideo, map[string]any{
+		"prompt": "city", "resolution": "4k",
+	}))
+	require.ErrorContains(t, err, "resolution")
+
+	// OpenAI-style WxH pixel sizes normalize to resolution + aspect ratio for seedance-2-5-flash.
+	normalized, err := validatePhaseOneVideoRequest("seedance-2-5-flash", request(opTextToVideo, map[string]any{
+		"prompt": "city", "size": "854x480", "duration": 5,
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "480p", normalized["resolution"])
+	assert.Equal(t, "16:9", normalized["size"])
+}
+
 // The published executable set must not drift from operationAllowed. The
 // catalog is a promise a client renders and submits from; if the validator
 // accepts fewer operations than the contract, the client offers dead modes.
@@ -512,6 +638,8 @@ func TestPublishedExecutableOperationsMatchAPIMartContract(t *testing.T) {
 		"seedance-2-0-fast":      {opTextToVideo, opFirstFrame, opFirstLastFrame, opVideoMultiRef},
 		"seedance-2-0-mini":      {opTextToVideo, opFirstFrame, opFirstLastFrame, opVideoMultiRef},
 		"seedance-2-5":           {opTextToVideo, opFirstFrame, opFirstLastFrame, opVideoMultiRef, opVideoEdit, opVideoExtend},
+		"seedance-2-5-flash":     {opTextToVideo, opFirstFrame, opFirstLastFrame, opVideoMultiRef, opVideoEdit, opVideoExtend},
+		"magi-2":                 {opTextToVideo, opFirstFrame, opFirstLastFrame, opVideoMultiRef},
 		"wan-3.0":                {opTextToVideo, opFirstFrame, opFirstLastFrame, opVideoMultiRef, opDocumentToVideo, opWebpageToVideo},
 		"minimax-h3":             {opTextToVideo, opFirstFrame, opEndFrame, opFirstLastFrame, opVideoMultiRef},
 		"grok-imagine-video-1-5": {opTextToVideo, opVideoMultiRef},

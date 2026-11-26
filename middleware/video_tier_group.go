@@ -35,11 +35,16 @@ var videoTierGroups = map[string]map[string]string{
 		"720p":  "wan-3.0-720p",
 		"1080p": "wan-3.0-1080p",
 	},
+	"seedance-2-5-flash": {
+		"480p": "seedance-2-5-flash-480p",
+		"720p": "seedance-2-5-flash-720p",
+	},
 }
 
 // videoTierExampleSizes spells one documented size form per tier. It exists only
 // to make the missing-resolution error actionable.
 var videoTierExampleSizes = map[string]string{
+	"480p":  "854x480",
 	"720p":  "1280x720",
 	"1080p": "1920x1080",
 }
@@ -159,25 +164,33 @@ func selectVideoTierGroup(c *gin.Context) (string, error) {
 	if !declared {
 		return "", nil
 	}
-	tier, ok := videoTierFromResolution(request.Resolution, request.Size)
-	if !ok {
-		return "", videoTierResolutionRequiredError(model, tiers)
-	}
-	group := tiers[tier]
-	if group == "" {
-		// A quality this model does not offer is the same caller mistake as an
-		// absent one: the error names the tiers the model does declare.
-		return "", videoTierResolutionRequiredError(model, tiers)
-	}
-	// A tier group only exists once it is provisioned and usable for this
-	// account. Until then the request keeps its existing group rather than
-	// failing authorization downstream.
 	userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
 	if userGroup == "" {
 		userGroup = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	}
-	if !service.IsUserSelectableGroup(userGroup, group) {
+	// Only enforce tier-group resolution selection once at least one tier group
+	// is provisioned and selectable for this account. Until then, requests keep
+	// their existing group (e.g. default) without being rejected for an omitted
+	// resolution. When partially provisioned, enforce against the selectable
+	// tiers only so an unprovisioned resolution never silently falls through.
+	provisionedTiers := make(map[string]string, len(tiers))
+	for tierKey, tierGroup := range tiers {
+		if service.IsUserSelectableGroup(userGroup, tierGroup) {
+			provisionedTiers[tierKey] = tierGroup
+		}
+	}
+	if len(provisionedTiers) == 0 {
 		return "", nil
+	}
+	tier, ok := videoTierFromResolution(request.Resolution, request.Size)
+	if !ok {
+		return "", videoTierResolutionRequiredError(model, provisionedTiers)
+	}
+	group := provisionedTiers[tier]
+	if group == "" {
+		// A quality this model does not offer (or that is not provisioned) is
+		// rejected with the provisioned tiers so routing and billing agree.
+		return "", videoTierResolutionRequiredError(model, provisionedTiers)
 	}
 	return group, nil
 }
@@ -233,6 +246,8 @@ func videoTierFromText(text string) string {
 // provisioned tiers resolve; every other height is unknown, not a nearest tier.
 func videoTierFromHeight(height int) string {
 	switch height {
+	case 480:
+		return "480p"
 	case 720:
 		return "720p"
 	case 1080:

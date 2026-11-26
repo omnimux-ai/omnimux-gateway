@@ -278,7 +278,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		if upstream == "" {
 			upstream = strings.TrimSpace(info.OriginModelName)
 		}
-		upstream = mapUpstreamModel(upstream)
+		if !info.IsModelMapped {
+			upstream = mapUpstreamModel(upstream)
+		}
 	}
 	out["model"] = upstream
 
@@ -306,9 +308,14 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		}
 	}
 	if kind == kindVideo {
+		operation := strings.TrimSpace(asString(out["operation"]))
 		delete(out, "operation")
 		if isEvoLinkWanUpstream(upstream) {
 			normalizeEvoLinkWanRequestBody(out)
+		} else if isEvoLinkMagi2Upstream(upstream) {
+			normalizeEvoLinkMagi2RequestBody(out, operation)
+		} else if isEvoLinkSeedance25FlashUpstream(upstream) {
+			normalizeEvoLinkSeedance25FlashRequestBody(out, operation)
 		}
 		// fork: Omni-Flash-Ext 的按次价只覆盖 ≤1080P 档，超档（4K / 超时长）在入口拒绝，避免上游计费高于售价。
 		if isOmniFlashExtModel(upstream) || isOmniFlashExtModel(info.OriginModelName) {
@@ -380,6 +387,218 @@ func normalizeEvoLinkWanRequestBody(body map[string]any) {
 			}
 		}
 		delete(body, "size")
+	}
+}
+
+func isEvoLinkMagi2Upstream(name string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(name)), "magi-2-")
+}
+
+func isEvoLinkSeedance25FlashUpstream(name string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(name)), "seedance-2.5-flash")
+}
+
+// flattenEvoLinkRoleImages translates gateway `image_with_roles` entries into
+// EvoLink's ordered `image_urls` array and removes `image_with_roles`.
+func flattenEvoLinkRoleImages(body map[string]any, operation string) {
+	raw, exists := body["image_with_roles"]
+	if !exists || raw == nil {
+		delete(body, "image_with_roles")
+		return
+	}
+	var first, last string
+	var refs []string
+	var rows []map[string]any
+	switch typed := raw.(type) {
+	case []any:
+		for _, item := range typed {
+			if m, ok := item.(map[string]any); ok {
+				rows = append(rows, m)
+			}
+		}
+	case []map[string]any:
+		rows = typed
+	}
+	for _, row := range rows {
+		u := strings.TrimSpace(asString(row["url"]))
+		if u == "" {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(asString(row["role"]))) {
+		case "first", "first_frame":
+			if first == "" {
+				first = u
+			}
+		case "last", "last_frame":
+			if last == "" {
+				last = u
+			}
+		case "reference", "reference_image":
+			refs = append(refs, u)
+		}
+	}
+	delete(body, "image_with_roles")
+
+	switch operation {
+	case opFirstFrame:
+		if first != "" {
+			body["image_urls"] = []string{first}
+		}
+	case opFirstLastFrame:
+		var frames []string
+		if first != "" {
+			frames = append(frames, first)
+		}
+		if last != "" {
+			frames = append(frames, last)
+		}
+		if len(frames) > 0 {
+			body["image_urls"] = frames
+		}
+	case opVideoMultiRef, opVideoEdit, opVideoExtend:
+		if len(refs) == 0 {
+			return
+		}
+		existing := stringSliceValue(body["image_urls"])
+		body["image_urls"] = append(existing, refs...)
+	}
+}
+
+func stringSliceValue(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		out := make([]string, len(typed))
+		copy(out, typed)
+		return out
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				out = append(out, strings.TrimSpace(s))
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func inferEvoLinkOperationFromBody(body map[string]any) string {
+	switch strings.ToLower(strings.TrimSpace(asString(body["omni_reference_task_type"]))) {
+	case "edit":
+		return opVideoEdit
+	case "extend":
+		return opVideoExtend
+	}
+	if raw, ok := body["image_with_roles"]; ok && raw != nil {
+		hasFirst, hasLast, hasRef := false, false, false
+		var rows []map[string]any
+		if typed, ok := raw.([]any); ok {
+			for _, item := range typed {
+				if m, ok := item.(map[string]any); ok {
+					rows = append(rows, m)
+				}
+			}
+		} else if typed, ok := raw.([]map[string]any); ok {
+			rows = typed
+		}
+		for _, row := range rows {
+			switch strings.ToLower(strings.TrimSpace(asString(row["role"]))) {
+			case "first", "first_frame":
+				hasFirst = true
+			case "last", "last_frame":
+				hasLast = true
+			case "reference", "reference_image":
+				hasRef = true
+			}
+		}
+		if hasFirst && hasLast {
+			return opFirstLastFrame
+		}
+		if hasFirst {
+			return opFirstFrame
+		}
+		if hasRef {
+			return opVideoMultiRef
+		}
+	}
+	if len(stringSliceValue(body["image_urls"])) > 0 ||
+		len(stringSliceValue(body["video_urls"])) > 0 ||
+		len(stringSliceValue(body["audio_urls"])) > 0 {
+		return opVideoMultiRef
+	}
+	return opTextToVideo
+}
+
+func normalizeEvoLinkCommonVideoFields(body map[string]any) {
+	if value, ok := body["resolution"]; ok {
+		if value != nil {
+			if q := strings.ToLower(strings.TrimSpace(fmt.Sprint(value))); q != "" {
+				body["quality"] = q
+			}
+		}
+		delete(body, "resolution")
+	} else if value, ok := body["quality"]; ok && value != nil {
+		body["quality"] = strings.ToLower(strings.TrimSpace(fmt.Sprint(value)))
+	}
+	if _, ok := body["duration"]; !ok {
+		if value, ok := body["seconds"]; ok && value != nil {
+			body["duration"] = value
+		}
+	}
+	delete(body, "seconds")
+	if value, ok := body["size"]; ok {
+		if _, exists := body["aspect_ratio"]; !exists && value != nil {
+			if size := strings.TrimSpace(fmt.Sprint(value)); size != "" {
+				body["aspect_ratio"] = size
+			}
+		}
+		delete(body, "size")
+	}
+	if value, ok := body["audio"]; ok {
+		if _, exists := body["generate_audio"]; !exists && value != nil {
+			body["generate_audio"] = value
+		}
+		delete(body, "audio")
+	}
+}
+
+func normalizeEvoLinkMagi2RequestBody(body map[string]any, operation string) {
+	if operation == "" {
+		operation = inferEvoLinkOperationFromBody(body)
+	}
+	switch operation {
+	case opFirstFrame, opFirstLastFrame:
+		body["model"] = "magi-2-image-to-video"
+	case opVideoMultiRef:
+		body["model"] = "magi-2-reference-to-video"
+	default:
+		body["model"] = "magi-2-text-to-video"
+	}
+	flattenEvoLinkRoleImages(body, operation)
+	normalizeEvoLinkCommonVideoFields(body)
+}
+
+func normalizeEvoLinkSeedance25FlashRequestBody(body map[string]any, operation string) {
+	if operation == "" {
+		operation = inferEvoLinkOperationFromBody(body)
+	}
+	switch operation {
+	case opFirstFrame, opFirstLastFrame:
+		body["model"] = "seedance-2.5-flash-image-to-video"
+	case opVideoMultiRef:
+		body["model"] = "seedance-2.5-flash-reference-to-video"
+	case opVideoEdit:
+		body["model"] = "seedance-2.5-flash-video-edit"
+	case opVideoExtend:
+		body["model"] = "seedance-2.5-flash-video-extend"
+	default:
+		body["model"] = "seedance-2.5-flash-text-to-video"
+	}
+	flattenEvoLinkRoleImages(body, operation)
+	normalizeEvoLinkCommonVideoFields(body)
+	for _, field := range []string{"omni_reference_task_type", "watermark", "return_last_frame", "nsfw_check"} {
+		delete(body, field)
 	}
 }
 
@@ -513,10 +732,14 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 				Message string `json:"message"`
 			} `json:"error"`
 		} `json:"data"`
-		// Flat fallbacks
+		// Flat fallbacks (EvoLink and other flat task status payloads)
 		Status         string         `json:"status"`
 		ID             string         `json:"id"`
+		Progress       any            `json:"progress"`
+		Error          any            `json:"error"`
 		Result         map[string]any `json:"result"`
+		Results        []any          `json:"results"`
+		ResultData     []any          `json:"result_data"`
 		Usage          map[string]any `json:"usage"`
 		ActualDuration any            `json:"actual_duration"`
 		VideoDuration  any            `json:"video_duration"`
@@ -547,10 +770,53 @@ func (a *TaskAdaptor) ParseTaskResult(task *model.Task, resp *http.Response, res
 			"actual_duration": envelope.Data.ActualDuration,
 			"video_duration":  envelope.Data.VideoDuration,
 		}
+	} else {
+		switch p := envelope.Progress.(type) {
+		case float64:
+			if p > 0 && p < 100 {
+				info.Progress = fmt.Sprintf("%d%%", int(p))
+			}
+		case int:
+			if p > 0 && p < 100 {
+				info.Progress = fmt.Sprintf("%d%%", p)
+			}
+		case string:
+			if ps := strings.TrimSpace(p); ps != "" {
+				if n, err := anyToInt(strings.TrimSuffix(ps, "%")); err == nil {
+					if n > 0 && n < 100 {
+						info.Progress = fmt.Sprintf("%d%%", n)
+					}
+				} else {
+					info.Progress = ps
+				}
+			}
+		}
+		switch errVal := envelope.Error.(type) {
+		case string:
+			if msg := strings.TrimSpace(errVal); msg != "" {
+				info.Reason = msg
+			}
+		case map[string]any:
+			if msg := strings.TrimSpace(asString(errVal["message"])); msg != "" {
+				info.Reason = msg
+			}
+		}
 	}
 	if u := extractMediaURL(resultMap); u != "" {
 		info.Url = u
 		info.RemoteUrl = u
+	}
+	if info.Url == "" && len(envelope.Results) > 0 {
+		if u := firstURLFromList(envelope.Results, []string{"url", "video_url", "audio_url", "image_url"}); u != "" {
+			info.Url = u
+			info.RemoteUrl = u
+		}
+	}
+	if info.Url == "" && len(envelope.ResultData) > 0 {
+		if u := firstURLFromList(envelope.ResultData, []string{"url", "video_url", "audio_url", "image_url"}); u != "" {
+			info.Url = u
+			info.RemoteUrl = u
+		}
 	}
 	if info.TaskID == "" {
 		info.TaskID = strings.TrimSpace(envelope.ID)
@@ -796,13 +1062,18 @@ func firstURLFromList(v any, keys []string) string {
 	if !ok || len(arr) == 0 {
 		return ""
 	}
-	item, ok := arr[0].(map[string]any)
-	if !ok {
-		return asURLString(arr[0])
-	}
-	for _, k := range keys {
-		if u := asURLString(item[k]); u != "" {
-			return u
+	for _, entry := range arr {
+		item, ok := entry.(map[string]any)
+		if !ok {
+			if u := asURLString(entry); u != "" {
+				return u
+			}
+			continue
+		}
+		for _, k := range keys {
+			if u := asURLString(item[k]); u != "" {
+				return u
+			}
 		}
 	}
 	return ""
@@ -834,6 +1105,8 @@ func (a *TaskAdaptor) GetModelList() []string {
 		"seedance-2-0-fast",
 		"seedance-2-0-mini",
 		"seedance-2-5",
+		"seedance-2-5-flash",
+		"magi-2",
 		"wan-3.0",
 		"minimax-h3",
 		"grok-imagine-video-1-5",

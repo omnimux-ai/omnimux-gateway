@@ -29,6 +29,8 @@ var phaseOneWireModels = map[string]string{
 	"seedance-2-0-fast":      "seedance-2.0-fast",
 	"seedance-2-0-mini":      "seedance-2.0-mini",
 	"seedance-2-5":           "seedance-2.5",
+	"seedance-2-5-flash":     "seedance-2-5-flash",
+	"magi-2":                 "magi-2-text-to-video",
 	"wan-3.0":                "wan3.0-video",
 	"minimax-h3":             "MiniMax-H3",
 	"grok-imagine-video-1-5": "grok-imagine-video-1.5",
@@ -44,6 +46,10 @@ func canonicalPhaseOneVideoModel(name string) (string, bool) {
 		return "seedance-2-0-mini", true
 	case "seedance-2-5", "seedance-2.5":
 		return "seedance-2-5", true
+	case "seedance-2-5-flash", "seedance-2.5-flash", "doubao-seedance-2-5-flash", "doubao-seedance-2-5-flash-261115":
+		return "seedance-2-5-flash", true
+	case "magi-2":
+		return "magi-2", true
 	case "wan-3.0", "wan3.0-video":
 		return "wan-3.0", true
 	case "minimax-h3":
@@ -99,7 +105,9 @@ func normalizePhaseOneVideoRequest(modelID string, raw map[string]any) (map[stri
 		out["image_urls"] = value
 		delete(out, "images")
 	}
-	normalizePhaseOneGatewayFields(modelID, out)
+	if err := normalizePhaseOneGatewayFields(modelID, out); err != nil {
+		return nil, phaseOneMedia{}, err
+	}
 	for _, key := range []string{"image", "image_tail", "reference_images", "input_reference"} {
 		if value, exists := out[key]; exists && value != nil {
 			return nil, phaseOneMedia{}, fmt.Errorf("%s is not an APIMart field for %s", key, modelID)
@@ -221,7 +229,7 @@ func VideoRoutingRequest(requestModel string, raw map[string]any) (modelcontract
 // names into the APIMart phase-one contract. `seconds`/`aspect_ratio` are the
 // generic video submit fields used across the gateway; APIMart expects
 // `duration`/`size` for the seedance and wan families.
-func normalizePhaseOneGatewayFields(modelID string, out map[string]any) {
+func normalizePhaseOneGatewayFields(modelID string, out map[string]any) error {
 	if _, exists := out["duration"]; !exists {
 		if value, exists := out["seconds"]; exists && value != nil {
 			if seconds, err := anyToInt(value); err == nil {
@@ -233,14 +241,95 @@ func normalizePhaseOneGatewayFields(modelID string, out map[string]any) {
 	}
 	delete(out, "seconds")
 	switch modelID {
-	case "seedance-2-0", "seedance-2-0-fast", "seedance-2-0-mini", "seedance-2-5", "wan-3.0":
+	case "seedance-2-5-flash", "magi-2", "wan-3.0":
+		resVal, hasRes, err := optionalString(out, "resolution")
+		if err != nil {
+			return err
+		}
+		qualVal, hasQual, err := optionalString(out, "quality")
+		if err != nil {
+			return err
+		}
+		if hasRes && hasQual && !strings.EqualFold(resVal, qualVal) {
+			return fmt.Errorf("resolution and quality must match when both are provided")
+		}
+		if !hasRes && hasQual {
+			out["resolution"] = qualVal
+		}
+		delete(out, "quality")
+	}
+	switch modelID {
+	case "seedance-2-0", "seedance-2-0-fast", "seedance-2-0-mini", "seedance-2-5", "seedance-2-5-flash", "wan-3.0":
+		if modelID == "seedance-2-5-flash" {
+			if err := normalizeSeedanceFlashPixelSize(out); err != nil {
+				return err
+			}
+		}
 		if _, exists := out["size"]; !exists {
 			if value, exists := out["aspect_ratio"]; exists && value != nil {
 				out["size"] = value
 			}
 		}
 		delete(out, "aspect_ratio")
+	case "magi-2":
+		if _, exists := out["aspect_ratio"]; !exists {
+			if value, exists := out["size"]; exists && value != nil {
+				out["aspect_ratio"] = value
+			}
+		}
+		delete(out, "size")
 	}
+	return nil
+}
+
+// normalizeSeedanceFlashPixelSize translates OpenAI-style WxH pixel sizes
+// (e.g. "854x480", "1280x720") into resolution + aspect ratio for
+// seedance-2-5-flash so tier-group example sizes work end-to-end.
+func normalizeSeedanceFlashPixelSize(out map[string]any) error {
+	rawSize, hasSize, err := optionalString(out, "size")
+	if err != nil || !hasSize {
+		return err
+	}
+	normalized := strings.NewReplacer("×", "x", "*", "x", "X", "x").Replace(strings.ToLower(rawSize))
+	normalized = strings.ReplaceAll(normalized, " ", "")
+	wStr, hStr, found := strings.Cut(normalized, "x")
+	if !found {
+		return nil
+	}
+	w, wErr := anyToInt(wStr)
+	h, hErr := anyToInt(hStr)
+	if wErr != nil || hErr != nil || w <= 0 || h <= 0 {
+		return nil
+	}
+	var tierRes string
+	switch min(w, h) {
+	case 480:
+		tierRes = "480p"
+	case 720:
+		tierRes = "720p"
+	default:
+		return nil
+	}
+	if existingRes, hasRes, err := optionalString(out, "resolution"); err != nil {
+		return err
+	} else if hasRes && !strings.EqualFold(existingRes, tierRes) {
+		return fmt.Errorf("resolution %q conflicts with size %q", existingRes, rawSize)
+	} else if !hasRes {
+		out["resolution"] = tierRes
+	}
+	if _, hasAspect := out["aspect_ratio"]; hasAspect && out["aspect_ratio"] != nil {
+		delete(out, "size")
+		return nil
+	}
+	switch {
+	case w > h:
+		out["size"] = "16:9"
+	case h > w:
+		out["size"] = "9:16"
+	default:
+		out["size"] = "1:1"
+	}
+	return nil
 }
 
 func operationAllowed(modelID, operation string) bool {
@@ -257,6 +346,13 @@ func operationAllowed(modelID, operation string) bool {
 		"seedance-2-5": {
 			opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true,
 			opVideoEdit: true, opVideoExtend: true,
+		},
+		"seedance-2-5-flash": {
+			opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true,
+			opVideoEdit: true, opVideoExtend: true,
+		},
+		"magi-2": {
+			opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true,
 		},
 		"wan-3.0": {
 			opTextToVideo: true, opFirstFrame: true, opFirstLastFrame: true, opVideoMultiRef: true,
@@ -343,6 +439,35 @@ func normalizePhaseOneMedia(modelID string, out map[string]any) (phaseOneMedia, 
 		for _, item := range media.images {
 			if !isHTTPURL(item, true) {
 				return media, fmt.Errorf("grok image_urls entries must be public HTTPS URLs")
+			}
+		}
+	}
+	if modelID == "magi-2" {
+		if media.hasFile || media.hasLink {
+			return media, fmt.Errorf("file_url and link_url are not supported by magi-2")
+		}
+		for _, list := range []struct {
+			name  string
+			items []string
+		}{
+			{"image_urls", media.images},
+			{"video_urls", media.videos},
+			{"audio_urls", media.audios},
+		} {
+			for _, item := range list.items {
+				if !isHTTPURL(item, true) || len(item) > 8192 {
+					return media, fmt.Errorf("magi-2 %s entries must be public HTTPS URLs of at most 8192 characters", list.name)
+				}
+			}
+		}
+		if rows, ok := out["image_with_roles"].([]any); ok {
+			for _, row := range rows {
+				if entry, ok := row.(map[string]any); ok {
+					item := asString(entry["url"])
+					if !isHTTPURL(item, true) || len(item) > 8192 {
+						return media, fmt.Errorf("magi-2 image_with_roles URLs must be public HTTPS URLs of at most 8192 characters")
+					}
+				}
 			}
 		}
 	}
@@ -447,6 +572,8 @@ func validatePhaseOnePrompt(modelID, operation string, out map[string]any) error
 	required := modelID == "minimax-h3" ||
 		modelID == "grok-imagine-video-1-5" ||
 		modelID == "seedance-2-5" ||
+		modelID == "seedance-2-5-flash" ||
+		(modelID == "magi-2" && operation == opTextToVideo) ||
 		(strings.HasPrefix(modelID, "seedance-2-0") && operation == opTextToVideo) ||
 		(modelID == "wan-3.0" && operation == opTextToVideo)
 	if required && (!exists || strings.TrimSpace(prompt) == "") {
@@ -458,8 +585,12 @@ func validatePhaseOnePrompt(modelID, operation string, out map[string]any) error
 		if length > 4000 {
 			return fmt.Errorf("prompt exceeds 4000 Unicode characters")
 		}
-	case "seedance-2-5":
-		// APIMart does not publish a prompt maximum for 2.5.
+	case "seedance-2-5", "seedance-2-5-flash":
+		// Vendor does not publish a hard prompt character ceiling for Seedance 2.5.
+	case "magi-2":
+		if length > 15000 {
+			return fmt.Errorf("prompt exceeds 15000 Unicode characters")
+		}
 	case "wan-3.0":
 		if length > 20000 {
 			return fmt.Errorf("prompt exceeds APIMart's 20000-character boundary")
@@ -508,6 +639,57 @@ func validatePhaseOneParameters(modelID, operation string, out map[string]any) e
 		if err := validateEnum(out, "omni_reference_task_type", []string{"auto", "reference", "edit", "extend"}, false); err != nil {
 			return err
 		}
+	case "seedance-2-5-flash":
+		if draft, exists := out["draft"]; exists && draft != nil && draft != false {
+			return fmt.Errorf("draft is not supported by %s", modelID)
+		}
+		if draftID, exists := out["draft_task_id"]; exists && draftID != nil && strings.TrimSpace(asString(draftID)) != "" {
+			return fmt.Errorf("draft_task_id is not supported by %s", modelID)
+		}
+		if err := validateDuration(out, 4, 30, true); err != nil {
+			return err
+		}
+		if err := validateEnum(out, "resolution", []string{"480p", "720p"}, true); err != nil {
+			return err
+		}
+		if err := validateEnum(out, "size", seedanceRatios(), false); err != nil {
+			return err
+		}
+		if (operation == opFirstFrame || operation == opFirstLastFrame) && asString(out["size"]) != "" && asString(out["size"]) != "adaptive" {
+			return fmt.Errorf("Seedance 2.5 Flash %s requires size adaptive", operation)
+		}
+		if err := validateEnum(out, "output_format", []string{"mp4", "mov"}, false); err != nil {
+			return err
+		}
+		if err := validateEnum(out, "omni_reference_task_type", []string{"auto", "reference", "edit", "extend"}, false); err != nil {
+			return err
+		}
+	case "magi-2":
+		for _, unsupported := range []string{
+			"output_format", "watermark", "return_last_frame",
+			"omni_reference_task_type", "generation_type", "tools",
+			"draft", "draft_task_id", "file_url", "link_url",
+		} {
+			if value, exists := out[unsupported]; exists && value != nil {
+				return fmt.Errorf("%s is not supported by magi-2", unsupported)
+			}
+		}
+		if err := validateDuration(out, 4, 30, false); err != nil {
+			return err
+		}
+		if err := validateEnum(out, "resolution", []string{"1080p"}, true); err != nil {
+			return err
+		}
+		if err := validateEnum(out, "aspect_ratio", []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"}, false); err != nil {
+			return err
+		}
+		callbackURL, hasCallback, err := optionalString(out, "callback_url")
+		if err != nil {
+			return err
+		}
+		if hasCallback && (!isHTTPURL(callbackURL, true) || len(callbackURL) > 2048) {
+			return fmt.Errorf("callback_url must be a public HTTPS URL of at most 2048 characters")
+		}
 	case "wan-3.0":
 		if err := validateDuration(out, 2, 30, true); err != nil {
 			return err
@@ -548,13 +730,23 @@ func validatePhaseOneParameters(modelID, operation string, out map[string]any) e
 			return err
 		}
 	}
+	if modelID == "magi-2" {
+		audio, hasAudio := out["audio"].(bool)
+		generateAudio, hasGenerateAudio := out["generate_audio"].(bool)
+		if hasAudio && hasGenerateAudio && audio != generateAudio {
+			return fmt.Errorf("generate_audio and audio must agree for magi-2")
+		}
+	}
 	if value, exists := out["seed"]; exists && value != nil {
-		seed, err := strictInteger(value)
+		seed, err := strictInt64(value)
 		if err != nil {
 			return fmt.Errorf("seed must be an integer")
 		}
 		if modelID == "wan-3.0" && (seed < 0 || seed > 2147483647) {
 			return fmt.Errorf("seed must be between 0 and 2147483647")
+		}
+		if modelID == "magi-2" && (seed < 0 || seed > 4294967295) {
+			return fmt.Errorf("seed must be between 0 and 4294967295")
 		}
 		out["seed"] = seed
 	}
@@ -646,6 +838,14 @@ func validatePhaseOneOperationMedia(modelID, operation string, media phaseOneMed
 		if referenceImageCount > 30 || len(media.videos) > 10 || len(media.audios) > 10 {
 			return fmt.Errorf("reference media count exceeds the documented 30 image / 10 video / 10 audio limits")
 		}
+	case "seedance-2-5-flash":
+		if referenceImageCount > 10 || len(media.videos) > 5 || len(media.audios) > 5 {
+			return fmt.Errorf("reference media count exceeds the documented 10 image / 5 video / 5 audio limits")
+		}
+	case "magi-2":
+		if referenceImageCount > 10 || len(media.videos) > 5 || len(media.audios) > 5 {
+			return fmt.Errorf("MAGI-2 accepts at most 10 reference images, 5 reference videos, and 5 reference audios")
+		}
 	case "wan-3.0":
 		if referenceImageCount > 10 || len(media.videos) > 5 || len(media.audios) > 5 {
 			return fmt.Errorf("Wan 3.0 accepts at most 10 reference images, 5 reference videos, and 5 reference audios")
@@ -656,7 +856,7 @@ func validatePhaseOneOperationMedia(modelID, operation string, media phaseOneMed
 			return fmt.Errorf("Grok 1.5 generation only accepts image_urls references")
 		}
 	}
-	if modelID == "seedance-2-5" {
+	if modelID == "seedance-2-5" || modelID == "seedance-2-5-flash" {
 		taskType := strings.TrimSpace(asString(out["omni_reference_task_type"]))
 		expected := seedanceTaskType(operation)
 		if expected != "" && taskType != "" && taskType != expected {
@@ -792,19 +992,32 @@ func validateOptionalBool(out map[string]any, key string) error {
 }
 
 func strictInteger(value any) (int, error) {
+	n, err := strictInt64(value)
+	if err != nil {
+		return 0, err
+	}
+	if n < math.MinInt || n > math.MaxInt {
+		return 0, fmt.Errorf("integer out of range")
+	}
+	return int(n), nil
+}
+
+func strictInt64(value any) (int64, error) {
 	switch typed := value.(type) {
 	case int:
-		return typed, nil
+		return int64(typed), nil
 	case int64:
-		return int(typed), nil
+		return typed, nil
 	case float64:
-		if math.Trunc(typed) != typed {
+		if math.IsNaN(typed) || math.IsInf(typed, 0) || math.Trunc(typed) != typed {
 			return 0, fmt.Errorf("not an integer")
 		}
-		return int(typed), nil
+		if typed < -9007199254740991 || typed > 9007199254740991 {
+			return 0, fmt.Errorf("integer out of range")
+		}
+		return int64(typed), nil
 	case json.Number:
-		n, err := typed.Int64()
-		return int(n), err
+		return typed.Int64()
 	default:
 		return 0, fmt.Errorf("unsupported integer type %T", value)
 	}

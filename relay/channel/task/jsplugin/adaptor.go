@@ -172,7 +172,11 @@ func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInf
 		}
 	}
 	if _, exists := c.Get("task_request"); !exists {
-		if taskErr := relaycommon.ValidateBasicTaskRequest(c, info, "image_to_video"); taskErr != nil {
+		if a.isUnpinnedSeedanceFlashRequest(info) {
+			if taskErr := prepareRawSeedanceFlashRequest(c, info); taskErr != nil {
+				return taskErr
+			}
+		} else if taskErr := relaycommon.ValidateBasicTaskRequest(c, info, "image_to_video"); taskErr != nil {
 			return taskErr
 		}
 	}
@@ -212,6 +216,61 @@ func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInf
 			return service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
 		}
 	}
+	return nil
+}
+
+// isUnpinnedSeedanceFlashRequest reports whether this unpinned Sora-plugin task
+// targets Seedance 2.5 Flash on an OpenAI-compatible channel. Such requests
+// carry multimodal fields (aspect_ratio, image_urls, video_urls, audio_urls,
+// image_with_roles, integer seconds) that legacy TaskSubmitReq would drop.
+func (a *TaskAdaptor) isUnpinnedSeedanceFlashRequest(info *relaycommon.RelayInfo) bool {
+	if a.plugin == nil || a.plugin.Meta.Key != "sora" || info == nil {
+		return false
+	}
+	for _, candidate := range []string{info.OriginModelName, info.GetUpstreamModelName()} {
+		switch strings.ToLower(strings.TrimSpace(candidate)) {
+		case "seedance-2-5-flash", "seedance-2.5-flash",
+			"doubao-seedance-2-5-flash", "doubao-seedance-2-5-flash-261115",
+			"sd2.5-ca-flash-480p", "sd2.5-ca-flash-720p", "jiuyue-sd25-flash-720p":
+			return true
+		}
+	}
+	return false
+}
+
+func prepareRawSeedanceFlashRequest(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
+	var raw map[string]any
+	if strings.HasPrefix(c.GetHeader("Content-Type"), "multipart/form-data") {
+		form, err := common.ParseMultipartFormReusable(c)
+		if err != nil {
+			return service.TaskErrorWrapperLocal(err, "invalid_multipart_form", http.StatusBadRequest)
+		}
+		defer form.RemoveAll()
+		raw = make(map[string]any, len(form.Value))
+		for name, values := range form.Value {
+			if len(values) > 1 {
+				return service.TaskErrorWrapperLocal(fmt.Errorf("%s must be provided once", name), "invalid_multipart_form", http.StatusBadRequest)
+			}
+			if len(values) == 1 {
+				raw[name] = values[0]
+			}
+		}
+	} else {
+		if err := common.UnmarshalBodyReusable(c, &raw); err != nil {
+			return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+		}
+		if raw == nil {
+			return service.TaskErrorWrapperLocal(fmt.Errorf("JSON object required"), "invalid_request", http.StatusBadRequest)
+		}
+	}
+	prompt, _ := raw["prompt"].(string)
+	if strings.TrimSpace(prompt) == "" {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("field prompt is required"), "invalid_request", http.StatusBadRequest)
+	}
+	if info.Action == "" {
+		info.Action = constant.TaskActionGenerate
+	}
+	c.Set("task_request", raw)
 	return nil
 }
 

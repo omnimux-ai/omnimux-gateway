@@ -232,4 +232,5 @@ export type PlaygroundModel = Pick<
   | 'output_modalities'
   | 'billing_usage_schema'
   | 'billing_usage_examples'
+  | 'contract'
 >
