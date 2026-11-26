@@ -1,6 +1,6 @@
 {
   "name": "@omnimux/cli",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "User-level OmniMux CLI (Agent RPC): JSON envelopes, schema, secure tokens, skills, social. contract_version 1.",
   "license": "AGPL-3.0",
   "publishConfig": {

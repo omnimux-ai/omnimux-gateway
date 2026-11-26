@@ -31,7 +31,7 @@ The installer downloads a prebuilt binary from [omnimux-ai/omnimux-gateway](http
 Version pin:
 
 ```bash
-curl -fsSL https://omnimux.ai/install.sh | bash -s -- --version 0.5.1
+curl -fsSL https://omnimux.ai/install.sh | bash -s -- --version 0.5.2
 ```
 
 ### npm / pnpm / bun (Node >= 18 or Bun)
