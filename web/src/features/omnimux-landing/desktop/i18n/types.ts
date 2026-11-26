@@ -186,6 +186,12 @@ export interface LandingCopy {
       wallet: string
       systemSettings: string
       signOut: string
+      roles: {
+        superAdmin: string
+        admin: string
+        user: string
+        guest: string
+      }
     }
   }
 

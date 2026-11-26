@@ -62,6 +62,12 @@ export const id: LandingCopy = {
       wallet: 'Dompet',
       systemSettings: 'Pengaturan sistem',
       signOut: 'Keluar',
+      roles: {
+        superAdmin: 'Super Admin',
+        admin: 'Admin',
+        user: 'Pengguna',
+        guest: 'Tamu',
+      },
     },
   },
 

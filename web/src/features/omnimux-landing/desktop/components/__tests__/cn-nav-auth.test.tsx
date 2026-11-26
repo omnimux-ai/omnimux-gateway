@@ -118,6 +118,36 @@ describe('desktop CN nav auth state', () => {
     expect(getByText('控制台')).toBeTruthy()
     expect(getByText('个人资料')).toBeTruthy()
     expect(getByText('退出登录')).toBeTruthy()
+    expect(getByText('用户')).toBeTruthy()
+    expect(getByText('default')).toBeTruthy()
+    expect(menu?.textContent).not.toContain('·')
+  })
+
+  it('shows localized super-admin role and group without middle dot', async () => {
+    const base = makeBundle()
+    useAuthStore.getState().auth.setBundle({
+      ...base,
+      user: {
+        ...base.user,
+        username: 'admin',
+        display_name: 'Root User',
+        role: ROLE.SUPER_ADMIN,
+        group: 'default,pool',
+      },
+    })
+    await renderNav()
+
+    const trigger = screen.getByRole('button', { name: '账户菜单' })
+    expect(trigger.textContent).toBe('A')
+    await userEvent.click(trigger)
+
+    const menu = document.querySelector('.cn-usermenu') as HTMLElement
+    expect(menu).toBeTruthy()
+    expect(within(menu).getByText('Root User')).toBeTruthy()
+    expect(within(menu).getByText('超级管理员')).toBeTruthy()
+    expect(within(menu).getByText('default,pool')).toBeTruthy()
+    expect(within(menu).getByText('系统设置')).toBeTruthy()
+    expect(menu.textContent).not.toContain('·')
   })
 
   it('places the download entry left of the avatar when authenticated', async () => {

@@ -60,11 +60,16 @@ export function ProfileDropdown() {
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger
-          render={<Button variant='ghost' className='relative size-6 p-0' />}
+          render={
+            <Button
+              variant='ghost'
+              className='relative size-6 rounded-full p-0'
+            />
+          }
         >
           <Avatar className='size-6'>
             <AvatarFallback
-              className={`${avatarFallbackClassName} text-[11px]`}
+              className={`${avatarFallbackClassName} text-[11px] leading-none`}
               style={avatarFallbackStyle}
             >
               {avatarFallback}
@@ -72,10 +77,10 @@ export function ProfileDropdown() {
           </Avatar>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' sideOffset={8} className='w-56'>
-          <div className='flex items-center gap-2 px-1.5 py-1.5'>
-            <Avatar className='size-8'>
+          <div className='flex items-center gap-2.5 px-1.5 py-1.5'>
+            <Avatar className='size-9'>
               <AvatarFallback
-                className={`${avatarFallbackClassName} text-xs`}
+                className={`${avatarFallbackClassName} text-sm leading-none`}
                 style={avatarFallbackStyle}
               >
                 {avatarFallback}
@@ -90,12 +95,9 @@ export function ProfileDropdown() {
                   {roleLabel}
                 </span>
                 {user?.group && (
-                  <>
-                    <span className='text-muted-foreground text-xs'>·</span>
-                    <span className='text-muted-foreground truncate text-xs'>
-                      {String(user.group)}
-                    </span>
-                  </>
+                  <span className='bg-muted text-muted-foreground truncate rounded px-1.5 py-0.5 text-[11px] leading-none'>
+                    {String(user.group)}
+                  </span>
                 )}
               </div>
             </div>

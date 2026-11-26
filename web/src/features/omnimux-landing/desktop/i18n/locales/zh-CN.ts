@@ -59,6 +59,12 @@ export const zhCN: LandingCopy = {
       wallet: '钱包',
       systemSettings: '系统设置',
       signOut: '退出登录',
+      roles: {
+        superAdmin: '超级管理员',
+        admin: '管理员',
+        user: '用户',
+        guest: '访客',
+      },
     },
   },
 

@@ -122,23 +122,32 @@ For commercial licensing, please contact support@quantumnous.com
 .omc .sheet-langs {display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:12px;border-top:1px solid var(--hair)}
 .omc .sheet-langs button {padding:8px 12px;border-radius:999px;border:1px solid var(--hair-2);background:none;color:var(--fg-2);font-size:13px;cursor:pointer}
 .omc .sheet-langs button.on {color:var(--fg);border-color:var(--hair-3);background:var(--wash)}
-.omc .cn-avatar {display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;border:1px solid var(--hair-2);background:transparent;cursor:pointer;padding:0;transition:border-color .2s,box-shadow .2s}
-.omc .cn-avatar:hover {border-color:var(--hair-3);box-shadow:0 0 0 3px rgba(255,255,255,.08)}
-.omc .cn-avatar [data-slot='avatar-fallback'] {font-weight:700}
+.omc .cn-avatar {display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;border:0;background:transparent;cursor:pointer;padding:0;flex:none;transition:transform .14s ease;}
+.omc .cn-avatar:active {transform:scale(.96);}
+.omc .cn-avatar:focus-visible {outline:none;}
+.omc .cn-avatar [data-slot='avatar'] {display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;flex:none;overflow:hidden;outline:2px solid transparent;outline-offset:2px;transition:outline-color .18s ease,filter .18s ease;}
+.omc .cn-avatar [data-slot='avatar']::after {display:none;}
+.omc .cn-avatar:hover [data-slot='avatar'],
+.omc .cn-avatar[aria-expanded='true'] [data-slot='avatar'] {outline-color:rgba(255,255,255,.22);filter:brightness(1.06);}
+.omc .cn-avatar:focus-visible [data-slot='avatar'] {outline-color:var(--fg);}
+.omc .cn-avatar [data-slot='avatar-fallback'] {display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;font-size:13px;font-weight:600;line-height:1;letter-spacing:-0.01em;user-select:none;-webkit-user-select:none;background-image:linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 0 0 1px rgba(255,255,255,.14);}
 /* 菜单经 portal 渲染在 .omc 之外，下面 cn-* 规则须保持全局并在 .cn-usermenu 上重声明所需 token */
 .cn-menupos {z-index:70;outline:none}
 .cn-usermenu {--fg:#FFFFFF;--fg-2:rgba(255,255,255,.72);--fg-3:rgba(255,255,255,.5);--hair:rgba(255,255,255,.08);--hair-2:rgba(255,255,255,.12);width:236px;background:#18181B;border:1px solid var(--hair-2);border-radius:16px;padding:6px;box-shadow:0 18px 44px -12px rgba(0,0,0,.6);color:var(--fg);outline:none}
-.cn-who {display:flex;align-items:center;gap:10px;padding:8px 10px}
-.cn-who-meta {display:flex;flex-direction:column;min-width:0}
-.cn-who-meta b {font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cn-who-meta span {font-size:12px;color:var(--fg-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cn-who {display:flex;align-items:center;gap:12px;padding:8px;}
+.cn-who-meta {display:flex;flex-direction:column;min-width:0;flex:1;}
+.cn-who-meta b {font-size:14px;font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cn-who-sub {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:4px;font-size:12px;line-height:1.2;color:var(--fg-2);}
+.cn-group-pill {display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:8px;font-size:11px;font-weight:500;color:var(--fg-2);background:rgba(255,255,255,.06);border:1px solid var(--hair);max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .cn-sep {border-top:1px solid var(--hair);margin:4px 6px}
 .cn-item {display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:14px;color:var(--fg-2);cursor:pointer;user-select:none;-webkit-user-select:none;outline:none}
 .cn-item[data-highlighted] {background:rgba(255,255,255,.05);color:var(--fg)}
 .cn-item svg {width:16px;height:16px;opacity:.8;flex:none}
 .cn-item.cn-danger {color:#F2858C}
 .cn-item.cn-danger[data-highlighted] {background:rgba(242,133,140,.1);color:#F2858C}
-.cn-who [data-slot='avatar-fallback'] {font-weight:700}
+.cn-who [data-slot='avatar'] {display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;flex:none;overflow:hidden;}
+.cn-who [data-slot='avatar']::after {display:none;}
+.cn-who [data-slot='avatar-fallback'] {display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;font-size:14px;font-weight:600;line-height:1;letter-spacing:-0.01em;user-select:none;-webkit-user-select:none;background-image:linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 0 0 1px rgba(255,255,255,.14);}
 .omc .cn-signout-actions {display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
 .omc .cn-signout-actions .btn {height:38px;padding:0 18px;font-size:14px}
 .omc .sheet .sheet-signout {text-align:left;background:none;border:0;font:inherit;cursor:pointer}
