@@ -364,9 +364,11 @@ async function uploadLocalFile(ctx, filePath, contentType) {
   if (!uploadUrl || !publicUrl) {
     throw new UsageError("presign response missing upload_url or public_url");
   }
-  const putHeaders = (data.headers && data.headers["Content-Type"]) || ct;
   const buf = fs.readFileSync(abs);
-  await putBinary(uploadUrl, buf, putHeaders);
+  await putBinary(uploadUrl, buf, ct, {
+    headers: data.headers,
+    method: data.upload_method,
+  });
   return {
     public_url: publicUrl,
     filename,
