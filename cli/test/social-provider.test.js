@@ -1,6 +1,12 @@
+const fs = require('node:fs');
+const http = require('node:http');
+const os = require('node:os');
+const path = require('node:path');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { run } = require('../src/commands/social');
+const { run, uploadLocalFile } = require('../src/commands/social');
+const { uploadLocalFile: uploadHostedLocalFile } = require('../src/commands/hosted/shared');
+const { putBinary } = require('../src/lib/upload');
 
 const providerRequiredCommands = [
   ['accounts'],
@@ -217,4 +223,140 @@ test('official connect rejects other platforms before seat preflight', async () 
     /TikTok/
   );
   assert.deepEqual(calls, []);
+});
+
+test('social uploadLocalFile forwards presigned signed headers (If-None-Match) and strips Host over real HTTP', async () => {
+  const received = [];
+  const server = http.createServer((req, res) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      received.push({
+        method: req.method,
+        url: req.url,
+        headers: { ...req.headers },
+        body: Buffer.concat(chunks),
+      });
+      if (req.headers['if-none-match'] !== '*') {
+        res.writeHead(403, { 'content-type': 'application/xml' });
+        res.end('<Error><Code>SignatureDoesNotMatch</Code></Error>');
+        return;
+      }
+      res.writeHead(200);
+      res.end();
+    });
+  });
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omnimux-cli-upload-'));
+  const filePath = path.join(tmpDir, 'clip.mp4');
+  const payload = Buffer.from('fixture-mp4-bytes');
+  fs.writeFileSync(filePath, payload);
+
+  try {
+    const res = await uploadLocalFile(
+      {
+        api: async (method, urlPath, body) => {
+          assert.equal(method, 'POST');
+          assert.equal(urlPath, '/api/social/v1/media/presign');
+          assert.equal(body.filename, 'clip.mp4');
+          assert.equal(body.content_type, 'video/mp4');
+          assert.equal(body.size_bytes, payload.length);
+          return {
+            success: true,
+            data: {
+              upload_url: `http://127.0.0.1:${port}/social/1/clip.mp4`,
+              upload_method: 'PUT',
+              public_url: 'https://files.example.test/social/1/clip.mp4',
+              headers: {
+                Host: 'bucket.r2.example.invalid',
+                'Content-Type': 'video/mp4',
+                'If-None-Match': '*',
+                'X-Amz-Meta-Source': 'omnimux',
+              },
+            },
+          };
+        },
+      },
+      filePath
+    );
+
+    assert.equal(res.public_url, 'https://files.example.test/social/1/clip.mp4');
+    assert.equal(received.length, 1);
+    assert.equal(received[0].method, 'PUT');
+    assert.equal(received[0].headers['if-none-match'], '*');
+    assert.equal(received[0].headers['content-type'], 'video/mp4');
+    assert.equal(received[0].headers['x-amz-meta-source'], 'omnimux');
+    assert.equal(received[0].headers.host, `127.0.0.1:${port}`);
+    assert.deepEqual(received[0].body, payload);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('putBinary and hosted uploadLocalFile preserve fallback Content-Type and forward optional signed headers', async () => {
+  const received = [];
+  const server = http.createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      received.push({ method: req.method, headers: { ...req.headers } });
+      res.writeHead(200);
+      res.end();
+    });
+  });
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omnimux-cli-hosted-'));
+  const filePath = path.join(tmpDir, 'photo.jpg');
+  fs.writeFileSync(filePath, Buffer.from('jpg-bytes'));
+
+  try {
+    // 1. Default PUT without opts.headers falls back to contentType argument
+    await putBinary(`http://127.0.0.1:${port}/default`, Buffer.from('a'), 'image/png');
+    assert.equal(received[0].method, 'PUT');
+    assert.equal(received[0].headers['content-type'], 'image/png');
+
+    // 2. Signed content-type wins over fallback; empty/non-string values and Host are ignored
+    await putBinary(`http://127.0.0.1:${port}/signed`, Buffer.from('b'), 'application/octet-stream', {
+      method: 'put',
+      headers: {
+        HOST: 'wrong.invalid',
+        'Content-Type': 'image/jpeg',
+        'If-None-Match': '*',
+        'X-Empty': '',
+        'X-Num': 123,
+      },
+    });
+    assert.equal(received[1].method, 'PUT');
+    assert.equal(received[1].headers['content-type'], 'image/jpeg');
+    assert.equal(received[1].headers['if-none-match'], '*');
+    assert.equal(received[1].headers['x-empty'], undefined);
+    assert.equal(received[1].headers['x-num'], undefined);
+    assert.equal(received[1].headers.host, `127.0.0.1:${port}`);
+
+    // 3. Hosted uploadLocalFile forwards optional presign headers when provided
+    const hostedRes = await uploadHostedLocalFile(
+      {
+        api: async () => ({
+          success: true,
+          data: {
+            upload_url: `http://127.0.0.1:${port}/hosted/photo.jpg`,
+            resource_url: 'https://cdn.example.test/photo.jpg',
+            headers: { Host: 'wrong.invalid', 'If-None-Match': '*', 'Content-Type': 'image/jpeg' },
+          },
+        }),
+      },
+      filePath
+    );
+    assert.equal(hostedRes.resource_url, 'https://cdn.example.test/photo.jpg');
+    assert.equal(received[2].headers['if-none-match'], '*');
+    assert.equal(received[2].headers['content-type'], 'image/jpeg');
+    assert.equal(received[2].headers.host, `127.0.0.1:${port}`);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

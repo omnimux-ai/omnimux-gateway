@@ -38,8 +38,15 @@ async function uploadLocalFile(ctx, filePath, explicitType) {
     throw new UsageError("presign response did not contain upload_url and resource_url");
   }
 
+  const uploadHeaders = presignData.headers || (presignData.data && presignData.data.headers);
+  const uploadMethod =
+    presignData.upload_method || (presignData.data && presignData.data.upload_method);
+
   const fileBytes = fs.readFileSync(resolved);
-  await putBinary(uploadUrl, fileBytes, contentType);
+  await putBinary(uploadUrl, fileBytes, contentType, {
+    headers: uploadHeaders,
+    method: uploadMethod,
+  });
   return { resource_url: resourceUrl, filename, size_bytes: stat.size, content_type: contentType };
 }
 

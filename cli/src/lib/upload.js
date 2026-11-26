@@ -10,18 +10,32 @@ const DEFAULT_MAX_BYTES = 512 * 1024 * 1024; // 512 MiB client guard
  * @param {string} uploadUrl
  * @param {Buffer|Uint8Array} body
  * @param {string} contentType
- * @param {{ timeoutMs?: number }} [opts]
+ * @param {{ timeoutMs?: number, headers?: Record<string, string>, method?: string }} [opts]
  */
 async function putBinary(uploadUrl, body, contentType, opts = {}) {
   const timeoutMs = opts.timeoutMs || 300000;
+  const method =
+    typeof opts.method === "string" && opts.method.trim()
+      ? opts.method.trim().toUpperCase()
+      : "PUT";
+  const headers = {};
+  if (opts.headers && typeof opts.headers === "object" && !Array.isArray(opts.headers)) {
+    for (const [rawKey, rawVal] of Object.entries(opts.headers)) {
+      const name = String(rawKey).trim().toLowerCase();
+      if (!name || name === "host") continue;
+      if (typeof rawVal !== "string" || rawVal === "") continue;
+      headers[name] = rawVal;
+    }
+  }
+  if (!headers["content-type"]) {
+    headers["content-type"] = contentType || "application/octet-stream";
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": contentType || "application/octet-stream",
-      },
+      method,
+      headers,
       body,
       signal: controller.signal,
     });
