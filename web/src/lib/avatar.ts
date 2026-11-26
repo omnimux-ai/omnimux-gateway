@@ -28,18 +28,33 @@ function hashString(value: string): number {
   return hash
 }
 
+/**
+ * Curated dark-studio avatar swatches.
+ * Excludes violet hues (reserved for AI energy flow in DESIGN.md §2.2) and
+ * neon greens, while maintaining >= 5.0:1 contrast with white text.
+ */
+export const USER_AVATAR_PALETTE = [
+  '#2563EB',
+  '#0F766E',
+  '#15803D',
+  '#B45309',
+  '#C2410C',
+  '#BE123C',
+  '#404040',
+  '#0369A1',
+] as const
+
 export function getUserAvatarStyle(name: string): UserAvatarStyle {
   const hash = hashString(name)
-  const hue = hash % 360
-  const saturation = 54 + (hash % 8)
-  const lightness = 52 + ((hash >> 4) % 8)
+  const backgroundColor = USER_AVATAR_PALETTE[hash % USER_AVATAR_PALETTE.length]
 
   return {
-    backgroundColor: `hsl(${hue} ${saturation}% ${lightness}%)`,
-    color: 'white',
+    backgroundColor,
+    color: '#FFFFFF',
   }
 }
 
 export function getUserAvatarFallback(name: string): string {
-  return name.trim().charAt(0).toUpperCase() || '?'
+  const firstChar = [...name.trim()][0]
+  return firstChar ? firstChar.toUpperCase() : '?'
 }

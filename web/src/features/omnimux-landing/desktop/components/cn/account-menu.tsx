@@ -30,7 +30,6 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
-import { useUserDisplay } from '@/hooks/use-user-display'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -45,7 +44,17 @@ import { useCopy } from '../../i18n/context'
 export function CnAccountMenu(props: { onSignOut: () => void }) {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.auth.user)
-  const { displayName, roleLabel } = useUserDisplay(user)
+  const account = useCopy().nav.account
+  const displayName = user?.display_name || user?.username || account.roles.user
+  const roleLabels: Record<number, string> = {
+    [ROLE.SUPER_ADMIN]: account.roles.superAdmin,
+    [ROLE.ADMIN]: account.roles.admin,
+    [ROLE.USER]: account.roles.user,
+    [ROLE.GUEST]: account.roles.guest,
+  }
+  const roleLabel =
+    (user?.role !== undefined ? roleLabels[user.role] : undefined) ??
+    account.roles.guest
   const isSuperAdmin = user?.role === ROLE.SUPER_ADMIN
   const isWalletVisible = useIsSidebarModuleVisible('/wallet')
   const isSecurityVisible = useIsSidebarModuleVisible('/security')
@@ -55,7 +64,6 @@ export function CnAccountMenu(props: { onSignOut: () => void }) {
     () => getUserAvatarStyle(avatarName),
     [avatarName]
   )
-  const account = useCopy().nav.account
 
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null)
   useEffect(() => {
@@ -66,7 +74,11 @@ export function CnAccountMenu(props: { onSignOut: () => void }) {
     <MenuPrimitive.Root modal={false}>
       <MenuPrimitive.Trigger
         render={
-          <button type='button' className='cn-avatar' aria-label={account.aria} />
+          <button
+            type='button'
+            className='cn-avatar'
+            aria-label={account.aria}
+          />
         }
       >
         <Avatar size='sm'>
@@ -92,10 +104,14 @@ export function CnAccountMenu(props: { onSignOut: () => void }) {
                 </Avatar>
                 <div className='cn-who-meta'>
                   <b>{displayName}</b>
-                  <span>
-                    {roleLabel}
-                    {user?.group ? ` · ${String(user.group)}` : ''}
-                  </span>
+                  <div className='cn-who-sub'>
+                    <span>{roleLabel}</span>
+                    {user?.group ? (
+                      <span className='cn-group-pill'>
+                        {String(user.group)}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
               <div className='cn-sep' />

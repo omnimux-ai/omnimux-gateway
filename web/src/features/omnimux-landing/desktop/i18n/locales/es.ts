@@ -62,6 +62,12 @@ export const es: LandingCopy = {
       wallet: 'Cartera',
       systemSettings: 'Configuración del sistema',
       signOut: 'Cerrar sesión',
+      roles: {
+        superAdmin: 'Superadministrador',
+        admin: 'Administrador',
+        user: 'Usuario',
+        guest: 'Invitado',
+      },
     },
   },
 

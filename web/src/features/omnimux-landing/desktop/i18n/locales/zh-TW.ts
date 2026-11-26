@@ -59,6 +59,12 @@ export const zhTW: LandingCopy = {
       wallet: '錢包',
       systemSettings: '系統設定',
       signOut: '登出',
+      roles: {
+        superAdmin: '超級管理員',
+        admin: '管理員',
+        user: '用戶',
+        guest: '訪客',
+      },
     },
   },
 

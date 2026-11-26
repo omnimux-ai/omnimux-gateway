@@ -59,6 +59,12 @@ export const ja: LandingCopy = {
       wallet: 'ウォレット',
       systemSettings: 'システム設定',
       signOut: 'ログアウト',
+      roles: {
+        superAdmin: 'スーパー管理者',
+        admin: '管理者',
+        user: 'ユーザー',
+        guest: 'ゲスト',
+      },
     },
   },
 
