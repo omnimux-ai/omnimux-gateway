@@ -16,14 +16,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LandingLangProvider } from '../../i18n'
 import { zhCN } from '../../i18n/locales/zh-CN'
-import { DOWNLOAD_MAC_ARM64, DOWNLOAD_MAC_X64, DOWNLOAD_WIN } from '../cn/data'
+import {
+  DOWNLOAD_MAC_ARM64,
+  DOWNLOAD_MAC_X64,
+  DOWNLOAD_WIN,
+  SOURCE_REPO,
+} from '../cn/data'
 import { CnFaq } from '../cn/faq'
+import { CnFooter } from '../cn/footer'
 import { CnHero } from '../cn/hero'
 import { CnProof } from '../cn/proof'
 
@@ -39,6 +52,26 @@ afterEach(() => {
 
 function renderWithLanding(node: React.ReactNode) {
   return render(<LandingLangProvider lang='zh-CN'>{node}</LandingLangProvider>)
+}
+
+async function renderFooter() {
+  const root = createRootRoute()
+  const index = createRoute({
+    getParentRoute: () => root,
+    path: '/',
+    component: () => (
+      <LandingLangProvider lang='zh-CN'>
+        <CnFooter />
+      </LandingLangProvider>
+    ),
+  })
+  const router = createRouter({
+    routeTree: root.addChildren([index]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+  const view = render(<RouterProvider router={router} />)
+  await screen.findByText(zhCN.footer.source)
+  return view
 }
 
 describe('desktop CN landing', () => {
@@ -252,5 +285,26 @@ describe('desktop CN hero mobile copy', () => {
       cta_type: 'copy_link',
       platform: 'mobile_fallback',
     })
+  })
+})
+
+describe('desktop CN GitHub referrer links', () => {
+  it('keeps rel="noopener" without noreferrer on the hero GitHub link', () => {
+    const { container } = renderWithLanding(<CnHero />)
+    const link = container.querySelector<HTMLAnchorElement>('a.gh-star')
+    expect(link).not.toBeNull()
+    expect(link?.getAttribute('href')).toBe(SOURCE_REPO)
+    expect(link?.getAttribute('target')).toBe('_blank')
+    expect(link?.getAttribute('rel')).toBe('noopener')
+  })
+
+  it('keeps rel="noopener" without noreferrer on the footer GitHub link', async () => {
+    const { container } = await renderFooter()
+    const link = container.querySelector<HTMLAnchorElement>(
+      `a[href="${SOURCE_REPO}"]`
+    )
+    expect(link).not.toBeNull()
+    expect(link?.getAttribute('target')).toBe('_blank')
+    expect(link?.getAttribute('rel')).toBe('noopener')
   })
 })

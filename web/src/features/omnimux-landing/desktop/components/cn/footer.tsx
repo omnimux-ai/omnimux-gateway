@@ -65,7 +65,8 @@ export function CnFooter(props: { anchorBase?: string }) {
           <span>© {new Date().getFullYear()} OmniMux</span>
           <a
             href='https://github.com/omnimux-ai/omnimux-client'
-            rel='noopener noreferrer'
+            rel='noopener'
+            // oxlint-disable-next-line react/jsx-no-target-blank -- keep Referer for GitHub Referrers while preserving noopener
             target='_blank'
           >
             {copy.source}
