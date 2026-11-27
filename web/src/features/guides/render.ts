@@ -1,5 +1,6 @@
 import { Marked, Renderer } from 'marked'
 
+import { docsQuickstartUrl } from '../omnimux-landing/lib/landing-urls'
 import { escapeHtml, type SiteBrand } from '../site-metadata/metadata'
 import { serializeStructuredData } from '../site-metadata/structured-data.mjs'
 import {
@@ -209,7 +210,7 @@ function footer(brand: SiteBrand): string {
     ['Guides', '/guides'],
     ['Pricing', '/pricing'],
     ['About', '/about'],
-    ['Documentation', 'https://docs.omnimux.ai'],
+    ['Documentation', docsQuickstartUrl()],
     ['Trends', '/influencer'],
     ['Dashboard', '/dashboard'],
     ['Support', 'mailto:hello@omnimux.ai'],
@@ -222,7 +223,7 @@ function footer(brand: SiteBrand): string {
 }
 
 function imageDialog(): string {
-  return '<dialog class="image-dialog" aria-label="Enlarged guide image" data-guide-dialog><form method="dialog"><button class="close-button" aria-label="Close enlarged image">×</button></form><img alt=""><p>Press Escape to close</p></dialog>'
+  return '<dialog class="image-dialog" aria-label="Enlarged guide image" data-guide-dialog><form method="dialog"><button class="close-button" aria-label="Close enlarged image">×</button></form><p>Press Escape to close</p></dialog>'
 }
 
 function documentHtml(
@@ -321,7 +322,7 @@ function renderArticle(
     timeZone: 'UTC',
   }).format(new Date(`${article.reviewedAt}T00:00:00Z`))
   const next = `<section class="article-next" id="${article.next.id}"><p class="eyebrow">${escapeHtml(article.next.eyebrow)}</p><h2>${escapeHtml(article.next.title)}</h2><p>${escapeHtml(article.next.description)}</p><a class="related-link" href="${related.path}"><span>${escapeHtml(related.title)}</span><span aria-hidden="true">→</span></a><div class="article-bottom-actions">${studioLink(article.slug, 'article-bottom')}<a class="text-link" href="/guides">All guides</a></div></section>`
-  const main = `<section class="article-page"><div class="page-shell">${breadcrumb.html}<header class="article-header"><p class="eyebrow">${escapeHtml(article.category)} <span class="language-tag">English</span></p><h1>${escapeHtml(article.headingLead)}<br><em>${escapeHtml(article.headingAccent)}</em></h1><p class="lead">${escapeHtml(article.intro)}</p><p class="article-byline"><span>By ${escapeHtml(options.brand.brandName)}</span><span>Reviewed: ${reviewDate}</span></p><p class="article-provenance">${escapeHtml(article.provenance)}</p></header><div class="article-layout"><aside class="article-toc"><nav aria-label="On this page"><p>On this page</p>${toc.map((entry) => `<a href="#${entry.id}">${escapeHtml(entry.label)}</a>`).join('')}</nav>${studioLink(article.slug, 'sidebar')}</aside><article class="article-body">${body.html}${next}</article></div></div></section>`
+  const main = `<section class="article-page"><div class="page-shell">${breadcrumb.html}<header class="article-header"><p class="eyebrow">${escapeHtml(article.category)} <span class="language-tag">English</span></p><h1>${escapeHtml(article.headingLead)} <br><em>${escapeHtml(article.headingAccent)}</em></h1><p class="lead">${escapeHtml(article.intro)}</p><p class="article-byline"><span>By ${escapeHtml(options.brand.brandName)}</span><span>Reviewed: ${reviewDate}</span></p><p class="article-provenance">${escapeHtml(article.provenance)}</p></header><div class="article-layout"><aside class="article-toc"><nav aria-label="On this page"><p>On this page</p>${toc.map((entry) => `<a href="#${entry.id}">${escapeHtml(entry.label)}</a>`).join('')}</nav>${studioLink(article.slug, 'sidebar')}</aside><article class="article-body">${body.html}${next}</article></div></div></section>`
   const head = guideHead(
     options.brand,
     article.path,
@@ -339,7 +340,7 @@ function renderHub(options: GuideDocumentOptions): GuideDocument {
     const cover = mediaById(article, article.coverId)
     return `<a class="guide-card" href="${article.path}"><div class="guide-cover"><img src="${cover.url}" alt="${escapeHtml(cover.alt)}" width="${cover.width}" height="${cover.height}"></div><div class="guide-card-copy"><span class="eyebrow muted">${article.slug === 'create-ai-character' ? 'Create a character' : 'Recreate a reference'}</span><h2>${escapeHtml(article.title)} <span aria-hidden="true">↗</span></h2><p>${escapeHtml(article.summary)}</p><span class="read-guide">Read the guide <span aria-hidden="true">→</span></span></div></a>`
   }).join('')
-  const main = `<section class="hub-page"><div class="page-shell">${breadcrumb.html}<div class="hub-intro"><p class="eyebrow">${escapeHtml(options.brand.brandName)} guides <span class="language-tag">English</span></p><h1>Create a character.<br><em>Make it move.</em></h1><p class="lead">${escapeHtml(GUIDE_HUB.summary)}</p></div><div class="guide-grid">${cards}</div><aside class="preparation-note"><div><span class="note-symbol" aria-hidden="true">↳</span><h2>Already have a character?</h2></div><p>Start with the reference video guide. You can use a suitable character image as video material, including a photo you have permission to use.</p><a class="text-link" href="/guides/recreate-video-with-your-character">Prepare your video inputs →</a></aside><div class="hub-bottom"><p>These guides are in English. The app supports seven interface languages.</p>${studioLink('guides', 'hub-bottom')}</div></div></section>`
+  const main = `<section class="hub-page"><div class="page-shell">${breadcrumb.html}<div class="hub-intro"><p class="eyebrow">${escapeHtml(options.brand.brandName)} guides <span class="language-tag">English</span></p><h1>Create a character. <br><em>Make it move.</em></h1><p class="lead">${escapeHtml(GUIDE_HUB.summary)}</p></div><div class="guide-grid">${cards}</div><aside class="preparation-note"><div><span class="note-symbol" aria-hidden="true">↳</span><h2>Already have a character?</h2></div><p>Start with the reference video guide. You can use a suitable character image as video material, including a photo you have permission to use.</p><a class="text-link" href="/guides/recreate-video-with-your-character">Prepare your video inputs →</a></aside><div class="hub-bottom"><p>These guides are in English. The app supports seven interface languages.</p>${studioLink('guides', 'hub-bottom')}</div></div></section>`
   const graph = {
     '@context': 'https://schema.org',
     '@graph': [

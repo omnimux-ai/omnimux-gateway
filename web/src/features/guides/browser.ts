@@ -5,9 +5,19 @@ const imageDialog = document.querySelector<HTMLDialogElement>(
   '[data-guide-dialog]'
 )
 if (imageDialog && typeof imageDialog.showModal === 'function') {
-  const enlarged = imageDialog.querySelector<HTMLImageElement>('img')
+  const existing = imageDialog.querySelector<HTMLImageElement>('img')
+  const enlarged = existing ?? document.createElement('img')
+  if (!existing) {
+    enlarged.alt = ''
+    const note = imageDialog.querySelector('p')
+    if (note) {
+      note.before(enlarged)
+    } else {
+      imageDialog.append(enlarged)
+    }
+  }
   document.addEventListener('click', (event) => {
-    if (!(event.target instanceof Element) || !enlarged) return
+    if (!(event.target instanceof Element)) return
     const link = event.target.closest<HTMLAnchorElement>('[data-guide-image]')
     const image = link?.querySelector('img')
     if (!link || !image || event.defaultPrevented) return
@@ -24,13 +34,27 @@ if (imageDialog && typeof imageDialog.showModal === 'function') {
     event.preventDefault()
     enlarged.src = link.href
     enlarged.alt = image.alt
+    const width = image.getAttribute('width')
+    const height = image.getAttribute('height')
+    if (width) {
+      enlarged.setAttribute('width', width)
+    } else {
+      enlarged.removeAttribute('width')
+    }
+    if (height) {
+      enlarged.setAttribute('height', height)
+    } else {
+      enlarged.removeAttribute('height')
+    }
     imageDialog.showModal()
   })
   imageDialog.addEventListener('click', (event) => {
     if (event.target === imageDialog) imageDialog.close()
   })
   imageDialog.addEventListener('close', () => {
-    enlarged?.removeAttribute('src')
+    enlarged.removeAttribute('src')
+    enlarged.removeAttribute('width')
+    enlarged.removeAttribute('height')
   })
 }
 

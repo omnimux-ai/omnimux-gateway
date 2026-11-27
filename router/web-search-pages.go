@@ -98,9 +98,9 @@ func buildWebSearchPages(indexPage, manifestData []byte) (webSearchPages, error)
 		// public page carries the desktop surface marker and pricing group.
 		body = desktopSurfaceShell(body)
 		// fork: /zh/ pages are Simplified Chinese documents; the shared shell
-		// is English, so the root language follows the path.
+		// is English, so the root language follows the path and matches hreflang="zh-Hans".
 		if strings.HasPrefix(path, "/zh/") {
-			body = []byte(strings.Replace(string(body), `<html lang="en"`, `<html lang="zh-CN"`, 1))
+			body = []byte(strings.Replace(string(body), `<html lang="en"`, `<html lang="zh-Hans"`, 1))
 		}
 		pages.public[path] = body
 	}

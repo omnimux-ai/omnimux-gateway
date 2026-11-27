@@ -328,7 +328,10 @@ func TestWebSearchArtifactsHaveOnePublicEntry(t *testing.T) {
 	for _, path := range []string{"/robots.txt", "/sitemap.xml"} {
 		response := performPluginRequest(outer, http.MethodGet, path)
 		assert.Equal(t, "no-cache", response.Header().Get("Cache-Control"))
+		assert.Equal(t, "nosniff", response.Header().Get("X-Content-Type-Options"))
 	}
+	home := performPluginRequest(outer, http.MethodGet, "/")
+	assert.Equal(t, "nosniff", home.Header().Get("X-Content-Type-Options"))
 	for _, path := range []string{"/api/missing", "/v1/missing", "/assets/missing.js"} {
 		response := performPluginRequest(outer, http.MethodGet, path)
 		assert.Equal(t, http.StatusNotFound, response.Code)
@@ -362,7 +365,7 @@ func TestWebSearchPagesSetChineseRootLanguageForZhPaths(t *testing.T) {
 	outer.NoRoute(pages.serve)
 	zh := performPluginRequest(outer, http.MethodGet, "/zh/tools/tiktok-video-downloader")
 	require.Equal(t, http.StatusOK, zh.Code)
-	assert.Contains(t, zh.Body.String(), `<html lang="zh-CN"`)
+	assert.Contains(t, zh.Body.String(), `<html lang="zh-Hans"`)
 	assert.Contains(t, zh.Body.String(), "TikTok 视频下载 page")
 	en := performPluginRequest(outer, http.MethodGet, "/tools/tiktok-video-downloader")
 	assert.Contains(t, en.Body.String(), `<html lang="en"`)

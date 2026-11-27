@@ -52,6 +52,7 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 			return
 		}
 		c.Header("Cache-Control", "no-cache")
+		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("Content-Type", "text/x-shellscript; charset=utf-8")
 		c.Data(http.StatusOK, "text/x-shellscript; charset=utf-8", data)
 	})
@@ -64,6 +65,7 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 			return
 		}
 		c.Header("Cache-Control", "no-cache")
+		c.Header("X-Content-Type-Options", "nosniff")
 		c.Data(http.StatusOK, "text/plain; charset=utf-8", data)
 	})
 
@@ -99,6 +101,7 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 		middleware.GlobalWebRateLimit(frontendFS),
 		middleware.Cache(),
 		func(c *gin.Context) {
+			c.Header("X-Content-Type-Options", "nosniff")
 			switch c.Request.URL.Path {
 			case "/index.html":
 				location := "/"

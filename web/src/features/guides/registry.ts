@@ -126,6 +126,7 @@ export const GUIDE_REGISTRY: readonly GuideArticle[] = [
     slug: 'recreate-video-with-your-character',
     path: '/guides/recreate-video-with-your-character',
     title: 'Recreate a reference video with your character',
+    seoTitle: 'Recreate a Video with Your AI Character | OmniMux Guides',
     summary:
       'Prepare the character and reference, check the inputs, and review the generated motion.',
     intro:

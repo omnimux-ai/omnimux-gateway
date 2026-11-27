@@ -62,7 +62,7 @@ export default defineConfig(({ envMode }) => {
   const seoTitle =
     process.env.VITE_SEO_TITLE ||
     env.rawPublicVars.VITE_SEO_TITLE ||
-    'OmniMux — Local AI Content Commerce Team for Product Videos'
+    'OmniMux — Local AI Content Commerce Team | Product Videos'
   const brandDescription =
     process.env.VITE_BRAND_DESCRIPTION ||
     env.rawPublicVars.VITE_BRAND_DESCRIPTION ||
