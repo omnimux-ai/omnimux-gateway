@@ -199,7 +199,7 @@ func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInf
 	hasUsageProfiles := len(a.plugin.Meta.UsageProfiles) > 0
 	if hasRequest && !hasUsageProfiles {
 		var err error
-		if a.isUnpinnedSeedanceFlashRequest(info) {
+		if a.isUnpinnedSeedanceFlashRequest(info) || a.isPinnedSeedanceOpenAIRequest(c) {
 			err = a.validateSeedanceFlashUsageRequest(request)
 		} else {
 			err = a.validateResolvedUsageRequest(request)
@@ -226,9 +226,10 @@ func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 // isUnpinnedSeedanceFlashRequest reports whether this unpinned Sora-plugin task
-// targets Seedance 2.5 Flash on an OpenAI-compatible channel. Such requests
-// carry multimodal fields (aspect_ratio, image_urls, video_urls, audio_urls,
-// image_with_roles, integer seconds) that legacy TaskSubmitReq would drop.
+// targets a fixed-resolution Seedance 2.5 or 2.5 Flash OpenAI-compatible
+// route. Such requests carry multimodal fields (aspect_ratio, image_urls,
+// video_urls, audio_urls, image_with_roles, integer seconds) and non-Sora
+// resolutions that legacy TaskSubmitReq or Sora's 4-size enum would reject.
 func (a *TaskAdaptor) isUnpinnedSeedanceFlashRequest(info *relaycommon.RelayInfo) bool {
 	if a.plugin == nil || a.plugin.Meta.Key != "sora" || info == nil {
 		return false
@@ -237,11 +238,31 @@ func (a *TaskAdaptor) isUnpinnedSeedanceFlashRequest(info *relaycommon.RelayInfo
 		switch strings.ToLower(strings.TrimSpace(candidate)) {
 		case "seedance-2-5-flash", "seedance-2.5-flash",
 			"doubao-seedance-2-5-flash", "doubao-seedance-2-5-flash-261115",
-			"sd2.5-ca-flash-480p", "sd2.5-ca-flash-720p", "jiuyue-sd25-flash-720p":
+			"sd2.5-ca-flash-480p", "sd2.5-ca-flash-720p",
+			"jiuyue-sd25-flash-480p", "jiuyue-sd25-flash-720p",
+			"bt-2.5-480p", "bt-2.5-720p",
+			"sd-2.5-480p-pro", "sd-2.5-720p-pro",
+			"sd-2.5-480p-plus", "sd-2.5-720p-plus", "sd-2.5-1080p-plus":
 			return true
 		}
 	}
 	return false
+}
+
+func (a *TaskAdaptor) isPinnedSeedanceOpenAIRequest(c *gin.Context) bool {
+	if c == nil || a.plugin == nil || a.plugin.Meta.Key != "sora" {
+		return false
+	}
+	pinnedValue, exists := c.Get(pluginruntime.ContextKeyPinnedEndpoint)
+	if !exists {
+		return false
+	}
+	pinned, ok := pinnedValue.(pluginruntime.PinnedEndpoint)
+	if !ok || pinned.Plugin != a.plugin {
+		return false
+	}
+	return pinned.MappedModel == model.Seedance25OpenAIDecoder ||
+		pinned.MappedModel == model.SeedanceMultimodalOpenAIDecoder
 }
 
 func prepareRawSeedanceFlashRequest(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {

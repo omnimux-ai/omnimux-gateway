@@ -28,7 +28,7 @@ import {
 
 describe('inferredDimensionFor', () => {
   test('reads a -task id as per-call, the repo rule for a per-call video id', () => {
-    expect(inferredDimensionFor('seedance-2-5-task')).toBe('per_call')
+    expect(inferredDimensionFor('seedance-2-0-task')).toBe('per_call')
   })
 
   test('keeps the historical per-second shape for an id without the suffix', () => {
@@ -36,11 +36,11 @@ describe('inferredDimensionFor', () => {
   })
 
   test('reads the dotted spelling of a -task id as per-call', () => {
-    expect(inferredDimensionFor('seedance-2.5-task')).toBe('per_call')
+    expect(inferredDimensionFor('seedance-2.0-task')).toBe('per_call')
   })
 
   test('ignores surrounding whitespace and letter case', () => {
-    expect(inferredDimensionFor('  SEEDANCE-2-5-TASK ')).toBe('per_call')
+    expect(inferredDimensionFor('  SEEDANCE-2-0-TASK ')).toBe('per_call')
   })
 
   test('does not read a -task id inside the name as a per-call suffix', () => {
@@ -58,17 +58,13 @@ describe('billingDimensionFor', () => {
   })
 
   test('resolves an enrolled model through its dotted spelling', () => {
-    expect(billingDeclarationFor('seedance-2.5-task')?.dimension).toBe(
+    expect(billingDeclarationFor('seedance-2.0-task')?.dimension).toBe(
       'per_call'
     )
   })
 })
 
 describe('durationEnvelopeFor', () => {
-  test('leaves seedance-2-5-task to the contract, which states its envelope', () => {
-    expect(durationEnvelopeFor('seedance-2-5-task')).toBeUndefined()
-  })
-
   test('pins minimax-h3-task to the 15 seconds its description declares', () => {
     expect(durationEnvelopeFor('minimax-h3-task')).toEqual({
       kind: 'fixed',
@@ -88,14 +84,13 @@ describe('durationEnvelopeFor', () => {
 })
 
 describe('BILLING_DECLARATIONS', () => {
-  test('enrols the six in-service per-call video ids and nothing else', () => {
+  test('enrols the five in-service per-call video ids and nothing else', () => {
     expect(Object.keys(BILLING_DECLARATIONS).sort()).toEqual([
       'gemini-omni-1.1-flash-task',
       'grok-imagine-video-1-5-task',
       'minimax-h3-task',
       'seedance-2-0-fast-task',
       'seedance-2-0-task',
-      'seedance-2-5-task',
     ])
   })
 
@@ -103,12 +98,6 @@ describe('BILLING_DECLARATIONS', () => {
     for (const [id, declaration] of Object.entries(BILLING_DECLARATIONS)) {
       expect(declaration.dimension, id).toBe('per_call')
     }
-  })
-
-  test('narrows seedance-2-5-task to the resolutions and ratios its line accepts', () => {
-    const declaration = billingDeclarationFor('seedance-2-5-task')
-    expect(declaration?.resolutions).toEqual(['720p'])
-    expect(declaration?.ratios).toEqual(['16:9', '9:16'])
   })
 
   test('claims no resolution or ratio domain for a model whose envelope is unestablished', () => {

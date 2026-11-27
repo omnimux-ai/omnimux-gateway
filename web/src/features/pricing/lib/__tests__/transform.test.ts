@@ -426,13 +426,6 @@ describe('transformPricingDataToCards — official / saving', () => {
           quota_type: 1,
         }),
         makeModel({
-          model_name: 'seedance-2-5-task',
-          billing_mode: 'tiered_expr',
-          billing_expr: 'tier("request", fixed(0.558824))',
-          tags: 'Video Generation',
-          quota_type: 1,
-        }),
-        makeModel({
           model_name: 'seedance-2-0-task',
           billing_mode: 'tiered_expr',
           billing_expr: 'tier("request", fixed(0.294118))',
@@ -464,15 +457,6 @@ describe('transformPricingDataToCards — official / saving', () => {
     expect(h3Task?.tiers[0]?.officialUsd).toBe(0.58)
     expect(h3Task?.tiers[0]?.officialCredits).toBeCloseTo(5.8)
     expect(h3Task?.tiers[0]?.savingPercent).toBe(35)
-
-    const s25 = cards.find((c) => c.modelId === 'seedance-2-5-task')
-    expect(s25?.tiers[0]?.spec).toBe('Per request')
-    expect(s25?.tiers[0]?.credits).toBeCloseTo(5.588)
-    expect(s25?.tiers[0]?.unitSuffix).toBe('/task')
-    expect(s25?.tiers[0]?.note).toBeUndefined()
-    expect(s25?.tiers[0]?.officialUsd).toBe(3.088)
-    expect(s25?.tiers[0]?.officialCredits).toBeCloseTo(30.88)
-    expect(s25?.tiers[0]?.savingPercent).toBe(82)
 
     const s20 = cards.find((c) => c.modelId === 'seedance-2-0-task')
     expect(s20?.tiers[0]?.spec).toBe('Per request')

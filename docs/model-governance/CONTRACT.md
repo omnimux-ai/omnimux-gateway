@@ -692,12 +692,12 @@ PY
 新公开 ID 由渠道模型映射到该解码器的既有目标。Muse 解码器补齐 5 秒默认时长，变体声明 `parameters` 时需包含
 `duration`，范围不含 5 秒时调用方须显式传值。新增原生公开 ID 的变体要求调用方显式填写正时长。
 
-`seedance25_openai_video` profile 仅用于 `seedance-2-5` 的 OpenAI 类型渠道，由工厂 Sora 插件解码并按渠道映射提交。
-对外协议为 `openai_video`。`video_multi_ref` 变体发布 `modeKind: "image_reference"`，用 `reference_images` 槽承载一张无首尾帧角色的图片 URL。
+`seedance25_openai_video` profile 仅用于 `seedance-2-5` 的单图经济 OpenAI 渠道，由工厂 Sora 插件解码并按渠道映射提交；`seedance_openai_video` profile 支持 `seedance-2-5` 与 `seedance-2-5-flash` 的固定分辨率多模态 OpenAI 渠道（`text_to_video` / `first_frame` / `first_last_frame` / `video_multi_ref`），两者及 `apimart_video` 均可在 `OMNIMUX_VIDEO_CAPABILITIES_FILE` 中为两个公开 ID 分别按分组声明完整能力契约。
+对外协议为 `openai_video`。`seedance25_openai_video` 的 `video_multi_ref` 变体发布 `modeKind: "image_reference"`，用 `reference_images` 槽承载一张无首尾帧角色的图片 URL。
 调用方使用 `images` 或 `image_urls`，二选一。明确传入 `duration`（也接受 `seconds`）和 `aspect_ratio: "9:16"`。
 同组只有一个已核验的经济档分辨率时，目录和网关采用该值作为 `resolution` 的默认值。
 同组有多个经济档分辨率时，各经济档变体要求调用方显式传入 `resolution`，目录省略默认值。
-原生创建入口的无协议头请求在选定只有该 profile 的具体组时也走这个解码器。混合协议组和 `auto` 在该入口沿用原生默认值。
+原生创建入口的无协议头请求在选定仅含 `seedance25_openai_video` 或 `seedance_openai_video` 渠道的具体组时，也会分别走对应的 Sora OpenAI 解码器；混合协议组和 `auto` 在该入口沿用原生默认值（其中 `seedance-2-5-flash` 未显式指定分组时由 `SelectVideoTierGroup` 选入原生分辨率分档组）。
 首帧语义、供应侧实际图片上限和成片规格仍待实测。规则的单图上限只表示网关承诺受理的请求形状。
 五组[本地规则样例](../../router/testdata/issue-74/five-group-rules.json)使用合成渠道和回环 mock，可用
 `go test ./router -run '^TestFiveVideoGroups$' -count=1` 验证目录投影、外发请求和原任务回收。

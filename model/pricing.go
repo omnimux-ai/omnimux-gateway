@@ -41,13 +41,13 @@ type PricingPluginVariant struct {
 }
 
 type Pricing struct {
-	Id                     int                                  `json:"id,omitempty"`
-	BillingPluginVariants  []PricingPluginVariant               `json:"billing_plugin_variants,omitempty"`
-	ModelName              string                               `json:"model_name"`
-	Description            string                               `json:"description,omitempty"`
-	Icon                   string                               `json:"icon,omitempty"`
-	Tags                   string                               `json:"tags,omitempty"`
-	VendorID               int                                  `json:"vendor_id,omitempty"`
+	Id                    int                    `json:"id,omitempty"`
+	BillingPluginVariants []PricingPluginVariant `json:"billing_plugin_variants,omitempty"`
+	ModelName             string                 `json:"model_name"`
+	Description           string                 `json:"description,omitempty"`
+	Icon                  string                 `json:"icon,omitempty"`
+	Tags                  string                 `json:"tags,omitempty"`
+	VendorID              int                    `json:"vendor_id,omitempty"`
 	// fork: OmniMux — canonical cross-client brand identity projected from
 	// modelcontracts. Strictly presentational; never feeds billing or routing.
 	BrandID                string                               `json:"brand_id,omitempty"`
@@ -425,7 +425,7 @@ func loadPricingVideoOperations(db *gorm.DB, enableAbilities []AbilityWithChanne
 
 	for modelName, groups := range operationsByModel {
 		for group, operations := range groups {
-			if rules.HasSeedance25OpenAI(modelName) {
+			if rules.HasSeedance25OpenAI(modelName) || rules.HasSeedanceMultimodalOpenAI(modelName) {
 				projectSeedanceEconomyResolution(operations)
 			}
 			unique := make(map[string]modelcontracts.Operation, len(operations))

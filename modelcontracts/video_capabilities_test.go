@@ -363,3 +363,152 @@ func TestGatewaySpecRejectsIncompatibleNativeOperations(t *testing.T) {
 		})
 	}
 }
+
+func TestVideoCapabilitiesSeedanceMultimodalOpenAIAndFlash(t *testing.T) {
+	seedanceOpenAIRule := func(id int, upstream, res, resLine, refLine string) string {
+		const ratios = `["16:9","9:16","1:1","4:3","3:4","21:9"]`
+		const duration = `{"name":"duration","type":"integer","minimum":5,"maximum":30}`
+		resParam := fmt.Sprintf(`{"name":"resolution","type":"enum","enum":[%q],"fixed":%q}`, res, res)
+		if resLine != "" {
+			resParam = resLine
+		}
+		multiRefInputs := `[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":30},{"slot":"reference_audios","max":10}]`
+		if refLine != "" {
+			multiRefInputs = refLine
+		}
+		return fmt.Sprintf(`{
+			"channel_id":%d,"channel_type":%d,"profile":%q,"upstream_model":%q,
+			"base_url":"https://example.com/v1","evidence":"verified test fixture",
+			"operations":[
+				{"id":"text_to_video","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":%s}]},
+				{"id":"first_frame","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":["adaptive"],"fixed":"adaptive","default":"adaptive"}]},
+				{"id":"first_last_frame","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":["adaptive"],"fixed":"adaptive","default":"adaptive"}]},
+				{"id":"video_multi_ref","inputs":%s,"parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":%s}]}
+			]
+		}`, id, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI, upstream,
+			duration, resParam, ratios,
+			duration, resParam,
+			duration, resParam,
+			multiRefInputs, duration, resParam, ratios)
+	}
+
+	const plusRefs = `[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":30},{"slot":"reference_videos","max":10},{"slot":"reference_audios","max":10}]`
+	const imgOnlyRefs = `[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":30}]`
+	doc := fmt.Sprintf(`{"models":{"seedance-2-5":[%s,%s,%s,%s]}}`,
+		seedanceOpenAIRule(101, "BT-2.5-480p", "480p", "", ""),
+		seedanceOpenAIRule(102, "sd-2.5-720p-pro", "720p", "", ""),
+		seedanceOpenAIRule(103, "sd-2.5-1080p-plus", "1080p", "", plusRefs),
+		seedanceOpenAIRule(104, "sd-2.5-720p-img", "720p", "", imgOnlyRefs),
+	)
+	rules, err := ReadVideoCapabilities(strings.NewReader(doc))
+	require.NoError(t, err)
+	assert.True(t, rules.HasSeedanceMultimodalOpenAI("seedance-2-5"))
+	assert.False(t, rules.HasSeedance25OpenAI("seedance-2-5"))
+	assert.True(t, rules.HasProtocol("seedance-2-5", VideoProtocolOpenAI))
+
+	ecoRule, found := rules.ChannelRule("seedance-2-5", 101)
+	require.True(t, found)
+	assert.Equal(t, "multimodal_reference", ecoRule.Operations[3].ModeKind, "images + audio sets multimodal_reference")
+	imgOnlyRule, found := rules.ChannelRule("seedance-2-5", 104)
+	require.True(t, found)
+	assert.Equal(t, "image_reference", imgOnlyRule.Operations[3].ModeKind, "images-only sets image_reference")
+	assert.True(t, rules.Accepts("seedance-2-5", 101, VideoRequest{
+		Operation:  "first_frame",
+		Protocol:   VideoProtocolOpenAI,
+		Slots:      map[string]int{"prompt": 1, "first_frame": 1},
+		Parameters: map[string]any{"duration": 5, "resolution": "480p"},
+	}), "first_frame with default adaptive accepts omitted aspect_ratio")
+	assert.False(t, rules.Accepts("seedance-2-5", 101, VideoRequest{
+		Operation:  "video_multi_ref",
+		Protocol:   VideoProtocolOpenAI,
+		Slots:      map[string]int{"prompt": 1, "reference_images": 1, "reference_videos": 1},
+		Parameters: map[string]any{"duration": 5, "resolution": "480p", "aspect_ratio": "16:9"},
+	}), "30-0-10 channel must reject reference_videos")
+	assert.False(t, rules.Accepts("seedance-2-5", 101, VideoRequest{
+		Operation:  "text_to_video",
+		Protocol:   VideoProtocolOpenAI,
+		Slots:      map[string]int{"prompt": 1},
+		Parameters: map[string]any{"duration": 4, "resolution": "480p", "aspect_ratio": "16:9"},
+	}), "channel minimum 5 rejects duration 4")
+
+	plusRule, found := rules.ChannelRule("seedance-2-5", 103)
+	require.True(t, found)
+	assert.Equal(t, "multimodal_reference", plusRule.Operations[3].ModeKind, "reference_videos promotes modeKind to multimodal_reference")
+	assert.True(t, rules.Accepts("seedance-2-5", 103, VideoRequest{
+		Operation:  "video_multi_ref",
+		Protocol:   VideoProtocolOpenAI,
+		Slots:      map[string]int{"prompt": 1, "reference_images": 3, "reference_videos": 2, "reference_audios": 1},
+		Parameters: map[string]any{"duration": 12, "resolution": "1080p", "aspect_ratio": "16:9"},
+	}))
+
+	// Mixed native + OpenAI Flash configuration, including omitted vs explicit request_model.
+	flashRefs := `[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":10},{"slot":"reference_audios","max":5}]`
+	for _, explicitReqModel := range []string{"", `"request_model":"seedance-2-5-flash",`} {
+		flashDoc := fmt.Sprintf(`{"models":{"seedance-2-5-flash":[
+			{"channel_id":201,"channel_type":%d,"profile":"apimart_video",%s"upstream_model":"seedance-2-5-flash",
+			 "base_url":"https://example.com/native","evidence":"verified native",
+			 "operations":[{"id":"text_to_video"},{"id":"first_frame"},{"id":"first_last_frame"},{"id":"video_multi_ref","inputs":[{"slot":"prompt"},{"slot":"reference_images","required":true}]},{"id":"video_edit"},{"id":"video_extend"}]},
+			{"channel_id":202,"channel_type":%d,"profile":%q,"upstream_model":"jiuyue-sd25-flash-480p",
+			 "base_url":"https://example.com/openai","evidence":"verified eco",
+			 "operations":[
+				{"id":"text_to_video","parameters":[{"name":"duration","type":"integer","minimum":4,"maximum":30},{"name":"resolution","type":"enum","enum":["480p"],"fixed":"480p"},{"name":"aspect_ratio","type":"enum","enum":["16:9","9:16"]}]},
+				{"id":"video_multi_ref","inputs":%s,"parameters":[{"name":"duration","type":"integer","minimum":4,"maximum":30},{"name":"resolution","type":"enum","enum":["480p"],"fixed":"480p"},{"name":"aspect_ratio","type":"enum","enum":["16:9","9:16"]}]}
+			 ]}
+		]}}`, constant.ChannelTypeApiMart, explicitReqModel, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI, flashRefs)
+		flashRules, err := ReadVideoCapabilities(strings.NewReader(flashDoc))
+		require.NoError(t, err)
+		assert.Equal(t, "seedance-2-5-flash", flashRules.NativeRequestModel("seedance-2-5-flash"))
+		assert.True(t, flashRules.HasProtocol("seedance-2-5-flash", VideoProtocolGenerations))
+		assert.True(t, flashRules.HasProtocol("seedance-2-5-flash", VideoProtocolOpenAI))
+		assert.True(t, flashRules.HasSeedanceMultimodalOpenAI("seedance-2-5-flash"))
+	}
+
+	// Reject invalid seedance_openai_video declarations.
+	for _, tc := range []struct {
+		name, doc, wantErr string
+	}{
+		{
+			"video_edit unsupported on OpenAI profile",
+			fmt.Sprintf(`{"models":{"seedance-2-5":[{"channel_id":1,"channel_type":%d,"profile":%q,"upstream_model":"x","base_url":"https://example.com","evidence":"e","operations":[{"id":"video_edit","parameters":[{"name":"duration","type":"integer","fixed":-1},{"name":"resolution","type":"enum","enum":["480p"],"fixed":"480p"}]}]}]}}`, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI),
+			"is not supported",
+		},
+		{
+			"duration fixed -1 rejected on OpenAI profile",
+			fmt.Sprintf(`{"models":{"seedance-2-5":[{"channel_id":1,"channel_type":%d,"profile":%q,"upstream_model":"x","base_url":"https://example.com","evidence":"e","operations":[{"id":"text_to_video","parameters":[{"name":"duration","type":"integer","fixed":-1},{"name":"resolution","type":"enum","enum":["480p"],"fixed":"480p"}]}]}]}}`, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI),
+			"outside the parameter's choices",
+		},
+		{
+			"mixed resolutions on single channel rejected",
+			fmt.Sprintf(`{"models":{"seedance-2-5":[{"channel_id":1,"channel_type":%d,"profile":%q,"upstream_model":"x","base_url":"https://example.com","evidence":"e","operations":[
+				{"id":"text_to_video","parameters":[{"name":"duration","type":"integer","minimum":5,"maximum":30},{"name":"resolution","type":"enum","enum":["480p"],"fixed":"480p"}]},
+				{"id":"first_frame","parameters":[{"name":"duration","type":"integer","minimum":5,"maximum":30},{"name":"resolution","type":"enum","enum":["720p"],"fixed":"720p"}]}
+			]}]}}`, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI),
+			"same fixed resolution",
+		},
+		{
+			"missing fixed resolution rejected",
+			fmt.Sprintf(`{"models":{"seedance-2-5":[{"channel_id":1,"channel_type":%d,"profile":%q,"upstream_model":"x","base_url":"https://example.com","evidence":"e","operations":[{"id":"text_to_video","parameters":[{"name":"duration","type":"integer","minimum":5,"maximum":30},{"name":"resolution","type":"enum","enum":["480p"]}]}]}]}}`, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI),
+			"one fixed resolution",
+		},
+		{
+			"flash OpenAI rejects 1080p",
+			fmt.Sprintf(`{"models":{"seedance-2-5-flash":[{"channel_id":1,"channel_type":%d,"profile":%q,"upstream_model":"x","base_url":"https://example.com","evidence":"e","operations":[{"id":"text_to_video","parameters":[{"name":"duration","type":"integer","minimum":4,"maximum":30},{"name":"resolution","type":"enum","enum":["1080p"],"fixed":"1080p"}]}]}]}}`, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI),
+			"unsupported or repeated values",
+		},
+		{
+			"flash OpenAI rejects >10 reference images",
+			fmt.Sprintf(`{"models":{"seedance-2-5-flash":[{"channel_id":1,"channel_type":%d,"profile":%q,"upstream_model":"x","base_url":"https://example.com","evidence":"e","operations":[{"id":"video_multi_ref","inputs":[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":11}],"parameters":[{"name":"duration","type":"integer","minimum":4,"maximum":30},{"name":"resolution","type":"enum","enum":["480p"],"fixed":"480p"}]}]}]}}`, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI),
+			"invalid upper count",
+		},
+		{
+			"flash OpenAI rejects video_edit",
+			fmt.Sprintf(`{"models":{"seedance-2-5-flash":[{"channel_id":1,"channel_type":%d,"profile":%q,"upstream_model":"x","base_url":"https://example.com","evidence":"e","operations":[{"id":"video_edit"}]}]}}`, constant.ChannelTypeOpenAI, VideoProfileSeedanceOpenAI),
+			"is not supported",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ReadVideoCapabilities(strings.NewReader(tc.doc))
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}

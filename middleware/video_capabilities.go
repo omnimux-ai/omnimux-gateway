@@ -21,6 +21,7 @@ import (
 const (
 	contextKeyManagedVideoProtocol    = "managed_video_protocol"
 	contextKeySeedanceVideoResolution = "seedance_video_resolution"
+	contextKeySeedanceVideoDecoder    = "seedance_video_decoder"
 )
 
 func managedVideoProtocol(c *gin.Context, modelName string) (string, error) {
@@ -73,11 +74,18 @@ func prepareVideoCapabilityFilter(c *gin.Context, modelName string) *types.NewAP
 		if pinned.Protocol != protocol || !model.IsFactorySoraVideoPlugin(pinned.Plugin) {
 			return videoCapabilityUnavailable(c, modelName)
 		}
-		if rules.HasSeedance25OpenAI(modelName) {
-			if pinned.Model != modelName || pinned.MappedModel != model.Seedance25OpenAIDecoder {
+		if rules.HasSeedance25OpenAI(modelName) || rules.HasSeedanceMultimodalOpenAI(modelName) {
+			if pinned.Model != modelName {
 				return videoCapabilityUnavailable(c, modelName)
 			}
-			intent, err = seedanceSingleImageVideoIntent(c)
+			switch pinned.MappedModel {
+			case model.Seedance25OpenAIDecoder:
+				intent, err = seedanceSingleImageVideoIntent(c)
+			case model.SeedanceMultimodalOpenAIDecoder:
+				intent, err = seedanceMultimodalOpenAIVideoIntent(c)
+			default:
+				return videoCapabilityUnavailable(c, modelName)
+			}
 		} else {
 			if pinned.Model != model.MuseVideoDecoderModel && pinned.MappedModel != model.MuseVideoDecoderModel {
 				return videoCapabilityUnavailable(c, modelName)
@@ -115,6 +123,43 @@ func seedanceSingleImageVideoIntent(c *gin.Context) (modelcontracts.VideoRequest
 		Parameters: map[string]any{
 			"duration": body["seconds"], "resolution": body["resolution"], "aspect_ratio": body["aspect_ratio"],
 		},
+	}, nil
+}
+
+func seedanceMultimodalOpenAIVideoIntent(c *gin.Context) (modelcontracts.VideoRequest, error) {
+	value, _ := c.Get("task_request")
+	body, ok := value.(map[string]any)
+	operation := c.GetString("task_action")
+	if !ok || operation == "" {
+		return modelcontracts.VideoRequest{}, errors.New("the Seedance video request could not be normalized")
+	}
+	slots := map[string]int{"prompt": 1}
+	if first, _ := body["input_reference"].(string); first != "" {
+		slots["first_frame"] = 1
+	}
+	if last, _ := body["last_frame"].(string); last != "" {
+		slots["last_frame"] = 1
+	}
+	for slot, field := range map[string]string{
+		"reference_images": "images",
+		"reference_videos": "video_urls",
+		"reference_audios": "audio_urls",
+	} {
+		if items, ok := body[field].([]any); ok && len(items) > 0 {
+			slots[slot] = len(items)
+		}
+	}
+	params := map[string]any{
+		"duration":   body["seconds"],
+		"resolution": body["resolution"],
+	}
+	if ratio, ok := body["aspect_ratio"].(string); ok && ratio != "" {
+		params["aspect_ratio"] = ratio
+	}
+	return modelcontracts.VideoRequest{
+		Operation:  operation,
+		Slots:      slots,
+		Parameters: params,
 	}, nil
 }
 

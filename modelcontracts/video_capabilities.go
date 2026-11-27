@@ -21,9 +21,15 @@ const (
 	VideoProtocolGenerations = "video_generations"
 	VideoProtocolHeader      = "X-OmniMux-Video-Protocol"
 
-	VideoProfileSeedance25OpenAI = "seedance25_openai_video"
-	seedance25VideoRequestModel  = "seedance-2-5"
+	VideoProfileSeedance25OpenAI     = "seedance25_openai_video"
+	VideoProfileSeedanceOpenAI       = "seedance_openai_video"
+	seedance25VideoRequestModel      = "seedance-2-5"
+	seedance25FlashVideoRequestModel = "seedance-2-5-flash"
 )
+
+func isSeedanceNativeRequestModel(modelID string) bool {
+	return modelID == seedance25VideoRequestModel || modelID == seedance25FlashVideoRequestModel
+}
 
 // VideoRequest describes the operation and inputs already normalized by the
 // gateway. Slots contain counts by contract slot. Parameters include explicit
@@ -68,10 +74,11 @@ type VideoCapabilities struct {
 }
 
 type videoModelRules struct {
-	channels           map[int]VideoChannelRule
-	protocols          map[string]struct{}
-	nativeRequestModel string
-	seedance25OpenAI   bool
+	channels                 map[int]VideoChannelRule
+	protocols                map[string]struct{}
+	nativeRequestModel       string
+	seedance25OpenAI         bool
+	seedanceMultimodalOpenAI bool
 }
 
 var activeVideoCapabilities atomic.Pointer[VideoCapabilities]
@@ -112,6 +119,11 @@ func (rules *VideoCapabilities) HasProtocol(modelID, protocol string) bool {
 // HasSeedance25OpenAI reports whether this public model has the single-image decoder.
 func (rules *VideoCapabilities) HasSeedance25OpenAI(modelID string) bool {
 	return rules.rulesForModel(modelID).seedance25OpenAI
+}
+
+// HasSeedanceMultimodalOpenAI reports whether this public model has the multimodal OpenAI decoder.
+func (rules *VideoCapabilities) HasSeedanceMultimodalOpenAI(modelID string) bool {
+	return rules.rulesForModel(modelID).seedanceMultimodalOpenAI
 }
 
 func (rules *VideoCapabilities) ChannelIDs() []int {
@@ -232,7 +244,7 @@ func ReadVideoCapabilities(reader io.Reader) (*VideoCapabilities, error) {
 		if rawChannels == nil || rules.Managed(contract.ModelID) {
 			return nil, fmt.Errorf("video capabilities: model %q needs one channel array", name)
 		}
-		legacyNative := contract.ModelID == seedance25VideoRequestModel
+		legacyNative := isSeedanceNativeRequestModel(contract.ModelID)
 		if contract.GatewayProtocol != VideoProtocolOpenAI && contract.GatewayProtocol != VideoProtocolGenerations && !legacyNative {
 			return nil, fmt.Errorf("video capabilities: model %q has no verified video protocol", name)
 		}
@@ -258,6 +270,7 @@ func ReadVideoCapabilities(reader io.Reader) (*VideoCapabilities, error) {
 			model.channels[channel.ChannelID] = channel
 			model.protocols[channel.Protocol] = struct{}{}
 			model.seedance25OpenAI = model.seedance25OpenAI || channel.Profile == VideoProfileSeedance25OpenAI
+			model.seedanceMultimodalOpenAI = model.seedanceMultimodalOpenAI || channel.Profile == VideoProfileSeedanceOpenAI
 		}
 		for _, channel := range model.channels {
 			if len(model.protocols) > 1 || channel.Protocol != contract.GatewayProtocol {
@@ -284,10 +297,14 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, legacyNat
 	switch channel.Profile {
 	case profileAPIMartVideo:
 		channel.Protocol = VideoProtocolGenerations
-		if channel.RequestModel == "" && (legacyNative || contract.GatewayProtocol == VideoProtocolGenerations) {
-			channel.RequestModel = seedance25VideoRequestModel
+		if channel.RequestModel == "" {
+			if isSeedanceNativeRequestModel(contract.ModelID) {
+				channel.RequestModel = contract.ModelID
+			} else if contract.GatewayProtocol == VideoProtocolGenerations {
+				channel.RequestModel = seedance25VideoRequestModel
+			}
 		}
-		if channel.RequestModel != seedance25VideoRequestModel {
+		if !isSeedanceNativeRequestModel(channel.RequestModel) {
 			return VideoChannelRule{}, fmt.Errorf("request_model must name a verified native request dialect")
 		}
 		validType = channel.ChannelType == constant.ChannelTypeApiMart
@@ -298,6 +315,10 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, legacyNat
 			validType = contract.GatewayProtocol == VideoProtocolOpenAI && channel.RequestModel == ""
 		}
 	case VideoProfileSeedance25OpenAI:
+		channel.Protocol = VideoProtocolOpenAI
+		validType = contract.ModelID == seedance25VideoRequestModel && contract.GatewayProtocol != VideoProtocolOpenAI &&
+			channel.ChannelType == constant.ChannelTypeOpenAI && channel.RequestModel == ""
+	case VideoProfileSeedanceOpenAI:
 		channel.Protocol = VideoProtocolOpenAI
 		validType = legacyNative && contract.GatewayProtocol != VideoProtocolOpenAI &&
 			channel.ChannelType == constant.ChannelTypeOpenAI && channel.RequestModel == ""
@@ -317,11 +338,11 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, legacyNat
 	}
 	channel.Operations = make([]Operation, 0, len(spec.Operations))
 	for _, rawOperation := range spec.Operations {
-		operation, err := compileVideoOperationRule(rawOperation, contract, channel.Protocol, legacyNative, channel.Profile == VideoProfileSeedance25OpenAI)
+		operation, err := compileVideoOperationRule(rawOperation, contract, channel.Protocol, channel.Profile, channel.RequestModel, legacyNative)
 		if err != nil {
 			return VideoChannelRule{}, err
 		}
-		if channel.Profile == VideoProfileSeedance25OpenAI {
+		if channel.Profile == VideoProfileSeedance25OpenAI || channel.Profile == VideoProfileSeedanceOpenAI {
 			for _, parameter := range operation.Parameters {
 				if parameter.Name != "resolution" {
 					continue
@@ -338,7 +359,7 @@ func compileVideoChannelRule(raw common.RawMessage, contract Contract, legacyNat
 	return channel, nil
 }
 
-func compileVideoOperationRule(raw common.RawMessage, contract Contract, protocol string, legacyNative, seedance25OpenAI bool) (Operation, error) {
+func compileVideoOperationRule(raw common.RawMessage, contract Contract, protocol, profile, nativeRequestModel string, legacyNative bool) (Operation, error) {
 	var spec struct {
 		ID         string              `json:"id"`
 		Executable *bool               `json:"executable"`
@@ -392,8 +413,14 @@ func compileVideoOperationRule(raw common.RawMessage, contract Contract, protoco
 		}
 		operation.Parameters = parameters
 	}
-	if seedance25OpenAI {
+	switch profile {
+	case VideoProfileSeedance25OpenAI:
 		if err := validateSeedance25OpenAIVideoOperation(&operation); err != nil {
+			return Operation{}, err
+		}
+		return operation, nil
+	case VideoProfileSeedanceOpenAI:
+		if err := validateSeedanceOpenAIVideoOperation(&operation, contract.ModelID); err != nil {
 			return Operation{}, err
 		}
 		return operation, nil
@@ -431,7 +458,7 @@ func compileVideoOperationRule(raw common.RawMessage, contract Contract, protoco
 		operation.Output.Formats = formats
 		break
 	}
-	if err := validateManagedVideoOperation(&operation, protocol, legacyNative); err != nil {
+	if err := validateManagedVideoOperation(&operation, protocol, nativeRequestModel, legacyNative); err != nil {
 		return Operation{}, err
 	}
 	return operation, nil
@@ -488,10 +515,152 @@ func validateSeedance25OpenAIVideoOperation(operation *Operation) error {
 	return nil
 }
 
+// validateSeedanceOpenAIVideoOperation validates the multimodal OpenAI-video
+// route for Seedance 2.5 and Seedance 2.5 Flash fixed-resolution SKUs.
+func validateSeedanceOpenAIVideoOperation(operation *Operation, modelID string) error {
+	switch operation.ID {
+	case operationTextToVideo, operationFirstFrame, operationFirstLastFrame, operationVideoMultiRef:
+	default:
+		return fmt.Errorf("operation %q is not supported by the verified %s decoder", operation.ID, VideoProfileSeedanceOpenAI)
+	}
+
+	inputLimits := map[string]int{
+		"first_frame": 1, "last_frame": 1,
+		"reference_images": 30, "reference_videos": 10, "reference_audios": 10,
+	}
+	allowedRes := []string{"480p", "720p", "1080p"}
+	if modelID == seedance25FlashVideoRequestModel {
+		inputLimits["reference_images"] = 10
+		inputLimits["reference_videos"] = 5
+		inputLimits["reference_audios"] = 5
+		allowedRes = []string{"480p", "720p"}
+	}
+
+	hasPrompt, hasFirst, hasLast, refSlots := false, false, false, 0
+	for _, input := range operation.Inputs {
+		if input.Slot == "prompt" {
+			if !input.Required {
+				return fmt.Errorf("Seedance OpenAI requires a prompt input")
+			}
+			hasPrompt = true
+			continue
+		}
+		limit, known := inputLimits[input.Slot]
+		if !known || input.FirstItemRole != "" || input.Min == nil || input.Max == nil ||
+			*input.Min < 0 || *input.Max < 1 || *input.Max > limit || *input.Min > *input.Max {
+			return fmt.Errorf("operation %q slot %q has incompatible media semantics for %s", operation.ID, input.Slot, VideoProfileSeedanceOpenAI)
+		}
+		switch input.Slot {
+		case "first_frame":
+			hasFirst = true
+		case "last_frame":
+			hasLast = true
+		default:
+			refSlots++
+		}
+	}
+	if !hasPrompt {
+		return fmt.Errorf("Seedance OpenAI requires a prompt input")
+	}
+	switch operation.ID {
+	case operationTextToVideo:
+		if hasFirst || hasLast || refSlots > 0 {
+			return fmt.Errorf("text_to_video accepts only prompt input")
+		}
+	case operationFirstFrame:
+		if !hasFirst || hasLast || refSlots > 0 {
+			return fmt.Errorf("first_frame requires prompt and first_frame only")
+		}
+	case operationFirstLastFrame:
+		if !hasFirst || !hasLast || refSlots > 0 {
+			return fmt.Errorf("first_last_frame requires prompt, first_frame and last_frame only")
+		}
+	case operationVideoMultiRef:
+		if hasFirst || hasLast || refSlots == 0 {
+			return fmt.Errorf("video_multi_ref requires at least one reference media slot")
+		}
+	}
+
+	allowedRatios := []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"}
+	hasDuration, hasResolution, hasRefMedia := false, false, false
+	for _, input := range operation.Inputs {
+		if input.Slot == "reference_videos" || input.Slot == "reference_audios" {
+			hasRefMedia = true
+			break
+		}
+	}
+	for i := range operation.Parameters {
+		parameter := &operation.Parameters[i]
+		switch parameter.Name {
+		case "duration":
+			if parameter.Type != "integer" || parameter.Default != nil {
+				return fmt.Errorf("Seedance OpenAI requires an explicit integer duration from 4 to 30 seconds")
+			}
+			valid := (len(parameter.Enum) > 0 || parameter.Minimum != nil && parameter.Maximum != nil) &&
+				(parameter.Minimum == nil || *parameter.Minimum >= 4) &&
+				(parameter.Maximum == nil || *parameter.Maximum <= 30) &&
+				(parameter.Minimum == nil || parameter.Maximum == nil || *parameter.Minimum <= *parameter.Maximum)
+			for _, choice := range parameter.Enum {
+				value, numeric := videoNumber(choice)
+				valid = valid && numeric && math.Trunc(value) == value && value >= 4 && value <= 30
+			}
+			if !valid || (parameter.Fixed != nil && !videoParameterAccepts(*parameter, parameter.Fixed)) {
+				return fmt.Errorf("Seedance OpenAI duration must stay within 4 to 30 seconds")
+			}
+			parameter.Required = true
+			hasDuration = true
+		case "resolution":
+			resolution, ok := parameter.Fixed.(string)
+			if parameter.Type != "enum" || !ok || !slices.Contains(allowedRes, resolution) {
+				return fmt.Errorf("Seedance OpenAI requires one fixed resolution in %v", allowedRes)
+			}
+			parameter.Default = nil
+			parameter.Required = true
+			hasResolution = true
+		case "aspect_ratio":
+			if parameter.Type != "enum" || len(parameter.Enum) == 0 {
+				return fmt.Errorf("Seedance OpenAI aspect_ratio must be a non-empty enum")
+			}
+			for _, choice := range parameter.Enum {
+				value, ok := choice.(string)
+				if !ok || !slices.Contains(allowedRatios, value) {
+					return fmt.Errorf("Seedance OpenAI aspect_ratio %v is unsupported", choice)
+				}
+			}
+			if (parameter.Default != nil && !videoParameterAccepts(*parameter, parameter.Default)) ||
+				(parameter.Fixed != nil && !videoParameterAccepts(*parameter, parameter.Fixed)) {
+				return fmt.Errorf("Seedance OpenAI aspect_ratio default/fixed conflicts with enum")
+			}
+		default:
+			return fmt.Errorf("parameter %q is unavailable for %s", parameter.Name, VideoProfileSeedanceOpenAI)
+		}
+	}
+	if !hasDuration || !hasResolution {
+		return fmt.Errorf("Seedance OpenAI requires duration and fixed resolution parameters")
+	}
+	for i := range operation.Inputs {
+		operation.Inputs[i].AllowedMimes = nil
+		operation.Inputs[i].MaxSizeMb = nil
+		operation.Inputs[i].MinDurationSec = nil
+		operation.Inputs[i].MaxDurationSec = nil
+	}
+	operation.Output.Formats = nil
+	if operation.ID == operationVideoMultiRef {
+		if hasRefMedia {
+			operation.ModeKind = "multimodal_reference"
+		} else {
+			operation.ModeKind = "image_reference"
+		}
+	} else {
+		operation.ModeKind = operation.ID
+	}
+	return nil
+}
+
 // The managed codecs retain different request fields and media semantics.
 // Keep these boundaries in parity with decodeMuseVideo in the built-in
 // plugin and normalizeManagedVideoRequest in the native video adapter.
-func validateManagedVideoOperation(operation *Operation, protocol string, legacyNative bool) error {
+func validateManagedVideoOperation(operation *Operation, protocol, nativeRequestModel string, legacyNative bool) error {
 	native := protocol == VideoProtocolGenerations
 	allowedOperations := openAIVideoOperations
 	inputLimits := map[string]int{"first_frame": 1, "reference_images": 10}
@@ -501,15 +670,30 @@ func validateManagedVideoOperation(operation *Operation, protocol string, legacy
 	}
 	minDuration, maxDuration := 1.0, 60.0
 	if native {
-		allowedOperations = apimartVideoOperations[seedance25VideoRequestModel]
-		inputLimits = map[string]int{
-			"first_frame": 1, "last_frame": 1, "reference_images": 30,
-			"reference_videos": 10, "reference_audios": 10, "source_videos": 10,
+		if nativeRequestModel == "" {
+			nativeRequestModel = seedance25VideoRequestModel
 		}
-		enums = map[string][]string{
-			"aspect_ratio":  {"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
-			"output_format": {"mp4", "mov"},
-			"resolution":    {"480p", "720p", "1080p"},
+		allowedOperations = apimartVideoOperations[nativeRequestModel]
+		if nativeRequestModel == seedance25FlashVideoRequestModel {
+			inputLimits = map[string]int{
+				"first_frame": 1, "last_frame": 1, "reference_images": 10,
+				"reference_videos": 5, "reference_audios": 5, "source_videos": 5,
+			}
+			enums = map[string][]string{
+				"aspect_ratio":  {"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+				"output_format": {"mp4", "mov"},
+				"resolution":    {"480p", "720p"},
+			}
+		} else {
+			inputLimits = map[string]int{
+				"first_frame": 1, "last_frame": 1, "reference_images": 30,
+				"reference_videos": 10, "reference_audios": 10, "source_videos": 10,
+			}
+			enums = map[string][]string{
+				"aspect_ratio":  {"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+				"output_format": {"mp4", "mov"},
+				"resolution":    {"480p", "720p", "1080p"},
+			}
 		}
 		if operation.ID == operationVideoEdit || operation.ID == operationVideoExtend {
 			enums["aspect_ratio"] = []string{"adaptive"}

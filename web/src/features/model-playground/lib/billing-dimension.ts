@@ -77,39 +77,10 @@ export type BillingDeclaration = {
  *   package of N seconds", that one narrowing fact has to live here.
  *
  * A `duration` entry is therefore an exception, not a parallel truth: when the
- * contract already states the package's fixed length, as it now does for
- * `seedance-2-5-task`, the entry here adds nothing and should be dropped.
+ * contract already states the package's fixed length, the entry here adds
+ * nothing and should be dropped.
  */
 export const BILLING_DECLARATIONS: Record<string, BillingDeclaration> = {
-  // The per-call alias resolves to a *different upstream package* than the
-  // per-second baseline, which is why it cannot inherit that model's envelope.
-  //
-  // Billed line (group `seedance-cheap`, channel 53 → upstream
-  // `seedance2.5-9图`): fixed 30 seconds, 720p, 16:9 / 9:16, at most 9
-  // reference images, no video or audio references. Three sources agree on the
-  // fixed length: the channel's published model table ("固定 30 秒",
-  // https://www.weijinapi.top/docs/), its pricing description ("卡人脸只支持30秒")
-  // and the pricing ledger ("固定 30 秒"). The resolution and ratio values are
-  // that same published table, which lists one resolution per model.
-  //
-  // Open conflict: `docs/model-governance/specs/seedance-2-5-task.json`
-  // records the *vendor model's* general envelope instead — durations 4–30,
-  // resolutions 480p / 720p / 1080p, seven aspect ratios — and its own routing
-  // note points at the same 9-image line. That file describes what the model can
-  // do, not what this billed package accepts, so the package values are used
-  // here; the two have not been reconciled. The ledger's resolution field
-  // ("以接口返回为准") is likewise unreconciled. Narrowing is the safe
-  // direction: offering a resolution the package rejects fails the generation,
-  // while withholding one it accepts only costs an option.
-  'seedance-2-5-task': {
-    dimension: 'per_call',
-    // No envelope here any more: `d8a6990b7` corrected the governance spec to
-    // the billed package, so the contract states the fixed 30 s, 720p and the
-    // two ratios. The register supplies an envelope only where the contract is
-    // silent — `minimax-h3-task` below is the remaining case.
-    resolutions: ['720p'],
-    ratios: ['16:9', '9:16'],
-  },
   // In service as per-call; the fixed length is not established by any source
   // read here. Our own catalog description calls it "fixed-duration" without a
   // number, and this id is served by two channels whose upstream packages need
