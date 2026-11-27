@@ -528,6 +528,9 @@ func (s *Service) PresignMedia(ctx context.Context, userId int, body map[string]
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrMediaInvalid, err)
 	}
+	if err := s.requireMediaPresignAccess(userId); err != nil {
+		return nil, err
+	}
 	if s.presignUsesOwnStorage(body) {
 		return s.presignOwnMediaStorage(ctx, userId, in)
 	}
@@ -557,6 +560,33 @@ func (s *Service) PresignMedia(ctx context.Context, userId int, body map[string]
 		out["key"] = res.Key
 	}
 	return out, nil
+}
+
+// requireMediaPresignAccess ensures only users with an active social account or
+// active purchased social seat can request upload tickets.
+func (s *Service) requireMediaPresignAccess(userId int) error {
+	if model.DB == nil {
+		return nil
+	}
+	accounts, err := model.ListSocialAccountsByUser(userId, "")
+	if err != nil {
+		return err
+	}
+	for _, acc := range accounts {
+		if acc != nil && acc.Status != model.SocialAccountStatusDisconnected {
+			return nil
+		}
+	}
+	if seatBillingOn() {
+		purchased, err := model.CountPurchasedSeats(userId, nowUTC())
+		if err != nil {
+			return err
+		}
+		if purchased > 0 {
+			return nil
+		}
+	}
+	return ErrAccountDenied
 }
 
 func isTerminalStatus(status string) bool {

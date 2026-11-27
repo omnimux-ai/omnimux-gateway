@@ -82,6 +82,7 @@ var accessTokenExemptRoutes = []string{
 	"POST /api/user/device/token",
 	"GET /api/social/v1/status",
 	"GET /api/social/v1/oauth/tiktok/start",
+	"POST /api/social/v1/oauth/tiktok/start",
 	"GET /api/social/v1/oauth/tiktok/callback",
 	"POST /api/social/v1/oauth/tiktok/callback",
 	"POST /api/social/v1/webhooks/tiktok",

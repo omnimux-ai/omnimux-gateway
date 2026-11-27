@@ -214,10 +214,15 @@ func (p *SubscriptionPlan) NormalizeDefaults() {
 
 // Subscription order (payment -> webhook -> create UserSubscription)
 type SubscriptionOrder struct {
-	Id     int     `json:"id"`
-	UserId int     `json:"user_id" gorm:"index"`
-	PlanId int     `json:"plan_id" gorm:"index"`
-	Money  float64 `json:"money"`
+	Id                  int     `json:"id"`
+	UserId              int     `json:"user_id" gorm:"index"`
+	PlanId              int     `json:"plan_id" gorm:"index"`
+	Money               float64 `json:"money"`
+	ExpectedAmountMinor int64   `json:"expected_amount_minor" gorm:"type:bigint;not null;default:0"`
+	ExpectedCurrency    string  `json:"expected_currency" gorm:"type:varchar(16);default:''"`
+	ExpectedMode        string  `json:"expected_mode" gorm:"type:varchar(16);default:''"`
+	ProviderSessionId   string  `json:"provider_session_id" gorm:"type:varchar(255);default:''"`
+	ProviderProductId   string  `json:"provider_product_id" gorm:"type:varchar(255);default:''"`
 
 	TradeNo         string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod   string `json:"payment_method" gorm:"type:varchar(50)"`
@@ -576,6 +581,12 @@ func refreshSubscriptionUserGroupCache(userId int, operation string) {
 // expectedPaymentProvider guards against cross-gateway callback attacks (empty skips the check).
 // actualPaymentMethod updates the order's PaymentMethod to reflect the real payment type used (empty skips update).
 func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string) error {
+	return CompleteSubscriptionOrderVerified(tradeNo, providerPayload, expectedPaymentProvider, actualPaymentMethod, nil)
+}
+
+// CompleteSubscriptionOrderVerified verifies callback settlement facts against
+// the persisted subscription order inside the row-locked transaction before fulfillment.
+func CompleteSubscriptionOrderVerified(tradeNo string, providerPayload string, expectedPaymentProvider string, actualPaymentMethod string, verification *PaymentVerification) error {
 	if tradeNo == "" {
 		return errors.New("tradeNo is empty")
 	}
@@ -601,6 +612,17 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		}
 		if order.Status != common.TopUpStatusPending {
 			return ErrSubscriptionOrderStatusInvalid
+		}
+		if err := verifyPaymentExpectation(
+			order.ExpectedAmountMinor,
+			order.ExpectedCurrency,
+			order.ExpectedMode,
+			order.ProviderSessionId,
+			order.ProviderProductId,
+			order.Money,
+			verification,
+		); err != nil {
+			return err
 		}
 		plan, err := GetSubscriptionPlanById(order.PlanId)
 		if err != nil {
@@ -798,6 +820,8 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 	var logMoney float64
 	var chargedQuota int
 	var upgradeGroup string
+	var cacheReserved bool
+	var releaseCache func()
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		plan, err := getSubscriptionPlanByIdTx(tx, planId)
 		if err != nil {
@@ -818,6 +842,18 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			return err
 		}
 
+		if requiredQuota > 0 {
+			reserved, release, cacheErr := ReserveWalletForDirectPurchaseTx(tx, userId, requiredQuota)
+			if cacheErr != nil {
+				if errors.Is(cacheErr, ErrInsufficientWalletQuota) {
+					return common.NewMessage("Insufficient balance")
+				}
+				return cacheErr
+			}
+			cacheReserved = reserved
+			releaseCache = release
+		}
+
 		var user User
 		if err := lockForUpdate(tx).Where("id = ?", userId).First(&user).Error; err != nil {
 			return err
@@ -826,9 +862,13 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			return common.NewMessage("Insufficient balance")
 		}
 		if requiredQuota > 0 {
-			if err := tx.Model(&User{}).Where("id = ?", userId).
-				Update("quota", gorm.Expr("quota - ?", requiredQuota)).Error; err != nil {
-				return err
+			res := tx.Model(&User{}).Where("id = ? AND quota >= ?", userId, requiredQuota).
+				Update("quota", gorm.Expr("quota - ?", requiredQuota))
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected != 1 {
+				return common.NewMessage("Insufficient balance")
 			}
 		}
 
@@ -864,10 +904,13 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 		return nil
 	})
 	if err != nil {
+		if releaseCache != nil {
+			releaseCache()
+		}
 		return err
 	}
 
-	if chargedQuota > 0 {
+	if !cacheReserved && chargedQuota > 0 {
 		if err := cacheDecrUserQuota(userId, int64(chargedQuota)); err != nil {
 			common.SysLog(common.LogText("failed to decrease user quota cache after subscription balance purchase: %s", err.Error()))
 		}

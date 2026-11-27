@@ -165,3 +165,36 @@ func TestTaskDurationBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateGeminiModelPathAndAPIVersion(t *testing.T) {
+	m, act, ok := ValidateGeminiModelPath("/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse")
+	require.True(t, ok)
+	assert.Equal(t, "gemini-2.5-flash", m)
+	assert.Equal(t, "streamGenerateContent", act)
+
+	for _, bad := range []string{
+		"/v1beta/models/../../admin/keys:generateContent",
+		"/v1beta/models/gemini-2.5-flash/extra:generateContent",
+		"/v1beta/models/gemini-2.5-flash:evilAction",
+		"/v1beta/models/gemini-2.5-flash%2f..:generateContent",
+		"/v1/models/gemini-2.5-flash:generateContent#frag",
+		"/v1beta/models/:generateContent",
+	} {
+		_, _, ok := ValidateGeminiModelPath(bad)
+		assert.False(t, ok, "path %q must be rejected", bad)
+	}
+
+	assert.True(t, ValidateRelayURLPath("/v1/chat/completions"))
+	assert.False(t, ValidateRelayURLPath("/v1/../admin"))
+	assert.False(t, ValidateRelayURLPath("//evil.example/v1"))
+	assert.False(t, ValidateRelayURLPath("/v1/chat\\completions"))
+
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set("api_version", "2024-02-01")
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions?api-version=2024-02-01%26injected=1", nil)
+	assert.Equal(t, "2024-02-01", GetAPIVersion(ctx), "injected query api-version must fall back to channel default")
+
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions?api-version=2025-01-01-preview", nil)
+	assert.Equal(t, "2025-01-01-preview", GetAPIVersion(ctx))
+}

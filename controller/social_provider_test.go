@@ -349,6 +349,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 
 	router := gin.New()
 	router.GET("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
+	router.POST("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
 	router.GET("/api/social/v1/oauth/tiktok/callback", SocialTikTokCallback)
 	authed := router.Group("/api/social/v1")
 	authed.Use(func(c *gin.Context) { c.Set("id", 7); c.Next() })
@@ -363,6 +364,40 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		assert.Equal(t, "DENY", h.Get("X-Frame-Options"))
 		assert.Contains(t, h.Get("Content-Security-Policy"), "frame-ancestors 'none'")
 		assert.Equal(t, "nosniff", h.Get("X-Content-Type-Options"))
+	}
+
+	extractConfirmCSRF := func(t *testing.T, body string) string {
+		t.Helper()
+		const marker = `name="csrf" value="`
+		idx := strings.Index(body, marker)
+		require.NotEqual(t, -1, idx, "expected csrf input in confirmation page: %s", body)
+		rest := body[idx+len(marker):]
+		end := strings.Index(rest, `"`)
+		require.NotEqual(t, -1, end)
+		return rest[:end]
+	}
+
+	confirmStart := func(t *testing.T, rawStartURI string) *httptest.ResponseRecorder {
+		t.Helper()
+		getRec := httptest.NewRecorder()
+		router.ServeHTTP(getRec, httptest.NewRequest(http.MethodGet, rawStartURI, nil))
+		require.Equal(t, http.StatusOK, getRec.Code, getRec.Body.String())
+		assertStartSecurityHeaders(t, getRec.Header())
+		assert.Contains(t, getRec.Header().Get("Content-Security-Policy"), "form-action 'self'")
+		confirmCookies := getRec.Result().Cookies()
+		require.Len(t, confirmCookies, 1)
+		csrf := extractConfirmCSRF(t, getRec.Body.String())
+		parsed, err := url.Parse(rawStartURI)
+		require.NoError(t, err)
+		form := url.Values{}
+		form.Set("ticket", parsed.Query().Get("ticket"))
+		form.Set("csrf", csrf)
+		postReq := httptest.NewRequest(http.MethodPost, "/api/social/v1/oauth/tiktok/start", strings.NewReader(form.Encode()))
+		postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		postReq.AddCookie(confirmCookies[0])
+		postRec := httptest.NewRecorder()
+		router.ServeHTTP(postRec, postReq)
+		return postRec
 	}
 
 	const strictTikTokCallbackCSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox"
@@ -411,10 +446,31 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		ticket := startURL.Query().Get("ticket")
 		require.NotEmpty(t, ticket)
 
-		// Extra untrusted query parameters must be ignored (no open redirect).
-		startReq := httptest.NewRequest(http.MethodGet, startURL.RequestURI()+"&redirect_url=https://evil.example/steal&next=https://evil.example/steal", nil)
-		startRec := httptest.NewRecorder()
-		router.ServeHTTP(startRec, startReq)
+		// Unauthenticated GET must NOT auto-redirect or consume ticket (blocks reverse login-CSRF).
+		getOnlyRec := httptest.NewRecorder()
+		router.ServeHTTP(getOnlyRec, httptest.NewRequest(http.MethodGet, startURL.RequestURI()+"&redirect_url=https://evil.example/steal&next=https://evil.example/steal", nil))
+		require.Equal(t, http.StatusOK, getOnlyRec.Code)
+		assertStartSecurityHeaders(t, getOnlyRec.Header())
+		assert.Empty(t, getOnlyRec.Header().Get("Location"))
+
+		// Cross-site POST without the confirm cookie must be rejected without consuming the ticket.
+		forgedForm := url.Values{"ticket": {ticket}, "csrf": {"forged"}}
+		forgedPost := httptest.NewRequest(http.MethodPost, "/api/social/v1/oauth/tiktok/start", strings.NewReader(forgedForm.Encode()))
+		forgedPost.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		forgedRec := httptest.NewRecorder()
+		router.ServeHTTP(forgedRec, forgedPost)
+		assert.Equal(t, http.StatusForbidden, forgedRec.Code)
+
+		// Mismatched logged-in session must be rejected (403) without consuming ticket.
+		mismatchRec := httptest.NewRecorder()
+		mismatchCtx, _ := gin.CreateTestContext(mismatchRec)
+		mismatchCtx.Request = httptest.NewRequest(http.MethodGet, startURL.RequestURI(), nil)
+		mismatchCtx.Set("id", 99)
+		SocialTikTokOAuthStart(mismatchCtx)
+		assert.Equal(t, http.StatusForbidden, mismatchRec.Code)
+
+		// Explicit confirmation POST redeems the ticket, sets __Host cookie, and ignores untrusted query params.
+		startRec := confirmStart(t, startURL.RequestURI()+"&redirect_url=https://evil.example/steal&next=https://evil.example/steal")
 		require.Equal(t, http.StatusFound, startRec.Code)
 		assertStartSecurityHeaders(t, startRec.Header())
 
@@ -427,16 +483,21 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		require.NotEmpty(t, state)
 		assert.NotEqual(t, ticket, state)
 
-		cookies := startRec.Result().Cookies()
-		require.Len(t, cookies, 1)
+		var oauthCookie *http.Cookie
+		for _, ck := range startRec.Result().Cookies() {
+			if strings.Contains(ck.Name, socialOAuthBrowserCookiePrefix) {
+				oauthCookie = ck
+			}
+		}
+		require.NotNil(t, oauthCookie)
 		sum := sha256.Sum256([]byte(state))
 		wantName := "__Host-social_tiktok_oauth_" + hex.EncodeToString(sum[:])
-		assert.Equal(t, wantName, cookies[0].Name)
-		assert.True(t, cookies[0].HttpOnly)
-		assert.True(t, cookies[0].Secure)
-		assert.Equal(t, http.SameSiteLaxMode, cookies[0].SameSite)
-		assert.Equal(t, "/", cookies[0].Path)
-		assert.Empty(t, cookies[0].Domain)
+		assert.Equal(t, wantName, oauthCookie.Name)
+		assert.True(t, oauthCookie.HttpOnly)
+		assert.True(t, oauthCookie.Secure)
+		assert.Equal(t, http.SameSiteLaxMode, oauthCookie.SameSite)
+		assert.Equal(t, "/", oauthCookie.Path)
+		assert.Empty(t, oauthCookie.Domain)
 
 		// Ticket replay is rejected without leaking ticket value.
 		replayRec := httptest.NewRecorder()
@@ -462,7 +523,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 
 		// Callback with the browser cookie succeeds and clears the cookie in Set-Cookie.
 		cbReq := httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/callback?code=c1&state="+url.QueryEscape(state), nil)
-		cbReq.AddCookie(cookies[0])
+		cbReq.AddCookie(oauthCookie)
 		cbRec := httptest.NewRecorder()
 		router.ServeHTTP(cbRec, cbReq)
 		require.Equal(t, http.StatusOK, cbRec.Code, cbRec.Body.String())
@@ -476,7 +537,7 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 
 		// State replay even with the old browser cookie fails.
 		cbReplayReq := httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/callback?code=c1&state="+url.QueryEscape(state), nil)
-		cbReplayReq.AddCookie(cookies[0])
+		cbReplayReq.AddCookie(oauthCookie)
 		cbReplayRec := httptest.NewRecorder()
 		router.ServeHTTP(cbReplayRec, cbReplayReq)
 		assert.Equal(t, http.StatusBadRequest, cbReplayRec.Code)
@@ -566,15 +627,18 @@ func TestSocialTikTokOAuthStartAndCallbackOWASP(t *testing.T) {
 		t.Cleanup(func() { grantedScope.Store("user.info.basic,video.upload") })
 
 		startURL := extractAuthURL(t, connect(t, `{"provider":"tiktok_direct","platform":"tiktok"}`))
-		startRec := httptest.NewRecorder()
-		router.ServeHTTP(startRec, httptest.NewRequest(http.MethodGet, startURL.RequestURI(), nil))
+		startRec := confirmStart(t, startURL.RequestURI())
 		require.Equal(t, http.StatusFound, startRec.Code)
 		loc, parseErr := url.Parse(startRec.Header().Get("Location"))
 		require.NoError(t, parseErr)
 		state := loc.Query().Get("state")
 
 		cbReq := httptest.NewRequest(http.MethodGet, "/api/social/v1/oauth/tiktok/callback?code=c-basic&state="+url.QueryEscape(state), nil)
-		cbReq.AddCookie(startRec.Result().Cookies()[0])
+		for _, ck := range startRec.Result().Cookies() {
+			if strings.Contains(ck.Name, socialOAuthBrowserCookiePrefix) {
+				cbReq.AddCookie(ck)
+			}
+		}
 		cbRec := httptest.NewRecorder()
 		router.ServeHTTP(cbRec, cbReq)
 		require.Equal(t, http.StatusOK, cbRec.Code, cbRec.Body.String())
@@ -863,7 +927,8 @@ func TestSocialTikTokOAuthRootCallbackAliasEndToEnd(t *testing.T) {
 	engine := gin.New()
 	engine.GET("/oauth/tiktok/callback", SocialTikTokCallback)
 	engine.POST("/oauth/tiktok/callback", SocialTikTokCallback)
-	engine.GET("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
+	engine.GET("/api/social/v1/oauth/tiktok/start", func(c *gin.Context) { c.Set("id", 7); c.Next() }, SocialTikTokOAuthStart)
+	engine.POST("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
 	engine.GET("/api/social/v1/oauth/tiktok/callback", SocialTikTokCallback)
 	engine.POST("/api/social/v1/oauth/tiktok/callback", SocialTikTokCallback)
 	authed := engine.Group("/api/social/v1")
@@ -1059,6 +1124,7 @@ func TestSocialTikTokCallbackAcceptLanguage(t *testing.T) {
 
 	engine := gin.New()
 	engine.GET("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
+	engine.POST("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
 	engine.GET("/oauth/tiktok/callback", SocialTikTokCallback)
 	authed := engine.Group("/api/social/v1")
 	authed.Use(func(c *gin.Context) { c.Set("id", 7); c.Next() })
@@ -1079,13 +1145,38 @@ func TestSocialTikTokCallbackAcceptLanguage(t *testing.T) {
 		require.NoError(t, common.Unmarshal(w.Body.Bytes(), &resp))
 		startURL, err := url.Parse(resp.Data.AuthURL)
 		require.NoError(t, err)
+		confirmRec := httptest.NewRecorder()
+		engine.ServeHTTP(confirmRec, httptest.NewRequest(http.MethodGet, startURL.RequestURI(), nil))
+		require.Equal(t, http.StatusOK, confirmRec.Code)
+		body := confirmRec.Body.String()
+		const csrfMarker = `name="csrf" value="`
+		idx := strings.Index(body, csrfMarker)
+		require.GreaterOrEqual(t, idx, 0)
+		rest := body[idx+len(csrfMarker):]
+		end := strings.IndexByte(rest, '"')
+		require.Greater(t, end, 0)
+		form := url.Values{
+			"ticket": {startURL.Query().Get("ticket")},
+			"csrf":   {rest[:end]},
+		}
+		postReq := httptest.NewRequest(http.MethodPost, "/api/social/v1/oauth/tiktok/start", strings.NewReader(form.Encode()))
+		postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		for _, ck := range confirmRec.Result().Cookies() {
+			postReq.AddCookie(ck)
+		}
 		startRec := httptest.NewRecorder()
-		engine.ServeHTTP(startRec, httptest.NewRequest(http.MethodGet, startURL.RequestURI(), nil))
+		engine.ServeHTTP(startRec, postReq)
 		require.Equal(t, http.StatusFound, startRec.Code)
 		loc, err := url.Parse(startRec.Header().Get("Location"))
 		require.NoError(t, err)
-		require.Len(t, startRec.Result().Cookies(), 1)
-		return loc.Query().Get("state"), startRec.Result().Cookies()[0]
+		var oauthCookie *http.Cookie
+		for _, ck := range startRec.Result().Cookies() {
+			if strings.Contains(ck.Name, socialOAuthBrowserCookiePrefix) {
+				oauthCookie = ck
+			}
+		}
+		require.NotNil(t, oauthCookie)
+		return loc.Query().Get("state"), oauthCookie
 	}
 
 	successCases := []struct {

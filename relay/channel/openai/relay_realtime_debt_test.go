@@ -410,3 +410,64 @@ func TestOpenaiRealtimeDebtPreservesControlAndRepaidSubscription(t *testing.T) {
 		t.Fatal("repaid realtime session did not close")
 	}
 }
+
+func TestOpenaiRealtimeWalletPartialSettlementNoDoubleCharge(t *testing.T) {
+	oldModels, oldGroups := ratio_setting.ModelRatio2JSONString(), ratio_setting.GroupRatio2JSONString()
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"wallet-realtime":1}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"wallet-test":1}`))
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldModels))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(oldGroups))
+	})
+
+	info := &relaycommon.RelayInfo{
+		TokenId:         1,
+		TokenKey:        "wallet-realtime-token",
+		RequestId:       t.Name(),
+		OriginModelName: "wallet-realtime",
+		UsingGroup:      "wallet-test",
+		UserGroup:       "wallet-test",
+		UserSetting:     dto.UserSetting{BillingPreference: "wallet_only"},
+	}
+	var billingCtx *gin.Context
+	relay := startRealtimeDebtRelay(t, info, func(ctx *gin.Context, db *gorm.DB) {
+		billingCtx = ctx
+		require.NoError(t, db.AutoMigrate(&model.Token{}))
+		require.NoError(t, db.Model(&model.User{}).Where("id = 1").Update("quota", 200).Error)
+		require.NoError(t, db.Create(&model.Token{Id: 1, UserId: 1, Key: info.TokenKey, RemainQuota: 200, Status: common.TokenStatusEnabled}).Error)
+		ctx.Set("token_quota", 200)
+		require.Nil(t, service.PreConsumeBilling(ctx, 50, info))
+	})
+
+	const generate = `{"type":"response.create"}`
+	for _, tokens := range []int{40, 80} {
+		require.NoError(t, relay.client.WriteMessage(websocket.TextMessage, []byte(generate)))
+		assert.JSONEq(t, generate, string(readRealtimeDebtMessage(t, relay.upstream)))
+		usage := &dto.RealtimeUsage{TotalTokens: tokens, InputTokens: tokens}
+		usage.InputTokenDetails.TextTokens = tokens
+		msg, err := common.Marshal(dto.RealtimeEvent{Type: dto.RealtimeEventTypeResponseDone, Response: &dto.RealtimeResponse{Usage: usage}})
+		require.NoError(t, err)
+		require.NoError(t, relay.upstream.WriteMessage(websocket.TextMessage, msg))
+		assert.JSONEq(t, string(msg), string(readRealtimeDebtMessage(t, relay.client)))
+	}
+
+	require.NoError(t, relay.client.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")))
+	select {
+	case result := <-relay.result:
+		assert.Nil(t, result.err)
+		require.NotNil(t, result.usage)
+		assert.Equal(t, 120, result.usage.TotalTokens)
+		// Final settlement must not double-charge the 120 tokens already settled partially.
+		require.NoError(t, service.SettleBilling(billingCtx, info, 120))
+	case <-time.After(5 * time.Second):
+		t.Fatal("wallet realtime session did not close")
+	}
+
+	var user model.User
+	var token model.Token
+	require.NoError(t, relay.db.First(&user, 1).Error)
+	require.NoError(t, relay.db.First(&token, 1).Error)
+	assert.Equal(t, 80, user.Quota, "wallet must be charged exactly once (200 - 120 = 80)")
+	assert.Equal(t, 80, token.RemainQuota, "token must be charged exactly once (200 - 120 = 80)")
+	assert.Equal(t, 120, info.RealtimeConsumedQuota)
+}

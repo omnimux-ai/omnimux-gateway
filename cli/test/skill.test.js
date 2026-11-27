@@ -7,6 +7,7 @@ const os = require("os");
 const path = require("path");
 
 const skill = require("../src/lib/skill");
+const { openUrl, validateOpenUrl } = require("../src/lib/open-url");
 
 let dir;
 let home;
@@ -129,4 +130,35 @@ test("uninstall removes flat skills for scope", () => {
   assert.equal(fs.existsSync(skill.defaultTargetPath("user", "omnimux")), false);
   assert.equal(fs.existsSync(skill.defaultTargetPath("user", "recreate-viral-video")), false);
   assert.equal(skill.loadSkillTargets().targets.length, 0);
+});
+
+test("uninstall rejects path traversal skill ids without touching sibling directories", () => {
+  const sentinel = path.join(home, ".agents", "sentinel-keep");
+  fs.mkdirSync(sentinel, { recursive: true });
+  fs.writeFileSync(path.join(sentinel, "keep.txt"), "ok");
+
+  for (const badId of ["../sentinel-keep", "../../tmp", "foo/bar", "..", "a\\b"]) {
+    const res = skill.uninstallSkill("user", { skillId: badId });
+    assert.equal(res.success, false, `expected rejection for ${badId}`);
+    assert.throws(() => skill.defaultTargetPath("user", badId));
+  }
+  assert.equal(fs.existsSync(path.join(sentinel, "keep.txt")), true);
+});
+
+test("openUrl rejects non-http protocols, control chars, and shell injection payloads", () => {
+  assert.equal(validateOpenUrl("https://omnimux.ai/oauth?ticket=abc").ok, true);
+  assert.equal(validateOpenUrl("http://127.0.0.1:3000/login").ok, true);
+
+  for (const bad of [
+    "javascript:alert(1)",
+    "file:///etc/passwd",
+    "ms-msdt:/id",
+    "https://omnimux.ai/a\ncalc.exe",
+    "https://omnimux.ai/a\rcalc.exe",
+    "-a Calculator",
+    "",
+  ]) {
+    assert.equal(validateOpenUrl(bad).ok, false, `expected reject for ${JSON.stringify(bad)}`);
+    assert.equal(openUrl(bad).ok, false, `openUrl must reject ${JSON.stringify(bad)}`);
+  }
 });

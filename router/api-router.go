@@ -241,7 +241,8 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			socialRoute.GET("/status", controller.SocialStatus)
 			// fork: tiktok-direct — one-time browser launch entry and OAuth callback (state + browser cookie bound).
-			socialRoute.GET("/oauth/tiktok/start", middleware.CriticalRateLimit(), controller.SocialTikTokOAuthStart)
+			socialRoute.GET("/oauth/tiktok/start", middleware.CriticalRateLimit(), middleware.TryUserAuth(), controller.SocialTikTokOAuthStart)
+			socialRoute.POST("/oauth/tiktok/start", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, middleware.TryUserAuth(), controller.SocialTikTokOAuthStart)
 			socialRoute.GET("/oauth/tiktok/callback", controller.SocialTikTokCallback)
 			socialRoute.POST("/oauth/tiktok/callback", controller.SocialTikTokCallback)
 			// fork: tiktok-webhooks — public signed webhook receiver (fail-closed when TIKTOK_WEBHOOK_ENABLED=false).
@@ -373,7 +374,7 @@ func SetApiRouter(router *gin.Engine) {
 				hostedAuthed.POST("/tasks/batch", middleware.CriticalRateLimit(), controller.HostedBatchTasks)
 				hostedAuthed.GET("/tasks/:id", controller.HostedGetTask)
 				hostedAuthed.POST("/tasks/:id/cancel", middleware.CriticalRateLimit(), controller.HostedCancelTask)
-				hostedAuthed.POST("/media/presign", middleware.CriticalRateLimit(), controller.HostedPresignMedia)
+				hostedAuthed.POST("/media/presign", middleware.CriticalRateLimit(), middleware.UploadRateLimit(), controller.HostedPresignMedia)
 			}
 		}
 		// fork: hosted-admin-api
@@ -427,6 +428,7 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)
 			optionRoute.POST("/rest_model_ratio", controller.ResetModelRatio)
 			optionRoute.GET("/waffo-pancake/catalog", controller.ListWaffoPancakeCatalog)
+			optionRoute.POST("/waffo-pancake/catalog", controller.ListWaffoPancakeCatalog)
 			optionRoute.POST("/waffo-pancake/pair", controller.CreateWaffoPancakePair)
 			optionRoute.POST("/waffo-pancake/save", controller.SaveWaffoPancake)
 			optionRoute.POST("/waffo-pancake/subscription-product", controller.CreateWaffoPancakeSubscriptionProduct)

@@ -10,8 +10,9 @@ import (
 // TopUpAnalyticsPayment carries optional facts from a verified payment callback.
 // Amount is the positive paid amount in major units of Currency.
 type TopUpAnalyticsPayment struct {
-	Currency string
-	Amount   float64
+	Currency     string
+	Amount       float64
+	Verification *PaymentVerification
 }
 
 var trackTopUpPaidEvent = analytics.Track

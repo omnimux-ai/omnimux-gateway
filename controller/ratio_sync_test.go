@@ -4,13 +4,18 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"net/http"
 	"net/http/httptest"
 )
@@ -70,7 +75,11 @@ func TestRatioConfigExportsEffectiveExpressions(t *testing.T) {
 func TestPricingSyncCompleteSourcesAndArrayFormats(t *testing.T) {
 	before := config.GlobalConfig.ExportAllConfigs()
 	oldRatios, oldCompletion := ratio_setting.ModelRatio2JSONString(), ratio_setting.CompletionRatio2JSONString()
+	fetchSetting := system_setting.GetFetchSetting()
+	oldSSRF := fetchSetting.EnableSSRFProtection
+	fetchSetting.EnableSSRFProtection = false
 	t.Cleanup(func() {
+		fetchSetting.EnableSSRFProtection = oldSSRF
 		config.UpdateConfigFromMap(config.GlobalConfig.Get("billing_setting"), map[string]string{"billing_mode": before["billing_setting.billing_mode"], "billing_expr": before["billing_setting.billing_expr"]})
 		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(oldRatios))
 		require.NoError(t, ratio_setting.UpdateCompletionRatioByJSONString(oldCompletion))
@@ -139,4 +148,83 @@ func TestPricingSyncCompleteSourcesAndArrayFormats(t *testing.T) {
 	assert.Equal(t, float64(4), response.Data.Prices["sync-token"].Upstreams["Expressions(1)"]["completion_ratio"])
 	assert.Equal(t, float64(0), response.Data.Prices["sync-token"].Upstreams["Expressions(1)"]["cache_ratio"])
 	assert.Equal(t, float64(0), response.Data.Prices["sync-free"].Upstreams["Legacy(2)"]["model_ratio"])
+}
+
+func TestFetchUpstreamRatiosDoesNotExfiltrateChannelKeyToCallerBaseURL(t *testing.T) {
+	oldDB := model.DB
+	fetchSetting := system_setting.GetFetchSetting()
+	oldSSRF := fetchSetting.EnableSSRFProtection
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}))
+	model.DB = db
+	t.Cleanup(func() {
+		fetchSetting.EnableSSRFProtection = oldSSRF
+		model.DB = oldDB
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+
+	// With default SSRF protection enabled, cloud metadata URLs must be rejected.
+	fetchSetting.EnableSSRFProtection = true
+	var ssrfResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			TestResults []dto.TestResult `json:"test_results"`
+		} `json:"data"`
+	}
+	modelManagementRequest(t, FetchUpstreamRatios, http.MethodPost, "/api/ratio_sync/fetch", map[string]any{
+		"upstreams": []map[string]any{
+			{"name": "metadata", "base_url": "http://169.254.169.254", "endpoint": "/latest/meta-data/"},
+		},
+	}, &ssrfResp)
+	require.True(t, ssrfResp.Success)
+	require.Len(t, ssrfResp.Data.TestResults, 1)
+	assert.Equal(t, "error", ssrfResp.Data.TestResults[0].Status)
+
+	// With local test server allowed, OpenRouter channel key must still never be
+	// sent to a caller-supplied base_url or a non-OpenRouter channel.
+	fetchSetting.EnableSSRFProtection = false
+
+	attackerHits := 0
+	attacker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attackerHits++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer attacker.Close()
+
+	legitHits := 0
+	legit := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		legitHits++
+		assert.Equal(t, "Bearer sk-openrouter-secret", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer legit.Close()
+
+	nonOpenRouterBase := legit.URL
+	nonOpenRouter := &model.Channel{Name: "openai-ch", Type: constant.ChannelTypeOpenAI, Key: "sk-openai-secret", BaseURL: &nonOpenRouterBase}
+	require.NoError(t, db.Create(nonOpenRouter).Error)
+
+	orBase := legit.URL
+	orCh := &model.Channel{Name: "openrouter-ch", Type: constant.ChannelTypeOpenRouter, Key: "sk-openrouter-secret", BaseURL: &orBase}
+	require.NoError(t, db.Create(orCh).Error)
+
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			TestResults []dto.TestResult `json:"test_results"`
+		} `json:"data"`
+	}
+	body := map[string]any{
+		"upstreams": []map[string]any{
+			{"id": nonOpenRouter.Id, "name": "steal-openai", "base_url": attacker.URL, "endpoint": "openrouter"},
+			{"id": orCh.Id, "name": "steal-or", "base_url": attacker.URL, "endpoint": "openrouter"},
+		},
+	}
+	modelManagementRequest(t, FetchUpstreamRatios, http.MethodPost, "/api/ratio_sync/fetch", body, &response)
+	require.True(t, response.Success)
+	assert.Zero(t, attackerHits, "stored channel API key must never be sent to caller-supplied base_url")
+	assert.Equal(t, 1, legitHits, "OpenRouter sync must use the stored channel BaseURL only")
 }

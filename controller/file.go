@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -338,19 +339,41 @@ func sanitizeFilename(name string) string {
 	return name
 }
 
-// sanitizeUploadPath keeps path safe from traversal
+// sanitizeUploadPath keeps path safe from traversal across Windows and POSIX separators.
 func sanitizeUploadPath(p string, defaultCategory string) string {
-	p = strings.TrimSpace(p)
-	p = strings.Trim(p, "/\\")
-	clean := filepath.Clean(p)
-	if clean == "" || clean == "." || strings.HasPrefix(clean, "..") {
+	p = strings.ReplaceAll(strings.TrimSpace(p), "\\", "/")
+	p = strings.Trim(p, "/")
+	if p == "" {
 		return defaultCategory
 	}
-	clean = filepath.Clean(strings.ReplaceAll(clean, "\\", "/"))
+	clean := path.Clean(p)
+	if clean == "" || clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || strings.HasPrefix(clean, "/") || strings.Contains(clean, "/../") {
+		return defaultCategory
+	}
 	if clean == "task-artifacts" || strings.HasPrefix(clean, "task-artifacts/") || clean == "influencer-reference" || strings.HasPrefix(clean, "influencer-reference/") {
 		return defaultCategory
 	}
 	return clean
+}
+
+// isDisallowedPublicUploadType blocks active web-executable content (HTML, SVG,
+// JavaScript, XML, Flash) from being uploaded into public object storage.
+func isDisallowedPublicUploadType(mimeType string, filenames ...string) bool {
+	ct := strings.ToLower(strings.TrimSpace(strings.SplitN(mimeType, ";", 2)[0]))
+	switch ct {
+	case "text/html", "application/xhtml+xml", "image/svg+xml",
+		"text/javascript", "application/javascript", "application/x-javascript",
+		"text/ecmascript", "application/ecmascript",
+		"text/xml", "application/xml", "application/x-shockwave-flash":
+		return true
+	}
+	for _, name := range filenames {
+		switch strings.ToLower(path.Ext(strings.TrimSpace(name))) {
+		case ".html", ".htm", ".xhtml", ".svg", ".svgz", ".js", ".mjs", ".cjs", ".xml", ".swf":
+			return true
+		}
+	}
+	return false
 }
 
 // determineCategory determines default folder based on MIME type
@@ -966,6 +989,14 @@ func FilePresignUpload(c *gin.Context) {
 		})
 		return
 	}
+	if isDisallowedPublicUploadType(mimeType, fileName) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"code":    http.StatusBadRequest,
+			"msg":     "不支持上传可执行网页或脚本类型文件",
+		})
+		return
+	}
 
 	browserVideo, err := browserReferenceUpload(req.Purpose, req.VideoMetadata, mimeType, req.FileSize)
 	if err != nil {
@@ -1007,7 +1038,7 @@ func FilePresignUpload(c *gin.Context) {
 	}
 
 	ttl := fileUploadPresignTTL()
-	ticket, err := driver.PresignPut(c.Request.Context(), storageKey, mimeType, ttl)
+	ticket, err := driver.PresignPut(c.Request.Context(), storageKey, mimeType, req.FileSize, ttl)
 	if err != nil {
 		if errors.Is(err, storage.ErrPresignUnsupported) {
 			fileUploadPresignUnsupported(c)
@@ -1061,10 +1092,14 @@ func FilePresignUpload(c *gin.Context) {
 		Status:        model.FileStatusUploadPending,
 		VideoMetadata: videoMetadata,
 	}
-	if err := model.CreateFile(record); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+	if err := model.CreatePendingFileWithinQuota(record); err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "配额已耗尽") {
+			status = http.StatusTooManyRequests
+		}
+		c.JSON(status, gin.H{
 			"success": false,
-			"code":    http.StatusInternalServerError,
+			"code":    status,
 			"msg":     "记录上传凭证失败: " + err.Error(),
 		})
 		return
@@ -1167,12 +1202,19 @@ func FileConfirmUpload(c *gin.Context) {
 		})
 		return
 	}
-	if err := checkQuota(userId); err != nil {
+	if otherCount, countErr := model.CountOtherActiveUserFiles(userId, record.Id); countErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"code":    http.StatusInternalServerError,
+			"msg":     "检查文件配额失败",
+		})
+		return
+	} else if otherCount >= model.DefaultUserMaxFiles {
 		_, _ = model.RejectPendingFileUpload(record.Id)
 		c.JSON(http.StatusTooManyRequests, gin.H{
 			"success": false,
 			"code":    http.StatusTooManyRequests,
-			"msg":     err.Error(),
+			"msg":     fmt.Sprintf("文件配额已耗尽，每个用户最多存储 %d 个文件", model.DefaultUserMaxFiles),
 		})
 		return
 	}
@@ -1227,7 +1269,7 @@ func FileConfirmUpload(c *gin.Context) {
 	}
 
 	finalMimeType := strings.TrimSpace(storedMimeType)
-	if finalMimeType != record.MimeType {
+	if finalMimeType != record.MimeType || isDisallowedPublicUploadType(finalMimeType, record.FileName) {
 		rejectUpload("实际上传类型与声明不一致，请重新上传")
 		return
 	}

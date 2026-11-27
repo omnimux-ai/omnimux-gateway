@@ -9,11 +9,15 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // ---------------------------------------------------------------------------
@@ -372,4 +376,97 @@ func TestMapUpstreamStatusIgnoresNonTerminal(t *testing.T) {
 	info := mapUpstreamStatus(&upstreamVoiceCloneResponse{Status: &active, DemoAudio: "https://example.com/d.mp3"})
 	require.NotNil(t, info)
 	assert.Equal(t, string(model.TaskStatusSuccess), info.Status)
+}
+
+func TestVoiceCloneOwnershipIsolationAndUpstreamPolling(t *testing.T) {
+	oldDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Task{}, &model.VoiceClone{}))
+	model.DB = db
+	t.Cleanup(func() {
+		model.DB = oldDB
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+
+	// H-2: Unknown platform-namespaced voice must fail closed.
+	allowed, err := model.CheckVoiceCloneAccess(10, "omnimux_unowned01")
+	require.NoError(t, err)
+	assert.False(t, allowed, "unknown omnimux_* speaker_id must fail closed")
+
+	// Official preset voices remain usable.
+	allowed, err = model.CheckVoiceCloneAccess(10, "zh_female_qingxin")
+	require.NoError(t, err)
+	assert.True(t, allowed)
+
+	// User 10 claims omnimux_voiceA01 during ValidateRequestAndSetAction.
+	gin.SetMode(gin.TestMode)
+	makeCtx := func(body string) *gin.Context {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/tasks", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		return c
+	}
+	payload := `{"model":"volc-voice-clone","audio_data":"dGVzdA==","custom_speaker_id":"omnimux_voiceA01"}`
+	adaptorA := &TaskAdaptor{}
+	infoA := &relaycommon.RelayInfo{UserId: 10, OriginModelName: PublicModelVoiceClone, TaskRelayInfo: &relaycommon.TaskRelayInfo{PublicTaskID: "task_public_a"}}
+	require.Nil(t, adaptorA.ValidateRequestAndSetAction(makeCtx(payload), infoA))
+
+	// User 20 attempting to overwrite or re-train User 10's speaker_id is rejected with 403.
+	adaptorB := &TaskAdaptor{}
+	infoB := &relaycommon.RelayInfo{UserId: 20, OriginModelName: PublicModelVoiceClone, TaskRelayInfo: &relaycommon.TaskRelayInfo{PublicTaskID: "task_public_b"}}
+	taskErr := adaptorB.ValidateRequestAndSetAction(makeCtx(payload), infoB)
+	require.NotNil(t, taskErr)
+	assert.Equal(t, http.StatusForbidden, taskErr.StatusCode)
+	assert.Equal(t, "voice_speaker_forbidden", taskErr.Code)
+
+	// Confirm ownership and verify User 10 can synthesize while User 20 cannot.
+	resp := newVoiceCloneResponse(t, `{"code":0,"speaker_id":"omnimux_voiceA01","status":2}`)
+	_, parseErr := adaptorA.ParseResponse(nil, resp, infoA)
+	require.Nil(t, parseErr)
+
+	allowed, err = model.CheckVoiceCloneAccess(10, "omnimux_voiceA01")
+	require.NoError(t, err)
+	assert.True(t, allowed)
+	allowed, err = model.CheckVoiceCloneAccess(20, "omnimux_voiceA01")
+	require.NoError(t, err)
+	assert.False(t, allowed)
+
+	// Backfill historical task whose public TaskID differs from PrivateData.UpstreamTaskID.
+	hist := &model.Task{
+		TaskID: "task_public_legacy_99",
+		UserId: 33,
+		Action: constant.TaskActionVoiceClone,
+		Status: model.TaskStatusSuccess,
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: "omnimux_legacy99",
+		},
+	}
+	require.NoError(t, db.Create(hist).Error)
+	require.NoError(t, model.BackfillVoiceClones())
+	require.NoError(t, model.BackfillVoiceClones(), "backfill must be idempotent")
+
+	allowed, err = model.CheckVoiceCloneAccess(33, "omnimux_legacy99")
+	require.NoError(t, err)
+	assert.True(t, allowed)
+	allowed, err = model.CheckVoiceCloneAccess(10, "omnimux_legacy99")
+	require.NoError(t, err)
+	assert.False(t, allowed)
+
+	// FetchTask must poll using PrivateData.UpstreamTaskID rather than public TaskID.
+	var gotBody map[string]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		_ = common.Unmarshal(raw, &gotBody)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"code":0,"status":2,"speaker_id":"omnimux_legacy99"}`))
+	}))
+	defer srv.Close()
+	pollResp, err := adaptorA.FetchTask(srv.URL, "secret_key", hist, "")
+	require.NoError(t, err)
+	_ = pollResp.Body.Close()
+	assert.Equal(t, "custom_speaker_id", gotBody["speaker_id"])
+	assert.Equal(t, "omnimux_legacy99", gotBody["custom_speaker_id"])
 }

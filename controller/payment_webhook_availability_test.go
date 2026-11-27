@@ -471,7 +471,7 @@ func TestPaymentOrderCreemCheckoutRejection(t *testing.T) {
 					status, _ := paymentTestState(t, purchase.subscription, reference)
 					require.Equal(t, common.TopUpStatusPending, status)
 					if tc.paid {
-						body := fmt.Sprintf(`{"id":"paid_fixture","eventType":"checkout.completed","object":{"request_id":%q,"order":{"id":"o_fixture","status":"paid","type":"onetime","currency":"USD","amount_paid":100}}}`, reference)
+						body := fmt.Sprintf(`{"id":"paid_fixture","eventType":"checkout.completed","object":{"request_id":%q,"mode":"live","product":{"id":"prod_fixture"},"order":{"id":"o_fixture","status":"paid","type":"onetime","currency":"USD","amount_paid":100,"mode":"live"}}}`, reference)
 						recorder := postPaymentTestEvent(CreemWebhook, body, CreemSignatureHeader, generateCreemSignature(body, setting.CreemWebhookSecret))
 						require.Equal(t, http.StatusOK, recorder.Code)
 						status, paidAt = paymentTestState(t, purchase.subscription, reference)

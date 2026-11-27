@@ -63,7 +63,7 @@ func (d *frozenTestDriver) Delete(ctx context.Context, key string) error {
 }
 func (d *frozenTestDriver) GetPublicURL(key string) string { return "https://files.example/" + key }
 func (d *frozenTestDriver) IsR2() bool                     { return true }
-func (d *frozenTestDriver) PresignPut(context.Context, string, string, time.Duration) (*storage.PresignResult, error) {
+func (d *frozenTestDriver) PresignPut(context.Context, string, string, int64, time.Duration) (*storage.PresignResult, error) {
 	return nil, storage.ErrPresignUnsupported
 }
 

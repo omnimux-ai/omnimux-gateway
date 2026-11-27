@@ -78,10 +78,13 @@ func loadInspirationConfig() inspirationConfig {
 }
 
 func newInspirationClient(cfg inspirationConfig) *inspirationClient {
+	noRedirect := func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	return &inspirationClient{
 		cfg:       cfg,
-		http:      &http.Client{Timeout: cfg.Timeout},
-		mediaHTTP: &http.Client{Timeout: cfg.MediaTimeout},
+		http:      &http.Client{Timeout: cfg.Timeout, CheckRedirect: noRedirect},
+		mediaHTTP: &http.Client{Timeout: cfg.MediaTimeout, CheckRedirect: noRedirect},
 	}
 }
 
@@ -241,10 +244,18 @@ func inspirationProxyJSON(c *gin.Context, method, path string, body []byte) {
 }
 
 func validInspirationMediaKey(key string) bool {
-	if key == "" || strings.Contains(key, "..") {
+	if key == "" || len(key) > 512 || strings.Contains(key, "..") {
 		return false
 	}
-	if strings.HasPrefix(key, "/") || strings.Contains(key, "\\") {
+	if strings.HasPrefix(key, "/") || strings.HasSuffix(key, "/") || strings.Contains(key, "//") || strings.Contains(key, "\\") {
+		return false
+	}
+	for i := range len(key) {
+		ch := key[i]
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') ||
+			ch == '.' || ch == '_' || ch == '-' || ch == '/' {
+			continue
+		}
 		return false
 	}
 	return true
@@ -422,7 +433,9 @@ func (cl *inspirationClient) proxyMedia(c *gin.Context, key string) {
 		inspirationJSONError(c, http.StatusServiceUnavailable, "INSPIRATION_UNAVAILABLE", "inspiration upstream unavailable")
 		return
 	}
-	req.Header.Set("Authorization", "Bearer "+cl.cfg.Token)
+	if strings.HasPrefix(key, "inspiration-covers/") {
+		req.Header.Set("Authorization", "Bearer "+cl.cfg.Token)
+	}
 	if rng := c.GetHeader("Range"); rng != "" {
 		req.Header.Set("Range", rng)
 	}
@@ -450,6 +463,14 @@ func (cl *inspirationClient) proxyMedia(c *gin.Context, key string) {
 			c.Writer.Header().Add(name, value)
 		}
 	}
+	contentType := strings.ToLower(strings.TrimSpace(strings.SplitN(resp.Header.Get("Content-Type"), ";", 2)[0]))
+	if contentType == "image/svg+xml" || (!strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(contentType, "video/") && !strings.HasPrefix(contentType, "audio/")) {
+		c.Writer.Header().Set("Content-Type", "application/octet-stream")
+		c.Writer.Header().Set("Content-Disposition", `attachment; filename="media"`)
+	}
+	c.Header("Content-Security-Policy", "sandbox; default-src 'none'")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Referrer-Policy", "no-referrer")
 	c.Status(resp.StatusCode)
 	_, _ = io.Copy(c.Writer, resp.Body)
 }

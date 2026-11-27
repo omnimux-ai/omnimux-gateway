@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Calcium-Ion/go-epay/epay"
@@ -85,14 +86,15 @@ func SubscriptionRequestEpay(c *gin.Context) {
 	}
 
 	order := &model.SubscriptionOrder{
-		UserId:          userId,
-		PlanId:          plan.Id,
-		Money:           plan.PriceAmount,
-		TradeNo:         tradeNo,
-		PaymentMethod:   req.PaymentMethod,
-		PaymentProvider: model.PaymentProviderEpay,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:              userId,
+		PlanId:              plan.Id,
+		Money:               plan.PriceAmount,
+		ExpectedAmountMinor: model.ExpectedMinorFromMajor(plan.PriceAmount, "CNY"),
+		TradeNo:             tradeNo,
+		PaymentMethod:       req.PaymentMethod,
+		PaymentProvider:     model.PaymentProviderEpay,
+		CreateTime:          time.Now().Unix(),
+		Status:              common.TopUpStatusPending,
 	}
 	if err := order.Insert(); err != nil {
 		common.ApiErrorT(c, "Failed to create order")
@@ -116,6 +118,11 @@ func SubscriptionRequestEpay(c *gin.Context) {
 }
 
 func SubscriptionEpayNotify(c *gin.Context) {
+	if !isEpayWebhookEnabled() {
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
 	var params map[string]string
 
 	if c.Request.Method == "POST" {
@@ -151,6 +158,10 @@ func SubscriptionEpayNotify(c *gin.Context) {
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
+	if operation_setting.EpayId != "" && strings.TrimSpace(params["pid"]) != strings.TrimSpace(operation_setting.EpayId) {
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
 
 	if verifyInfo.TradeStatus != epay.StatusTradeSuccess {
 		_, _ = c.Writer.Write([]byte("fail"))
@@ -160,7 +171,12 @@ func SubscriptionEpayNotify(c *gin.Context) {
 	LockOrder(verifyInfo.ServiceTradeNo)
 	defer UnlockOrder(verifyInfo.ServiceTradeNo)
 
-	if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type); err != nil {
+	paidMinor, hasPaidAmount := parseDecimalMinor(verifyInfo.Money, "CNY")
+	verification := &model.PaymentVerification{
+		AmountMinor: paidMinor,
+		HasAmount:   hasPaidAmount,
+	}
+	if err := model.CompleteSubscriptionOrderVerified(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, verification); err != nil {
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
@@ -171,6 +187,11 @@ func SubscriptionEpayNotify(c *gin.Context) {
 // SubscriptionEpayReturn handles browser return after payment.
 // It verifies the payload and completes the order, then redirects to console.
 func SubscriptionEpayReturn(c *gin.Context) {
+	if !isEpayWebhookEnabled() {
+		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+		return
+	}
+
 	var params map[string]string
 
 	if c.Request.Method == "POST" {
@@ -206,10 +227,19 @@ func SubscriptionEpayReturn(c *gin.Context) {
 		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
 		return
 	}
+	if operation_setting.EpayId != "" && strings.TrimSpace(params["pid"]) != strings.TrimSpace(operation_setting.EpayId) {
+		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
+		return
+	}
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
-		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type); err != nil {
+		paidMinor, hasPaidAmount := parseDecimalMinor(verifyInfo.Money, "CNY")
+		verification := &model.PaymentVerification{
+			AmountMinor: paidMinor,
+			HasAmount:   hasPaidAmount,
+		}
+		if err := model.CompleteSubscriptionOrderVerified(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), model.PaymentProviderEpay, verifyInfo.Type, verification); err != nil {
 			c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
 			return
 		}

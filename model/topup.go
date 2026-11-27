@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -13,16 +14,33 @@ import (
 )
 
 type TopUp struct {
-	Id              int     `json:"id"`
-	UserId          int     `json:"user_id" gorm:"index"`
-	Amount          int64   `json:"amount"`
-	Money           float64 `json:"money"`
-	TradeNo         string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
-	PaymentMethod   string  `json:"payment_method" gorm:"type:varchar(50)"`
-	PaymentProvider string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
-	CreateTime      int64   `json:"create_time"`
-	CompleteTime    int64   `json:"complete_time"`
-	Status          string  `json:"status"`
+	Id                  int     `json:"id"`
+	UserId              int     `json:"user_id" gorm:"index"`
+	Amount              int64   `json:"amount"`
+	Money               float64 `json:"money"`
+	CreditedQuota       int64   `json:"credited_quota" gorm:"type:bigint;not null;default:0"`
+	ExpectedAmountMinor int64   `json:"expected_amount_minor" gorm:"type:bigint;not null;default:0"`
+	ExpectedCurrency    string  `json:"expected_currency" gorm:"type:varchar(16);default:''"`
+	ExpectedMode        string  `json:"expected_mode" gorm:"type:varchar(16);default:''"`
+	ProviderSessionId   string  `json:"provider_session_id" gorm:"type:varchar(255);default:''"`
+	ProviderProductId   string  `json:"provider_product_id" gorm:"type:varchar(255);default:''"`
+	TradeNo             string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
+	PaymentMethod       string  `json:"payment_method" gorm:"type:varchar(50)"`
+	PaymentProvider     string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
+	CreateTime          int64   `json:"create_time"`
+	CompleteTime        int64   `json:"complete_time"`
+	Status              string  `json:"status"`
+}
+
+// PaymentVerification carries callback-reported settlement facts verified
+// inside the order fulfillment transaction against persisted order expectations.
+type PaymentVerification struct {
+	AmountMinor int64
+	HasAmount   bool
+	Currency    string
+	Mode        string
+	SessionId   string
+	ProductId   string
 }
 
 const (
@@ -43,14 +61,96 @@ const (
 )
 
 var (
-	ErrPaymentMethodMismatch = errors.New("payment method mismatch")
-	ErrTopUpNotFound         = errors.New("topup not found")
-	ErrTopUpStatusInvalid    = errors.New("topup status invalid")
+	ErrPaymentMethodMismatch     = errors.New("payment method mismatch")
+	ErrPaymentVerificationFailed = errors.New("payment verification failed")
+	ErrTopUpNotFound             = errors.New("topup not found")
+	ErrTopUpStatusInvalid        = errors.New("topup status invalid")
 	// The quota errors reach the web console, so they carry message keys.
 	ErrInvalidTopUpQuota        error = common.NewMessage("Invalid top-up quota")
 	ErrTopUpQuotaLimitExceeded  error = common.NewMessage("Top-up quota limit exceeded")
 	ErrWalletQuotaLimitExceeded error = common.NewMessage("Wallet quota limit exceeded")
 )
+
+// ExpectedMinorFromMajor converts a major-unit monetary amount to minor units
+// (cents for two-decimal currencies, integer units for zero-decimal currencies).
+func ExpectedMinorFromMajor(amount float64, currency string) int64 {
+	if amount <= 0 {
+		return 0
+	}
+	d := decimal.NewFromFloat(amount)
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "BIF", "CLP", "DJF", "GNF", "IDR", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "VND", "VUV", "XAF", "XOF", "XPF":
+		return d.Round(0).IntPart()
+	default:
+		return d.Mul(decimal.NewFromInt(100)).Round(0).IntPart()
+	}
+}
+
+func topUpVerificationFromPayment(payment []TopUpAnalyticsPayment) *PaymentVerification {
+	if len(payment) == 0 {
+		return nil
+	}
+	return payment[0].Verification
+}
+
+func verifyPaymentExpectation(
+	expectedAmountMinor int64,
+	expectedCurrency, expectedMode, expectedSessionId, expectedProductId string,
+	legacyExpectedMoney float64,
+	v *PaymentVerification,
+) error {
+	hasStrictExpectation := expectedAmountMinor > 0 ||
+		expectedCurrency != "" ||
+		expectedMode != "" ||
+		expectedSessionId != "" ||
+		expectedProductId != ""
+	if v == nil {
+		if hasStrictExpectation {
+			return ErrPaymentVerificationFailed
+		}
+		return nil
+	}
+	if expectedMode != "" && !strings.EqualFold(strings.TrimSpace(v.Mode), expectedMode) {
+		return fmt.Errorf("%w: mode mismatch (want=%s got=%s)", ErrPaymentVerificationFailed, expectedMode, v.Mode)
+	}
+	if expectedCurrency != "" && !strings.EqualFold(strings.TrimSpace(v.Currency), expectedCurrency) {
+		return fmt.Errorf("%w: currency mismatch (want=%s got=%s)", ErrPaymentVerificationFailed, expectedCurrency, v.Currency)
+	}
+	if expectedSessionId != "" && strings.TrimSpace(v.SessionId) != expectedSessionId {
+		return fmt.Errorf("%w: session mismatch", ErrPaymentVerificationFailed)
+	}
+	if expectedProductId != "" && strings.TrimSpace(v.ProductId) != expectedProductId {
+		return fmt.Errorf("%w: product mismatch", ErrPaymentVerificationFailed)
+	}
+	if expectedAmountMinor > 0 {
+		if !v.HasAmount || v.AmountMinor < expectedAmountMinor {
+			return fmt.Errorf("%w: amount mismatch (want>=%d got=%d)", ErrPaymentVerificationFailed, expectedAmountMinor, v.AmountMinor)
+		}
+		return nil
+	}
+	if legacyExpectedMoney > 0 && v.HasAmount {
+		minMinor := ExpectedMinorFromMajor(legacyExpectedMoney, v.Currency)
+		if v.AmountMinor < minMinor {
+			return fmt.Errorf("%w: legacy amount mismatch (want>=%d got=%d)", ErrPaymentVerificationFailed, minMinor, v.AmountMinor)
+		}
+	}
+	return nil
+}
+
+func resolveTopUpCreditedQuota(topUp *TopUp) (int, error) {
+	if topUp == nil {
+		return 0, ErrInvalidTopUpQuota
+	}
+	if topUp.CreditedQuota > 0 {
+		return common.WalletQuotaFromDecimalStrict(decimal.NewFromInt(topUp.CreditedQuota))
+	}
+	if topUp.PaymentProvider == PaymentProviderCreem {
+		return common.WalletQuotaFromDecimalStrict(decimal.NewFromInt(topUp.Amount))
+	}
+	return common.WalletQuotaFromDecimalStrict(
+		decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
+	)
+}
 
 func (topUp *TopUp) Insert() error {
 	var err error
@@ -209,13 +309,22 @@ func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string, p
 		if topUp.Status != common.TopUpStatusPending {
 			return ErrTopUpStatusInvalid
 		}
+		if err := verifyPaymentExpectation(
+			topUp.ExpectedAmountMinor,
+			topUp.ExpectedCurrency,
+			topUp.ExpectedMode,
+			topUp.ProviderSessionId,
+			topUp.ProviderProductId,
+			topUp.Money,
+			topUpVerificationFromPayment(payment),
+		); err != nil {
+			return err
+		}
 		if actualPaymentMethod != "" && topUp.PaymentMethod != actualPaymentMethod {
 			topUp.PaymentMethod = actualPaymentMethod
 		}
 		var quotaErr error
-		quotaToAdd, quotaErr = common.WalletQuotaFromDecimalStrict(
-			decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-		)
+		quotaToAdd, quotaErr = resolveTopUpCreditedQuota(topUp)
 		if quotaErr != nil || quotaToAdd <= 0 {
 			return ErrInvalidTopUpQuota
 		}
@@ -269,6 +378,17 @@ func Recharge(referenceId string, customerId string, callerIp string, payment ..
 		if topUp.Status != common.TopUpStatusPending {
 			return errors.New("invalid top-up order status")
 		}
+		if err := verifyPaymentExpectation(
+			topUp.ExpectedAmountMinor,
+			topUp.ExpectedCurrency,
+			topUp.ExpectedMode,
+			topUp.ProviderSessionId,
+			topUp.ProviderProductId,
+			topUp.Money,
+			topUpVerificationFromPayment(payment),
+		); err != nil {
+			return err
+		}
 
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
@@ -277,9 +397,7 @@ func Recharge(referenceId string, customerId string, callerIp string, payment ..
 			return err
 		}
 
-		quota, err = common.WalletQuotaFromDecimalStrict(
-			decimal.NewFromFloat(topUp.Money).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-		)
+		quota, err = resolveTopUpCreditedQuota(topUp)
 		if err != nil || quota <= 0 {
 			return ErrInvalidTopUpQuota
 		}
@@ -290,6 +408,9 @@ func Recharge(referenceId string, customerId string, callerIp string, payment ..
 
 	if err != nil {
 		common.SysError(common.LogText("topup failed: %s", err.Error()))
+		if errors.Is(err, ErrPaymentVerificationFailed) {
+			return err
+		}
 		return errors.New("top-up failed")
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quota, common.LogText("stripe topup"))
@@ -489,19 +610,10 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 			return common.NewMessage("Order is not pending payment and cannot be completed")
 		}
 
-		// 计算应充值额度：
-		// - Stripe 订单：Money 代表经分组倍率换算后的美元数量，直接 * QuotaPerUnit
-		// - 其他订单（如易支付）：Amount 为美元数量，* QuotaPerUnit
+		// 统一由 resolveTopUpCreditedQuota 按持久化 CreditedQuota 或渠道规则计算应发额度，
+		// 避免 Stripe 按本地货币 Money 放大及 Creem 对原始配额再乘 QuotaPerUnit。
 		var quotaErr error
-		if topUp.PaymentProvider == PaymentProviderStripe {
-			quotaToAdd, quotaErr = common.WalletQuotaFromDecimalStrict(
-				decimal.NewFromFloat(topUp.Money).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-			)
-		} else {
-			quotaToAdd, quotaErr = common.WalletQuotaFromDecimalStrict(
-				decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-			)
-		}
+		quotaToAdd, quotaErr = resolveTopUpCreditedQuota(topUp)
 		if quotaErr != nil || quotaToAdd <= 0 {
 			return ErrInvalidTopUpQuota
 		}
@@ -559,6 +671,17 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 		if topUp.Status != common.TopUpStatusPending {
 			return errors.New("invalid top-up order status")
 		}
+		if err := verifyPaymentExpectation(
+			topUp.ExpectedAmountMinor,
+			topUp.ExpectedCurrency,
+			topUp.ExpectedMode,
+			topUp.ProviderSessionId,
+			topUp.ProviderProductId,
+			topUp.Money,
+			topUpVerificationFromPayment(payment),
+		); err != nil {
+			return err
+		}
 
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
@@ -567,35 +690,21 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 			return err
 		}
 
-		// Creem 直接使用 Amount 作为充值额度（整数）
-		quota, err = common.WalletQuotaFromDecimalStrict(decimal.NewFromInt(topUp.Amount))
+		quota, err = resolveTopUpCreditedQuota(topUp)
 		if err != nil || quota <= 0 {
 			return ErrInvalidTopUpQuota
 		}
 
-		// 构建更新字段，优先使用邮箱，如果邮箱为空则使用用户名
-		updateFields := map[string]any{}
-
-		// 如果有客户邮箱，尝试更新用户邮箱（仅当用户邮箱为空时）
-		if customerEmail != "" {
-			// 先检查用户当前邮箱是否为空
-			var user User
-			err = tx.Where("id = ?", topUp.UserId).First(&user).Error
-			if err != nil {
-				return err
-			}
-
-			// 如果用户邮箱为空，则更新为支付时使用的邮箱
-			if user.Email == "" {
-				updateFields["email"] = customerEmail
-			}
-		}
-
-		return creditTopUpQuota(tx, topUp.UserId, quota, updateFields)
+		// Do not mutate user.Email from an external payment processor payload;
+		// email ownership changes must go through explicit authenticated verification.
+		return creditTopUpQuota(tx, topUp.UserId, quota, nil)
 	})
 
 	if err != nil {
 		common.SysError(common.LogText("creem topup failed: %s", err.Error()))
+		if errors.Is(err, ErrPaymentVerificationFailed) {
+			return err
+		}
 		return errors.New("top-up failed")
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quota, common.LogText("creem topup"))
@@ -636,10 +745,19 @@ func RechargeWaffo(tradeNo string, callerIp string, payment ...TopUpAnalyticsPay
 		if topUp.Status != common.TopUpStatusPending {
 			return errors.New("invalid top-up order status")
 		}
+		if err := verifyPaymentExpectation(
+			topUp.ExpectedAmountMinor,
+			topUp.ExpectedCurrency,
+			topUp.ExpectedMode,
+			topUp.ProviderSessionId,
+			topUp.ProviderProductId,
+			topUp.Money,
+			topUpVerificationFromPayment(payment),
+		); err != nil {
+			return err
+		}
 
-		quotaToAdd, err = common.WalletQuotaFromDecimalStrict(
-			decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-		)
+		quotaToAdd, err = resolveTopUpCreditedQuota(topUp)
 		if err != nil || quotaToAdd <= 0 {
 			return ErrInvalidTopUpQuota
 		}
@@ -655,6 +773,9 @@ func RechargeWaffo(tradeNo string, callerIp string, payment ...TopUpAnalyticsPay
 
 	if err != nil {
 		common.SysError(common.LogText("waffo topup failed: %s", err.Error()))
+		if errors.Is(err, ErrPaymentVerificationFailed) {
+			return err
+		}
 		return errors.New("top-up failed")
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, common.LogText("waffo topup"))
@@ -698,9 +819,7 @@ func RechargeWaffoPancake(tradeNo string, payment ...TopUpAnalyticsPayment) (err
 			return errors.New("invalid top-up order status")
 		}
 
-		quotaToAdd, err = common.WalletQuotaFromDecimalStrict(
-			decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-		)
+		quotaToAdd, err = resolveTopUpCreditedQuota(topUp)
 		if err != nil || quotaToAdd <= 0 {
 			return ErrInvalidTopUpQuota
 		}

@@ -220,21 +220,30 @@ func (s *Service) lazyExpireAndRenew(ctx context.Context, userId int) error {
 		if seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now) {
 			continue
 		}
-		charged := false
+		var renewedSeat *model.SocialSeat
+		var cacheReserved bool
+		var releaseCache func()
 		err := model.DB.Transaction(func(tx *gorm.DB) error {
-			if e := model.ChargeSocialSeatTx(tx, userId, price); e != nil {
-				return e
-			}
-			charged = true
-			return nil
+			var txErr error
+			renewedSeat, cacheReserved, releaseCache, txErr = model.RenewSocialSeatTx(tx, seat.ID, userId, price, now)
+			return txErr
 		})
-		if err == nil && charged {
-			if e := model.RenewSocialSeat(seat, price, now); e != nil {
-				return e
+		if err != nil && releaseCache != nil {
+			releaseCache()
+		}
+		if err == nil {
+			if renewedSeat != nil {
+				if !cacheReserved {
+					model.SyncSocialSeatQuotaCache(userId, price)
+				}
+				model.RecordSocialSeatLog(renewedSeat.UserId, model.SocialSeatActionRenew, renewedSeat.ID, price, "")
 			}
 			continue
 		}
-		if !errors.Is(err, model.ErrSocialSeatQuota) && err != nil {
+		if errors.Is(err, model.ErrSocialSeatExpired) {
+			continue
+		}
+		if !errors.Is(err, model.ErrSocialSeatQuota) {
 			return err
 		}
 		graceEnd := seat.ExpiresAt.Add(time.Duration(graceDays) * 24 * time.Hour)
@@ -367,6 +376,8 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 	}
 	var result *model.SocialAccount
 	var logAfter *pendingLog
+	var cacheReserved bool
+	var releaseCache func()
 	txErr := model.DB.Transaction(func(tx *gorm.DB) error {
 		if existing != nil && existing.UserId == userId {
 			seat, serr := model.GetOccupiedSeatForAccountTx(tx, userId, existing.ID)
@@ -430,6 +441,9 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 			return nil
 		}
 
+		if e := model.LockUserForUpdateTx(tx, userId); e != nil {
+			return e
+		}
 		purchased, e := model.CountPurchasedSeatsTx(tx, userId, now)
 		if e != nil {
 			return e
@@ -437,9 +451,12 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 		if purchased >= operation_setting.SocialSeatsCap() {
 			return ErrSeatCap
 		}
-		if e := model.ChargeSocialSeatTx(tx, userId, price); e != nil {
+		reserved, release, e := model.ChargeSocialSeatWithCacheTx(tx, userId, price)
+		if e != nil {
 			return e
 		}
+		cacheReserved = reserved
+		releaseCache = release
 		acc := &model.SocialAccount{
 			UserId:            draft.UserId,
 			Provider:          draft.Provider,
@@ -479,7 +496,13 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 		return nil
 	})
 	if txErr != nil {
+		if releaseCache != nil {
+			releaseCache()
+		}
 		return nil, txErr
+	}
+	if logAfter != nil && logAfter.quota > 0 && !cacheReserved {
+		model.SyncSocialSeatQuotaCache(userId, logAfter.quota)
 	}
 	if logAfter != nil {
 		model.RecordSocialSeatLog(userId, logAfter.action, logAfter.seatID, logAfter.quota, logAfter.extra)

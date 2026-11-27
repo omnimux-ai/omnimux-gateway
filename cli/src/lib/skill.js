@@ -15,7 +15,26 @@ const { configDir, isBlank } = require("./config");
 const META_FILENAME = ".omnimux-skill-meta.json";
 const SHARED_SKILL_ID = "omnimux";
 const REGISTRY_SCHEMA = 2;
+const SKILL_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 const PKG = require("../../package.json");
+
+function isValidSkillId(skillId) {
+  return typeof skillId === "string" && SKILL_ID_RE.test(skillId) && skillId !== "." && skillId !== "..";
+}
+
+function managedSkillsRoot(scope, cwd = process.cwd()) {
+  if (scope === "user") {
+    return path.resolve(resolveHomeDir(), ".agents", "skills");
+  }
+  return path.resolve(cwd, ".agents", "skills");
+}
+
+function isStrictChildPath(rootDir, targetPath) {
+  const resolvedRoot = path.resolve(rootDir);
+  const resolvedTarget = path.resolve(targetPath);
+  const rel = path.relative(resolvedRoot, resolvedTarget);
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+}
 
 function exists(p) {
   try {
@@ -235,10 +254,15 @@ function saveSkillTargets(data) {
  */
 function defaultTargetPath(scope, skillId, cwd = process.cwd()) {
   const id = skillId || SHARED_SKILL_ID;
-  if (scope === "user") {
-    return path.join(resolveHomeDir(), ".agents", "skills", id);
+  if (!isValidSkillId(id)) {
+    throw new Error(`invalid skill id: ${id}`);
   }
-  return path.join(path.resolve(cwd), ".agents", "skills", id);
+  const root = managedSkillsRoot(scope, cwd);
+  const candidate = path.resolve(root, id);
+  if (!isStrictChildPath(root, candidate)) {
+    throw new Error(`invalid skill path for id: ${id}`);
+  }
+  return candidate;
 }
 
 /**
@@ -789,27 +813,41 @@ function readSkill(skillId, options = {}) {
 
 function uninstallSkill(scope, options = {}) {
   const cwd = options.cwd || process.cwd();
+  if (options.skillId && !isValidSkillId(String(options.skillId))) {
+    return {
+      success: false,
+      action: "uninstalled",
+      scope,
+      error: `invalid skill id: ${options.skillId}`,
+      removed: [],
+    };
+  }
+  const skillsRoot = managedSkillsRoot(scope, cwd);
   const rootInfo = resolvePackageSkillRoot();
   const catalog = rootInfo.skillRoot ? listPackageSkills(rootInfo.skillRoot) : [];
   const ids = options.skillId
-    ? [options.skillId]
+    ? [String(options.skillId)]
     : catalog.length
       ? catalog.map((s) => s.id)
       : [SHARED_SKILL_ID];
 
   const removed = [];
   for (const id of ids) {
+    if (!isValidSkillId(id)) continue;
     const p = defaultTargetPath(scope, id, cwd);
+    if (!isStrictChildPath(skillsRoot, p)) continue;
     if (exists(p) || isLegacyBundleInstall(p)) {
       removePathSync(p);
       removed.push(p);
     }
   }
-  // legacy bundle path
-  const legacy = defaultTargetPath(scope, SHARED_SKILL_ID, cwd);
-  if (exists(legacy)) {
-    removePathSync(legacy);
-    if (!removed.includes(legacy)) removed.push(legacy);
+  // Only remove the shared/legacy bundle when uninstalling the full scope or that skill.
+  if (!options.skillId || options.skillId === SHARED_SKILL_ID) {
+    const legacy = defaultTargetPath(scope, SHARED_SKILL_ID, cwd);
+    if (isStrictChildPath(skillsRoot, legacy) && exists(legacy)) {
+      removePathSync(legacy);
+      if (!removed.includes(legacy)) removed.push(legacy);
+    }
   }
 
   const registry = loadSkillTargets();

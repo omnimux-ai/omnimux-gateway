@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { hasControlCharacters } from '@/lib/safe-url'
 import type { AuthUser } from '@/stores/auth-store'
 
 // fork: since the desktop landing became the omnimux.ai homepage (2026-10-27),
@@ -63,7 +64,14 @@ export function sanitizeAuthRedirect(
   if (typeof value !== 'string') return null
 
   const target = value.trim()
-  if (!target || target.includes('\\') || target.startsWith('//')) return null
+  if (
+    !target ||
+    hasControlCharacters(target) ||
+    target.includes('\\') ||
+    target.startsWith('//')
+  ) {
+    return null
+  }
 
   let trustedOrigin: URL
   try {
@@ -84,7 +92,9 @@ export function sanitizeAuthRedirect(
 
   if (
     !allowedRedirectProtocols.has(redirectURL.protocol) ||
-    redirectURL.origin !== trustedOrigin.origin
+    redirectURL.origin !== trustedOrigin.origin ||
+    !redirectURL.pathname.startsWith('/') ||
+    redirectURL.pathname.startsWith('//')
   ) {
     return null
   }

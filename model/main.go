@@ -356,6 +356,7 @@ func migrateDB() error {
 		&TopUp{},
 		&QuotaData{},
 		&Task{},
+		&VoiceClone{},
 		&InfluencerGenerationRequest{},
 		&TaskPlugin{},
 		&Model{},
@@ -412,6 +413,9 @@ func migrateDB() error {
 	}
 	if err := InitializeExternalIdentityClaims(); err != nil {
 		return err
+	}
+	if err := BackfillVoiceClones(); err != nil {
+		return fmt.Errorf("backfill voice clones: %w", err)
 	}
 	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {

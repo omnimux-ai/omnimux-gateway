@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -128,46 +127,43 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 
 	quota, clamp := calculateAudioQuota(quotaInfo)
 	noteQuotaClamp(relayInfo, clamp)
-	if relayInfo.BillingSource == BillingSourceSubscription {
-		if quota > common.MaxQuota-relayInfo.RealtimeConsumedQuota {
-			return errors.New("realtime cumulative quota exceeds request limit")
-		}
-		actual := relayInfo.RealtimeConsumedQuota + quota
-		if session, ok := relayInfo.Billing.(*BillingSession); ok {
-			if err := session.SettlePartial(actual); err != nil {
-				return err
-			}
-		} else if delta := actual - relayInfo.FinalPreConsumedQuota; delta > 0 {
-			if err := PostConsumeQuota(relayInfo, delta, 0, false); err != nil {
-				return err
-			}
-			relayInfo.FinalPreConsumedQuota = actual
+	if quota > common.MaxQuota-relayInfo.RealtimeConsumedQuota {
+		return errors.New("realtime cumulative quota exceeds request limit")
+	}
+	actual := relayInfo.RealtimeConsumedQuota + quota
+	if session, ok := relayInfo.Billing.(*BillingSession); ok {
+		if err := session.SettlePartial(actual); err != nil {
+			return err
 		}
 		relayInfo.RealtimeConsumedQuota = actual
+		logger.LogInfo(ctx, common.LogText("realtime streaming consume quota success, quota: %d", quota))
 		return nil
 	}
 
-	userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
-	if err != nil {
-		return err
+	delta := actual - relayInfo.FinalPreConsumedQuota
+	if delta > 0 {
+		if relayInfo.BillingSource == BillingSourceSubscription {
+			if err := PostConsumeQuota(relayInfo, delta, 0, false); err != nil {
+				return err
+			}
+		} else {
+			reserved, err := model.TryReserveUserQuota(relayInfo.UserId, delta)
+			if err != nil {
+				return err
+			}
+			if !reserved {
+				return fmt.Errorf("user quota is not enough, need quota: %s", logger.FormatQuota(delta))
+			}
+			if !relayInfo.IsPlayground {
+				if err := PreConsumeTokenQuota(relayInfo, delta); err != nil {
+					_ = model.IncreaseUserQuota(relayInfo.UserId, delta, false)
+					return err
+				}
+			}
+		}
+		relayInfo.FinalPreConsumedQuota = actual
 	}
-	token, err := model.GetTokenByKey(strings.TrimPrefix(relayInfo.TokenKey, "sk-"), false)
-	if err != nil {
-		return err
-	}
-
-	if userQuota < quota {
-		return fmt.Errorf("user quota is not enough, user quota: %s, need quota: %s", logger.FormatQuota(userQuota), logger.FormatQuota(quota))
-	}
-
-	if !token.UnlimitedQuota && token.RemainQuota < quota {
-		return fmt.Errorf("token quota is not enough, token remain quota: %s, need quota: %s", logger.FormatQuota(token.RemainQuota), logger.FormatQuota(quota))
-	}
-
-	err = PostConsumeQuota(relayInfo, quota, 0, false)
-	if err != nil {
-		return err
-	}
+	relayInfo.RealtimeConsumedQuota = actual
 	logger.LogInfo(ctx, common.LogText("realtime streaming consume quota success, quota: %d", quota))
 	return nil
 }

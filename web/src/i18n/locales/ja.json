@@ -3411,7 +3411,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高度なカスタムチャネルでは、プロトコル変換を行わない /v1/responses ルートにのみ適用されます。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For content that sells,": "売上につながるコンテンツへ、",
@@ -9506,6 +9506,9 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "デスクトップアプリをダウンロードしてサインインすると、100 クレジットからチャージできます。",
     "View all {{count}} models and technical specs": "全 {{count}} モデルの技術仕様を見る",
     "View the full model catalog": "すべてのモデルを見る",
-    "Pay per use, presets from $10": "使った分だけお支払い、定額チャージは $10 から"
+    "Pay per use, presets from $10": "使った分だけお支払い、定額チャージは $10 から",
+    "Private key must be sent in a POST request body": "秘密鍵は POST リクエストボディで送信する必要があります",
+    "Cross-site login request rejected": "クロスサイトログインリクエストが拒否されました",
+    "Invalid Discovery URL: {{error}}": "無効な Discovery URL です: {{error}}"
   }
 }

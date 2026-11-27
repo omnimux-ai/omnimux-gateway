@@ -354,15 +354,15 @@ func (s *Service) presignUsesOwnStorage(body map[string]any) bool {
 // bucket must fail loudly instead of writing the file to a third party.
 // fork: social-media-own-storage
 func (s *Service) presignOwnMediaStorage(ctx context.Context, userId int, in PresignInput) (map[string]any, error) {
-	if in.SizeBytes > s.cfg.MediaStorageMaxBytes {
-		return nil, fmt.Errorf("%w: media exceeds %d bytes", ErrMediaInvalid, s.cfg.MediaStorageMaxBytes)
+	if in.SizeBytes <= 0 || in.SizeBytes > s.cfg.MediaStorageMaxBytes {
+		return nil, fmt.Errorf("%w: size_bytes must be between 1 and %d bytes", ErrMediaInvalid, s.cfg.MediaStorageMaxBytes)
 	}
 	driver := storage.GetStorageDriver()
 	if driver == nil {
 		return nil, ErrMediaStorageUnavailable
 	}
 	key := socialMediaObjectKey(userId, in.Filename, time.Now().UTC())
-	ticket, err := driver.PresignPut(ctx, key, in.ContentType, s.cfg.MediaStoragePresignTTL)
+	ticket, err := driver.PresignPut(ctx, key, in.ContentType, in.SizeBytes, s.cfg.MediaStoragePresignTTL)
 	if errors.Is(err, storage.ErrPresignUnsupported) {
 		return nil, ErrMediaStorageUnavailable
 	}

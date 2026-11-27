@@ -90,12 +90,26 @@ func GetUniqueFileByURL(ctx context.Context, fileURL string) (*File, error) {
 	return &files[0], nil
 }
 
-// CountActiveUserFiles returns the count of active, non-expired files for a user.
+var quotaCountedFileStatuses = []int{FileStatusActive, FileStatusUploadPending}
+
+// CountActiveUserFiles returns the count of active and unexpired upload-pending
+// files for a user so unconfirmed presigned tickets cannot bypass file quotas.
 func CountActiveUserFiles(userId int) (int64, error) {
 	var count int64
 	now := time.Now()
 	err := DB.Model(&File{}).
-		Where("user_id = ? AND status = ? AND expires_at > ?", userId, FileStatusActive, now).
+		Where("user_id = ? AND status IN ? AND expires_at > ?", userId, quotaCountedFileStatuses, now).
+		Count(&count).Error
+	return count, err
+}
+
+// CountOtherActiveUserFiles counts active and pending unexpired files excluding
+// one pending row currently being confirmed.
+func CountOtherActiveUserFiles(userId int, excludeID int64) (int64, error) {
+	var count int64
+	now := time.Now()
+	err := DB.Model(&File{}).
+		Where("user_id = ? AND id <> ? AND status IN ? AND expires_at > ?", userId, excludeID, quotaCountedFileStatuses, now).
 		Count(&count).Error
 	return count, err
 }
@@ -136,7 +150,7 @@ func CreateActiveFileWithinQuota(file *File) error {
 			return err
 		}
 		var count int64
-		if err := tx.Model(&File{}).Where("user_id = ? AND status = ? AND expires_at > ?", file.UserId, FileStatusActive, time.Now()).Count(&count).Error; err != nil {
+		if err := tx.Model(&File{}).Where("user_id = ? AND status IN ? AND expires_at > ?", file.UserId, quotaCountedFileStatuses, time.Now()).Count(&count).Error; err != nil {
 			return err
 		}
 		if count >= DefaultUserMaxFiles {
@@ -144,6 +158,13 @@ func CreateActiveFileWithinQuota(file *File) error {
 		}
 		return tx.Create(file).Error
 	})
+}
+
+// CreatePendingFileWithinQuota atomically reserves a quota slot when issuing a
+// presigned upload ticket so concurrent or abandoned tickets cannot exceed the cap.
+func CreatePendingFileWithinQuota(file *File) error {
+	file.Status = FileStatusUploadPending
+	return CreateActiveFileWithinQuota(file)
 }
 
 // ConfirmDirectFileUpload serializes the quota check and promotion for one owner.
@@ -154,7 +175,7 @@ func ConfirmDirectFileUpload(id int64, userID int, size int64, contentType strin
 			return err
 		}
 		var count int64
-		if err := tx.Model(&File{}).Where("user_id = ? AND status = ? AND expires_at > ?", userID, FileStatusActive, time.Now()).Count(&count).Error; err != nil {
+		if err := tx.Model(&File{}).Where("user_id = ? AND id <> ? AND status IN ? AND expires_at > ?", userID, id, quotaCountedFileStatuses, time.Now()).Count(&count).Error; err != nil {
 			return err
 		}
 		if count >= DefaultUserMaxFiles {

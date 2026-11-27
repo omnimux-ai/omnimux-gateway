@@ -304,6 +304,30 @@ func GetHostedEntitlement(userID int, skuID int64) (*HostedEntitlement, error) {
 	return &e, err
 }
 
+// HasActiveHostedAccess reports whether the user owns an active hosted account
+// or an unexpired hosted entitlement.
+func HasActiveHostedAccess(userID int) (bool, error) {
+	if userID <= 0 {
+		return false, nil
+	}
+	var accountCount int64
+	if err := DB.Model(&HostedAccount{}).
+		Where("assigned_user_id = ? AND status NOT IN ?", userID, []string{HostedAccountRecycled, HostedAccountSuspended, HostedAccountQuarantined}).
+		Count(&accountCount).Error; err != nil {
+		return false, err
+	}
+	if accountCount > 0 {
+		return true, nil
+	}
+	var entCount int64
+	if err := DB.Model(&HostedEntitlement{}).
+		Where("user_id = ? AND quantity > 0 AND expire_at > ?", userID, common.GetTimestamp()).
+		Count(&entCount).Error; err != nil {
+		return false, err
+	}
+	return entCount > 0, nil
+}
+
 func ListHostedAllocations(orderID int64) ([]*HostedAllocation, error) {
 	var rows []*HostedAllocation
 	err := DB.Where("order_id = ?", orderID).Order("id asc").Find(&rows).Error

@@ -100,25 +100,28 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 		paymentError(c, common.NewMessage("User does not exist"))
 		return
 	}
-	// 预设档位折扣只降低实付金额，发放的积分仍按 req.Amount 计算。
+	// 预设档位折扣只降低实付金额，发放的积分仍按 req.Amount 与分组充值倍率计算。
 	chargedMoney := getStripePayMoney(float64(req.Amount), user.Group)
-	if rejectInvalidCreditedQuota(c, id,
-		decimal.NewFromFloat(chargedMoney).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
-	) {
+	creditedQuota, err := validateCreditedQuota(getStripeCreditedQuota(req.Amount, user.Group))
+	if err == nil {
+		err = model.ValidateTopUpQuotaCapacity(id, creditedQuota)
+	}
+	if err != nil {
+		paymentError(c, err)
 		return
 	}
 
 	reference := fmt.Sprintf("new-api-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "ref_" + common.Sha1([]byte(reference))
 
-	payLink, err := genStripeLink(referenceId, user.StripeCustomer, user.Email, stripeChargeUnits(chargedMoney), req.SuccessURL, req.CancelURL)
+	checkoutSession, err := genStripeLink(referenceId, user.StripeCustomer, user.Email, stripeChargeUnits(chargedMoney), req.SuccessURL, req.CancelURL)
 	// Test→Live switch leaves a test-mode customer id on the user; live keys reject it.
 	// Clear the stale binding and retry once without a customer so Checkout can create a live one.
 	if err != nil && user.StripeCustomer != "" && strings.Contains(err.Error(), "No such customer") {
 		logger.LogWarn(c.Request.Context(), fmt.Sprintf("Stripe customer 无效，清除后重试 user_id=%d customer=%s error=%q", id, user.StripeCustomer, err.Error()))
 		_ = model.DB.Model(&model.User{}).Where("id = ?", id).Update("stripe_customer", "").Error
 		user.StripeCustomer = ""
-		payLink, err = genStripeLink(referenceId, "", user.Email, stripeChargeUnits(chargedMoney), req.SuccessURL, req.CancelURL)
+		checkoutSession, err = genStripeLink(referenceId, "", user.Email, stripeChargeUnits(chargedMoney), req.SuccessURL, req.CancelURL)
 	}
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Stripe failed to create Checkout Session user_id=%d trade_no=%s amount=%d error=%q", id, referenceId, req.Amount, err.Error()))
@@ -126,15 +129,24 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 		return
 	}
 
+	expectedMinor := checkoutSession.AmountSubtotal
+	if expectedMinor <= 0 {
+		expectedMinor = checkoutSession.AmountTotal
+	}
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          req.Amount,
-		Money:           chargedMoney,
-		TradeNo:         referenceId,
-		PaymentMethod:   model.PaymentMethodStripe,
-		PaymentProvider: model.PaymentProviderStripe,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:              id,
+		Amount:              req.Amount,
+		Money:               chargedMoney,
+		CreditedQuota:       int64(creditedQuota),
+		ExpectedAmountMinor: expectedMinor,
+		ExpectedCurrency:    strings.ToUpper(string(checkoutSession.Currency)),
+		ExpectedMode:        stripeModeString(checkoutSession.Livemode),
+		ProviderSessionId:   checkoutSession.ID,
+		TradeNo:             referenceId,
+		PaymentMethod:       model.PaymentMethodStripe,
+		PaymentProvider:     model.PaymentProviderStripe,
+		CreateTime:          time.Now().Unix(),
+		Status:              common.TopUpStatusPending,
 	}
 	err = topUp.Insert()
 	if err != nil {
@@ -146,7 +158,7 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
-			"pay_link": payLink,
+			"pay_link": checkoutSession.URL,
 		},
 	})
 }
@@ -187,7 +199,7 @@ func StripeWebhook(c *gin.Context) {
 	}
 
 	signature := c.GetHeader("Stripe-Signature")
-	logger.LogInfo(ctx, common.LogText("Stripe webhook received request path=%q client_ip=%s signature=%q body=%q", c.Request.RequestURI, c.ClientIP(), signature, string(payload)))
+	logger.LogInfo(ctx, common.LogText("Stripe webhook received request path=%q client_ip=%s has_signature=%t body_bytes=%d", c.Request.RequestURI, c.ClientIP(), signature != "", len(payload)))
 	event, err := webhook.ConstructEventWithOptions(payload, signature, setting.StripeWebhookSecret, webhook.ConstructEventOptions{
 		IgnoreAPIVersionMismatch: true,
 	})
@@ -283,32 +295,82 @@ func fulfillOrder(ctx context.Context, event stripe.Event, referenceId string, c
 
 	LockOrder(referenceId)
 	defer UnlockOrder(referenceId)
+
+	sessionId := strings.TrimSpace(event.GetObjectValue("id"))
+	checkoutMode := strings.TrimSpace(event.GetObjectValue("mode"))
+	currency := strings.ToUpper(strings.TrimSpace(event.GetObjectValue("currency")))
+	totalMinor, hasTotal := parseStripeMinorInt64(event.GetObjectValue("amount_total"))
+	subtotalMinor, hasSubtotal := parseStripeMinorInt64(event.GetObjectValue("amount_subtotal"))
+	verifiedMinor, hasVerifiedAmount := totalMinor, hasTotal
+	if setting.StripePromotionCodesEnabled && hasSubtotal {
+		verifiedMinor = subtotalMinor
+		hasVerifiedAmount = true
+	}
+	verification := &model.PaymentVerification{
+		AmountMinor: verifiedMinor,
+		HasAmount:   hasVerifiedAmount,
+		Currency:    currency,
+		Mode:        stripeModeString(event.Livemode),
+		SessionId:   sessionId,
+	}
+
 	payload := map[string]any{
 		"customer":     customerId,
+		"session_id":   sessionId,
+		"mode":         checkoutMode,
 		"amount_total": event.GetObjectValue("amount_total"),
-		"currency":     strings.ToUpper(event.GetObjectValue("currency")),
+		"currency":     currency,
 		"event_type":   string(event.Type),
 	}
-	if err := model.CompleteSubscriptionOrder(referenceId, common.GetJsonString(payload), model.PaymentProviderStripe, ""); err == nil {
-		logger.LogInfo(ctx, common.LogText("Stripe subscription order processed trade_no=%s event_type=%s client_ip=%s", referenceId, string(event.Type), callerIp))
-		return
-	} else if err != nil && !errors.Is(err, model.ErrSubscriptionOrderNotFound) {
-		logger.LogError(ctx, common.LogText("Stripe subscription order processing failed trade_no=%s event_type=%s client_ip=%s error=%q", referenceId, string(event.Type), callerIp, err.Error()))
+	if checkoutMode == "" || checkoutMode == string(stripe.CheckoutSessionModeSubscription) {
+		if err := model.CompleteSubscriptionOrderVerified(referenceId, common.GetJsonString(payload), model.PaymentProviderStripe, "", verification); err == nil {
+			logger.LogInfo(ctx, common.LogText("Stripe subscription order processed trade_no=%s event_type=%s client_ip=%s", referenceId, string(event.Type), callerIp))
+			return
+		} else if !errors.Is(err, model.ErrSubscriptionOrderNotFound) {
+			logger.LogError(ctx, common.LogText("Stripe subscription order processing failed trade_no=%s event_type=%s client_ip=%s error=%q", referenceId, string(event.Type), callerIp, err.Error()))
+			return
+		}
+		if checkoutMode == string(stripe.CheckoutSessionModeSubscription) {
+			logger.LogWarn(ctx, common.LogText("Stripe subscription checkout has no matching subscription order trade_no=%s session_id=%s client_ip=%s", referenceId, sessionId, callerIp))
+			return
+		}
+	}
+
+	if checkoutMode != "" && checkoutMode != string(stripe.CheckoutSessionModePayment) {
+		logger.LogWarn(ctx, common.LogText("Stripe top-up ignored unexpected checkout mode trade_no=%s mode=%s client_ip=%s", referenceId, checkoutMode, callerIp))
 		return
 	}
 
-	currency := strings.ToUpper(event.GetObjectValue("currency"))
-	totalMinor, _ := strconv.ParseFloat(event.GetObjectValue("amount_total"), 64)
 	err := model.Recharge(referenceId, customerId, callerIp, model.TopUpAnalyticsPayment{
-		Currency: currency,
-		Amount:   stripeCheckoutMajorAmount(totalMinor, currency),
+		Currency:     currency,
+		Amount:       stripeCheckoutMajorAmount(float64(totalMinor), currency),
+		Verification: verification,
 	})
 	if err != nil {
 		logger.LogError(ctx, common.LogText("Stripe top-up processing failed trade_no=%s event_type=%s client_ip=%s error=%q", referenceId, string(event.Type), callerIp, err.Error()))
 		return
 	}
 
-	logger.LogInfo(ctx, common.LogText("Stripe top-up succeeded trade_no=%s amount_total=%.2f currency=%s event_type=%s client_ip=%s", referenceId, totalMinor/100, currency, string(event.Type), callerIp))
+	logger.LogInfo(ctx, common.LogText("Stripe top-up succeeded trade_no=%s amount_total=%.2f currency=%s event_type=%s client_ip=%s", referenceId, float64(totalMinor)/100, currency, string(event.Type), callerIp))
+}
+
+func stripeModeString(livemode bool) string {
+	if livemode {
+		return "live"
+	}
+	return "test"
+}
+
+func parseStripeMinorInt64(raw string) (int64, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0, false
+	}
+	val, err := strconv.ParseInt(trimmed, 10, 64)
+	if err != nil || val < 0 {
+		return 0, false
+	}
+	return val, true
 }
 
 func stripeCheckoutMajorAmount(minor float64, currency string) float64 {
@@ -374,9 +436,9 @@ func sessionExpired(ctx context.Context, event stripe.Event) {
 //   - cancelURL: custom URL to redirect when payment is canceled (empty for default)
 //
 // Returns the checkout session URL or an error if the session creation fails.
-func genStripeLink(referenceId string, customerId string, email string, amount int64, successURL string, cancelURL string) (string, error) {
+func genStripeLink(referenceId string, customerId string, email string, amount int64, successURL string, cancelURL string) (*stripe.CheckoutSession, error) {
 	if !strings.HasPrefix(setting.StripeApiSecret, "sk_") && !strings.HasPrefix(setting.StripeApiSecret, "rk_") {
-		return "", errors.New("invalid Stripe API key")
+		return nil, errors.New("invalid Stripe API key")
 	}
 
 	stripe.Key = setting.StripeApiSecret
@@ -415,10 +477,10 @@ func genStripeLink(referenceId string, customerId string, email string, amount i
 
 	result, err := session.New(params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return result.URL, nil
+	return result, nil
 }
 
 // stripeChargeUnits converts the payable money into the number of configured

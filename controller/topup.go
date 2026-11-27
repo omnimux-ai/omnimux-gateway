@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -280,6 +282,28 @@ func rejectInvalidTopUpQuota(c *gin.Context, userId int, amount int64) bool {
 	return false
 }
 
+func parseDecimalMinor(raw string, currency string) (int64, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || len(trimmed) > 32 {
+		return 0, false
+	}
+	d, err := decimal.NewFromString(trimmed)
+	if err != nil || d.IsNegative() {
+		return 0, false
+	}
+	scaled := d
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "BIF", "CLP", "DJF", "GNF", "IDR", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "VND", "VUV", "XAF", "XOF", "XPF":
+		scaled = d.Round(0)
+	default:
+		scaled = d.Mul(decimal.NewFromInt(100)).Round(0)
+	}
+	if scaled.IsNegative() || scaled.Cmp(decimal.NewFromInt(math.MaxInt64)) > 0 {
+		return 0, false
+	}
+	return scaled.IntPart(), true
+}
+
 func RequestEpay(c *gin.Context) {
 	var req EpayRequest
 	err := c.ShouldBindJSON(&req)
@@ -292,7 +316,12 @@ func RequestEpay(c *gin.Context) {
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	creditedQuota, err := validateTopUpQuota(req.Amount)
+	if err == nil {
+		err = model.ValidateTopUpQuotaCapacity(id, creditedQuota)
+	}
+	if err != nil {
+		paymentError(c, err)
 		return
 	}
 
@@ -343,14 +372,16 @@ func RequestEpay(c *gin.Context) {
 		amount = dAmount.Div(dQuotaPerUnit).IntPart()
 	}
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          amount,
-		Money:           payMoney,
-		TradeNo:         tradeNo,
-		PaymentMethod:   req.PaymentMethod,
-		PaymentProvider: model.PaymentProviderEpay,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:              id,
+		Amount:              amount,
+		Money:               payMoney,
+		CreditedQuota:       int64(creditedQuota),
+		ExpectedAmountMinor: model.ExpectedMinorFromMajor(payMoney, "CNY"),
+		TradeNo:             tradeNo,
+		PaymentMethod:       req.PaymentMethod,
+		PaymentProvider:     model.PaymentProviderEpay,
+		CreateTime:          time.Now().Unix(),
+		Status:              common.TopUpStatusPending,
 	}
 	err = topUp.Insert()
 	if err != nil {
@@ -461,13 +492,26 @@ func EpayNotify(c *gin.Context) {
 	}
 	logger.LogInfo(c.Request.Context(), common.LogText("Epay webhook signature verified trade_no=%s callback_type=%s trade_status=%s client_ip=%s verify_info=%q", verifyInfo.ServiceTradeNo, verifyInfo.Type, verifyInfo.TradeStatus, c.ClientIP(), common.GetJsonString(verifyInfo)))
 
+	if operation_setting.EpayId != "" && strings.TrimSpace(params["pid"]) != strings.TrimSpace(operation_setting.EpayId) {
+		logger.LogWarn(c.Request.Context(), common.LogText("Epay webhook merchant mismatch trade_no=%s expected_pid=%s actual_pid=%s client_ip=%s", verifyInfo.ServiceTradeNo, operation_setting.EpayId, params["pid"], c.ClientIP()))
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
 		// 进程内锁只是优化；重复/并发回调的正确性由 RechargeEpay 的
 		// 数据库行锁 + 事务内状态校验保证（多实例部署下同样安全）。
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
+		paidMinor, hasPaidAmount := parseDecimalMinor(verifyInfo.Money, "CNY")
 		paidAmount, _ := strconv.ParseFloat(verifyInfo.Money, 64)
-		alreadyDone, err := model.RechargeEpay(verifyInfo.ServiceTradeNo, verifyInfo.Type, c.ClientIP(), model.TopUpAnalyticsPayment{Amount: paidAmount})
+		alreadyDone, err := model.RechargeEpay(verifyInfo.ServiceTradeNo, verifyInfo.Type, c.ClientIP(), model.TopUpAnalyticsPayment{
+			Amount: paidAmount,
+			Verification: &model.PaymentVerification{
+				AmountMinor: paidMinor,
+				HasAmount:   hasPaidAmount,
+			},
+		})
 		if err != nil {
 			switch {
 			case errors.Is(err, model.ErrTopUpNotFound):

@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	relayhelper "github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -847,26 +848,9 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 // 输入格式: /v1beta/models/gemini-2.0-flash:generateContent
 // 输出: gemini-2.0-flash
 func extractModelNameFromGeminiPath(path string) string {
-	// 查找 "/models/" 的位置
-	modelsPrefix := "/models/"
-	modelsIndex := strings.Index(path, modelsPrefix)
-	if modelsIndex == -1 {
+	modelName, _, ok := relaycommon.ValidateGeminiModelPath(path)
+	if !ok {
 		return ""
 	}
-
-	// 从 "/models/" 之后开始提取
-	startIndex := modelsIndex + len(modelsPrefix)
-	if startIndex >= len(path) {
-		return ""
-	}
-
-	// 查找 ":" 的位置，模型名在 ":" 之前
-	colonIndex := strings.Index(path[startIndex:], ":")
-	if colonIndex == -1 {
-		// 如果没有找到 ":"，返回从 "/models/" 到路径结尾的部分
-		return path[startIndex:]
-	}
-
-	// 返回模型名部分
-	return path[startIndex : startIndex+colonIndex]
+	return modelName
 }

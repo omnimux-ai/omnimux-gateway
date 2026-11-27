@@ -43,6 +43,14 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
+          if ! printf '%s' "$RELEASE_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$'; then
+            echo "::error::Invalid tag_name format"
+            exit 1
+          fi
+          if ! printf '%s' "$GITCODE_REPOSITORY" | grep -Eq '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$'; then
+            echo "::error::Invalid GITCODE_REPOSITORY format"
+            exit 1
+          fi
 
           release_json="$(
             gh release view "$RELEASE_TAG" \
@@ -59,7 +67,7 @@ jobs:
 
           gitcode_release_json="$(mktemp)"
           gitcode_release_status="$(
-            curl -L -sS -o "$gitcode_release_json" -w "%{http_code}" \
+            curl --proto =https -sS -o "$gitcode_release_json" -w "%{http_code}" \
               -H "PRIVATE-TOKEN: $GITCODE_TOKEN" \
               -H "Accept: application/json" \
               "https://api.gitcode.com/api/v5/repos/$GITCODE_REPOSITORY/releases/tags/$RELEASE_TAG"
@@ -117,7 +125,7 @@ jobs:
 
           gitcode_response_json="$(mktemp)"
           request_status="$(
-            curl -L -sS -o "$gitcode_response_json" -w "%{http_code}" \
+            curl --proto =https -sS -o "$gitcode_response_json" -w "%{http_code}" \
               -X "$request_method" \
               -H "PRIVATE-TOKEN: $GITCODE_TOKEN" \
               -H "Content-Type: application/json" \
@@ -193,7 +201,7 @@ jobs:
 
           gitcode_release_json="$(mktemp)"
           gitcode_release_status="$(
-            curl -L -sS -o "$gitcode_release_json" -w "%{http_code}" \
+            curl --proto =https -sS -o "$gitcode_release_json" -w "%{http_code}" \
               -H "PRIVATE-TOKEN: $GITCODE_TOKEN" \
               -H "Accept: application/json" \
               "https://api.gitcode.com/api/v5/repos/$GITCODE_REPOSITORY/releases/tags/$RELEASE_TAG"

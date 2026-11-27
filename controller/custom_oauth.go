@@ -167,6 +167,10 @@ func FetchCustomOAuthDiscovery(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid Discovery URL. Only http and https are supported")
 		return
 	}
+	if err := service.ValidateSSRFProtectedFetchURL(targetURL); err != nil {
+		common.ApiErrorT(c, "Invalid Discovery URL: {{error}}", map[string]any{"error": err.Error()})
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
 	defer cancel()
@@ -178,7 +182,16 @@ func FetchCustomOAuthDiscovery(c *gin.Context) {
 	}
 	httpReq.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 20 * time.Second}
+	baseClient := service.GetSSRFProtectedHTTPClient()
+	if baseClient == nil {
+		service.InitHttpClient()
+		baseClient = service.GetSSRFProtectedHTTPClient()
+	}
+	client := *baseClient
+	client.Timeout = 20 * time.Second
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		common.ApiErrorT(c, "Failed to fetch the Discovery configuration: {{error}}", map[string]any{"error": err.Error()})
@@ -197,7 +210,7 @@ func FetchCustomOAuthDiscovery(c *gin.Context) {
 	}
 
 	var discovery map[string]any
-	if err = common.DecodeJson(resp.Body, &discovery); err != nil {
+	if err = common.DecodeJson(io.LimitReader(resp.Body, 1<<20), &discovery); err != nil {
 		common.ApiErrorT(c, "Failed to parse the Discovery configuration: {{error}}", map[string]any{"error": err.Error()})
 		return
 	}

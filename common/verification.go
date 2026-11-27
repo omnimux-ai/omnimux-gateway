@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto/subtle"
 	"strings"
 	"sync"
 	"time"
@@ -9,13 +10,15 @@ import (
 )
 
 type verificationValue struct {
-	code string
-	time time.Time
+	code     string
+	time     time.Time
+	attempts int
 }
 
 const (
 	EmailVerificationPurpose = "v"
 	PasswordResetPurpose     = "r"
+	maxVerificationAttempts  = 5
 )
 
 var verificationMutex sync.Mutex
@@ -44,15 +47,42 @@ func RegisterVerificationCodeWithKey(key string, code string, purpose string) {
 	}
 }
 
+func verifyCodeLocked(mapKey string, code string, consume bool) bool {
+	value, okay := verificationMap[mapKey]
+	if !okay {
+		return false
+	}
+	if int(time.Since(value.time).Seconds()) >= VerificationValidMinutes*60 {
+		delete(verificationMap, mapKey)
+		return false
+	}
+	if code == "" || subtle.ConstantTimeCompare([]byte(code), []byte(value.code)) != 1 {
+		value.attempts++
+		if value.attempts >= maxVerificationAttempts {
+			delete(verificationMap, mapKey)
+		} else {
+			verificationMap[mapKey] = value
+		}
+		return false
+	}
+	if consume {
+		delete(verificationMap, mapKey)
+	}
+	return true
+}
+
 func VerifyCodeWithKey(key string, code string, purpose string) bool {
 	verificationMutex.Lock()
 	defer verificationMutex.Unlock()
-	value, okay := verificationMap[purpose+key]
-	now := time.Now()
-	if !okay || int(now.Sub(value.time).Seconds()) >= VerificationValidMinutes*60 {
-		return false
-	}
-	return code == value.code
+	return verifyCodeLocked(purpose+key, code, false)
+}
+
+// ConsumeCodeWithKey verifies a verification code in constant time and
+// atomically removes it so concurrent requests cannot replay the same code.
+func ConsumeCodeWithKey(key string, code string, purpose string) bool {
+	verificationMutex.Lock()
+	defer verificationMutex.Unlock()
+	return verifyCodeLocked(purpose+key, code, true)
 }
 
 func DeleteKey(key string, purpose string) {

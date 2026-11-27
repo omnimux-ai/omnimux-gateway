@@ -3411,7 +3411,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Projets liés",
     "footer.defaultCopyright": "Tous droits réservés.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
+    "footer.newapi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Pour les canaux personnalisés avancés, ceci ne s’applique qu’aux routes /v1/responses sans conversion de protocole.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Pour les canaux ajoutés après le 10 mai 2025, pas besoin de supprimer \".\" des noms de modèles lors du déploiement",
     "For content that sells,": "Pour des contenus qui vendent,",
@@ -9506,6 +9506,9 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "Téléchargez l’application de bureau, connectez-vous et commencez avec la recharge de 100 crédits.",
     "View all {{count}} models and technical specs": "Voir les {{count}} modèles et leurs spécifications",
     "View the full model catalog": "Voir le catalogue complet des modèles",
-    "Pay per use, presets from $10": "Paiement à l’usage, recharges prédéfinies à partir de 10 $"
+    "Pay per use, presets from $10": "Paiement à l’usage, recharges prédéfinies à partir de 10 $",
+    "Private key must be sent in a POST request body": "La clé privée doit être envoyée dans le corps d'une requête POST",
+    "Cross-site login request rejected": "Requête de connexion intersite rejetée",
+    "Invalid Discovery URL: {{error}}": "URL Discovery non valide : {{error}}"
   }
 }

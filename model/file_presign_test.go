@@ -21,7 +21,7 @@ func setupFileRecordTestDB(t *testing.T) {
 	require.NoError(t, db.AutoMigrate(&File{}))
 }
 
-func TestUploadPendingFilesDoNotCountAgainstQuota(t *testing.T) {
+func TestUploadPendingFilesCountAgainstQuota(t *testing.T) {
 	setupFileRecordTestDB(t)
 	now := time.Now()
 
@@ -34,7 +34,7 @@ func TestUploadPendingFilesDoNotCountAgainstQuota(t *testing.T) {
 
 	count, err := CountActiveUserFiles(7)
 	require.NoError(t, err)
-	assert.Equal(t, int64(0), count, "an issued ticket must not hold a quota slot")
+	assert.Equal(t, int64(1), count, "an issued ticket must reserve a quota slot until confirmed, rejected, or expired")
 
 	confirmed, err := GetFileByFileId("file_pending")
 	require.NoError(t, err)

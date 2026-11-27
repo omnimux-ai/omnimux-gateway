@@ -51,6 +51,14 @@ func RelayMidjourneyImage(c *gin.Context) {
 	}
 	if httpClient == nil {
 		httpClient = service.GetSSRFProtectedHTTPClient()
+		if httpClient == nil {
+			service.InitHttpClient()
+			httpClient = service.GetSSRFProtectedHTTPClient()
+		}
+	}
+	client := *httpClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 	var validateErr error
 	if proxy == "" {
@@ -67,7 +75,7 @@ func RelayMidjourneyImage(c *gin.Context) {
 		})
 		return
 	}
-	resp, err := httpClient.Get(midjourneyTask.ImageUrl)
+	resp, err := client.Get(midjourneyTask.ImageUrl)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "http_get_image_failed",
@@ -76,20 +84,28 @@ func RelayMidjourneyImage(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		responseBody, _ := io.ReadAll(resp.Body)
+		responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		c.JSON(resp.StatusCode, gin.H{
 			"error": string(responseBody),
 		})
 		return
 	}
-	// 从Content-Type头获取MIME类型
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		// 如果无法确定内容类型，则默认为jpeg
+	// 仅放行安全栅格图片类型，拒绝 SVG/HTML 等可执行内容内联渲染
+	rawCT := strings.ToLower(strings.TrimSpace(strings.SplitN(resp.Header.Get("Content-Type"), ";", 2)[0]))
+	var contentType string
+	switch rawCT {
+	case "", "image/jpeg", "image/jpg":
 		contentType = "image/jpeg"
+	case "image/png", "image/gif", "image/webp", "image/bmp", "image/avif":
+		contentType = rawCT
+	default:
+		contentType = "application/octet-stream"
+		c.Writer.Header().Set("Content-Disposition", `attachment; filename="image"`)
 	}
-	// 设置响应的内容类型
 	c.Writer.Header().Set("Content-Type", contentType)
+	c.Writer.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
+	c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
+	c.Writer.Header().Set("Referrer-Policy", "no-referrer")
 	// 将图片流式传输到响应体
 	_, err = io.Copy(c.Writer, resp.Body)
 	if err != nil {

@@ -189,7 +189,7 @@ func TestUploadMedia(t *testing.T) {
 		t.Fatalf("unexpected res data: %+v", res.Data)
 	}
 
-	// 3. GET /media/:key 可以读出来
+	// 3. GET /media/:key 可以读出来并带安全隔离响应头
 	getReq := httptest.NewRequest("GET", res.Data.URL, nil)
 	getW := httptest.NewRecorder()
 	r.ServeHTTP(getW, getReq)
@@ -198,5 +198,35 @@ func TestUploadMedia(t *testing.T) {
 	}
 	if getW.Body.Len() != len(fakeJPEG) {
 		t.Fatalf("uploaded bytes mismatch: %d != %d", getW.Body.Len(), len(fakeJPEG))
+	}
+	if got := getW.Header().Get("Content-Security-Policy"); got != "sandbox; default-src 'none'" {
+		t.Fatalf("missing sandbox CSP on media response: %q", got)
+	}
+	if got := getW.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("missing nosniff header on media response: %q", got)
+	}
+
+	// 4. 目录访问必须拒绝，不允许列目录
+	dirW := httptest.NewRecorder()
+	r.ServeHTTP(dirW, httptest.NewRequest("GET", "/media/covers", nil))
+	if dirW.Code != http.StatusNotFound {
+		t.Fatalf("directory access status = %d, want 404", dirW.Code)
+	}
+
+	// 5. 非 dev 环境空 token 必须 Fail-Closed (401)
+	db, err := store.Open("file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	prodRouter := router.New(&config.Config{
+		Env:            "prod",
+		Token:          "",
+		MediaDir:       t.TempDir(),
+		MediaURLPrefix: "/media",
+		MaxBodyMB:      8,
+	}, db, slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{})), "test")
+	unauthW := doReq(t, prodRouter, "GET", "/v1/inspirations", "", nil)
+	if unauthW.Code != http.StatusUnauthorized {
+		t.Fatalf("prod empty token status = %d, want 401", unauthW.Code)
 	}
 }

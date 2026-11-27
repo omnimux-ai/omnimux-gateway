@@ -217,14 +217,34 @@ func CreateWaffoPancakePair(c *gin.Context) {
 }
 
 // ListWaffoPancakeCatalog returns the merchant's Stores + OnetimeProducts.
+type listWaffoPancakeCatalogRequest struct {
+	MerchantID string `json:"merchant_id"`
+	PrivateKey string `json:"private_key"`
+}
+
 // Doubles as a credential probe (a successful 200 proves the resolved creds
 // authenticate). See resolveWaffoPancakeAdminCreds for credential resolution.
 func ListWaffoPancakeCatalog(c *gin.Context) {
-	// Missing query creds mean "use persisted creds".
-	merchantID, privateKey := resolveWaffoPancakeAdminCreds(
-		strings.TrimSpace(c.Query("merchant_id")),
-		strings.TrimSpace(c.Query("private_key")),
-	)
+	var rawMerchantID, rawPrivateKey string
+	if c.Request.Method == http.MethodPost {
+		var req listWaffoPancakeCatalogRequest
+		if c.Request.ContentLength != 0 {
+			if err := c.ShouldBindJSON(&req); err != nil {
+				paymentError(c, common.NewMessage("Invalid parameters"))
+				return
+			}
+		}
+		rawMerchantID = strings.TrimSpace(req.MerchantID)
+		rawPrivateKey = strings.TrimSpace(req.PrivateKey)
+	} else {
+		if strings.TrimSpace(c.Query("private_key")) != "" {
+			common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Private key must be sent in a POST request body"))
+			return
+		}
+		rawMerchantID = strings.TrimSpace(c.Query("merchant_id"))
+	}
+	// Missing credentials mean "use persisted creds".
+	merchantID, privateKey := resolveWaffoPancakeAdminCreds(rawMerchantID, rawPrivateKey)
 	if merchantID == "" || privateKey == "" {
 		paymentError(c, common.NewMessage("Waffo Pancake credentials are not configured"))
 		return
@@ -356,7 +376,12 @@ func RequestWaffoPancakePay(c *gin.Context) {
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	creditedQuota, err := validateTopUpQuota(req.Amount)
+	if err == nil {
+		err = model.ValidateTopUpQuotaCapacity(id, creditedQuota)
+	}
+	if err != nil {
+		paymentError(c, err)
 		return
 	}
 
@@ -383,6 +408,7 @@ func RequestWaffoPancakePay(c *gin.Context) {
 		UserId:          id,
 		Amount:          normalizeWaffoPancakeTopUpAmount(req.Amount),
 		Money:           payMoney,
+		CreditedQuota:   int64(creditedQuota),
 		TradeNo:         tradeNo,
 		PaymentMethod:   model.PaymentMethodWaffoPancake,
 		PaymentProvider: model.PaymentProviderWaffoPancake,
@@ -456,11 +482,11 @@ func WaffoPancakeWebhook(c *gin.Context) {
 	}
 
 	signature := c.GetHeader("X-Waffo-Signature")
-	logger.LogInfo(c.Request.Context(), common.LogText("Waffo Pancake webhook received request path=%q client_ip=%s signature=%q body=%q", c.Request.RequestURI, c.ClientIP(), signature, string(bodyBytes)))
+	logger.LogInfo(c.Request.Context(), common.LogText("Waffo Pancake webhook received request path=%q client_ip=%s has_signature=%t body_bytes=%d", c.Request.RequestURI, c.ClientIP(), signature != "", len(bodyBytes)))
 
 	event, err := service.VerifyConfiguredWaffoPancakeWebhook(string(bodyBytes), signature)
 	if err != nil {
-		logger.LogWarn(c.Request.Context(), common.LogText("Waffo Pancake webhook signature verification failed path=%q client_ip=%s signature=%q body=%q error=%q", c.Request.RequestURI, c.ClientIP(), signature, string(bodyBytes), err.Error()))
+		logger.LogWarn(c.Request.Context(), common.LogText("Waffo Pancake webhook signature verification failed path=%q client_ip=%s body_bytes=%d error=%q", c.Request.RequestURI, c.ClientIP(), len(bodyBytes), err.Error()))
 		c.String(http.StatusUnauthorized, "invalid signature")
 		return
 	}

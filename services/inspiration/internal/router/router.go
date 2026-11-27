@@ -61,7 +61,7 @@ func New(cfg *config.Config, db *store.DB, log *slog.Logger, version string) *gi
 
 	// 媒体（免鉴权，内网；路径穿越防护）
 	localMedia := mediaHandler(cfg.MediaDir)
-	auth := middleware.Auth(cfg.Token)
+	auth := middleware.AuthWithEnv(cfg.Token, cfg.Env)
 	r.GET("/media/*key", func(c *gin.Context) {
 		key := strings.TrimPrefix(c.Param("key"), "/")
 		if strings.HasPrefix(key, "inspiration-covers/") {
@@ -90,7 +90,7 @@ func New(cfg *config.Config, db *store.DB, log *slog.Logger, version string) *gi
 	})
 
 	// 业务面（鉴权 + 限流 + body 上限）
-	v1 := r.Group("/v1", middleware.RateLimit(cfg.RateLimit), middleware.Auth(cfg.Token))
+	v1 := r.Group("/v1", middleware.RateLimit(cfg.RateLimit), auth)
 	v1.Use(func(c *gin.Context) {
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, cfg.MaxBodyMB<<20)
 		c.Next()
@@ -110,19 +110,43 @@ func New(cfg *config.Config, db *store.DB, log *slog.Logger, version string) *gi
 	return r
 }
 
-// mediaHandler 出本地媒体文件，支持 Range（视频拖动）。
+func isSafeLocalMediaKey(key string) bool {
+	if key == "" || len(key) > 512 || strings.Contains(key, "..") || strings.HasPrefix(key, "/") || strings.HasSuffix(key, "/") || strings.Contains(key, "//") || strings.Contains(key, "\\") {
+		return false
+	}
+	for i := range len(key) {
+		ch := key[i]
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') ||
+			ch == '.' || ch == '_' || ch == '-' || ch == '/' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// mediaHandler 出本地媒体文件，支持 Range（视频拖动），禁止目录枚举。
 func mediaHandler(root string) gin.HandlerFunc {
+	cleanRoot := filepath.Clean(root)
 	return func(c *gin.Context) {
 		key := strings.TrimPrefix(c.Param("key"), "/")
-		if key == "" || strings.Contains(key, "..") {
+		if !isSafeLocalMediaKey(key) {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_PARAM", "message": "bad media key"})
 			return
 		}
-		full := filepath.Join(root, filepath.FromSlash(key))
-		if !strings.HasPrefix(full, filepath.Clean(root)+string(os.PathSeparator)) && full != filepath.Clean(root) {
+		full := filepath.Join(cleanRoot, filepath.FromSlash(key))
+		if !strings.HasPrefix(full, cleanRoot+string(os.PathSeparator)) {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_PARAM", "message": "bad media key"})
 			return
 		}
+		info, err := os.Stat(full)
+		if err != nil || !info.Mode().IsRegular() {
+			c.JSON(http.StatusNotFound, gin.H{"success": false, "code": "NOT_FOUND", "message": "media not found"})
+			return
+		}
+		c.Header("Content-Security-Policy", "sandbox; default-src 'none'")
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("Referrer-Policy", "no-referrer")
 		http.ServeFile(c.Writer, c.Request, full) // 自带 Content-Type + Range
 	}
 }

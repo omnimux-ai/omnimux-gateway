@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
@@ -1091,4 +1092,46 @@ func TestSamePriceCacheReadsRemainInInput(t *testing.T) {
 			assert.Equal(t, separateParams.Len, params.Len, "tier conditions keep the full context length")
 		})
 	}
+}
+
+func TestTieredBillingSafetyGuards(t *testing.T) {
+	// H-10: Negative upstream token sub-categories must clamp to >= 0.
+	usage := &dto.Usage{
+		PromptTokens:     -50,
+		CompletionTokens: -10,
+		PromptTokensDetails: dto.InputTokenDetails{
+			CachedTokens:         -20,
+			CachedCreationTokens: -5,
+			ImageTokens:          -100,
+			AudioTokens:          -30,
+		},
+		CompletionTokenDetails: dto.OutputTokenDetails{
+			ImageTokens: -12,
+			AudioTokens: -8,
+		},
+	}
+	params := BuildTieredTokenParams(usage, false, billingexpr.UsedVars(`p + c + cr + cc + cc1h + img + img_cr + img_o + ai + ao`))
+	assert.Zero(t, params.P)
+	assert.Zero(t, params.C)
+	assert.Zero(t, params.Len)
+	assert.Zero(t, params.CR)
+	assert.Zero(t, params.CC)
+	assert.Zero(t, params.CC1h)
+	assert.Zero(t, params.Img)
+	assert.Zero(t, params.ImgCR)
+	assert.Zero(t, params.ImgO)
+	assert.Zero(t, params.AI)
+	assert.Zero(t, params.AO)
+
+	// H-10: BillingSession.Settle rejects negative actualQuota instead of crediting wallet.
+	session := &BillingSession{
+		relayInfo:        &relaycommon.RelayInfo{UserId: 1},
+		funding:          &WalletFunding{userId: 1, consumed: 100},
+		preConsumedQuota: 100,
+	}
+	require.Error(t, session.Settle(-1))
+	assert.False(t, session.settled)
+
+	// H-10: Default TrustQuotaUSD must be 0 so arbitrary small requests cannot bypass pre-consume.
+	assert.Equal(t, 0.0, operation_setting.GetQuotaSetting().TrustQuotaUSD)
 }

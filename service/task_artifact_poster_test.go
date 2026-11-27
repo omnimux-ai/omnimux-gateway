@@ -26,3 +26,20 @@ func TestVideoPosterDecodesMP4WithTrailingIndex(t *testing.T) {
 	assert.Equal(t, 480, config.Width)
 	assert.Equal(t, 854, config.Height)
 }
+
+func TestVideoFFmpegRejectsHLSAndNonMediaPolyglots(t *testing.T) {
+	hlsPlaylist := []byte("#EXTM3U\n#EXT-X-VERSION:3\n#EXTINF:1.0,\nfile:///etc/passwd\n#EXT-X-ENDLIST\n")
+	assert.Equal(t, safeVideoContainerUnknown, detectSafeVideoContainer(hlsPlaylist))
+
+	_, err := extractVideoPosterFrame(t.Context(), hlsPlaylist)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, errUnsupportedVideoContainer)
+
+	_, _, err = influencerObjectSwapExtractFrames(t.Context(), hlsPlaylist, 5)
+	require.Error(t, err)
+
+	tmp := filepath.Join(t.TempDir(), "fake.mp4")
+	require.NoError(t, os.WriteFile(tmp, hlsPlaylist, 0o600))
+	_, _, err = influencerRecreateExtractFrames(t.Context(), tmp, 5)
+	require.Error(t, err)
+}

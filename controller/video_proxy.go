@@ -68,6 +68,7 @@ func VideoProxy(c *gin.Context) {
 	}
 
 	task, exists, err := getTaskForArtifactRequest(c, taskID)
+	usedPublicImageLookup := false
 	if !exists || task == nil {
 		// Only the legacy anonymous image route is a public capability URL. A
 		// request carrying a user or token identity must never fall through to a
@@ -78,6 +79,7 @@ func VideoProxy(c *gin.Context) {
 			videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
 			return
 		}
+		usedPublicImageLookup = true
 		task, exists, err = model.GetUniqueByOnlyTaskId(taskID)
 	}
 	if err != nil {
@@ -89,6 +91,19 @@ func VideoProxy(c *gin.Context) {
 		videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
 		return
 	}
+	if usedPublicImageLookup {
+		if task.UserId > 0 {
+			owner, ownerErr := model.GetUserById(task.UserId, false)
+			if ownerErr != nil || owner == nil || owner.Status != common.UserStatusEnabled {
+				videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
+				return
+			}
+		}
+		if !task.IsImageTask() || !legacyImageAvailable(task) {
+			videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
+			return
+		}
+	}
 	if task.Status != model.TaskStatusSuccess {
 		videoProxyError(c, http.StatusBadRequest, "invalid_request_error",
 			fmt.Sprintf("Task is not completed yet, current status: %s", task.Status))
@@ -96,7 +111,8 @@ func VideoProxy(c *gin.Context) {
 	}
 
 	// fork: inline image results already live in the native artifact store.
-	// Keep the legacy high-entropy public route, but never proxy our own URL.
+	// Keep the legacy high-entropy public route, but never proxy our own URL
+	// or fall through to authenticated/video plugin proxying.
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/images/") && legacyImageAvailable(task) {
 		if !task.ResultRetrievable() {
 			videoProxyError(c, http.StatusGone, "artifact_gone", "Artifact content is no longer available")
@@ -109,6 +125,14 @@ func VideoProxy(c *gin.Context) {
 			}
 			return
 		}
+		if usedPublicImageLookup {
+			videoProxyError(c, http.StatusGone, "artifact_gone", "Artifact content is no longer available")
+			return
+		}
+	}
+	if usedPublicImageLookup {
+		videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
+		return
 	}
 
 	var descriptor *relaychannel.TaskContentRequest

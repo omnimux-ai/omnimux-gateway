@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -35,6 +36,9 @@ func getWeChatIdByCode(code string) (string, error) {
 	req.Header.Set("Authorization", common.WeChatServerToken)
 	client := http.Client{
 		Timeout: 5 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 	httpResponse, err := client.Do(req)
 	if err != nil {
@@ -42,7 +46,7 @@ func getWeChatIdByCode(code string) (string, error) {
 	}
 	defer httpResponse.Body.Close()
 	var res wechatLoginResponse
-	err = common.DecodeJson(httpResponse.Body, &res)
+	err = common.DecodeJson(io.LimitReader(httpResponse.Body, 1<<20), &res)
 	if err != nil {
 		return "", err
 	}
@@ -55,9 +59,33 @@ func getWeChatIdByCode(code string) (string, error) {
 	return res.Data, nil
 }
 
+func isCrossSiteWeChatAuthRequest(c *gin.Context) bool {
+	if c == nil || c.Request == nil {
+		return false
+	}
+	if secFetchSite := strings.ToLower(strings.TrimSpace(c.GetHeader("Sec-Fetch-Site"))); secFetchSite == "cross-site" {
+		return true
+	}
+	if secFetchDest := strings.ToLower(strings.TrimSpace(c.GetHeader("Sec-Fetch-Dest"))); secFetchDest != "" && secFetchDest != "empty" {
+		// WeChat code login is invoked via XHR from the web console, never via <img>/<script>/<iframe>/navigation.
+		return true
+	}
+	if origin := strings.TrimSpace(c.GetHeader("Origin")); origin != "" && c.Request.Host != "" {
+		parsed, err := url.Parse(origin)
+		if err != nil || !strings.EqualFold(parsed.Host, c.Request.Host) {
+			return true
+		}
+	}
+	return false
+}
+
 func WeChatAuth(c *gin.Context) {
 	if !common.WeChatAuthEnabled {
 		common.ApiErrorT(c, "{{provider}} login and registration has not been enabled by administrator", providerParams("WeChat"))
+		return
+	}
+	if isCrossSiteWeChatAuthRequest(c) {
+		common.ApiErrorStatus(c, http.StatusForbidden, common.NewMessage("Cross-site login request rejected"))
 		return
 	}
 	code := c.Query("code")

@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -105,6 +106,9 @@ type TaskAdaptor struct {
 
 	// 提交阶段解析出的请求，供 BuildRequestBody 复用，避免重复读取请求体。
 	parsed *voiceCloneRequest
+	// 提交前预占的音色归属状态，用于在提交失败时回滚未提交的占位记录。
+	claimedNew    bool
+	claimedUserID int
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +233,18 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	req.SpeakerID = resolveSpeakerID(req.SpeakerID)
 	if err := validateCustomSpeakerID(req.SpeakerID); err != nil {
 		return service.TaskErrorWrapperLocal(err, "invalid_custom_speaker_id", http.StatusBadRequest)
+	}
+
+	if model.DB != nil && info != nil && info.UserId > 0 {
+		claimedNew, err := model.ClaimOrVerifyVoiceCloneOwner(info.UserId, req.SpeakerID, info.PublicTaskID)
+		if err != nil {
+			if errors.Is(err, model.ErrVoiceCloneOwnedByOther) {
+				return service.TaskErrorWrapperLocal(err, "voice_speaker_forbidden", http.StatusForbidden)
+			}
+			return service.TaskErrorWrapper(err, "voice_owner_check_failed", http.StatusInternalServerError)
+		}
+		a.claimedNew = claimedNew
+		a.claimedUserID = info.UserId
 	}
 
 	a.parsed = req
@@ -406,23 +422,38 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (*http.Response, error) {
-	return channel.DoTaskApiRequest(a, c, info, requestBody)
+	resp, err := channel.DoTaskApiRequest(a, c, info, requestBody)
+	if err != nil && a.claimedNew && a.parsed != nil {
+		model.ReleaseVoiceCloneClaim(a.claimedUserID, a.parsed.SpeakerID)
+		a.claimedNew = false
+	}
+	return resp, err
 }
 
 func (a *TaskAdaptor) ParseResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*channel.TaskSubmitResponse, *taskdto.TaskError) {
 	defer func() { _ = resp.Body.Close() }()
 
+	releaseOnError := func() {
+		if a.claimedNew && a.parsed != nil {
+			model.ReleaseVoiceCloneClaim(a.claimedUserID, a.parsed.SpeakerID)
+			a.claimedNew = false
+		}
+	}
+
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		releaseOnError()
 		return nil, service.TaskErrorWrapper(err, "read_response_failed", http.StatusInternalServerError)
 	}
 
 	var upstream upstreamVoiceCloneResponse
 	if err := common.Unmarshal(respBody, &upstream); err != nil {
+		releaseOnError()
 		return nil, service.TaskErrorWrapper(err, "unmarshal_response_failed", http.StatusInternalServerError)
 	}
 
 	if resp.StatusCode != http.StatusOK || (upstream.Code != 0 && upstream.Code != 200) {
+		releaseOnError()
 		return nil, service.TaskErrorWrapperLocal(
 			fmt.Errorf("%s", describeUpstreamError(upstream.Code, upstream.Message)),
 			"upstream_voice_clone_failed", http.StatusBadRequest)
@@ -435,6 +466,20 @@ func (a *TaskAdaptor) ParseResponse(c *gin.Context, resp *http.Response, info *r
 	speakerID := strings.TrimSpace(upstream.SpeakerID)
 	if speakerID == "" || speakerID == "custom_speaker_id" {
 		speakerID = customSpeakerID
+	}
+
+	if model.DB != nil && a.claimedUserID > 0 && speakerID != "" {
+		publicTaskID := ""
+		if info != nil {
+			publicTaskID = info.PublicTaskID
+		}
+		if err := model.ConfirmVoiceCloneOwner(a.claimedUserID, speakerID, publicTaskID); err != nil {
+			return nil, service.TaskErrorWrapper(err, "voice_owner_confirm_failed", http.StatusInternalServerError)
+		}
+		if customSpeakerID != "" && customSpeakerID != speakerID {
+			_ = model.ConfirmVoiceCloneOwner(a.claimedUserID, customSpeakerID, publicTaskID)
+		}
+		a.claimedNew = false
 	}
 
 	taskData, err := common.Marshal(voiceCloneTaskData{
@@ -480,11 +525,15 @@ func (a *TaskAdaptor) GetChannelName() string {
 // 按 TTS 3.0 seed-tts-3-0-voice-query 规范，按自定义名称查询时须传
 // speaker_id="custom_speaker_id" 与 custom_speaker_id=<名称>。
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, task *model.Task, proxy string) (*http.Response, error) {
-	body := map[string]string{"speaker_id": task.TaskID}
-	if strings.HasPrefix(task.TaskID, VoiceNamespacePrefix) {
+	speakerID := strings.TrimSpace(task.GetUpstreamTaskID())
+	if speakerID == "" {
+		speakerID = strings.TrimSpace(task.TaskID)
+	}
+	body := map[string]string{"speaker_id": speakerID}
+	if strings.HasPrefix(speakerID, VoiceNamespacePrefix) {
 		body = map[string]string{
 			"speaker_id":        "custom_speaker_id",
-			"custom_speaker_id": task.TaskID,
+			"custom_speaker_id": speakerID,
 		}
 	}
 	encoded, err := common.Marshal(body)

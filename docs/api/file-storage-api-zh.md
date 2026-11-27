@@ -29,14 +29,14 @@ OmniMux 文件存储服务基于 **Cloudflare R2（S3 兼容协议）** 与本�
 
 ```bash
 # Cloudflare R2 凭据配置
-R2_ACCOUNT_ID=861a8093c2f17a53b4f5a8375a347ff0
+R2_ACCOUNT_ID=<CLOUDFLARE_ACCOUNT_ID>
 R2_ACCESS_KEY_ID=your_r2_access_key_id
 R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
 R2_BUCKET_NAME=your_r2_bucket_name
 
 # 可选自定义配置
 # 自定义 S3 Endpoint（默认根据 R2_ACCOUNT_ID 自动拼接）
-R2_ENDPOINT=https://861a8093c2f17a53b4f5a8375a347ff0.r2.cloudflarestorage.com
+R2_ENDPOINT=https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com
 # R2 绑定的公开访问域名（若配置，file_url 将直接返回此域名直链）
 R2_PUBLIC_BASE_URL=https://files.omnimux.ai
 

@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os/exec"
 
 	"github.com/QuantumNous/new-api/model"
 )
@@ -36,38 +34,23 @@ func extractVideoPosterFrame(ctx context.Context, video []byte) ([]byte, error) 
 	if len(video) == 0 {
 		return nil, errTaskArtifactPosterEmpty
 	}
-	cmd := exec.CommandContext(
-		ctx,
-		"ffmpeg",
-		"-hide_banner", "-loglevel", "error",
-		"-protocol_whitelist", "cache,pipe",
-		"-read_ahead_limit", "33554432",
-		"-i", "cache:pipe:0",
+	containerKind := detectSafeVideoContainer(video)
+	if containerKind == safeVideoContainerUnknown {
+		return nil, fmt.Errorf("poster decode: %w", errUnsupportedVideoContainer)
+	}
+	args := append(
+		safePipeVideoFFmpegInputArgs(containerKind, 33554432),
 		"-frames:v", "1",
 		"-f", "image2pipe",
 		"-vcodec", "mjpeg",
 		"pipe:1",
 	)
-	cmd.Stdin = bytes.NewReader(video)
-	stdout, err := cmd.StdoutPipe()
+	frame, stderr, err := runBoundedFFmpegOutput(ctx, "ffmpeg", args, bytes.NewReader(video), int(maxTaskArtifactPosterBytes), 4096)
 	if err != nil {
-		return nil, fmt.Errorf("poster decode: %w", err)
-	}
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("poster decode: %w", err)
-	}
-	frame, readErr := io.ReadAll(io.LimitReader(stdout, maxTaskArtifactPosterBytes+1))
-	waitErr := cmd.Wait()
-	if readErr != nil {
-		return nil, fmt.Errorf("poster decode: %w", readErr)
-	}
-	if waitErr != nil {
-		return nil, fmt.Errorf("poster decode: %w: %s", waitErr, trimPosterStderr(stderr.String()))
-	}
-	if int64(len(frame)) > maxTaskArtifactPosterBytes {
-		return nil, fmt.Errorf("poster decode: frame exceeds %d bytes", maxTaskArtifactPosterBytes)
+		if errors.Is(err, errFFmpegOutputLimitExceeded) {
+			return nil, fmt.Errorf("poster decode: frame exceeds %d bytes", maxTaskArtifactPosterBytes)
+		}
+		return nil, fmt.Errorf("poster decode: %w: %s", err, trimPosterStderr(stderr))
 	}
 	if len(frame) == 0 {
 		return nil, errTaskArtifactPosterEmpty
