@@ -29,10 +29,22 @@ describe('standalone guide documents', () => {
       '/guides/create-ai-character',
       '/guides/recreate-video-with-your-character',
     ])
+    const hub = parse(documents['/guides'].documentHtml)
+    expect(hub.querySelector('h1')?.textContent).toBe(
+      'Create a character. Make it move.'
+    )
+    const expectedH1: Record<string, string> = {
+      '/guides/create-ai-character': 'Create your AI character.',
+      '/guides/recreate-video-with-your-character':
+        'Recreate a reference video with your character.',
+    }
     for (const article of GUIDE_REGISTRY) {
       const document = parse(documents[article.path].documentHtml)
       expect(document.documentElement.lang).toBe('en')
       expect(document.querySelectorAll('h1')).toHaveLength(1)
+      expect(document.querySelector('h1')?.textContent).toBe(
+        expectedH1[article.path]
+      )
       expect(document.querySelector('.article-body')?.textContent).toContain(
         'Questions & limits'
       )
@@ -50,7 +62,23 @@ describe('standalone guide documents', () => {
     for (const [path, item] of Object.entries(documents)) {
       const document = parse(item.documentHtml)
       titles.add(document.title)
+      expect(
+        new TextEncoder().encode(document.title).length,
+        path
+      ).toBeLessThanOrEqual(60)
       expect(document.querySelectorAll('title')).toHaveLength(1)
+      expect(
+        document
+          .querySelector('.footer-links a[href*="docs.omnimux.ai"]')
+          ?.getAttribute('href')
+      ).toBe('https://docs.omnimux.ai/en/quickstart')
+      const images = [...document.querySelectorAll('img')]
+      expect(images.length).toBeGreaterThan(0)
+      for (const img of images) {
+        expect(img.getAttribute('width')).toBeTruthy()
+        expect(img.getAttribute('height')).toBeTruthy()
+      }
+      expect(document.querySelector('[data-guide-dialog] img')).toBeNull()
       expect(
         document.querySelector('link[rel=canonical]')?.getAttribute('href')
       ).toBe(`${brand.siteUrl}${path}`)

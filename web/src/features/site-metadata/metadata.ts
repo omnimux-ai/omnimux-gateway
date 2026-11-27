@@ -170,7 +170,7 @@ export function createSearchPageManifest(
     },
     {
       path: '/ai-influencer-studio',
-      title: `AI Influencer Studio — Remake Viral Product Videos | ${brand.brandName}`,
+      title: `AI Influencer Studio — Remake Product Videos | ${brand.brandName}`,
       description:
         'Create AI characters, analyze viral product clips, and regenerate UGC-style ads with your product. Pay per generation — no free studio credits.',
       summary: summary(
@@ -227,7 +227,7 @@ export function createSearchPageManifest(
     },
     {
       path: '/inspiration',
-      title: `Inspiration — Product Video Remakes & AI Creators | ${brand.brandName}`,
+      title: `Inspiration — Product Video Remakes & Creators | ${brand.brandName}`,
       description:
         'Browse community-shared AI characters, prompts, and reference video recreations on OmniMux. Discover ideas and start your own character in the studio.',
       // fork: same i18n key as the rendered <h1> in prompt-gallery.tsx, so the

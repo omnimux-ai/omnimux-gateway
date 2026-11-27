@@ -211,6 +211,10 @@ describe('public page metadata', () => {
       // Tool-page titles are kept as-is here; their length is batch-3 work (I-17).
       if (path !== '/' && !path.includes('/tools/')) {
         expect(head.title.length, path).toBeLessThanOrEqual(60)
+        expect(
+          new TextEncoder().encode(head.title).length,
+          path
+        ).toBeLessThanOrEqual(60)
       }
     }
     const guideDocuments = renderGuideDocuments({
