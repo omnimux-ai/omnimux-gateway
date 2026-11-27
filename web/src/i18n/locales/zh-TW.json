@@ -9506,6 +9506,25 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "下載桌面版，登入後可從 100 積分方案開始。",
     "View all {{count}} models and technical specs": "查看全部 {{count}} 個模型與技術規格",
     "View the full model catalog": "查看完整模型目錄",
-    "Pay per use, presets from $10": "按次付費，預設儲值方案 $10 起"
+    "Pay per use, presets from $10": "按次付費，預設儲值方案 $10 起",
+    "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.": "到期凍結後手動續費，單次 30 天，累計上限 90 天，每週期跨號換綁上限 2 次。",
+    "seat (per-seat billing)": "seat（按席位計費）",
+    "Disabled by default; wallet seat card appears only in seat mode.": "預設關閉；僅 seat 模式在錢包顯示席位。",
+    "Seat price (USD / 30 days)": "席位單價（USD / 30 天）",
+    "1 USD = 10 credits. Default: 2 (20 credits).": "1 USD = 10 積分，預設 2（20 積分）。",
+    "Seat limit per user": "單用戶席位上限",
+    "Includes occupied and unexpired vacant seats. Default: 20.": "含佔用與未過期空席，預設 20。",
+    "Transition days for existing accounts": "存量帳號過渡天數",
+    "0 freezes existing accounts without a seat immediately. Default: 0.": "設為 0 時存量無席帳號立即進入待啟用凍結狀態，預設 0。",
+    "Expiry freeze grace days": "到期凍結寬限天數",
+    "Accounts auto-unlink after grace expires without renewal. Default: 7.": "到期未續費超過寬限期後自動解綁，預設 7。",
+    "Purchased": "已購席位",
+    "Occupied": "使用中",
+    "Vacant": "可複用空席",
+    "Next expiry": "最近到期",
+    "{{credits}} credits (${{usd}} / 30d)": "{{credits}} 積分（${{usd}} / 30 天）",
+    "Vacant until {{date}}": "空席至 {{date}}",
+    "Same account only": "僅限原號",
+    "{{count}} swaps left": "剩餘 {{count}} 次換綁"
   }
 }

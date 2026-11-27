@@ -16,19 +16,24 @@ const (
 	SocialSeatStatusVacant   = "vacant"
 	SocialSeatStatusExpired  = "expired"
 
-	SocialSeatWindowDays = 30
+	SocialSeatWindowDays        = 30
+	SocialSeatMaxValidityDays   = 90
+	SocialSeatMaxSwapsPerWindow = 2
 
-	SocialSeatActionOpen   = "social_seat_open"
-	SocialSeatActionOccupy = "social_seat_occupy"
-	SocialSeatActionVacate = "social_seat_vacate"
-	SocialSeatActionRenew  = "social_seat_renew"
-	SocialSeatActionExpire = "social_seat_expire"
+	SocialSeatActionOpen     = "social_seat_open"
+	SocialSeatActionOccupy   = "social_seat_occupy"
+	SocialSeatActionVacate   = "social_seat_vacate"
+	SocialSeatActionRenew    = "social_seat_renew"
+	SocialSeatActionActivate = "social_seat_activate"
+	SocialSeatActionExpire   = "social_seat_expire"
 )
 
 var (
-	ErrSocialSeatQuota   = errors.New("social seat quota insufficient")
-	ErrSocialSeatCap     = errors.New("social seat cap reached")
-	ErrSocialSeatExpired = errors.New("social seat expired")
+	ErrSocialSeatQuota      = errors.New("social seat quota insufficient")
+	ErrSocialSeatCap        = errors.New("social seat cap reached")
+	ErrSocialSeatExpired    = errors.New("social seat expired")
+	ErrSocialSeatRenewLimit = errors.New("social seat max validity limit reached")
+	ErrSocialSeatSwapLimit  = errors.New("social seat cross-account swap limit reached")
 )
 
 // SocialSeat is a 30-day binding pit. Vacant pits keep expires_at after unbind.
@@ -39,6 +44,8 @@ type SocialSeat struct {
 	Status            string     `json:"status" gorm:"type:varchar(32);not null;index:idx_social_seats_user_status_exp,priority:2"`
 	ExpiresAt         time.Time  `json:"expires_at" gorm:"index;index:idx_social_seats_user_status_exp,priority:3"`
 	OccupiedAccountID *int64     `json:"occupied_account_id"`
+	LastAccountID     *int64     `json:"last_account_id" gorm:"index"`
+	SwapCount         int        `json:"swap_count" gorm:"not null;default:0"`
 	OpenedQuota       int        `json:"opened_quota" gorm:"default:0"`
 	GrandfatherUntil  *time.Time `json:"grandfather_until"`
 	CreatedAt         time.Time  `json:"created_at"`
@@ -106,6 +113,30 @@ func ChargeSocialSeatTx(tx *gorm.DB, userId int, quota int) error {
 		}
 	}
 	return nil
+}
+
+// SyncSocialSeatDebitCache decrements the Redis user quota cache after a committed
+// seat charge transaction so cached balances stay aligned with DB writes.
+func SyncSocialSeatDebitCache(userId int, quota int, operation string) {
+	if userId <= 0 || quota <= 0 {
+		return
+	}
+	if err := cacheDecrUserQuota(userId, int64(quota)); err != nil {
+		common.SysLog(fmt.Sprintf("failed to decrease user quota cache after %s: %s", operation, err.Error()))
+	}
+}
+
+// LockSocialSeatUserTx locks the user row inside a seat mutation transaction to
+// serialize concurrent cap checks and quota debits for the same user.
+func LockSocialSeatUserTx(tx *gorm.DB, userId int) error {
+	if tx == nil {
+		return errors.New("nil tx")
+	}
+	if userId <= 0 {
+		return errors.New("invalid user")
+	}
+	var user User
+	return lockForUpdate(tx).Where("id = ?", userId).First(&user).Error
 }
 
 func RecordSocialSeatLog(userId int, action string, seatID int64, quota int, extra string) {
@@ -181,20 +212,41 @@ func GetOccupiedSeatForAccountTx(tx *gorm.DB, userId int, accountID int64) (*Soc
 	return &seat, nil
 }
 
-// OccupyEarliestVacantTx takes the soonest-expiring unexpired vacant pit.
-func OccupyEarliestVacantTx(tx *gorm.DB, userId int, accountID int64, now time.Time) (*SocialSeat, error) {
+// OccupyVacantForAccountTx assigns an unexpired vacant pit to accountID.
+// Same-account rebinds match last_account_id first without incrementing swap_count.
+// Cross-account swaps pick the soonest-expiring vacant pit with swap_count < maxSwaps
+// (or an unbound legacy pit with last_account_id IS NULL) and increment swap_count.
+func OccupyVacantForAccountTx(tx *gorm.DB, userId int, accountID int64, maxSwaps int, now time.Time) (*SocialSeat, error) {
 	var seat SocialSeat
 	err := lockForUpdate(tx).
-		Where("user_id = ? AND status = ? AND expires_at > ?", userId, SocialSeatStatusVacant, now).
+		Where("user_id = ? AND status = ? AND expires_at > ? AND last_account_id = ?",
+			userId, SocialSeatStatusVacant, now, accountID).
 		Order("expires_at ASC, id ASC").
 		First(&seat).Error
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = lockForUpdate(tx).
+			Where("user_id = ? AND status = ? AND expires_at > ? AND (last_account_id IS NULL OR swap_count < ?)",
+				userId, SocialSeatStatusVacant, now, maxSwaps).
+			Order("expires_at ASC, id ASC").
+			First(&seat).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+	newSwapCount := seat.SwapCount
+	if seat.LastAccountID != nil && *seat.LastAccountID != accountID {
+		newSwapCount++
+	}
 	accID := accountID
+	lastID := accountID
 	res := tx.Model(&seat).Updates(map[string]any{
 		"status":              SocialSeatStatusOccupied,
 		"occupied_account_id": accID,
+		"last_account_id":     lastID,
+		"swap_count":          newSwapCount,
 		"updated_at":          now,
 	})
 	if res.Error != nil {
@@ -205,12 +257,15 @@ func OccupyEarliestVacantTx(tx *gorm.DB, userId int, accountID int64, now time.T
 	}
 	seat.Status = SocialSeatStatusOccupied
 	seat.OccupiedAccountID = &accID
+	seat.LastAccountID = &lastID
+	seat.SwapCount = newSwapCount
 	seat.UpdatedAt = now
 	return &seat, nil
 }
 
 func OpenOccupiedSeatTx(tx *gorm.DB, userId int, accountID int64, quota int, now time.Time, grandfatherUntil *time.Time) (*SocialSeat, error) {
 	accID := accountID
+	lastID := accountID
 	expires := now.Add(SocialSeatWindow())
 	if grandfatherUntil != nil && !grandfatherUntil.IsZero() {
 		expires = *grandfatherUntil
@@ -220,6 +275,8 @@ func OpenOccupiedSeatTx(tx *gorm.DB, userId int, accountID int64, quota int, now
 		Status:            SocialSeatStatusOccupied,
 		ExpiresAt:         expires,
 		OccupiedAccountID: &accID,
+		LastAccountID:     &lastID,
+		SwapCount:         0,
 		OpenedQuota:       quota,
 		GrandfatherUntil:  grandfatherUntil,
 		CreatedAt:         now,
@@ -229,6 +286,42 @@ func OpenOccupiedSeatTx(tx *gorm.DB, userId int, accountID int64, quota int, now
 		return nil, err
 	}
 	return seat, nil
+}
+
+// OpenFrozenUnactivatedSeatTx materializes a zero-quota frozen seat for a legacy
+// active account when seat billing turns on with grandfather_days=0.
+// expires_at=now begins the exact grace countdown without counting toward seats_cap.
+func OpenFrozenUnactivatedSeatTx(tx *gorm.DB, userId int, accountID int64, now time.Time) (*SocialSeat, error) {
+	accID := accountID
+	lastID := accountID
+	seat := &SocialSeat{
+		UserId:            userId,
+		Status:            SocialSeatStatusOccupied,
+		ExpiresAt:         now,
+		OccupiedAccountID: &accID,
+		LastAccountID:     &lastID,
+		SwapCount:         0,
+		OpenedQuota:       0,
+		GrandfatherUntil:  nil,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+	if err := tx.Create(seat).Error; err != nil {
+		return nil, err
+	}
+	return seat, nil
+}
+
+// ExpireSocialSeatTx marks a seat expired inside an active transaction without
+// emitting a consume log (caller logs after commit when needed).
+func ExpireSocialSeatTx(tx *gorm.DB, seatID int64, userId int, now time.Time) error {
+	return tx.Model(&SocialSeat{}).
+		Where("id = ? AND user_id = ?", seatID, userId).
+		Updates(map[string]any{
+			"status":              SocialSeatStatusExpired,
+			"occupied_account_id": nil,
+			"updated_at":          now,
+		}).Error
 }
 
 func VacateOccupiedSeatForAccount(userId int, accountID int64) (*SocialSeat, error) {
@@ -242,9 +335,21 @@ func VacateOccupiedSeatForAccount(userId int, accountID int64) (*SocialSeat, err
 		}
 		return nil, err
 	}
+	unexpired := seat.ExpiresAt.After(now) || (seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now))
+	if !unexpired {
+		if err := MarkSocialSeatExpired(&seat, fmt.Sprintf("unbind_expired account_id=%d", accountID)); err != nil {
+			return nil, err
+		}
+		return &seat, nil
+	}
+	lastID := accountID
+	if seat.LastAccountID != nil {
+		lastID = *seat.LastAccountID
+	}
 	res := DB.Model(&seat).Updates(map[string]any{
 		"status":              SocialSeatStatusVacant,
 		"occupied_account_id": nil,
+		"last_account_id":     lastID,
 		"updated_at":          now,
 	})
 	if res.Error != nil {
@@ -253,9 +358,225 @@ func VacateOccupiedSeatForAccount(userId int, accountID int64) (*SocialSeat, err
 	_ = ClearSocialAccountSeatID(accountID, userId)
 	seat.Status = SocialSeatStatusVacant
 	seat.OccupiedAccountID = nil
+	seat.LastAccountID = &lastID
 	seat.UpdatedAt = now
 	RecordSocialSeatLog(userId, SocialSeatActionVacate, seat.ID, 0, fmt.Sprintf("account_id=%d", accountID))
 	return &seat, nil
+}
+
+// RenewSocialSeatResult reports the committed seat, deducted raw quota, and log action.
+type RenewSocialSeatResult struct {
+	Seat         *SocialSeat
+	ChargedQuota int
+	Action       string
+}
+
+// RenewOrActivateSeatTx manually renews an occupied seat or activates an unactivated account.
+// Unexpired renewals extend expires_at by 30d up to now+maxValidityDays; grace renewals
+// restart from now+30d. Paid renewals reset swap_count to 0.
+func RenewOrActivateSeatTx(
+	tx *gorm.DB,
+	userId int,
+	accountID int64,
+	priceQuota int,
+	graceDays int,
+	maxValidityDays int,
+	maxSwaps int,
+	seatsCap int,
+	now time.Time,
+) (*RenewSocialSeatResult, error) {
+	if tx == nil {
+		return nil, errors.New("nil tx")
+	}
+	if err := LockSocialSeatUserTx(tx, userId); err != nil {
+		return nil, err
+	}
+
+	var seat SocialSeat
+	err := lockForUpdate(tx).
+		Where("user_id = ? AND status = ? AND occupied_account_id = ?",
+			userId, SocialSeatStatusOccupied, accountID).
+		First(&seat).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	hasSeat := err == nil
+	isUnactivatedRow := hasSeat && seat.OpenedQuota == 0 && seat.GrandfatherUntil == nil && !seat.ExpiresAt.After(now)
+	if hasSeat {
+		graceEnd := seat.ExpiresAt.Add(time.Duration(graceDays) * 24 * time.Hour)
+		if now.After(graceEnd) {
+			return nil, ErrSocialSeatExpired
+		}
+	}
+
+	// Path B: legacy unactivated account (no seat row or zero-quota frozen placeholder).
+	if !hasSeat || isUnactivatedRow {
+		vacantSeat, occErr := OccupyVacantForAccountTx(tx, userId, accountID, maxSwaps, now)
+		if occErr == nil {
+			if isUnactivatedRow {
+				if e := ExpireSocialSeatTx(tx, seat.ID, userId, now); e != nil {
+					return nil, e
+				}
+			}
+			sid := vacantSeat.ID
+			if e := tx.Model(&SocialAccount{}).Where("id = ? AND user_id = ?", accountID, userId).
+				Updates(map[string]any{"seat_id": sid, "updated_at": now}).Error; e != nil {
+				return nil, e
+			}
+			return &RenewSocialSeatResult{
+				Seat:         vacantSeat,
+				ChargedQuota: 0,
+				Action:       SocialSeatActionOccupy,
+			}, nil
+		}
+		if !errors.Is(occErr, gorm.ErrRecordNotFound) {
+			return nil, occErr
+		}
+
+		purchased, cerr := CountPurchasedSeatsTx(tx, userId, now)
+		if cerr != nil {
+			return nil, cerr
+		}
+		if purchased >= seatsCap {
+			vacantCount, verr := CountVacantUnexpiredTx(tx, userId, now)
+			if verr == nil && vacantCount > 0 {
+				return nil, ErrSocialSeatSwapLimit
+			}
+			return nil, ErrSocialSeatCap
+		}
+		if cerr := ChargeSocialSeatTx(tx, userId, priceQuota); cerr != nil {
+			return nil, cerr
+		}
+
+		next := now.Add(SocialSeatWindow())
+		if isUnactivatedRow {
+			accID := accountID
+			if uerr := tx.Model(&seat).Updates(map[string]any{
+				"expires_at":        next,
+				"swap_count":        0,
+				"opened_quota":      priceQuota,
+				"last_account_id":   accID,
+				"grandfather_until": nil,
+				"updated_at":        now,
+			}).Error; uerr != nil {
+				return nil, uerr
+			}
+			seat.ExpiresAt = next
+			seat.SwapCount = 0
+			seat.OpenedQuota = priceQuota
+			seat.LastAccountID = &accID
+			seat.GrandfatherUntil = nil
+			seat.UpdatedAt = now
+			sid := seat.ID
+			if uerr := tx.Model(&SocialAccount{}).Where("id = ? AND user_id = ?", accountID, userId).
+				Updates(map[string]any{"seat_id": sid, "updated_at": now}).Error; uerr != nil {
+				return nil, uerr
+			}
+			return &RenewSocialSeatResult{
+				Seat:         &seat,
+				ChargedQuota: priceQuota,
+				Action:       SocialSeatActionActivate,
+			}, nil
+		}
+
+		created, oerr := OpenOccupiedSeatTx(tx, userId, accountID, priceQuota, now, nil)
+		if oerr != nil {
+			return nil, oerr
+		}
+		sid := created.ID
+		if uerr := tx.Model(&SocialAccount{}).Where("id = ? AND user_id = ?", accountID, userId).
+			Updates(map[string]any{"seat_id": sid, "updated_at": now}).Error; uerr != nil {
+			return nil, uerr
+		}
+		return &RenewSocialSeatResult{
+			Seat:         created,
+			ChargedQuota: priceQuota,
+			Action:       SocialSeatActionActivate,
+		}, nil
+	}
+
+	// Path A: renew existing active or frozen-in-grace occupied seat.
+	if !seat.ExpiresAt.After(now) {
+		purchased, cerr := CountPurchasedSeatsTx(tx, userId, now)
+		if cerr != nil {
+			return nil, cerr
+		}
+		if purchased >= seatsCap {
+			return nil, ErrSocialSeatCap
+		}
+	}
+	var next time.Time
+	if seat.ExpiresAt.After(now) {
+		next = seat.ExpiresAt.Add(SocialSeatWindow())
+	} else {
+		next = now.Add(SocialSeatWindow())
+	}
+	if next.After(now.Add(time.Duration(maxValidityDays) * 24 * time.Hour)) {
+		return nil, ErrSocialSeatRenewLimit
+	}
+	if cerr := ChargeSocialSeatTx(tx, userId, priceQuota); cerr != nil {
+		return nil, cerr
+	}
+	accID := accountID
+	if uerr := tx.Model(&seat).Updates(map[string]any{
+		"expires_at":        next,
+		"swap_count":        0,
+		"opened_quota":      priceQuota,
+		"grandfather_until": nil,
+		"last_account_id":   accID,
+		"updated_at":        now,
+	}).Error; uerr != nil {
+		return nil, uerr
+	}
+	seat.ExpiresAt = next
+	seat.SwapCount = 0
+	seat.OpenedQuota = priceQuota
+	seat.GrandfatherUntil = nil
+	seat.LastAccountID = &accID
+	seat.UpdatedAt = now
+	sid := seat.ID
+	if uerr := tx.Model(&SocialAccount{}).Where("id = ? AND user_id = ?", accountID, userId).
+		Updates(map[string]any{"seat_id": sid, "updated_at": now}).Error; uerr != nil {
+		return nil, uerr
+	}
+	return &RenewSocialSeatResult{
+		Seat:         &seat,
+		ChargedQuota: priceQuota,
+		Action:       SocialSeatActionRenew,
+	}, nil
+}
+
+func ListVacantUnexpiredSeats(userId int, now time.Time) ([]*SocialSeat, error) {
+	var rows []*SocialSeat
+	err := DB.Where("user_id = ? AND status = ? AND expires_at > ?", userId, SocialSeatStatusVacant, now).
+		Order("expires_at ASC, id ASC").
+		Find(&rows).Error
+	return rows, err
+}
+
+func ListOccupiedSeatsByAccountIDs(userId int, accountIDs []int64) (map[int64]*SocialSeat, error) {
+	out := make(map[int64]*SocialSeat, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return out, nil
+	}
+	var rows []*SocialSeat
+	err := DB.Where("user_id = ? AND status = ? AND occupied_account_id IN ?",
+		userId, SocialSeatStatusOccupied, accountIDs).
+		Order("id DESC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		if r.OccupiedAccountID == nil {
+			continue
+		}
+		if _, exists := out[*r.OccupiedAccountID]; !exists {
+			out[*r.OccupiedAccountID] = r
+		}
+	}
+	return out, nil
 }
 
 func MarkSocialSeatExpired(seat *SocialSeat, extra string) error {
@@ -277,28 +598,6 @@ func MarkSocialSeatExpired(seat *SocialSeat, extra string) error {
 	seat.Status = SocialSeatStatusExpired
 	seat.OccupiedAccountID = nil
 	RecordSocialSeatLog(seat.UserId, SocialSeatActionExpire, seat.ID, 0, extra)
-	return nil
-}
-
-func RenewSocialSeat(seat *SocialSeat, quota int, now time.Time) error {
-	if seat == nil {
-		return errors.New("nil seat")
-	}
-	next := seat.ExpiresAt.Add(SocialSeatWindow())
-	if next.Before(now) {
-		next = now.Add(SocialSeatWindow())
-	}
-	res := DB.Model(seat).Updates(map[string]any{
-		"expires_at":   next,
-		"opened_quota": quota,
-		"updated_at":   now,
-	})
-	if res.Error != nil {
-		return res.Error
-	}
-	seat.ExpiresAt = next
-	seat.OpenedQuota = quota
-	RecordSocialSeatLog(seat.UserId, SocialSeatActionRenew, seat.ID, quota, "")
 	return nil
 }
 

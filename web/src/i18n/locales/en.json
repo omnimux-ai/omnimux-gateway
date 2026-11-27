@@ -9506,6 +9506,25 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "Download the desktop app, sign in, and start with the 100-credit tier.",
     "View all {{count}} models and technical specs": "View all {{count}} models and technical specs",
     "View the full model catalog": "View the full model catalog",
-    "Pay per use, presets from $10": "Pay per use, presets from $10"
+    "Pay per use, presets from $10": "Pay per use, presets from $10",
+    "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.": "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.",
+    "seat (per-seat billing)": "seat (per-seat billing)",
+    "Disabled by default; wallet seat card appears only in seat mode.": "Disabled by default; wallet seat card appears only in seat mode.",
+    "Seat price (USD / 30 days)": "Seat price (USD / 30 days)",
+    "1 USD = 10 credits. Default: 2 (20 credits).": "1 USD = 10 credits. Default: 2 (20 credits).",
+    "Seat limit per user": "Seat limit per user",
+    "Includes occupied and unexpired vacant seats. Default: 20.": "Includes occupied and unexpired vacant seats. Default: 20.",
+    "Transition days for existing accounts": "Transition days for existing accounts",
+    "0 freezes existing accounts without a seat immediately. Default: 0.": "0 freezes existing accounts without a seat immediately. Default: 0.",
+    "Expiry freeze grace days": "Expiry freeze grace days",
+    "Accounts auto-unlink after grace expires without renewal. Default: 7.": "Accounts auto-unlink after grace expires without renewal. Default: 7.",
+    "Purchased": "Purchased",
+    "Occupied": "Occupied",
+    "Vacant": "Vacant",
+    "Next expiry": "Next expiry",
+    "{{credits}} credits (${{usd}} / 30d)": "{{credits}} credits (${{usd}} / 30d)",
+    "Vacant until {{date}}": "Vacant until {{date}}",
+    "Same account only": "Same account only",
+    "{{count}} swaps left": "{{count}} swaps left"
   }
 }

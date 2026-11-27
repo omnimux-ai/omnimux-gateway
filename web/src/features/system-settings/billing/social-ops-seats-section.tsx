@@ -112,7 +112,7 @@ export function SocialOpsSeatsSection({
           <FormDirtyIndicator isDirty={isDirty} />
           <p className='text-muted-foreground text-sm'>
             {t(
-              'Seat-based vacant slots: unlinking does not refund credits. Charges occur when an account is stored (ingest), not during Connect. Disabled by default. Hosted ordering and relay must not be used.'
+              'Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.'
             )}
           </p>
           <SettingsFormGrid>
@@ -138,14 +138,14 @@ export function SocialOpsSeatsSection({
                           {t('off (seat billing disabled)')}
                         </SelectItem>
                         <SelectItem value='seat'>
-                          {t('seat (vacant-slot seat billing)')}
+                          {t('seat (per-seat billing)')}
                         </SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
                   <FormDescription>
                     {t(
-                      'Social account binding seats appear in the wallet only in seat mode. fixed is treated as off.'
+                      'Disabled by default; wallet seat card appears only in seat mode.'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -158,7 +158,7 @@ export function SocialOpsSeatsSection({
               name='social_ops_setting.seat_price_usd'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('New seat price (USD / 30 days)')}</FormLabel>
+                  <FormLabel>{t('Seat price (USD / 30 days)')}</FormLabel>
                   <FormControl>
                     <Input
                       type='number'
@@ -175,7 +175,7 @@ export function SocialOpsSeatsSection({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Displayed credits = USD \u00d7 10. Default: 8.')}
+                    {t('1 USD = 10 credits. Default: 2 (20 credits).')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -187,7 +187,7 @@ export function SocialOpsSeatsSection({
               name='social_ops_setting.seats_cap'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('Hard seat limit per user')}</FormLabel>
+                  <FormLabel>{t('Seat limit per user')}</FormLabel>
                   <FormControl>
                     <Input
                       type='number'
@@ -205,7 +205,7 @@ export function SocialOpsSeatsSection({
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Limit on purchased, unexpired seats, including idle seats. Default: 20.'
+                      'Includes occupied and unexpired vacant seats. Default: 20.'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -218,39 +218,8 @@ export function SocialOpsSeatsSection({
               name='social_ops_setting.grandfather_days'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('Grace days for existing accounts')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      min={0}
-                      step={1}
-                      value={field.value ?? ''}
-                      onChange={(event) => {
-                        const n = event.currentTarget.valueAsNumber
-                        field.onChange(Number.isNaN(n) ? 0 : n)
-                      }}
-                      name={field.name}
-                      onBlur={field.onBlur}
-                      ref={field.ref}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t(
-                      'Grandfather period for existing accounts without a seat. Default: 7.'
-                    )}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='social_ops_setting.grace_days'
-              render={({ field }) => (
-                <FormItem>
                   <FormLabel>
-                    {t('Posting freeze grace days for unpaid occupied seats')}
+                    {t('Transition days for existing accounts')}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -268,7 +237,40 @@ export function SocialOpsSeatsSection({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Grace period after a failed renewal. Default: 3.')}
+                    {t(
+                      '0 freezes existing accounts without a seat immediately. Default: 0.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='social_ops_setting.grace_days'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Expiry freeze grace days')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={0}
+                      step={1}
+                      value={field.value ?? ''}
+                      onChange={(event) => {
+                        const n = event.currentTarget.valueAsNumber
+                        field.onChange(Number.isNaN(n) ? 0 : n)
+                      }}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Accounts auto-unlink after grace expires without renewal. Default: 7.'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

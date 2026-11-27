@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service/social"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -1234,4 +1235,213 @@ func TestSocialTikTokCallbackAcceptLanguage(t *testing.T) {
 			assert.NotContains(t, body, "omnimux://social/connected")
 		})
 	}
+}
+
+func TestSocialSeatBillingHTTPContract(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	oldDB, oldLogDB, oldService := model.DB, model.LOG_DB, socialSvc
+	oldSecret, oldSecure := common.SessionSecret, common.SessionCookieSecure
+	oldRedis := common.RedisEnabled
+	oldMainDBType, oldLogDBType := common.MainDatabaseType(), common.LogDatabaseType()
+	seatCfg := operation_setting.GetSocialOpsSetting()
+	prevSeatCfg := *seatCfg
+	model.DB, model.LOG_DB = db, db
+	common.RedisEnabled = false
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	common.SessionSecret = "test-seat-http-secret"
+	common.SessionCookieSecure = false
+	t.Cleanup(func() {
+		*seatCfg = prevSeatCfg
+		model.DB, model.LOG_DB, socialSvc = oldDB, oldLogDB, oldService
+		common.RedisEnabled = oldRedis
+		common.SetDatabaseTypes(oldMainDBType, oldLogDBType)
+		common.SessionSecret, common.SessionCookieSecure = oldSecret, oldSecure
+		_ = sqlDB.Close()
+	})
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.SocialAccount{}, &model.SocialPost{}, &model.SocialSeat{}, &model.SocialOAuthState{}))
+	require.NoError(t, db.Create(&model.User{Id: 7, Username: "seat-http-u7", Quota: 3_000_000}).Error)
+
+	var revokeCalls atomic.Int32
+	var openIDCounter atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v2/oauth/token/":
+			oid := fmt.Sprintf("oid-seat-http-%d", openIDCounter.Add(1))
+			_, _ = fmt.Fprintf(w, `{"access_token":"at-%s","refresh_token":"rt-%s","expires_in":7200,"refresh_expires_in":15552000,"open_id":"%s","scope":"user.info.basic,video.upload","token_type":"Bearer"}`, oid, oid, oid)
+		case "/v2/user/info/":
+			oid := fmt.Sprintf("oid-seat-http-%d", openIDCounter.Load())
+			_, _ = fmt.Fprintf(w, `{"data":{"user":{"open_id":"%s","display_name":"Creator %s"}},"error":{"code":"ok","message":""}}`, oid, oid)
+		case "/v2/oauth/revoke/":
+			revokeCalls.Add(1)
+			_, _ = w.Write([]byte(`{"data":{}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(upstream.Close)
+
+	setSocialService(social.NewService(social.Config{
+		Enabled:             true,
+		Platforms:           []string{"tiktok"},
+		TikTokDirectEnabled: true,
+		TikTokClientKey:     "tt-ck",
+		TikTokClientSecret:  "tt-cs",
+		TikTokRedirectURI:   "https://omnimux.ai/oauth/tiktok/callback",
+		TikTokAuthorizeURL:  "https://www.tiktok.com/v2/auth/authorize/",
+		TikTokBaseURL:       upstream.URL,
+		TikTokScopes:        "user.info.basic,video.upload",
+		SocialTokenEncKey:   base64.StdEncoding.EncodeToString(make([]byte, 32)),
+	}))
+
+	router := gin.New()
+	router.GET("/api/social/v1/oauth/tiktok/start", SocialTikTokOAuthStart)
+	router.GET("/oauth/tiktok/callback", SocialTikTokCallback)
+	authed := router.Group("/api/social/v1")
+	authed.Use(func(c *gin.Context) { c.Set("id", 7); c.Next() })
+	authed.GET("/seats", SocialSeats)
+	authed.GET("/accounts", SocialListAccounts)
+	authed.POST("/connect", SocialConnect)
+	authed.POST("/accounts/:id/renew", SocialRenewAccountSeat)
+	authed.POST("/posts", SocialCreatePost)
+
+	acc := &model.SocialAccount{
+		UserId:            7,
+		Provider:          social.ProviderTikTokDirect,
+		ProviderAccountID: "oid-existing-http",
+		Platform:          "tiktok",
+		Status:            model.SocialAccountStatusActive,
+		ScopesGranted:     "user.info.basic,video.upload",
+	}
+	require.NoError(t, db.Create(acc).Error)
+
+	// 1) In billing_mode="off", GET /accounts omits "seat".
+	seatCfg.BillingMode = "off"
+	recOff := httptest.NewRecorder()
+	router.ServeHTTP(recOff, httptest.NewRequest(http.MethodGet, "/api/social/v1/accounts?provider=tiktok_direct", nil))
+	require.Equal(t, http.StatusOK, recOff.Code, recOff.Body.String())
+	assert.NotContains(t, recOff.Body.String(), `"seat":`)
+
+	// 2) Switch to billing_mode="seat", grandfather_days=0 -> GET /accounts attaches unactivated seat.
+	seatCfg.BillingMode = "seat"
+	seatCfg.SeatPriceUSD = 2
+	seatCfg.SeatsCap = 20
+	seatCfg.GrandfatherDays = 0
+	seatCfg.GraceDays = 7
+
+	recList := httptest.NewRecorder()
+	router.ServeHTTP(recList, httptest.NewRequest(http.MethodGet, "/api/social/v1/accounts?provider=tiktok_direct", nil))
+	require.Equal(t, http.StatusOK, recList.Code, recList.Body.String())
+	var listResp struct {
+		Data struct {
+			Accounts []struct {
+				ID   int64                   `json:"id"`
+				Seat *social.AccountSeatView `json:"seat"`
+			} `json:"accounts"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recList.Body.Bytes(), &listResp))
+	require.Len(t, listResp.Data.Accounts, 1)
+	require.NotNil(t, listResp.Data.Accounts[0].Seat)
+	assert.Equal(t, "unactivated", listResp.Data.Accounts[0].Seat.Status)
+	assert.True(t, listResp.Data.Accounts[0].Seat.CanRenew)
+	assert.Equal(t, 20, listResp.Data.Accounts[0].Seat.PriceCredits)
+
+	// 3) Posting on frozen/unactivated account returns 409 SOCIAL_SEAT_EXPIRED.
+	postBody := fmt.Sprintf(`{"provider":"tiktok_direct","content":"blocked","account_ids":[%d],"media_items":[{"url":"https://cdn.example.com/v.mp4"}]}`, acc.ID)
+	postReq := httptest.NewRequest(http.MethodPost, "/api/social/v1/posts", strings.NewReader(postBody))
+	postReq.Header.Set("Content-Type", "application/json")
+	postRec := httptest.NewRecorder()
+	router.ServeHTTP(postRec, postReq)
+	assert.Equal(t, http.StatusConflict, postRec.Code, postRec.Body.String())
+	assert.Contains(t, postRec.Body.String(), `"code":"SOCIAL_SEAT_EXPIRED"`)
+
+	// 4) POST /accounts/:id/renew activates (30d), renews (60d), renews (90d), then 4th fails with 409 SOCIAL_SEAT_RENEW_LIMIT.
+	renew := func(path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w
+	}
+	r1 := renew(fmt.Sprintf("/api/social/v1/accounts/%d/renew?provider=tiktok_direct", acc.ID), "")
+	require.Equal(t, http.StatusOK, r1.Code, r1.Body.String())
+	assert.Contains(t, r1.Body.String(), `"status":"active"`)
+
+	r2 := renew(fmt.Sprintf("/api/social/v1/accounts/%d/renew", acc.ID), `{"provider":"tiktok_direct"}`)
+	require.Equal(t, http.StatusOK, r2.Code, r2.Body.String())
+
+	r3 := renew(fmt.Sprintf("/api/social/v1/accounts/%d/renew?provider=tiktok_direct", acc.ID), "")
+	require.Equal(t, http.StatusOK, r3.Code, r3.Body.String())
+	assert.Contains(t, r3.Body.String(), `"can_renew":false`)
+	assert.Contains(t, r3.Body.String(), `"renew_blocked_reason":"SOCIAL_SEAT_RENEW_LIMIT"`)
+
+	// Top up user so 4th call tests renew limit rather than quota.
+	require.NoError(t, db.Model(&model.User{}).Where("id = ?", 7).Update("quota", 5_000_000).Error)
+	r4 := renew(fmt.Sprintf("/api/social/v1/accounts/%d/renew?provider=tiktok_direct", acc.ID), "")
+	assert.Equal(t, http.StatusConflict, r4.Code, r4.Body.String())
+	assert.Contains(t, r4.Body.String(), `"code":"SOCIAL_SEAT_RENEW_LIMIT"`)
+	assert.Contains(t, r4.Body.String(), `"max_validity_days":90`)
+
+	// 5) GET /seats returns extended contract fields + vacant_seats.
+	recSeats := httptest.NewRecorder()
+	router.ServeHTTP(recSeats, httptest.NewRequest(http.MethodGet, "/api/social/v1/seats", nil))
+	require.Equal(t, http.StatusOK, recSeats.Code, recSeats.Body.String())
+	assert.Contains(t, recSeats.Body.String(), `"max_validity_days":90`)
+	assert.Contains(t, recSeats.Body.String(), `"max_swaps_per_window":2`)
+	assert.Contains(t, recSeats.Body.String(), `"grace_days":7`)
+	assert.Contains(t, recSeats.Body.String(), `"vacant_seats":[]`)
+
+	// 6) Insufficient quota on POST /connect returns 402 SOCIAL_SEAT_QUOTA with need_credits=20.
+	require.NoError(t, db.Model(&model.User{}).Where("id = ?", 7).Update("quota", 0).Error)
+	connReq := httptest.NewRequest(http.MethodPost, "/api/social/v1/connect", strings.NewReader(`{"provider":"tiktok_direct","platform":"tiktok"}`))
+	connReq.Header.Set("Content-Type", "application/json")
+	connRec := httptest.NewRecorder()
+	router.ServeHTTP(connRec, connReq)
+	assert.Equal(t, http.StatusPaymentRequired, connRec.Code, connRec.Body.String())
+	assert.Contains(t, connRec.Body.String(), `"code":"SOCIAL_SEAT_QUOTA"`)
+	assert.Contains(t, connRec.Body.String(), `"need_credits":20`)
+
+	// 7) Callback quota failure revokes token and renders bilingual HTML with wallet link (zh + en).
+	for _, tc := range []struct {
+		name       string
+		acceptLang string
+		wantTitle  string
+		wantHint   string
+	}{
+		{"zh quota error", "zh-CN,zh;q=0.9", "积分余额不足", "20 积分"},
+		{"en quota error", "en-US,en;q=0.9", "Insufficient Credits", "20 credits"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state := "seat-quota-state-" + strings.ReplaceAll(tc.name, " ", "-")
+			require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+				State:    state,
+				UserId:   7,
+				Provider: social.ProviderTikTokDirect,
+			}))
+			cookieRec := httptest.NewRecorder()
+			cookieCtx, _ := gin.CreateTestContext(cookieRec)
+			cookieCtx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+			setSocialOAuthBrowserCookie(cookieCtx, state)
+
+			req := httptest.NewRequest(http.MethodGet, "/oauth/tiktok/callback?code=c-quota&state="+state, nil)
+			req.Header.Set("Accept-Language", tc.acceptLang)
+			req.AddCookie(cookieRec.Result().Cookies()[0])
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assert.Equal(t, http.StatusPaymentRequired, rec.Code, rec.Body.String())
+			assert.Equal(t, "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox", rec.Header().Get("Content-Security-Policy"))
+			body := rec.Body.String()
+			assert.Contains(t, body, tc.wantTitle)
+			assert.Contains(t, body, tc.wantHint)
+			assert.Contains(t, body, "https://omnimux.ai/wallet")
+			assert.NotContains(t, body, "·")
+		})
+	}
+	assert.EqualValues(t, 2, revokeCalls.Load())
 }

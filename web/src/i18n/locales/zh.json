@@ -9506,6 +9506,25 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "下载桌面端，登录后可从 100 积分档开始。",
     "View all {{count}} models and technical specs": "查看全部 {{count}} 个模型与技术参数",
     "View the full model catalog": "查看完整模型目录",
-    "Pay per use, presets from $10": "按次付费，预设 $10 档起"
+    "Pay per use, presets from $10": "按次付费，预设 $10 档起",
+    "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.": "到期冻结后手动续费，单次 30 天，累计上限 90 天，每周期跨号换绑上限 2 次。",
+    "seat (per-seat billing)": "seat（按席位计费）",
+    "Disabled by default; wallet seat card appears only in seat mode.": "默认关闭；仅 seat 模式在钱包展示席位。",
+    "Seat price (USD / 30 days)": "席位单价（USD / 30 天）",
+    "1 USD = 10 credits. Default: 2 (20 credits).": "1 USD = 10 积分，默认 2（20 积分）。",
+    "Seat limit per user": "单用户席位上限",
+    "Includes occupied and unexpired vacant seats. Default: 20.": "含占用与未过期空席，默认 20。",
+    "Transition days for existing accounts": "存量账号过渡天数",
+    "0 freezes existing accounts without a seat immediately. Default: 0.": "设为 0 时存量无席账号立即进入待激活冻结态，默认 0。",
+    "Expiry freeze grace days": "到期冻结宽限天数",
+    "Accounts auto-unlink after grace expires without renewal. Default: 7.": "到期未续费超过宽限期后自动解绑，默认 7。",
+    "Purchased": "已购席位",
+    "Occupied": "使用中",
+    "Vacant": "可复用空席",
+    "Next expiry": "最近到期",
+    "{{credits}} credits (${{usd}} / 30d)": "{{credits}} 积分（${{usd}} / 30 天）",
+    "Vacant until {{date}}": "空席至 {{date}}",
+    "Same account only": "仅限原号",
+    "{{count}} swaps left": "剩余 {{count}} 次换绑"
   }
 }

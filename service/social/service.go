@@ -183,6 +183,9 @@ func (s *Service) ListAccounts(ctx context.Context, userId int, provider string)
 		if err := s.tiktokDirectUsable(); err != nil {
 			return nil, err
 		}
+		if seatBillingOn() {
+			_ = s.reconcileExpiredSeats(ctx, userId)
+		}
 		return model.ListSocialAccountsByUser(userId, ProviderTikTokDirect)
 	}
 	return s.listAccountsZernio(ctx, userId)
@@ -207,8 +210,7 @@ func (s *Service) listAccountsZernio(ctx context.Context, userId int) ([]*model.
 		return nil, err
 	}
 	if seatBillingOn() {
-		_ = s.lazyExpireAndRenew(ctx, userId)
-		_ = s.grandfatherActiveAccounts(userId)
+		_ = s.reconcileExpiredSeats(ctx, userId)
 	}
 	var firstErr error
 	for _, a := range upstream {

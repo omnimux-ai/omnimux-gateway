@@ -108,10 +108,10 @@ const defaultBillingSettings: BillingSettings = {
   'checkin_setting.min_quota': 1000,
   'checkin_setting.max_quota': 10000,
   'social_ops_setting.billing_mode': 'off',
-  'social_ops_setting.seat_price_usd': 8,
+  'social_ops_setting.seat_price_usd': 2,
   'social_ops_setting.seats_cap': 20,
-  'social_ops_setting.grandfather_days': 7,
-  'social_ops_setting.grace_days': 3,
+  'social_ops_setting.grandfather_days': 0,
+  'social_ops_setting.grace_days': 7,
 }
 
 export function BillingSettings() {

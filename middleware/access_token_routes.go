@@ -317,6 +317,7 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/social/v1/accounts":                         accessTokenScopeRule("social:read"),
 	"GET /api/social/v1/accounts/:id/creator-info":        accessTokenScopeRule("social:read"),
 	"POST /api/social/v1/connect":                         accessTokenScopeRule("social:write"),
+	"POST /api/social/v1/accounts/:id/renew":              accessTokenScopeRule("social:write"),
 	"DELETE /api/social/v1/accounts/:id":                  accessTokenScopeRule("social:write"),
 	"POST /api/social/v1/posts":                           accessTokenScopeRule("social:write"),
 	"GET /api/social/v1/posts/:id":                        accessTokenScopeRule("social:read"),

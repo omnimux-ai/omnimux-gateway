@@ -9506,6 +9506,25 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "Tải ứng dụng máy tính, đăng nhập và bắt đầu với mức nạp 100 credit.",
     "View all {{count}} models and technical specs": "Xem toàn bộ {{count}} mô hình và thông số kỹ thuật",
     "View the full model catalog": "Xem toàn bộ danh mục mô hình",
-    "Pay per use, presets from $10": "Trả theo mức sử dụng, các mức nạp có sẵn từ 10 USD"
+    "Pay per use, presets from $10": "Trả theo mức sử dụng, các mức nạp có sẵn từ 10 USD",
+    "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.": "Chỉ gia hạn thủ công, 30 ngày mỗi chu kỳ, tối đa 90 ngày cộng dồn và tối đa 2 lần đổi tài khoản mỗi chu kỳ.",
+    "seat (per-seat billing)": "seat (tính phí theo chỗ)",
+    "Disabled by default; wallet seat card appears only in seat mode.": "Mặc định tắt; thẻ chỗ trong ví chỉ hiển thị ở chế độ seat.",
+    "Seat price (USD / 30 days)": "Giá chỗ (USD / 30 ngày)",
+    "1 USD = 10 credits. Default: 2 (20 credits).": "1 USD = 10 tín dụng. Mặc định: 2 (20 tín dụng).",
+    "Seat limit per user": "Giới hạn chỗ mỗi người dùng",
+    "Includes occupied and unexpired vacant seats. Default: 20.": "Bao gồm chỗ đang dùng và chỗ trống còn hạn. Mặc định: 20.",
+    "Transition days for existing accounts": "Số ngày chuyển tiếp cho tài khoản hiện có",
+    "0 freezes existing accounts without a seat immediately. Default: 0.": "Đặt 0 sẽ đóng băng ngay các tài khoản hiện có chưa có chỗ. Mặc định: 0.",
+    "Expiry freeze grace days": "Số ngày ân hạn đóng băng sau hết hạn",
+    "Accounts auto-unlink after grace expires without renewal. Default: 7.": "Tài khoản sẽ tự động hủy liên kết sau khi hết thời gian ân hạn mà không gia hạn. Mặc định: 7.",
+    "Purchased": "Đã mua",
+    "Occupied": "Đang dùng",
+    "Vacant": "Chỗ trống",
+    "Next expiry": "Hết hạn gần nhất",
+    "{{credits}} credits (${{usd}} / 30d)": "{{credits}} tín dụng (${{usd}} / 30 ngày)",
+    "Vacant until {{date}}": "Trống đến {{date}}",
+    "Same account only": "Chỉ cùng tài khoản",
+    "{{count}} swaps left": "Còn {{count}} lần đổi"
   }
 }

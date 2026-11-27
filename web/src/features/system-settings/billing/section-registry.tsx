@@ -16,28 +16,38 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { lazy } from 'react'
+
 import { parseCurrencyDisplayType } from '@/lib/currency'
 
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
-import { lazy } from 'react'
-
 const CheckinSettingsSection = lazy(() =>
-  import('../general/checkin-settings-section').then((module) => ({ default: module.CheckinSettingsSection }))
+  import('../general/checkin-settings-section').then((module) => ({
+    default: module.CheckinSettingsSection,
+  }))
 )
 const PricingSection = lazy(() =>
-  import('../general/pricing-section').then((module) => ({ default: module.PricingSection }))
+  import('../general/pricing-section').then((module) => ({
+    default: module.PricingSection,
+  }))
 )
 const QuotaSettingsSection = lazy(() =>
-  import('../general/quota-settings-section').then((module) => ({ default: module.QuotaSettingsSection }))
+  import('../general/quota-settings-section').then((module) => ({
+    default: module.QuotaSettingsSection,
+  }))
 )
 const PaymentSettingsSection = lazy(() =>
-  import('../integrations/payment-settings-section').then((module) => ({ default: module.PaymentSettingsSection }))
+  import('../integrations/payment-settings-section').then((module) => ({
+    default: module.PaymentSettingsSection,
+  }))
 )
 const SocialOpsSeatsSection = lazy(() =>
-  import('./social-ops-seats-section').then((module) => ({ default: module.SocialOpsSeatsSection }))
+  import('./social-ops-seats-section').then((module) => ({
+    default: module.SocialOpsSeatsSection,
+  }))
 )
 
 const getModelDefaults = (settings: BillingSettings) => ({
@@ -217,7 +227,7 @@ const BILLING_SECTIONS = [
   },
   {
     id: 'social-seats',
-    titleKey: '社媒绑定席位',
+    titleKey: 'Social account binding seats',
     build: (settings: BillingSettings) => (
       <SocialOpsSeatsSection
         defaultValues={{
@@ -226,11 +236,11 @@ const BILLING_SECTIONS = [
               settings['social_ops_setting.billing_mode'] === 'seat'
                 ? 'seat'
                 : 'off',
-            seat_price_usd: settings['social_ops_setting.seat_price_usd'] ?? 8,
+            seat_price_usd: settings['social_ops_setting.seat_price_usd'] ?? 2,
             seats_cap: settings['social_ops_setting.seats_cap'] ?? 20,
             grandfather_days:
-              settings['social_ops_setting.grandfather_days'] ?? 7,
-            grace_days: settings['social_ops_setting.grace_days'] ?? 3,
+              settings['social_ops_setting.grandfather_days'] ?? 0,
+            grace_days: settings['social_ops_setting.grace_days'] ?? 7,
           },
         }}
       />

@@ -336,22 +336,55 @@ func (s *Service) HandleTikTokCallback(ctx context.Context, code, state string) 
 		"avatar_url": info.AvatarURL,
 		"union_id":   info.UnionID,
 	})
-	acc := &model.SocialAccount{
-		UserId:            st.UserId,
-		Provider:          ProviderTikTokDirect,
-		ProviderAccountID: openID,
-		ProviderProfileID: openID,
-		Platform:          "tiktok",
-		Username:          username,
-		DisplayName:       display,
-		Status:            model.SocialAccountStatusActive,
-	}
-	if err := model.UpsertSocialAccount(acc); err != nil {
-		return nil, err
-	}
-	saved, err := model.GetSocialAccountByProviderRef(ProviderTikTokDirect, openID)
-	if err != nil {
-		return nil, err
+	var saved *model.SocialAccount
+	if seatBillingOn() {
+		if err := s.reconcileExpiredSeats(ctx, st.UserId); err != nil {
+			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
+			return nil, err
+		}
+		existing, exErr := model.GetSocialAccountByProviderRef(ProviderTikTokDirect, openID)
+		if exErr != nil && !errors.Is(exErr, gorm.ErrRecordNotFound) {
+			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
+			return nil, exErr
+		}
+		if exErr == nil && existing.UserId != st.UserId {
+			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
+			return nil, errors.New("social account already bound to another user")
+		}
+		draft := ingestDraft{
+			UserId:            st.UserId,
+			Provider:          ProviderTikTokDirect,
+			ProviderAccountID: openID,
+			ProviderProfileID: openID,
+			Platform:          "tiktok",
+			Username:          username,
+			DisplayName:       display,
+		}
+		gated, gateErr := s.applySeatGate(ctx, st.UserId, draft, existing)
+		if gateErr != nil {
+			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
+			return nil, gateErr
+		}
+		saved = gated
+	} else {
+		acc := &model.SocialAccount{
+			UserId:            st.UserId,
+			Provider:          ProviderTikTokDirect,
+			ProviderAccountID: openID,
+			ProviderProfileID: openID,
+			Platform:          "tiktok",
+			Username:          username,
+			DisplayName:       display,
+			Status:            model.SocialAccountStatusActive,
+		}
+		if err := model.UpsertSocialAccount(acc); err != nil {
+			return nil, err
+		}
+		var getErr error
+		saved, getErr = model.GetSocialAccountByProviderRef(ProviderTikTokDirect, openID)
+		if getErr != nil {
+			return nil, getErr
+		}
 	}
 	// Persist token vault on the saved row (UpsertSocialAccount intentionally does not touch vault columns).
 	updates := map[string]any{
@@ -1154,14 +1187,25 @@ func mapTikTokPublishStatus(s string) string {
 	}
 }
 
+// revokeTikTokAccountToken revokes a stored TikTok direct access token best-effort.
+func (s *Service) revokeTikTokAccountToken(ctx context.Context, acc *model.SocialAccount) {
+	if acc == nil || acc.AccessTokenEncrypted == "" {
+		return
+	}
+	plain, err := OpenToken(acc.AccessTokenEncrypted, s.cfg.SocialTokenEncKey)
+	if err != nil || plain == "" {
+		return
+	}
+	key, secret := s.cfg.TikTokCredentials()
+	if key == "" || secret == "" {
+		return
+	}
+	_ = s.tiktokClient().Revoke(ctx, key, secret, plain) // best effort
+}
+
 // disconnectTikTokDirect revokes upstream token (best effort) and marks the account disconnected.
 func (s *Service) disconnectTikTokDirect(ctx context.Context, userId int, acc *model.SocialAccount) error {
-	if acc.AccessTokenEncrypted != "" {
-		if plain, err := OpenToken(acc.AccessTokenEncrypted, s.cfg.SocialTokenEncKey); err == nil && plain != "" {
-			key, secret := s.cfg.TikTokCredentials()
-			_ = s.tiktokClient().Revoke(ctx, key, secret, plain) // best effort
-		}
-	}
+	s.revokeTikTokAccountToken(ctx, acc)
 	if err := model.MarkSocialAccountDisconnected(acc.ID, userId); err != nil {
 		return err
 	}
