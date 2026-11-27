@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 
 import { PAYMENT_TYPES } from '../constants'
 import {
@@ -24,6 +24,7 @@ import {
   isStripePayment,
   isWaffoPayment,
   isWaffoPancakePayment,
+  submitPaymentForm,
 } from './payment'
 
 describe('payment type classification', () => {
@@ -81,5 +82,58 @@ describe('payment dispatch', () => {
 
     expect(success).toBe(false)
     expect(called).toBe(false)
+  })
+})
+
+describe('payment form submission', () => {
+  test('rejects non-HTTP(S) and control-character form action URLs', () => {
+    const submitSpy = vi
+      .spyOn(HTMLFormElement.prototype, 'submit')
+      .mockImplementation(() => {})
+
+    const unsafeUrls = [
+      '',
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      '/relative/checkout',
+      'file:///etc/passwd',
+      'https://pay.example.com/\r\ncheckout',
+    ]
+
+    for (const url of unsafeUrls) {
+      expect(submitPaymentForm(url, { order_id: 'ord_1' })).toBe(false)
+    }
+
+    expect(submitSpy).not.toHaveBeenCalled()
+  })
+
+  test('submits valid HTTPS checkout forms with opener isolation', () => {
+    const appendChild = document.body.appendChild.bind(document.body)
+    let createdForm: HTMLFormElement | null = null
+    vi.spyOn(document.body, 'appendChild').mockImplementation((node) => {
+      if (node instanceof HTMLFormElement) {
+        createdForm = node
+      }
+      return appendChild(node)
+    })
+    const submitSpy = vi
+      .spyOn(HTMLFormElement.prototype, 'submit')
+      .mockImplementation(() => {})
+
+    const submitted = submitPaymentForm('https://pay.example.com/checkout', {
+      order_id: 'ord_42',
+    })
+
+    expect(submitted).toBe(true)
+    expect(submitSpy).toHaveBeenCalledTimes(1)
+    if (!createdForm) {
+      throw new Error('Expected payment form to be appended')
+    }
+    const form: HTMLFormElement = createdForm
+    expect(form.action).toBe('https://pay.example.com/checkout')
+    expect(form.method).toBe('post')
+    expect(form.target).toBe('_blank')
+    expect(form.rel).toBe('noopener noreferrer')
+    expect(document.body.contains(form)).toBe(false)
   })
 })

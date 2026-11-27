@@ -24,16 +24,15 @@ import {
   type TextNode,
 } from 'stream-markdown-parser'
 
+import { sanitizeSafeHref } from '@/lib/safe-url'
+
 import { classifyValue, type FadeRun } from './response-fade'
 import { ResponseImage } from './response-renderer-image'
 import type { RenderChildren } from './response-types'
 
 const STREAM_FADE_DELAY_VAR = '--stream-fade-delay'
 
-export function renderTextNode(
-  node: TextNode,
-  fadeRun?: FadeRun
-): ReactNode {
+export function renderTextNode(node: TextNode, fadeRun?: FadeRun): ReactNode {
   if (!fadeRun) {
     return node.content
   }
@@ -68,14 +67,19 @@ export function renderLink(
   key: string,
   renderChildren: RenderChildren
 ): ReactNode {
-  const opensInNewTab = shouldOpenLinkInNewTab(node.href)
-  const rel = opensInNewTab ? 'noreferrer noopener' : undefined
+  const safeHref = sanitizeSafeHref(node.href)
+  if (!safeHref) {
+    return <span key={key}>{renderChildren(node.children)}</span>
+  }
+
+  const opensInNewTab = shouldOpenLinkInNewTab(safeHref)
+  const rel = opensInNewTab ? 'noopener noreferrer' : undefined
   const target = opensInNewTab ? '_blank' : undefined
 
   return (
     <a
       className='text-primary underline-offset-4 hover:underline'
-      href={node.href}
+      href={safeHref}
       key={key}
       rel={rel}
       target={target}

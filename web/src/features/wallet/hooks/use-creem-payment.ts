@@ -21,6 +21,7 @@ import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
+import { openSafeExternalUrl } from '@/lib/safe-url'
 
 import { requestCreemPayment, isApiSuccess } from '../api'
 
@@ -39,7 +40,10 @@ export function useCreemPayment() {
       })
 
       if (isApiSuccess(response) && response.data?.checkout_url) {
-        window.open(response.data.checkout_url, '_blank')
+        if (!openSafeExternalUrl(response.data.checkout_url)) {
+          toast.error(i18next.t('Invalid payment redirect URL'))
+          return false
+        }
         toast.success(i18next.t('Redirecting to Creem checkout...'))
         return true
       }
