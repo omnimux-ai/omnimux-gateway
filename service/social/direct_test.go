@@ -1473,4 +1473,63 @@ func TestHandleTikTokCallbackSeatBilling(t *testing.T) {
 	var afterU2 model.User
 	require.NoError(t, model.DB.First(&afterU2, u2.Id).Error)
 	assert.Equal(t, 0, afterU2.Quota)
+
+	// 3) Concurrent 2x callbacks for the SAME open_id with balance for 2 seats:
+	// must charge only once, create only 1 occupied seat, and never double-bill.
+	u3 := seedSeatUser(t, 2_000_000)
+	sameRevokeBefore := revokeCalls.Load()
+	sameMux := http.NewServeMux()
+	sameMux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"at-same-oid","refresh_token":"rt-same-oid","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-same-concurrent","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
+	})
+	sameMux.HandleFunc("/v2/user/info/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"user":{"open_id":"oid-same-concurrent","display_name":"Same Creator","username":"same_creator"}},"error":{"code":"ok","message":""}}`))
+	})
+	sameSrv := httptest.NewServer(sameMux)
+	defer sameSrv.Close()
+	sameSvc := NewService(testDirectConfig(t, sameSrv.URL))
+
+	require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:    "same-conc-1",
+		UserId:   u3.Id,
+		Provider: ProviderTikTokDirect,
+	}))
+	require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:    "same-conc-2",
+		UserId:   u3.Id,
+		Provider: ProviderTikTokDirect,
+	}))
+
+	sameOutcomes := make([]cbOutcome, 2)
+	sameStart := make(chan struct{})
+	var sameWG sync.WaitGroup
+	for i, stName := range []string{"same-conc-1", "same-conc-2"} {
+		sameWG.Go(func() {
+			<-sameStart
+			r, e := sameSvc.HandleTikTokCallback(context.Background(), "same-code", stName)
+			sameOutcomes[i] = cbOutcome{res: r, err: e}
+		})
+	}
+	close(sameStart)
+	sameWG.Wait()
+
+	for _, o := range sameOutcomes {
+		require.NoError(t, o.err)
+		require.NotNil(t, o.res)
+		require.NotNil(t, o.res.Account)
+		require.NotNil(t, o.res.Account.SeatID)
+	}
+	assert.Equal(t, sameOutcomes[0].res.Account.ID, sameOutcomes[1].res.Account.ID)
+	assert.Equal(t, *sameOutcomes[0].res.Account.SeatID, *sameOutcomes[1].res.Account.SeatID)
+	assert.Equal(t, sameRevokeBefore, revokeCalls.Load())
+
+	var u3Seats int64
+	require.NoError(t, model.DB.Model(&model.SocialSeat{}).Where("user_id = ? AND status = ?", u3.Id, model.SocialSeatStatusOccupied).Count(&u3Seats).Error)
+	assert.EqualValues(t, 1, u3Seats, "concurrent same-account callbacks must open at most one occupied seat")
+
+	var afterU3 model.User
+	require.NoError(t, model.DB.First(&afterU3, u3.Id).Error)
+	assert.Equal(t, 1_000_000, afterU3.Quota, "concurrent same-account callbacks must charge only once")
 }

@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -63,7 +64,7 @@ func SocialSeatWindow() time.Duration {
 // SocialUSDToQuota converts a USD seat price to raw quota, rounding up.
 // Independent of hosted SKU conversion on purpose.
 func SocialUSDToQuota(amountUSD float64) (int, error) {
-	if amountUSD < 0 {
+	if math.IsNaN(amountUSD) || math.IsInf(amountUSD, 0) || amountUSD < 0 {
 		return 0, errors.New("invalid social seat amount")
 	}
 	if amountUSD == 0 {
@@ -204,7 +205,7 @@ func GetOccupiedSeatForAccount(userId int, accountID int64) (*SocialSeat, error)
 
 func GetOccupiedSeatForAccountTx(tx *gorm.DB, userId int, accountID int64) (*SocialSeat, error) {
 	var seat SocialSeat
-	err := tx.Where("user_id = ? AND status = ? AND occupied_account_id = ?",
+	err := lockForUpdate(tx).Where("user_id = ? AND status = ? AND occupied_account_id = ?",
 		userId, SocialSeatStatusOccupied, accountID).First(&seat).Error
 	if err != nil {
 		return nil, err
@@ -326,42 +327,145 @@ func ExpireSocialSeatTx(tx *gorm.DB, seatID int64, userId int, now time.Time) er
 
 func VacateOccupiedSeatForAccount(userId int, accountID int64) (*SocialSeat, error) {
 	now := time.Now().UTC()
-	var seat SocialSeat
-	err := DB.Where("user_id = ? AND status = ? AND occupied_account_id = ?",
-		userId, SocialSeatStatusOccupied, accountID).First(&seat).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+	var updated *SocialSeat
+	var action string
+	var extra string
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := LockSocialSeatUserTx(tx, userId); err != nil {
+			return err
 		}
+		var seat SocialSeat
+		err := lockForUpdate(tx).Where("user_id = ? AND status = ? AND occupied_account_id = ?",
+			userId, SocialSeatStatusOccupied, accountID).First(&seat).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		unexpired := seat.ExpiresAt.After(now) || (seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now))
+		if !unexpired {
+			if err := ExpireSocialSeatTx(tx, seat.ID, userId, now); err != nil {
+				return err
+			}
+			if err := tx.Model(&SocialAccount{}).Where("id = ? AND user_id = ?", accountID, userId).
+				Updates(map[string]any{"seat_id": nil, "updated_at": now}).Error; err != nil {
+				return err
+			}
+			seat.Status = SocialSeatStatusExpired
+			seat.OccupiedAccountID = nil
+			seat.UpdatedAt = now
+			updated = &seat
+			action = SocialSeatActionExpire
+			extra = fmt.Sprintf("unbind_expired account_id=%d", accountID)
+			return nil
+		}
+		lastID := accountID
+		if seat.LastAccountID != nil {
+			lastID = *seat.LastAccountID
+		}
+		res := tx.Model(&seat).Updates(map[string]any{
+			"status":              SocialSeatStatusVacant,
+			"occupied_account_id": nil,
+			"last_account_id":     lastID,
+			"updated_at":          now,
+		})
+		if res.Error != nil {
+			return res.Error
+		}
+		if err := tx.Model(&SocialAccount{}).Where("id = ? AND user_id = ?", accountID, userId).
+			Updates(map[string]any{"seat_id": nil, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		seat.Status = SocialSeatStatusVacant
+		seat.OccupiedAccountID = nil
+		seat.LastAccountID = &lastID
+		seat.UpdatedAt = now
+		updated = &seat
+		action = SocialSeatActionVacate
+		extra = fmt.Sprintf("account_id=%d", accountID)
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	unexpired := seat.ExpiresAt.After(now) || (seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now))
-	if !unexpired {
-		if err := MarkSocialSeatExpired(&seat, fmt.Sprintf("unbind_expired account_id=%d", accountID)); err != nil {
-			return nil, err
-		}
-		return &seat, nil
+	if updated != nil {
+		RecordSocialSeatLog(userId, action, updated.ID, 0, extra)
 	}
-	lastID := accountID
-	if seat.LastAccountID != nil {
-		lastID = *seat.LastAccountID
-	}
-	res := DB.Model(&seat).Updates(map[string]any{
-		"status":              SocialSeatStatusVacant,
-		"occupied_account_id": nil,
-		"last_account_id":     lastID,
-		"updated_at":          now,
-	})
+	return updated, nil
+}
+
+// ExpireVacantSeatIfDue atomically transitions a past-due vacant seat to expired.
+// Returns true only for the caller that won the transition.
+func ExpireVacantSeatIfDue(seatID int64, userId int, now time.Time) (bool, error) {
+	res := DB.Model(&SocialSeat{}).
+		Where("id = ? AND user_id = ? AND status = ? AND expires_at <= ?",
+			seatID, userId, SocialSeatStatusVacant, now).
+		Updates(map[string]any{
+			"status":              SocialSeatStatusExpired,
+			"occupied_account_id": nil,
+			"updated_at":          now,
+		})
 	if res.Error != nil {
-		return nil, res.Error
+		return false, res.Error
 	}
-	_ = ClearSocialAccountSeatID(accountID, userId)
-	seat.Status = SocialSeatStatusVacant
-	seat.OccupiedAccountID = nil
-	seat.LastAccountID = &lastID
-	seat.UpdatedAt = now
-	RecordSocialSeatLog(userId, SocialSeatActionVacate, seat.ID, 0, fmt.Sprintf("account_id=%d", accountID))
-	return &seat, nil
+	if res.RowsAffected == 1 {
+		RecordSocialSeatLog(userId, SocialSeatActionExpire, seatID, 0, "vacant_expired")
+		return true, nil
+	}
+	return false, nil
+}
+
+// ExpireGraceElapsedSeatTx atomically locks user+seat, re-verifies that the seat is
+// still occupied and past graceDays, disconnects the account, and expires the seat.
+// Only the winning caller receives expired=true and should perform post-commit upstream revoke + log.
+func ExpireGraceElapsedSeatTx(tx *gorm.DB, userId int, seatID int64, graceDays int, now time.Time) (bool, *SocialAccount, error) {
+	if err := LockSocialSeatUserTx(tx, userId); err != nil {
+		return false, nil, err
+	}
+	var seat SocialSeat
+	err := lockForUpdate(tx).Where("id = ? AND user_id = ?", seatID, userId).First(&seat).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil, nil
+		}
+		return false, nil, err
+	}
+	if seat.Status != SocialSeatStatusOccupied {
+		return false, nil, nil
+	}
+	if seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now) {
+		return false, nil, nil
+	}
+	if seat.ExpiresAt.After(now) {
+		return false, nil, nil
+	}
+	graceEnd := seat.ExpiresAt.Add(time.Duration(graceDays) * 24 * time.Hour)
+	if !now.After(graceEnd) {
+		return false, nil, nil
+	}
+	var disconnectedAcc *SocialAccount
+	if seat.OccupiedAccountID != nil {
+		var acc SocialAccount
+		if aerr := lockForUpdate(tx).Where("id = ? AND user_id = ?", *seat.OccupiedAccountID, userId).First(&acc).Error; aerr == nil {
+			accCopy := acc
+			disconnectedAcc = &accCopy
+			if uerr := tx.Model(&SocialAccount{}).Where("id = ? AND user_id = ?", acc.ID, userId).
+				Updates(map[string]any{
+					"status":     SocialAccountStatusDisconnected,
+					"seat_id":    nil,
+					"updated_at": now,
+				}).Error; uerr != nil {
+				return false, nil, uerr
+			}
+		} else if !errors.Is(aerr, gorm.ErrRecordNotFound) {
+			return false, nil, aerr
+		}
+	}
+	if err := ExpireSocialSeatTx(tx, seat.ID, userId, now); err != nil {
+		return false, nil, err
+	}
+	return true, disconnectedAcc, nil
 }
 
 // RenewSocialSeatResult reports the committed seat, deducted raw quota, and log action.
@@ -390,6 +494,17 @@ func RenewOrActivateSeatTx(
 	}
 	if err := LockSocialSeatUserTx(tx, userId); err != nil {
 		return nil, err
+	}
+
+	var liveAcc SocialAccount
+	if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", accountID, userId).First(&liveAcc).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSocialSeatExpired
+		}
+		return nil, err
+	}
+	if liveAcc.Status != SocialAccountStatusActive {
+		return nil, ErrSocialSeatExpired
 	}
 
 	var seat SocialSeat
@@ -579,28 +694,6 @@ func ListOccupiedSeatsByAccountIDs(userId int, accountIDs []int64) (map[int64]*S
 	return out, nil
 }
 
-func MarkSocialSeatExpired(seat *SocialSeat, extra string) error {
-	if seat == nil {
-		return errors.New("nil seat")
-	}
-	now := time.Now().UTC()
-	res := DB.Model(seat).Updates(map[string]any{
-		"status":              SocialSeatStatusExpired,
-		"occupied_account_id": nil,
-		"updated_at":          now,
-	})
-	if res.Error != nil {
-		return res.Error
-	}
-	if seat.OccupiedAccountID != nil {
-		_ = ClearSocialAccountSeatID(*seat.OccupiedAccountID, seat.UserId)
-	}
-	seat.Status = SocialSeatStatusExpired
-	seat.OccupiedAccountID = nil
-	RecordSocialSeatLog(seat.UserId, SocialSeatActionExpire, seat.ID, 0, extra)
-	return nil
-}
-
 func ClearSocialAccountSeatID(accountID int64, userId int) error {
 	res := DB.Model(&SocialAccount{}).
 		Where("id = ? AND user_id = ?", accountID, userId).
@@ -690,8 +783,10 @@ func CountUserSeatState(userId int, now time.Time) (SeatCounts, error) {
 }
 
 // AccountSeatUsable reports whether an active account may publish.
-// Valid: occupied unexpired, or occupied expired but still inside grace, or grandfather_until > now.
+// Valid only when occupied and unexpired (or inside an active grandfather window);
+// expired seats (including those in the manual-renewal grace window) are frozen and return ErrSocialSeatExpired.
 func AccountSeatUsable(userId int, accountID int64, now time.Time, graceDays int) error {
+	_ = graceDays
 	seat, err := GetOccupiedSeatForAccount(userId, accountID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -704,10 +799,6 @@ func AccountSeatUsable(userId int, accountID int64, now time.Time, graceDays int
 	}
 	if seat.ExpiresAt.After(now) {
 		return nil
-	}
-	graceEnd := seat.ExpiresAt.Add(time.Duration(graceDays) * 24 * time.Hour)
-	if now.Before(graceEnd) || now.Equal(graceEnd) {
-		return ErrSocialSeatExpired
 	}
 	return ErrSocialSeatExpired
 }

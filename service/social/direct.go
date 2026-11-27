@@ -336,20 +336,19 @@ func (s *Service) HandleTikTokCallback(ctx context.Context, code, state string) 
 		"avatar_url": info.AvatarURL,
 		"union_id":   info.UnionID,
 	})
+	vaultUpdates := map[string]any{
+		"access_token_encrypted":  accessEnc,
+		"refresh_token_encrypted": refreshEnc,
+		"token_expires_at":        expiresAt,
+		"scopes_granted":          scopes,
+		"metadata":                string(meta),
+		"updated_at":              time.Now().UTC(),
+	}
 	var saved *model.SocialAccount
 	if seatBillingOn() {
 		if err := s.reconcileExpiredSeats(ctx, st.UserId); err != nil {
 			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
 			return nil, err
-		}
-		existing, exErr := model.GetSocialAccountByProviderRef(ProviderTikTokDirect, openID)
-		if exErr != nil && !errors.Is(exErr, gorm.ErrRecordNotFound) {
-			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
-			return nil, exErr
-		}
-		if exErr == nil && existing.UserId != st.UserId {
-			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
-			return nil, errors.New("social account already bound to another user")
 		}
 		draft := ingestDraft{
 			UserId:            st.UserId,
@@ -359,8 +358,9 @@ func (s *Service) HandleTikTokCallback(ctx context.Context, code, state string) 
 			Platform:          "tiktok",
 			Username:          username,
 			DisplayName:       display,
+			VaultUpdates:      vaultUpdates,
 		}
-		gated, gateErr := s.applySeatGate(ctx, st.UserId, draft, existing)
+		gated, gateErr := s.applySeatGate(ctx, st.UserId, draft)
 		if gateErr != nil {
 			_ = client.Revoke(ctx, key, secret, tok.AccessToken)
 			return nil, gateErr
@@ -385,18 +385,10 @@ func (s *Service) HandleTikTokCallback(ctx context.Context, code, state string) 
 		if getErr != nil {
 			return nil, getErr
 		}
-	}
-	// Persist token vault on the saved row (UpsertSocialAccount intentionally does not touch vault columns).
-	updates := map[string]any{
-		"access_token_encrypted":  accessEnc,
-		"refresh_token_encrypted": refreshEnc,
-		"token_expires_at":        expiresAt,
-		"scopes_granted":          scopes,
-		"metadata":                string(meta),
-		"updated_at":              time.Now().UTC(),
-	}
-	if err := model.DB.Model(&model.SocialAccount{}).Where("id = ? AND user_id = ?", saved.ID, saved.UserId).Updates(updates).Error; err != nil {
-		return nil, err
+		// Persist token vault on the saved row (UpsertSocialAccount intentionally does not touch vault columns).
+		if err := model.DB.Model(&model.SocialAccount{}).Where("id = ? AND user_id = ?", saved.ID, saved.UserId).Updates(vaultUpdates).Error; err != nil {
+			return nil, err
+		}
 	}
 	saved, err = model.GetSocialAccountByIDForUser(saved.ID, saved.UserId)
 	if err != nil {

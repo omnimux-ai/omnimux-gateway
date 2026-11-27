@@ -218,7 +218,7 @@ func (s *Service) listAccountsZernio(ctx context.Context, userId int) ([]*model.
 			continue
 		}
 		if _, ierr := s.ingestUpstreamAccount(ctx, userId, tenant, a); ierr != nil {
-			if firstErr == nil && (errors.Is(ierr, ErrSeatQuota) || errors.Is(ierr, ErrSeatCap) || errors.Is(ierr, ErrSeatExpired)) {
+			if firstErr == nil && (errors.Is(ierr, ErrSeatQuota) || errors.Is(ierr, ErrSeatCap) || errors.Is(ierr, ErrSeatExpired) || errors.Is(ierr, ErrSeatSwapLimit)) {
 				firstErr = ierr
 			}
 		}

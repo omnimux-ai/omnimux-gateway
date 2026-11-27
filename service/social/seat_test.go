@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func withSeatBilling(t *testing.T, mode string) {
@@ -84,7 +86,7 @@ func TestApplySeatGate_OccupyVacantDoesNotCharge(t *testing.T) {
 		Platform:          "twitter",
 		Username:          "alice",
 		DisplayName:       "Alice",
-	}, nil)
+	})
 	require.NoError(t, err)
 	require.NotNil(t, acc)
 	require.NotNil(t, acc.SeatID)
@@ -302,7 +304,6 @@ func TestSeatLifecycle_SameAccountRebindCrossSwapAndManualRenew(t *testing.T) {
 	u := seedSeatUser(t, 4_000_000)
 
 	bind := func(openID string) (*model.SocialAccount, error) {
-		existing, _ := model.GetSocialAccountByProviderRef(ProviderTikTokDirect, openID)
 		return s.applySeatGate(context.Background(), u.Id, ingestDraft{
 			UserId:            u.Id,
 			Provider:          ProviderTikTokDirect,
@@ -311,7 +312,7 @@ func TestSeatLifecycle_SameAccountRebindCrossSwapAndManualRenew(t *testing.T) {
 			Platform:          "tiktok",
 			Username:          openID,
 			DisplayName:       openID,
-		}, existing)
+		})
 	}
 
 	// 1) First bind A: charges 20 credits (1_000_000).
@@ -408,7 +409,7 @@ func TestApplySeatGate_FrozenAccountReOAuthCannotBypassFreeze(t *testing.T) {
 		Platform:          "tiktok",
 		Username:          "frozenuser",
 		DisplayName:       "Frozen User",
-	}, acc)
+	})
 	require.NoError(t, err)
 	require.NotNil(t, got.SeatID)
 	assert.NotEqual(t, frozen.ID, *got.SeatID)
@@ -420,4 +421,56 @@ func TestApplySeatGate_FrozenAccountReOAuthCannotBypassFreeze(t *testing.T) {
 	var afterUser model.User
 	require.NoError(t, model.DB.First(&afterUser, u.Id).Error)
 	assert.Equal(t, 0, afterUser.Quota)
+}
+
+func TestReconcileAndRenewConcurrencyGuards(t *testing.T) {
+	clearSocialTables(t)
+	withSeatBilling(t, "seat")
+	operation_setting.GetSocialOpsSetting().GrandfatherDays = 0
+
+	s := NewService(testDirectConfig(t, "http://stub"))
+	u := seedSeatUser(t, 2_000_000)
+	acc := &model.SocialAccount{
+		UserId:            u.Id,
+		Provider:          ProviderTikTokDirect,
+		ProviderAccountID: "oid-conc-reconcile",
+		Platform:          "tiktok",
+		Status:            model.SocialAccountStatusActive,
+	}
+	require.NoError(t, model.DB.Create(acc).Error)
+
+	// Concurrent reconcileExpiredSeats calls must materialize exactly 1 seat.
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	errs := make([]error, 4)
+	for i := range errs {
+		wg.Go(func() {
+			<-start
+			errs[i] = s.reconcileExpiredSeats(context.Background(), u.Id)
+		})
+	}
+	close(start)
+	wg.Wait()
+	for _, e := range errs {
+		require.NoError(t, e)
+	}
+	var occupiedCount int64
+	require.NoError(t, model.DB.Model(&model.SocialSeat{}).Where("user_id = ? AND occupied_account_id = ? AND status = ?",
+		u.Id, acc.ID, model.SocialSeatStatusOccupied).Count(&occupiedCount).Error)
+	assert.EqualValues(t, 1, occupiedCount)
+
+	// Renewing a disconnected account must fail closed inside RenewOrActivateSeatTx without charging.
+	require.NoError(t, model.MarkSocialAccountDisconnected(acc.ID, u.Id))
+	_, err := s.RenewAccountSeat(context.Background(), u.Id, ProviderTikTokDirect, acc.ID)
+	assert.ErrorIs(t, err, ErrSeatExpired)
+	var afterUser model.User
+	require.NoError(t, model.DB.First(&afterUser, u.Id).Error)
+	assert.Equal(t, 2_000_000, afterUser.Quota)
+
+	// Direct RenewOrActivateSeatTx on a disconnected account also rejects with ErrSocialSeatExpired.
+	txErr := model.DB.Transaction(func(tx *gorm.DB) error {
+		_, e := model.RenewOrActivateSeatTx(tx, u.Id, acc.ID, 1_000_000, 7, model.SocialSeatMaxValidityDays, model.SocialSeatMaxSwapsPerWindow, 20, time.Now().UTC())
+		return e
+	})
+	assert.ErrorIs(t, txErr, model.ErrSocialSeatExpired)
 }

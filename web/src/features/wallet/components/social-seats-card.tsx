@@ -155,7 +155,10 @@ export function SocialSeatsCard() {
               >
                 <span className='font-mono tabular-nums'>
                   {t('Vacant until {{date}}', {
-                    date: formatSeatDate(slot.expires_at, i18n.language),
+                    date: formatSeatDate(
+                      slot.expires_at,
+                      i18n.resolvedLanguage ?? i18n.language
+                    ),
                   })}
                 </span>
                 <Badge
