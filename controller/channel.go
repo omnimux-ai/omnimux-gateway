@@ -1544,7 +1544,8 @@ func GetTagModels(c *gin.Context) {
 //	reset_balance  - bool, when true will reset balance & used_quota to 0 (default true)
 //
 // Optional JSON scope "account-monitor" creates a disabled four-capability copy;
-// "tiktok-tool" creates a disabled single tiktok-video copy for the tool pages.
+// "tiktok-tool" creates a disabled single tiktok-video copy for the tool pages;
+// "tiktok-shop" creates a disabled six-capability TikTok Shop selection copy.
 func CopyChannel(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -1572,22 +1573,31 @@ func CopyChannel(c *gin.Context) {
 		common.ApiErrorT(c, "Failed to fetch channel. Please try again later")
 		return
 	}
-	if scope == "account-monitor" {
+	switch scope {
+	case "account-monitor":
 		origin, err = accountMonitorChannelCopy(origin)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "channel does not support account monitor copying"})
 			return
 		}
-	} else if scope == "tiktok-tool" {
+	case "tiktok-tool":
 		origin, err = tiktokToolChannelCopy(origin)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "channel does not support tiktok tool copying"})
 			return
 		}
-	} else if (origin.Type == constant.ChannelTypeTaskPlugin || len(origin.GetSetting().TaskPluginBindings()) > 0) &&
-		!authz.Can(c.GetInt("id"), c.GetInt("role"), authz.TaskPluginBind) {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "task plugin channels require the task_plugin.bind permission"})
-		return
+	case "tiktok-shop":
+		origin, err = tiktokShopChannelCopy(origin)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "channel does not support tiktok shop copying"})
+			return
+		}
+	default:
+		if (origin.Type == constant.ChannelTypeTaskPlugin || len(origin.GetSetting().TaskPluginBindings()) > 0) &&
+			!authz.Can(c.GetInt("id"), c.GetInt("role"), authz.TaskPluginBind) {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "task plugin channels require the task_plugin.bind permission"})
+			return
+		}
 	}
 
 	// clone channel
