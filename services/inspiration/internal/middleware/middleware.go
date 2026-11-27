@@ -3,9 +3,12 @@ package middleware
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,16 +59,29 @@ func Recovery(log *slog.Logger) gin.HandlerFunc {
 	}
 }
 
-// Auth 静态 Bearer token 校验；token 为空表示本地模式不鉴权。
+// Auth 静态 Bearer token 校验；仅 INSPIRATION_ENV=dev 时允许空 token。
 func Auth(token string) gin.HandlerFunc {
+	return AuthWithEnv(token, os.Getenv("INSPIRATION_ENV"))
+}
+
+// AuthWithEnv 静态 Bearer token 校验（常量时间比较）；非 dev 环境空 token 一律拒绝。
+func AuthWithEnv(token, env string) gin.HandlerFunc {
+	allowEmpty := strings.EqualFold(strings.TrimSpace(env), "dev")
 	return func(c *gin.Context) {
 		if token == "" {
-			c.Next()
+			if allowEmpty {
+				c.Next()
+				return
+			}
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false, "code": "UNAUTHORIZED", "message": "unauthorized",
+				"request_id": c.GetString("request_id"),
+			})
 			return
 		}
 		h := c.GetHeader("Authorization")
 		if len(h) > 7 && (h[:7] == "Bearer " || h[:7] == "bearer ") {
-			if h[7:] == token {
+			if subtle.ConstantTimeCompare([]byte(h[7:]), []byte(token)) == 1 {
 				c.Next()
 				return
 			}
@@ -77,11 +93,16 @@ func Auth(token string) gin.HandlerFunc {
 	}
 }
 
-// RateLimit 简单固定窗口限流（rps<=0 不启用）。
+// RateLimit 简单固定窗口限流（rps<=0 不启用），带定期过期回收与上限保护防止内存增长。
 type window struct {
 	start time.Time
 	count int
 }
+
+const (
+	rateLimitMaxBuckets    = 10000
+	rateLimitSweepInterval = 30 * time.Second
+)
 
 func RateLimit(rps int) gin.HandlerFunc {
 	if rps <= 0 {
@@ -89,10 +110,22 @@ func RateLimit(rps int) gin.HandlerFunc {
 	}
 	var mu sync.Mutex
 	buckets := map[string]*window{}
+	lastSweep := time.Now()
 	return func(c *gin.Context) {
 		key := c.ClientIP()
 		now := time.Now()
 		mu.Lock()
+		if len(buckets) >= rateLimitMaxBuckets || now.Sub(lastSweep) >= rateLimitSweepInterval {
+			for k, w := range buckets {
+				if now.Sub(w.start) >= time.Second {
+					delete(buckets, k)
+				}
+			}
+			lastSweep = now
+			if len(buckets) >= rateLimitMaxBuckets {
+				clear(buckets)
+			}
+		}
 		w, ok := buckets[key]
 		if !ok || now.Sub(w.start) >= time.Second {
 			w = &window{start: now}

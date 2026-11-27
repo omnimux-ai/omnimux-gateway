@@ -81,7 +81,7 @@ func (d *influencerPresetTestDriver) GetPublicURL(key string) string {
 
 func (d *influencerPresetTestDriver) IsR2() bool { return false }
 
-func (d *influencerPresetTestDriver) PresignPut(context.Context, string, string, time.Duration) (*storage.PresignResult, error) {
+func (d *influencerPresetTestDriver) PresignPut(context.Context, string, string, int64, time.Duration) (*storage.PresignResult, error) {
 	return nil, storage.ErrPresignUnsupported
 }
 

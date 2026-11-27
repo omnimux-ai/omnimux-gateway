@@ -109,15 +109,18 @@ func (d *presignTestDriver) GetPublicURL(key string) string {
 
 func (d *presignTestDriver) IsR2() bool { return true }
 
-func (d *presignTestDriver) PresignPut(_ context.Context, key string, contentType string, ttl time.Duration) (*storage.PresignResult, error) {
+func (d *presignTestDriver) PresignPut(_ context.Context, key string, contentType string, contentLength int64, ttl time.Duration) (*storage.PresignResult, error) {
 	if d.presignErr != nil {
 		return nil, d.presignErr
+	}
+	if contentLength <= 0 {
+		return nil, fmt.Errorf("content length must be positive")
 	}
 	d.presigns++
 	return &storage.PresignResult{
 		URL:       d.server.URL + "/" + strings.TrimLeft(key, "/"),
 		Method:    http.MethodPut,
-		Headers:   map[string]string{"Content-Type": contentType},
+		Headers:   map[string]string{"Content-Type": contentType, "Content-Length": fmt.Sprintf("%d", contentLength)},
 		ExpiresAt: time.Now().Add(ttl),
 	}, nil
 }
@@ -188,7 +191,7 @@ func TestFilePresignUpload_UploadsStraightToStorageAndConfirms(t *testing.T) {
 	assert.Equal(t, model.FileStatusUploadPending, record.Status)
 	count, err := model.CountActiveUserFiles(42)
 	require.NoError(t, err)
-	assert.Equal(t, int64(0), count, "a pending ticket must not consume quota")
+	assert.Equal(t, int64(1), count, "a pending ticket must count against quota until expired or rejected")
 
 	// The client uploads the bytes itself; the gateway never sees them.
 	driver.put(t, record.StorageKey, []byte("data"), "video/mp4")
@@ -267,6 +270,9 @@ func TestFilePresignUpload_ValidatesItsInput(t *testing.T) {
 	}{
 		{name: "missing file name", body: map[string]any{"mime_type": "video/mp4", "file_size": 4}},
 		{name: "missing content type", body: map[string]any{"file_name": "clip.mp4", "file_size": 4}},
+		{name: "active html rejected", body: map[string]any{"file_name": "page.html", "mime_type": "text/html", "file_size": 4}},
+		{name: "active svg rejected", body: map[string]any{"file_name": "icon.svg", "mime_type": "image/svg+xml", "file_size": 4}},
+		{name: "active js extension rejected", body: map[string]any{"file_name": "payload.js", "mime_type": "text/plain", "file_size": 4}},
 		{name: "size beyond the video cap", body: map[string]any{"file_name": "clip.mp4", "mime_type": "video/mp4", "file_size": testVideoUploadMaxBytes + 1}},
 	}
 	for _, tc := range cases {
@@ -276,6 +282,9 @@ func TestFilePresignUpload_ValidatesItsInput(t *testing.T) {
 			assert.Less(t, recorder.Code, http.StatusInternalServerError)
 		})
 	}
+	assert.Equal(t, "files", sanitizeUploadPath(`a\..\..\task-artifacts\pwn`, "files"))
+	assert.Equal(t, "files", sanitizeUploadPath(`task-artifacts\sub`, "files"))
+	assert.Equal(t, "files", sanitizeUploadPath(`influencer-reference/sub`, "files"))
 }
 
 func TestFileConfirmUpload_RejectsAnUploadThatNeverArrived(t *testing.T) {

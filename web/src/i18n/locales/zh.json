@@ -3411,7 +3411,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高级自定义渠道仅对 /v1/responses 且不做协议转换的路由生效。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For content that sells,": "为带货内容，",
@@ -9506,6 +9506,9 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "下载桌面端，登录后可从 100 积分档开始。",
     "View all {{count}} models and technical specs": "查看全部 {{count}} 个模型与技术参数",
     "View the full model catalog": "查看完整模型目录",
-    "Pay per use, presets from $10": "按次付费，预设 $10 档起"
+    "Pay per use, presets from $10": "按次付费，预设 $10 档起",
+    "Private key must be sent in a POST request body": "私钥必须通过 POST 请求体提交",
+    "Cross-site login request rejected": "已拒绝跨站登录请求",
+    "Invalid Discovery URL: {{error}}": "无效的 Discovery URL: {{error}}"
   }
 }

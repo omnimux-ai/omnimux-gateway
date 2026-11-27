@@ -15,7 +15,7 @@ import (
 func TestPresignPutIsCreateOnly(t *testing.T) {
 	driver, err := NewR2StorageDriver("https://account.r2.cloudflarestorage.com", "files", "test", "secret", "")
 	require.NoError(t, err)
-	ticket, err := driver.PresignPut(t.Context(), "videos/test.mp4", "video/mp4", time.Minute)
+	ticket, err := driver.PresignPut(t.Context(), "videos/test.mp4", "video/mp4", 1024, time.Minute)
 	require.NoError(t, err)
 	assert.Equal(t, "*", ticket.Headers["If-None-Match"])
 	parsed, err := url.Parse(ticket.URL)

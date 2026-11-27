@@ -36,6 +36,8 @@ func hostedError(c *gin.Context, err error) {
 		code, status = "HOSTED_TASK_IDEMPOTENT_CONFLICT", http.StatusConflict
 	case errors.Is(err, hostedaccount.ErrReservedPhone):
 		code, status = "HOSTED_RESERVED_PHONE", http.StatusForbidden
+	case errors.Is(err, hostedaccount.ErrHostedAccessRequired):
+		code, status = "HOSTED_ACCESS_REQUIRED", http.StatusForbidden
 	case errors.Is(err, hostedaccount.ErrCredKeyMissing):
 		code, status = "HOSTED_CRED_KEY_MISSING", http.StatusServiceUnavailable
 	case errors.Is(err, hostedaccount.ErrCredInvalid):
@@ -369,7 +371,7 @@ func HostedPresignMedia(c *gin.Context) {
 		hostedError(c, hostedaccount.ErrInvalidRequest)
 		return
 	}
-	out, err := hostedSvc.PresignMedia(c.Request.Context(), req.Filename, req.ContentType)
+	out, err := hostedSvc.PresignMedia(c.Request.Context(), c.GetInt("id"), req.Filename, req.ContentType)
 	if err != nil {
 		hostedError(c, err)
 		return

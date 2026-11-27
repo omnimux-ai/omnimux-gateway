@@ -3411,7 +3411,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For content that sells,": "For content that sells,",
@@ -9506,6 +9506,9 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "Download the desktop app, sign in, and start with the 100-credit tier.",
     "View all {{count}} models and technical specs": "View all {{count}} models and technical specs",
     "View the full model catalog": "View the full model catalog",
-    "Pay per use, presets from $10": "Pay per use, presets from $10"
+    "Pay per use, presets from $10": "Pay per use, presets from $10",
+    "Private key must be sent in a POST request body": "Private key must be sent in a POST request body",
+    "Cross-site login request rejected": "Cross-site login request rejected",
+    "Invalid Discovery URL: {{error}}": "Invalid Discovery URL: {{error}}"
   }
 }

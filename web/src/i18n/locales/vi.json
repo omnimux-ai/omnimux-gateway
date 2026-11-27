@@ -3411,7 +3411,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Với kênh tùy chỉnh nâng cao, thiết lập này chỉ áp dụng cho các route /v1/responses không chuyển đổi giao thức.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For content that sells,": "Cho nội dung bán hàng,",
@@ -9506,6 +9506,9 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "Tải ứng dụng máy tính, đăng nhập và bắt đầu với mức nạp 100 credit.",
     "View all {{count}} models and technical specs": "Xem toàn bộ {{count}} mô hình và thông số kỹ thuật",
     "View the full model catalog": "Xem toàn bộ danh mục mô hình",
-    "Pay per use, presets from $10": "Trả theo mức sử dụng, các mức nạp có sẵn từ 10 USD"
+    "Pay per use, presets from $10": "Trả theo mức sử dụng, các mức nạp có sẵn từ 10 USD",
+    "Private key must be sent in a POST request body": "Khóa riêng phải được gửi trong nội dung yêu cầu POST",
+    "Cross-site login request rejected": "Yêu cầu đăng nhập liên trang đã bị từ chối",
+    "Invalid Discovery URL: {{error}}": "URL Discovery không hợp lệ: {{error}}"
   }
 }

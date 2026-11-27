@@ -3411,7 +3411,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相關項目",
     "footer.defaultCopyright": "版權所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
+    "footer.newapi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "進階自訂渠道僅對 /v1/responses 且不做協定轉換的路由生效。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "對於 2025 年 5 月 10 日之後新增的渠道，在部署時無需從模型名稱中移除 \".\"",
     "For content that sells,": "為帶貨內容，",
@@ -9506,6 +9506,9 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "下載桌面版，登入後可從 100 積分方案開始。",
     "View all {{count}} models and technical specs": "查看全部 {{count}} 個模型與技術規格",
     "View the full model catalog": "查看完整模型目錄",
-    "Pay per use, presets from $10": "按次付費，預設儲值方案 $10 起"
+    "Pay per use, presets from $10": "按次付費，預設儲值方案 $10 起",
+    "Private key must be sent in a POST request body": "私鑰必須透過 POST 請求主體提交",
+    "Cross-site login request rejected": "已拒絕跨站登入請求",
+    "Invalid Discovery URL: {{error}}": "無效的 Discovery URL: {{error}}"
   }
 }

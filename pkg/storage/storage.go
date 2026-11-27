@@ -64,7 +64,7 @@ type StorageDriver interface {
 	Delete(ctx context.Context, key string) error
 	GetPublicURL(key string) string
 	IsR2() bool
-	PresignPut(ctx context.Context, key string, contentType string, ttl time.Duration) (*PresignResult, error)
+	PresignPut(ctx context.Context, key string, contentType string, contentLength int64, ttl time.Duration) (*PresignResult, error)
 }
 
 var (
@@ -201,6 +201,6 @@ func (l *LocalStorageDriver) IsR2() bool {
 
 // PresignPut refuses: a local directory has no way to accept a write that the
 // gateway did not see, and its public URL is the application host.
-func (l *LocalStorageDriver) PresignPut(context.Context, string, string, time.Duration) (*PresignResult, error) {
+func (l *LocalStorageDriver) PresignPut(context.Context, string, string, int64, time.Duration) (*PresignResult, error) {
 	return nil, ErrPresignUnsupported
 }

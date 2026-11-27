@@ -199,11 +199,19 @@ func main() {
 	// fork: packaged desktop forces loopback; standalone defaults remain public.
 	listenHost := os.Getenv("LISTEN_HOST")
 	if os.Getenv("ENABLE_PPROF") == "true" {
+		pprofHost := strings.TrimSpace(os.Getenv("PPROF_LISTEN_HOST"))
+		if pprofHost == "" {
+			if listenHost != "" {
+				pprofHost = listenHost
+			} else {
+				pprofHost = "127.0.0.1"
+			}
+		}
 		gopool.Go(func() {
-			log.Println(http.ListenAndServe(net.JoinHostPort(listenHost, "8005"), nil))
+			log.Println(http.ListenAndServe(net.JoinHostPort(pprofHost, "8005"), nil))
 		})
 		go common.Monitor()
-		common.SysLog(common.LogText("pprof enabled"))
+		common.SysLog(common.LogText("pprof enabled on %s:8005", pprofHost))
 	}
 
 	err = common.StartPyroScope()

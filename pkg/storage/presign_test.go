@@ -18,7 +18,7 @@ import (
 func TestPresignPut_LocalDriverRefuses(t *testing.T) {
 	driver := NewLocalStorageDriver(t.TempDir())
 
-	ticket, err := driver.PresignPut(context.Background(), "videos/a.mp4", "video/mp4", time.Minute)
+	ticket, err := driver.PresignPut(context.Background(), "videos/a.mp4", "video/mp4", 128, time.Minute)
 	assert.Nil(t, ticket)
 	assert.ErrorIs(t, err, ErrPresignUnsupported)
 }
@@ -29,7 +29,7 @@ func TestPresignPut_IssuesATicketWithoutAPublicOrigin(t *testing.T) {
 	driver, err := NewR2StorageDriver("https://account.r2.cloudflarestorage.com", "omnimux", "key", "secret", "")
 	require.NoError(t, err)
 
-	ticket, err := driver.PresignPut(context.Background(), "videos/a.mp4", "video/mp4", time.Minute)
+	ticket, err := driver.PresignPut(context.Background(), "videos/a.mp4", "video/mp4", 4096, time.Minute)
 	require.NoError(t, err)
 	require.NotNil(t, ticket)
 	assert.Equal(t, "PUT", ticket.Method)
@@ -48,11 +48,12 @@ func TestPresignPut_IssuesAPutTicketForTheObjectKey(t *testing.T) {
 	require.NoError(t, err)
 
 	before := time.Now()
-	ticket, err := driver.PresignPut(context.Background(), "/videos/file_abc_clip.mp4", "video/mp4", ttl)
+	ticket, err := driver.PresignPut(context.Background(), "/videos/file_abc_clip.mp4", "video/mp4", 2048, ttl)
 	require.NoError(t, err)
 
 	assert.Equal(t, "PUT", ticket.Method)
 	assert.Equal(t, "video/mp4", ticket.Headers["Content-Type"])
+	assert.Equal(t, "2048", ticket.Headers["Content-Length"])
 
 	parsed, err := url.Parse(ticket.URL)
 	require.NoError(t, err)
@@ -67,6 +68,12 @@ func TestPresignPut_IssuesAPutTicketForTheObjectKey(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int(ttl.Seconds()), seconds)
 	assert.Contains(t, query.Get("X-Amz-SignedHeaders"), "content-type")
+	assert.Contains(t, query.Get("X-Amz-SignedHeaders"), "content-length")
+
+	// Non-inline media must sign Content-Disposition: attachment.
+	pdfTicket, err := driver.PresignPut(context.Background(), "/files/doc.pdf", "application/pdf", 512, ttl)
+	require.NoError(t, err)
+	assert.Equal(t, "attachment", pdfTicket.Headers["Content-Disposition"])
 
 	// The caller-visible expiry tracks the requested lifetime.
 	assert.WithinDuration(t, before.Add(ttl), ticket.ExpiresAt, 5*time.Second)
@@ -79,11 +86,15 @@ func TestPresignPut_RejectsUnusableArguments(t *testing.T) {
 	driver, err := NewR2StorageDriver("https://account.r2.cloudflarestorage.com", "omnimux", "key", "secret", "https://cdn.example")
 	require.NoError(t, err)
 
-	_, err = driver.PresignPut(context.Background(), "videos/a.mp4", "video/mp4", 0)
+	_, err = driver.PresignPut(context.Background(), "videos/a.mp4", "video/mp4", 128, 0)
 	assert.Error(t, err)
 	assert.False(t, errors.Is(err, ErrPresignUnsupported), "a bad lifetime is a caller error, not a capability gap")
 
-	_, err = driver.PresignPut(context.Background(), "/", "video/mp4", time.Minute)
+	_, err = driver.PresignPut(context.Background(), "videos/a.mp4", "video/mp4", 0, time.Minute)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "length")
+
+	_, err = driver.PresignPut(context.Background(), "/", "video/mp4", 128, time.Minute)
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "key"))
 }

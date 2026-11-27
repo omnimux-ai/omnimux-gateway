@@ -25,6 +25,11 @@ var sensitiveLogQueryKeys = map[string]struct{}{
 	"access_token":  {},
 	"refresh_token": {},
 	"id_token":      {},
+	"private_key":   {},
+	"secret":        {},
+	"api_key":       {},
+	"key":           {},
+	"token":         {},
 }
 
 func RouteTag(tag string) gin.HandlerFunc {

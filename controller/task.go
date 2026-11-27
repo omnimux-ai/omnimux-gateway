@@ -378,7 +378,14 @@ func getTaskForArtifactRequest(c *gin.Context, taskID string) (*model.Task, bool
 		return task, true, nil
 	}
 	if c.GetInt("token_id") == 0 && c.GetInt("role") >= common.RoleAdminUser {
-		return model.GetByOnlyTaskId(taskID)
+		if !c.GetBool("use_access_token") {
+			return model.GetByOnlyTaskId(taskID)
+		}
+		if scopes, ok := c.Get("access_token_scopes"); ok {
+			if granted, ok := scopes.([]string); ok && service.AccessTokenScopeGranted(granted, "log:read") {
+				return model.GetByOnlyTaskId(taskID)
+			}
+		}
 	}
 	return model.GetByTaskId(c.GetInt("id"), taskID)
 }

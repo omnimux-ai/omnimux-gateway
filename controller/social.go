@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -28,7 +29,67 @@ const socialPublicMediaTimeout = 60 * time.Second
 const maxTikTokWebhookBodyBytes = 64 << 10 // 64 KiB
 
 const socialOAuthBrowserCookiePrefix = "social_tiktok_oauth_"
+const socialOAuthConfirmCookiePrefix = "social_tiktok_confirm_"
 const socialOAuthBrowserCookieTTL = 10 * time.Minute
+const socialOAuthConfirmCookieTTL = 5 * time.Minute
+
+func socialOAuthConfirmCookieName(ticket string) string {
+	sum := sha256.Sum256([]byte(ticket))
+	prefix := socialOAuthConfirmCookiePrefix
+	if common.SessionCookieSecure {
+		prefix = "__Host-" + prefix
+	}
+	return prefix + hex.EncodeToString(sum[:])
+}
+
+func socialOAuthConfirmCookieValue(ticket, nonce string) string {
+	return common.GenerateHMACWithKey([]byte("social-oauth-confirm-v1:"+common.SessionSecret), ticket+":"+nonce)
+}
+
+func setSocialOAuthConfirmCookie(c *gin.Context, ticket string) (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	nonce := hex.EncodeToString(b)
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     socialOAuthConfirmCookieName(ticket),
+		Value:    socialOAuthConfirmCookieValue(ticket, nonce),
+		Path:     "/",
+		MaxAge:   int(socialOAuthConfirmCookieTTL / time.Second),
+		HttpOnly: true,
+		Secure:   common.SessionCookieSecure,
+		SameSite: http.SameSiteStrictMode,
+	})
+	return nonce, nil
+}
+
+func socialOAuthConfirmCookieValid(c *gin.Context, ticket, nonce string) bool {
+	if c == nil || ticket == "" || nonce == "" {
+		return false
+	}
+	value, err := c.Cookie(socialOAuthConfirmCookieName(ticket))
+	if err != nil {
+		return false
+	}
+	expected := socialOAuthConfirmCookieValue(ticket, nonce)
+	return subtle.ConstantTimeCompare([]byte(value), []byte(expected)) == 1
+}
+
+func clearSocialOAuthConfirmCookie(c *gin.Context, ticket string) {
+	if c == nil || ticket == "" {
+		return
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     socialOAuthConfirmCookieName(ticket),
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   common.SessionCookieSecure,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
 
 func socialOAuthBrowserCookieName(state string) string {
 	sum := sha256.Sum256([]byte(state))
@@ -369,7 +430,7 @@ func SocialConnect(c *gin.Context) {
 // binds the fresh OAuth state to that browser via an HttpOnly cookie, and redirects
 // to the server-validated TikTok authorize URL.
 // fork: tiktok-direct
-// GET /api/social/v1/oauth/tiktok/start?ticket=...
+// GET / POST /api/social/v1/oauth/tiktok/start
 func SocialTikTokOAuthStart(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Referrer-Policy", "no-referrer")
@@ -386,17 +447,7 @@ func SocialTikTokOAuthStart(c *gin.Context) {
 		c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox")
 		c.Data(status, "text/html; charset=utf-8", []byte(renderTikTokCallbackPage(lang, title, msg, "")))
 	}
-	ticket := c.Query("ticket")
-	if ticket == "" {
-		renderStartError(
-			http.StatusBadRequest,
-			"授权链接无效或已过期，请返回客户端重新发起连接。",
-			"Authorization link is invalid or expired. Please return to OmniMux and try again.",
-		)
-		return
-	}
-	res, err := socialSvc.StartTikTokOAuth(c.Request.Context(), ticket)
-	if err != nil {
+	renderTicketErr := func(err error) {
 		switch {
 		case errors.Is(err, social.ErrTikTokOAuthTicketExpired):
 			renderStartError(
@@ -423,11 +474,122 @@ func SocialTikTokOAuthStart(c *gin.Context) {
 				"Unable to start TikTok authorization. Please return to OmniMux and try again.",
 			)
 		}
+	}
+
+	sessionUserID := c.GetInt("id")
+	var ticket string
+	if c.Request.Method == http.MethodPost {
+		ticket = strings.TrimSpace(c.PostForm("ticket"))
+		csrf := strings.TrimSpace(c.PostForm("csrf"))
+		if ticket == "" {
+			renderStartError(
+				http.StatusBadRequest,
+				"授权链接无效或已过期，请返回客户端重新发起连接。",
+				"Authorization link is invalid or expired. Please return to OmniMux and try again.",
+			)
+			return
+		}
+		if !socialOAuthConfirmCookieValid(c, ticket, csrf) {
+			renderStartError(
+				http.StatusForbidden,
+				"授权确认已失效，请重新打开授权链接并确认。",
+				"Authorization confirmation has expired. Please reopen the link and confirm again.",
+			)
+			return
+		}
+		clearSocialOAuthConfirmCookie(c, ticket)
+		info, err := socialSvc.InspectTikTokOAuthTicket(c.Request.Context(), ticket)
+		if err != nil {
+			renderTicketErr(err)
+			return
+		}
+		if sessionUserID > 0 && sessionUserID != info.UserId {
+			renderStartError(
+				http.StatusForbidden,
+				"此授权链接属于其他 OmniMux 账号，已拒绝绑定。",
+				"This authorization link belongs to another OmniMux account and has been rejected.",
+			)
+			return
+		}
+	} else {
+		ticket = strings.TrimSpace(c.Query("ticket"))
+		if ticket == "" {
+			renderStartError(
+				http.StatusBadRequest,
+				"授权链接无效或已过期，请返回客户端重新发起连接。",
+				"Authorization link is invalid or expired. Please return to OmniMux and try again.",
+			)
+			return
+		}
+		info, err := socialSvc.InspectTikTokOAuthTicket(c.Request.Context(), ticket)
+		if err != nil {
+			renderTicketErr(err)
+			return
+		}
+		if sessionUserID > 0 && sessionUserID != info.UserId {
+			renderStartError(
+				http.StatusForbidden,
+				"此授权链接属于其他 OmniMux 账号，已拒绝绑定。",
+				"This authorization link belongs to another OmniMux account and has been rejected.",
+			)
+			return
+		}
+		// Unauthenticated browsers (for example CLI browser handoff) must explicitly
+		// confirm via a CSRF-bound POST before consuming the launch ticket and
+		// binding the OAuth state cookie, blocking cross-site login-CSRF attacks.
+		if sessionUserID == 0 {
+			nonce, err := setSocialOAuthConfirmCookie(c, ticket)
+			if err != nil {
+				renderStartError(
+					http.StatusInternalServerError,
+					"无法启动 TikTok 授权，请稍后重试。",
+					"Unable to start TikTok authorization. Please try again later.",
+				)
+				return
+			}
+			c.Header("Vary", "Accept-Language")
+			c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; form-action 'self'")
+			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(renderTikTokStartConfirmPage(lang, info.AccountLabel, ticket, nonce)))
+			return
+		}
+	}
+
+	res, err := socialSvc.StartTikTokOAuth(c.Request.Context(), ticket)
+	if err != nil {
+		renderTicketErr(err)
 		return
 	}
 	c.Header("Content-Security-Policy", "frame-ancestors 'none'")
 	setSocialOAuthBrowserCookie(c, res.State)
 	c.Redirect(http.StatusFound, res.AuthorizeURL)
+}
+
+func renderTikTokStartConfirmPage(lang, accountLabel, ticket, csrf string) string {
+	htmlLang := "en"
+	title := "Confirm TikTok Account Connection"
+	bodyPrefix := "You are about to connect your TikTok account to OmniMux account "
+	bodySuffix := ". If you did not initiate this connection, close this page."
+	buttonLabel := "Continue to TikTok Authorization"
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "zh") {
+		htmlLang = "zh"
+		title = "确认连接 TikTok 账号"
+		bodyPrefix = "您即将把 TikTok 账号绑定到 OmniMux 账号 "
+		bodySuffix = "。如果不是您本人发起的连接，请直接关闭此页面。"
+		buttonLabel = "继续前往 TikTok 授权"
+	}
+	safeAccount := html.EscapeString(accountLabel)
+	safeTicket := html.EscapeString(ticket)
+	safeCSRF := html.EscapeString(csrf)
+	return `<!doctype html><html lang="` + htmlLang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + title + `</title>` +
+		`<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0A0A0B;color:#EDEDED;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}main{text-align:center;max-width:420px;padding:32px}h1{font-size:22px;margin:0 0 12px}p{color:#A19F9D;font-size:14px;line-height:1.6}strong{color:#EDEDED}button{margin-top:20px;padding:10px 22px;background:#EDEDED;color:#0A0A0B;border:0;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer}</style></head><body><main>` +
+		tikTokCallbackLogoSVG +
+		`<h1>` + title + `</h1>` +
+		`<p>` + bodyPrefix + `<strong>` + safeAccount + `</strong>` + bodySuffix + `</p>` +
+		`<form method="post" action="/api/social/v1/oauth/tiktok/start">` +
+		`<input type="hidden" name="ticket" value="` + safeTicket + `">` +
+		`<input type="hidden" name="csrf" value="` + safeCSRF + `">` +
+		`<button type="submit">` + buttonLabel + `</button></form>` +
+		`</main></body></html>`
 }
 
 // SocialTikTokCallback handles the official TikTok OAuth redirect (anonymous, state-bound).

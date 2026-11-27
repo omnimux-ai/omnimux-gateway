@@ -158,24 +158,29 @@ func GetResponseBody(method, url string, channel *model.Channel, headers http.He
 		req.Header.Add(k, headers.Get(k))
 	}
 	setting := channel.GetSetting()
-	client, err := service.GetHttpClientWithProxySettings(setting.Proxy, setting)
+	baseClient, err := service.GetHttpClientWithProxySettings(setting.Proxy, setting)
 	if err != nil {
 		return nil, err
+	}
+	client := *baseClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status code: %d", res.StatusCode)
 	}
-	body, err := io.ReadAll(res.Body)
+	const maxBillingResponseBytes = 4 << 20
+	body, err := io.ReadAll(io.LimitReader(res.Body, maxBillingResponseBytes+1))
 	if err != nil {
 		return nil, err
 	}
-	err = res.Body.Close()
-	if err != nil {
-		return nil, err
+	if len(body) > maxBillingResponseBytes {
+		return nil, fmt.Errorf("channel billing response exceeds limit")
 	}
 	return body, nil
 }

@@ -14,12 +14,12 @@ const SocialOAuthStateTTL = 10 * time.Minute
 
 // SocialOAuthState binds an OAuth `state` to the OmniMux user who started Connect.
 type SocialOAuthState struct {
-	State        string    `json:"state" gorm:"type:varchar(128);primaryKey"`
-	UserId       int       `json:"user_id" gorm:"not null;index"`
-	Provider     string    `json:"provider" gorm:"type:varchar(32);not null;index"`
-	RedirectAfter string   `json:"redirect_after" gorm:"type:varchar(512)"`
-	ExpiresAt    time.Time `json:"expires_at" gorm:"not null;index"`
-	CreatedAt    time.Time `json:"created_at"`
+	State         string    `json:"state" gorm:"type:varchar(128);primaryKey"`
+	UserId        int       `json:"user_id" gorm:"not null;index"`
+	Provider      string    `json:"provider" gorm:"type:varchar(32);not null;index"`
+	RedirectAfter string    `json:"redirect_after" gorm:"type:varchar(512)"`
+	ExpiresAt     time.Time `json:"expires_at" gorm:"not null;index"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 func (SocialOAuthState) TableName() string {
@@ -34,6 +34,22 @@ func CreateSocialOAuthState(s *SocialOAuthState) error {
 		s.ExpiresAt = time.Now().UTC().Add(SocialOAuthStateTTL)
 	}
 	return DB.Create(s).Error
+}
+
+// PeekSocialOAuthState loads a state row without deleting it so callers can
+// verify ownership or render a confirmation step before redeeming the ticket.
+func PeekSocialOAuthState(state, provider string) (*SocialOAuthState, error) {
+	if state == "" || provider == "" {
+		return nil, errors.New("invalid social oauth state")
+	}
+	var s SocialOAuthState
+	if err := DB.Where("state = ? AND provider = ?", state, provider).First(&s).Error; err != nil {
+		return nil, err
+	}
+	if time.Now().UTC().After(s.ExpiresAt) {
+		return nil, errors.New("social oauth state expired")
+	}
+	return &s, nil
 }
 
 // ConsumeSocialOAuthState atomically loads and deletes the state (single use).

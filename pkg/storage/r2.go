@@ -99,6 +99,34 @@ func NewR2StorageDriverFromEnv() (*R2StorageDriver, error) {
 	return NewR2StorageDriver(endpoint, bucket, accessKey, secretKey, publicBaseURL)
 }
 
+func isSafeInlineMediaContentType(contentType string) bool {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	if idx := strings.Index(ct, ";"); idx != -1 {
+		ct = strings.TrimSpace(ct[:idx])
+	}
+	switch {
+	case ct == "image/svg+xml":
+		return false
+	case strings.HasPrefix(ct, "image/"), strings.HasPrefix(ct, "video/"), strings.HasPrefix(ct, "audio/"):
+		return true
+	default:
+		return false
+	}
+}
+
+func isActiveWebContentType(contentType string) bool {
+	ct := strings.ToLower(strings.TrimSpace(strings.SplitN(contentType, ";", 2)[0]))
+	switch ct {
+	case "text/html", "application/xhtml+xml", "image/svg+xml",
+		"text/javascript", "application/javascript", "application/x-javascript",
+		"text/ecmascript", "application/ecmascript",
+		"text/xml", "application/xml", "application/x-shockwave-flash":
+		return true
+	default:
+		return false
+	}
+}
+
 func (r *R2StorageDriver) Upload(ctx context.Context, key string, data []byte, contentType string) (string, error) {
 	cleanKey := strings.TrimPrefix(key, "/")
 	input := &s3.PutObjectInput{
@@ -107,7 +135,15 @@ func (r *R2StorageDriver) Upload(ctx context.Context, key string, data []byte, c
 		Body:   bytes.NewReader(data),
 	}
 	if contentType != "" {
-		input.ContentType = aws.String(contentType)
+		if isActiveWebContentType(contentType) {
+			input.ContentType = aws.String("application/octet-stream")
+			input.ContentDisposition = aws.String("attachment")
+		} else {
+			input.ContentType = aws.String(contentType)
+			if !isSafeInlineMediaContentType(contentType) {
+				input.ContentDisposition = aws.String("attachment")
+			}
+		}
 	}
 
 	_, err := r.client.PutObject(ctx, input)
@@ -122,9 +158,12 @@ func (r *R2StorageDriver) Upload(ctx context.Context, key string, data []byte, c
 // public origin is not a precondition: deployments that serve objects through
 // the gateway download route still accept the bytes this way, so the ticket is
 // refused only when the backend cannot presign at all.
-func (r *R2StorageDriver) PresignPut(ctx context.Context, key string, contentType string, ttl time.Duration) (*PresignResult, error) {
+func (r *R2StorageDriver) PresignPut(ctx context.Context, key string, contentType string, contentLength int64, ttl time.Duration) (*PresignResult, error) {
 	if r.presign == nil {
 		return nil, ErrPresignUnsupported
+	}
+	if contentLength <= 0 {
+		return nil, fmt.Errorf("presign content length must be positive")
 	}
 	if ttl < time.Second || ttl > 7*24*time.Hour {
 		return nil, fmt.Errorf("presign ttl must be between one second and seven days")
@@ -137,12 +176,17 @@ func (r *R2StorageDriver) PresignPut(ctx context.Context, key string, contentTyp
 		contentType = "application/octet-stream"
 	}
 
-	req, err := r.presign.PresignPutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(r.bucket),
-		Key:         aws.String(cleanKey),
-		ContentType: aws.String(contentType),
-		IfNoneMatch: aws.String("*"),
-	}, func(o *s3.PresignOptions) {
+	putInput := &s3.PutObjectInput{
+		Bucket:        aws.String(r.bucket),
+		Key:           aws.String(cleanKey),
+		ContentType:   aws.String(contentType),
+		ContentLength: aws.Int64(contentLength),
+		IfNoneMatch:   aws.String("*"),
+	}
+	if !isSafeInlineMediaContentType(contentType) {
+		putInput.ContentDisposition = aws.String("attachment")
+	}
+	req, err := r.presign.PresignPutObject(ctx, putInput, func(o *s3.PresignOptions) {
 		o.Expires = ttl
 	})
 	if err != nil {

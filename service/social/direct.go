@@ -212,6 +212,66 @@ func (s *Service) connectTikTokDirect(ctx context.Context, userId int, redirectA
 	return startURL, nil
 }
 
+// TikTokTicketInfo describes a valid, unconsumed launch ticket without consuming it.
+type TikTokTicketInfo struct {
+	UserId       int
+	AccountLabel string
+}
+
+// InspectTikTokOAuthTicket validates a one-time launch ticket without consuming
+// it so the HTTP entry point can verify session ownership or require explicit
+// user confirmation before binding an OAuth cookie to the browser.
+func (s *Service) InspectTikTokOAuthTicket(ctx context.Context, ticket string) (*TikTokTicketInfo, error) {
+	if err := s.tiktokDirectUsable(); err != nil {
+		return nil, err
+	}
+	if ticket == "" || len(ticket) > 128 || strings.TrimSpace(ticket) != ticket {
+		return nil, ErrTikTokOAuthTicketInvalid
+	}
+	if err := validateTikTokAuthorizeURL(s.effectiveTikTokAuthorizeBase(), true); err != nil {
+		return nil, err
+	}
+	st, err := model.PeekSocialOAuthState(ticket, ProviderTikTokDirectStart)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrTikTokOAuthTicketInvalid
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "expired") {
+			return nil, ErrTikTokOAuthTicketExpired
+		}
+		return nil, err
+	}
+	if st.UserId <= 0 {
+		return nil, ErrTikTokOAuthTicketInvalid
+	}
+	label := fmt.Sprintf("#%d", st.UserId)
+	if user, userErr := model.GetUserById(st.UserId, false); userErr == nil && user != nil {
+		if masked := maskSocialAccountLabel(user.Username); masked != "" {
+			label = masked
+		}
+	}
+	return &TikTokTicketInfo{
+		UserId:       st.UserId,
+		AccountLabel: label,
+	}, nil
+}
+
+func maskSocialAccountLabel(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	runes := []rune(name)
+	switch {
+	case len(runes) <= 1:
+		return "*"
+	case len(runes) == 2:
+		return string(runes[0]) + "*"
+	default:
+		return string(runes[0]) + "***" + string(runes[len(runes)-1])
+	}
+}
+
 // TikTokStartResult holds the fresh OAuth state and validated TikTok authorize URL.
 type TikTokStartResult struct {
 	State        string

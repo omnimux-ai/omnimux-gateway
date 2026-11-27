@@ -379,13 +379,33 @@ func cancelTaskRow(t *model.HostedTask) error {
 	return nil
 }
 
-func (s *Service) PresignMedia(ctx context.Context, filename, contentType string) (map[string]any, error) {
+var ErrHostedAccessRequired = errors.New("active hosted account or entitlement required")
+
+func isAllowedHostedMediaType(contentType string) bool {
+	ct := strings.ToLower(strings.TrimSpace(strings.SplitN(contentType, ";", 2)[0]))
+	if ct == "" {
+		return true
+	}
+	if ct == "image/svg+xml" {
+		return false
+	}
+	return strings.HasPrefix(ct, "image/") || strings.HasPrefix(ct, "video/") || strings.HasPrefix(ct, "audio/")
+}
+
+func (s *Service) PresignMedia(ctx context.Context, userID int, filename, contentType string) (map[string]any, error) {
 	if !s.GatewayReady() {
 		return nil, ErrGatewayUnavailable
 	}
 	filename = strings.TrimSpace(filename)
-	if filename == "" {
+	if filename == "" || !isAllowedHostedMediaType(contentType) {
 		return nil, ErrInvalidRequest
+	}
+	allowed, err := model.HasActiveHostedAccess(userID)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, ErrHostedAccessRequired
 	}
 	url, err := s.gw.MaterialGetUploadURL(ctx, map[string]any{
 		"fileName":    filename,

@@ -141,7 +141,7 @@ func TestMapRegion(t *testing.T) {
 
 func TestPresignWithoutGateway(t *testing.T) {
 	svc := NewService(nil)
-	_, err := svc.PresignMedia(context.Background(), "a.mp4", "video/mp4")
+	_, err := svc.PresignMedia(context.Background(), 1, "a.mp4", "video/mp4")
 	assert.ErrorIs(t, err, ErrGatewayUnavailable)
 }
 

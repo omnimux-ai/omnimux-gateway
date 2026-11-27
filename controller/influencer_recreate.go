@@ -125,6 +125,15 @@ func PostInfluencerRecreateAnalyze(c *gin.Context) {
 		influencerError(c, http.StatusBadRequest, "invalid_request", "分辨率必须是 480p 或 720p")
 		return
 	}
+	userID := c.GetInt("id")
+	if userID <= 0 {
+		influencerError(c, http.StatusUnauthorized, "unauthorized", "未授权访问")
+		return
+	}
+	referenceURL, allowed := resolveInfluencerVideoReferenceSource(c, video, userID)
+	if !allowed {
+		return
+	}
 	if !influencerRecreateDailyAllow(c) {
 		c.Header("Retry-After", "3600")
 		influencerError(c, http.StatusTooManyRequests, "recreate_analysis_limit", "今天的参考视频拆解次数已用完，请明天再试")
@@ -133,7 +142,7 @@ func PostInfluencerRecreateAnalyze(c *gin.Context) {
 	// The analysis runs as a durable queue job: three model turns take longer than
 	// a proxied request may live, so the browser receives a task id and polls.
 	task, err := enqueueInfluencerRecreateAnalysis(c, influencerRecreateAnalysisSnapshot{
-		VideoURL:   video,
+		VideoURL:   referenceURL,
 		ImageURLs:  images,
 		ImageTags:  tags,
 		Prompt:     intent,

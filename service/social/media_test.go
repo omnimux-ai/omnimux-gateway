@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -100,12 +101,15 @@ func (f *fakeMediaStorage) GetPublicURL(key string) string {
 
 func (f *fakeMediaStorage) IsR2() bool { return true }
 
-func (f *fakeMediaStorage) PresignPut(_ context.Context, key, contentType string, ttl time.Duration) (*storage.PresignResult, error) {
+func (f *fakeMediaStorage) PresignPut(_ context.Context, key, contentType string, contentLength int64, ttl time.Duration) (*storage.PresignResult, error) {
 	f.putCalls++
 	f.lastKey = key
 	f.lastContent = contentType
 	if f.putErr != nil {
 		return nil, f.putErr
+	}
+	if contentLength <= 0 {
+		return nil, storage.ErrPresignUnsupported
 	}
 	return &storage.PresignResult{URL: "https://r2.example/put/" + key, Method: "PUT", Headers: map[string]string{"Content-Type": contentType}, ExpiresAt: time.Now().Add(ttl)}, nil
 }
@@ -163,7 +167,24 @@ func TestSocialMediaObjectKey(t *testing.T) {
 	require.NotContains(t, odd, "!")
 }
 
+func seedActiveSocialAccountForMediaTest(t *testing.T, userID int) {
+	t.Helper()
+	require.NoError(t, model.DB.Where("user_id = ?", userID).Delete(&model.SocialAccount{}).Error)
+	require.NoError(t, model.DB.Create(&model.SocialAccount{
+		UserId:            userID,
+		Provider:          ProviderTikTokDirect,
+		ProviderAccountID: "media-test-open-id",
+		Platform:          "tiktok",
+		Username:          "creator",
+		Status:            model.SocialAccountStatusActive,
+	}).Error)
+	t.Cleanup(func() {
+		_ = model.DB.Where("user_id = ?", userID).Delete(&model.SocialAccount{}).Error
+	})
+}
+
 func TestPresignOwnMediaStorageTicket(t *testing.T) {
+	seedActiveSocialAccountForMediaTest(t, 7)
 	driver := &fakeMediaStorage{publicBase: "https://cdn.example"}
 	installFakeMediaStorage(t, driver)
 
@@ -187,6 +208,7 @@ func TestPresignOwnMediaStorageTicket(t *testing.T) {
 }
 
 func TestPresignOwnMediaStoragePublicURLFallsBackToReadTicket(t *testing.T) {
+	seedActiveSocialAccountForMediaTest(t, 7)
 	driver := &fakeMediaStorage{readTicket: "https://r2.example/get/object"}
 	installFakeMediaStorage(t, driver)
 
@@ -195,6 +217,7 @@ func TestPresignOwnMediaStoragePublicURLFallsBackToReadTicket(t *testing.T) {
 		"provider":     "tiktok_direct",
 		"filename":     "a.png",
 		"content_type": "image/png",
+		"size_bytes":   float64(256),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "https://r2.example/get/object", out["public_url"])
@@ -202,6 +225,7 @@ func TestPresignOwnMediaStoragePublicURLFallsBackToReadTicket(t *testing.T) {
 }
 
 func TestPresignOwnMediaStorageFailsClosed(t *testing.T) {
+	seedActiveSocialAccountForMediaTest(t, 7)
 	driver := &fakeMediaStorage{putErr: storage.ErrPresignUnsupported}
 	installFakeMediaStorage(t, driver)
 
@@ -210,16 +234,37 @@ func TestPresignOwnMediaStorageFailsClosed(t *testing.T) {
 		"provider":     "tiktok_direct",
 		"filename":     "a.png",
 		"content_type": "image/png",
+		"size_bytes":   float64(256),
 	})
 	require.ErrorIs(t, err, ErrMediaStorageUnavailable)
 }
 
-func TestPresignOwnMediaStorageRejectsOversize(t *testing.T) {
+func TestPresignOwnMediaStorageRejectsOversizeMissingSizeAndUnentitled(t *testing.T) {
 	driver := &fakeMediaStorage{publicBase: "https://cdn.example"}
 	installFakeMediaStorage(t, driver)
 
 	svc := &Service{cfg: Config{Enabled: true, TikTokDirectEnabled: true, MediaStorageMaxBytes: 100, MediaStoragePresignTTL: time.Minute}}
-	_, err := svc.PresignMedia(context.Background(), 7, map[string]any{
+	// Unentitled user with no social account or seat is rejected.
+	_, err := svc.PresignMedia(context.Background(), 999, map[string]any{
+		"provider":     "tiktok_direct",
+		"filename":     "a.png",
+		"content_type": "image/png",
+		"size_bytes":   float64(50),
+	})
+	require.ErrorIs(t, err, ErrAccountDenied)
+	assert.Equal(t, 0, driver.putCalls)
+
+	seedActiveSocialAccountForMediaTest(t, 7)
+	// Missing size_bytes is rejected.
+	_, err = svc.PresignMedia(context.Background(), 7, map[string]any{
+		"provider":     "tiktok_direct",
+		"filename":     "a.png",
+		"content_type": "image/png",
+	})
+	require.ErrorIs(t, err, ErrMediaInvalid)
+	assert.Equal(t, 0, driver.putCalls)
+
+	_, err = svc.PresignMedia(context.Background(), 7, map[string]any{
 		"provider":     "tiktok_direct",
 		"filename":     "a.png",
 		"content_type": "image/png",

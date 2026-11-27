@@ -279,6 +279,10 @@ func Register(c *gin.Context) {
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
 	}
 	if common.EmailVerificationEnabled {
+		if !common.ConsumeCodeWithKey(user.Email, user.VerificationCode, common.EmailVerificationPurpose) {
+			common.ApiErrorT(c, "Verification code is incorrect or has expired")
+			return
+		}
 		cleanUser.Email = user.Email
 	}
 	if err := cleanUser.InsertWithSignup(inviterId, signupAnalytics(c, "password")); err != nil {
