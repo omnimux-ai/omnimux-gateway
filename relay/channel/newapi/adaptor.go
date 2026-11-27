@@ -2,8 +2,11 @@ package newapi
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
@@ -32,6 +35,29 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if info.RelayMode == relayconstant.RelayModeAlphaSearch {
 		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, "/v1/alpha/search", info.ChannelType), nil
+	}
+	if info.RelayFormat == types.RelayFormatGemini {
+		modelName, action, ok := relaycommon.ValidateGeminiModelPath(info.RequestURLPath)
+		if !ok {
+			return "", errors.New("invalid gemini request path")
+		}
+		if info.UpstreamModelName != "" {
+			modelName = info.UpstreamModelName
+		}
+		prefix := "/v1beta/models/"
+		if strings.HasPrefix(info.RequestURLPath, "/v1/models/") {
+			prefix = "/v1/models/"
+		}
+		rebuilt := fmt.Sprintf("%s%s:%s", prefix, url.PathEscape(modelName), action)
+		if _, rawQuery, hasQuery := strings.Cut(info.RequestURLPath, "?"); hasQuery {
+			if vals, err := url.ParseQuery(rawQuery); err == nil && vals.Get("alt") == "sse" {
+				rebuilt += "?alt=sse"
+			}
+		}
+		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, rebuilt, info.ChannelType), nil
+	}
+	if !relaycommon.ValidateRelayURLPath(info.RequestURLPath) {
+		return "", errors.New("invalid relay request path")
 	}
 	return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil
 }

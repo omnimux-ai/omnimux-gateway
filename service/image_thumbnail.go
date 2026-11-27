@@ -84,7 +84,7 @@ func generateImageThumbnail(ctx context.Context, data []byte, encode imageThumbn
 }
 
 func encodeImageThumbnail(ctx context.Context, data []byte) ([]byte, error) {
-	command := exec.CommandContext(ctx, "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-threads", "1", "-i", "pipe:0", "-frames:v", "1", "-vf", "scale=w='min(640,iw)':h=-1", "-c:v", "libwebp", "-quality", "82", "-threads", "1", "-f", "webp", "pipe:1")
+	command := exec.CommandContext(ctx, "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-threads", "1", "-max_alloc", "67108864", "-protocol_whitelist", "pipe", "-format_whitelist", "image2pipe,png_pipe,jpeg_pipe,webp_pipe,gif", "-i", "pipe:0", "-frames:v", "1", "-vf", "scale=w='min(640,iw)':h=-1", "-c:v", "libwebp", "-quality", "82", "-threads", "1", "-f", "webp", "pipe:1")
 	command.Stdin = bytes.NewReader(data)
 	output := &thumbnailBoundedBuffer{limit: ImageThumbnailMaxBytes}
 	diagnostic := &thumbnailBoundedBuffer{limit: 4096}

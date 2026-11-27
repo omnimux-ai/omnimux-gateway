@@ -130,8 +130,12 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			apiVersion = constant.AzureDefaultAPIVersion
 		}
 		// https://learn.microsoft.com/en-us/azure/cognitive-services/openai/chatgpt-quickstart?pivots=rest-api&tabs=command-line#rest-api
-		requestURL := strings.Split(info.RequestURLPath, "?")[0]
-		requestURL = fmt.Sprintf("%s?api-version=%s", requestURL, apiVersion)
+		requestPath, _, _ := strings.Cut(info.RequestURLPath, "?")
+		if !relaycommon.ValidateRelayURLPath(requestPath) {
+			return "", errors.New("invalid relay request path")
+		}
+		escapedVersion := url.QueryEscape(apiVersion)
+		requestURL := fmt.Sprintf("%s?api-version=%s", requestPath, escapedVersion)
 		task := strings.TrimPrefix(requestURL, "/v1/")
 
 		if info.RelayFormat == types.RelayFormatClaude {
@@ -158,7 +162,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 				subUrl = subUrl + "/compact"
 			}
 
-			requestURL = fmt.Sprintf("%s?api-version=%s", subUrl, responsesApiVersion)
+			requestURL = fmt.Sprintf("%s?api-version=%s", subUrl, url.QueryEscape(responsesApiVersion))
 			return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURL, info.ChannelType), nil
 		}
 
@@ -168,9 +172,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			model_ = strings.Replace(model_, ".", "", -1)
 		}
 		// https://github.com/songquanpeng/one-api/issues/67
-		requestURL = fmt.Sprintf("/openai/deployments/%s/%s", model_, task)
+		requestURL = fmt.Sprintf("/openai/deployments/%s/%s", url.PathEscape(model_), task)
 		if info.RelayMode == relayconstant.RelayModeRealtime {
-			requestURL = fmt.Sprintf("/openai/realtime?deployment=%s&api-version=%s", model_, apiVersion)
+			requestURL = fmt.Sprintf("/openai/realtime?deployment=%s&api-version=%s", url.QueryEscape(model_), escapedVersion)
 		}
 		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURL, info.ChannelType), nil
 	//case constant.ChannelTypeMiniMax:
@@ -184,6 +188,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			info.RelayMode != relayconstant.RelayModeResponses &&
 			info.RelayMode != relayconstant.RelayModeResponsesCompact {
 			return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
+		}
+		if !relaycommon.ValidateRelayURLPath(info.RequestURLPath) {
+			return "", errors.New("invalid relay request path")
 		}
 		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -598,23 +599,37 @@ type GeminiModelsResponse struct {
 }
 
 func FetchGeminiModels(baseURL, apiKey string, setting dto.ChannelSettings) ([]string, error) {
-	client, err := service.GetHttpClientWithProxySettings(setting.Proxy, setting)
+	trimmedBase := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if trimmedBase == "" {
+		return nil, errors.New("gemini baseURL is empty")
+	}
+	if strings.TrimSpace(setting.Proxy) == "" {
+		if err := service.ValidateSSRFProtectedFetchURL(trimmedBase + "/v1beta/models"); err != nil {
+			return nil, fmt.Errorf("invalid gemini URL: %w", err)
+		}
+	}
+	baseClient, err := service.GetSSRFProtectedHTTPClientWithProxySettings(setting.Proxy, setting)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP client: %v", err)
+	}
+	client := *baseClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 
 	allModels := make([]string, 0)
 	nextPageToken := ""
 	maxPages := 100 // Safety limit to prevent infinite loops
+	const maxGeminiModelsResponseBytes = 10 << 20
 
 	for range maxPages {
-		url := fmt.Sprintf("%s/v1beta/models", baseURL)
+		targetURL := fmt.Sprintf("%s/v1beta/models", trimmedBase)
 		if nextPageToken != "" {
-			url = fmt.Sprintf("%s?pageToken=%s", url, nextPageToken)
+			targetURL = fmt.Sprintf("%s?pageToken=%s", targetURL, url.QueryEscape(nextPageToken))
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		request, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 		if err != nil {
 			cancel()
 			return nil, fmt.Errorf("failed to create request: %v", err)
@@ -629,13 +644,13 @@ func FetchGeminiModels(baseURL, apiKey string, setting dto.ChannelSettings) ([]s
 		}
 
 		if response.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(response.Body)
+			body, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 			response.Body.Close()
 			cancel()
-			return nil, fmt.Errorf("server returned error %d: %s", response.StatusCode, string(body))
+			return nil, fmt.Errorf("server returned error %d: %s", response.StatusCode, strings.TrimSpace(string(body)))
 		}
 
-		body, err := io.ReadAll(response.Body)
+		body, err := io.ReadAll(io.LimitReader(response.Body, maxGeminiModelsResponseBytes))
 		response.Body.Close()
 		cancel()
 		if err != nil {

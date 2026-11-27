@@ -212,3 +212,50 @@ func TestStoredInlineImageContentDoesNotServeDiscardedOrVideoObjects(t *testing.
 		})
 	}
 }
+
+func TestPublicImageRouteNeverFallsBackToVideoProxyOrDisabledOwner(t *testing.T) {
+	// H-1: Unauthenticated /v1/images/:task_id/content must never fall through
+	// to upstream/video proxying when the task is a video task, lacks a stored
+	// legacy image, or belongs to a disabled user.
+	upstreamHits := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamHits++
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write([]byte("private-video-secret"))
+	}))
+	defer upstream.Close()
+
+	task := setupGenericTaskTest(t)
+	task.Action = constant.TaskActionTextToVideo
+	task.Properties.OriginModelName = "kling-v1.5"
+	task.Status = model.TaskStatusSuccess
+	task.PrivateData.ResultURL = upstream.URL + "/secret.mp4"
+	require.NoError(t, model.DB.Save(task).Error)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Params = gin.Params{{Key: "task_id", Value: task.TaskID}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/images/"+task.TaskID+"/content", nil)
+	VideoProxy(c)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Zero(t, upstreamHits, "unauthenticated /v1/images route must never proxy a video task")
+
+	// Also verify disabled owner blocks anonymous /v1/images even for valid stored inline images.
+	imgTask := setupGenericTaskTest(t)
+	imgTask.Action = "influencer_sheet"
+	imgTask.Properties.OriginModelName = "gpt-image-2.5-sunburst"
+	var source bytes.Buffer
+	require.NoError(t, png.Encode(&source, image.NewNRGBA(image.Rect(0, 0, 3, 2))))
+	res, err := service.PersistInlineImageTask(t.Context(), imgTask, base64.StdEncoding.EncodeToString(source.Bytes()))
+	require.NoError(t, err)
+	imgTask.PrivateData.ResultURL = res.URL
+	require.NoError(t, model.DB.Save(imgTask).Error)
+	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", imgTask.UserId).Update("status", common.UserStatusDisabled).Error)
+
+	rec = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(rec)
+	c.Params = gin.Params{{Key: "task_id", Value: imgTask.TaskID}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/images/"+imgTask.TaskID+"/content", nil)
+	VideoProxy(c)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}

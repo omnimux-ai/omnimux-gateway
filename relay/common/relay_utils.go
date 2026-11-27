@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -98,11 +99,75 @@ func isSensitiveURLQueryKey(key string) bool {
 		strings.Contains(normalized, "signature")
 }
 
+var (
+	apiVersionPattern    = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+	geminiModelPattern   = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
+	allowedGeminiActions = map[string]struct{}{
+		"generateContent":       {},
+		"streamGenerateContent": {},
+		"embedContent":          {},
+		"batchEmbedContents":    {},
+		"predict":               {},
+		"predictLongRunning":    {},
+	}
+)
+
+// ValidateGeminiModelPath enforces a strict single-segment {model}:{action}
+// grammar for /v1/models/*path and /v1beta/models/*path so untrusted path
+// segments or query injection cannot traverse upstream endpoints.
+func ValidateGeminiModelPath(rawPath string) (modelName string, action string, ok bool) {
+	pathPart, _, _ := strings.Cut(rawPath, "?")
+	rest := ""
+	switch {
+	case strings.HasPrefix(pathPart, "/v1beta/models/"):
+		rest = strings.TrimPrefix(pathPart, "/v1beta/models/")
+	case strings.HasPrefix(pathPart, "/v1/models/"):
+		rest = strings.TrimPrefix(pathPart, "/v1/models/")
+	default:
+		return "", "", false
+	}
+	if rest == "" || strings.ContainsAny(rest, "/\\?#% \t\r\n") || strings.Contains(rest, "..") {
+		return "", "", false
+	}
+	m, act, hasColon := strings.Cut(rest, ":")
+	if !hasColon || !geminiModelPattern.MatchString(m) {
+		return "", "", false
+	}
+	if _, allowed := allowedGeminiActions[act]; !allowed {
+		return "", "", false
+	}
+	return m, act, true
+}
+
+// ValidateRelayURLPath rejects path traversal, backslash smuggling, protocol
+// authority overrides, and control characters in upstream relay paths.
+func ValidateRelayURLPath(rawPath string) bool {
+	if rawPath == "" {
+		return false
+	}
+	pathPart, _, _ := strings.Cut(rawPath, "?")
+	if !strings.HasPrefix(pathPart, "/") || strings.HasPrefix(pathPart, "//") {
+		return false
+	}
+	if strings.Contains(pathPart, "..") || strings.Contains(pathPart, "\\") || strings.Contains(pathPart, "://") {
+		return false
+	}
+	for _, r := range rawPath {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
 func GetAPIVersion(c *gin.Context) string {
 	query := c.Request.URL.Query()
-	apiVersion := query.Get("api-version")
+	apiVersion := strings.TrimSpace(query.Get("api-version"))
+	if apiVersion != "" && !apiVersionPattern.MatchString(apiVersion) {
+		apiVersion = ""
+	}
 	if apiVersion == "" {
-		apiVersion = c.GetString("api_version")
+		apiVersion = strings.TrimSpace(c.GetString("api_version"))
 	}
 	return apiVersion
 }

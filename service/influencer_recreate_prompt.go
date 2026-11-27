@@ -497,6 +497,10 @@ func influencerRecreatePrepareClip(parent context.Context, video []byte) (influe
 // tolerates a few unreadable positions (late keyframe or seek edge) and only
 // fails when no frame is usable, because the breakdown needs at least a few.
 func influencerRecreateExtractFrames(ctx context.Context, path string, seconds float64) ([][]byte, []float64, error) {
+	containerKind, err := detectSafeVideoContainerFile(path)
+	if err != nil {
+		return nil, nil, errors.New("参考视频格式不受支持，请上传 MP4/MOV/WebM 视频")
+	}
 	tool, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		return nil, nil, errors.New("视频分析服务暂不可用，请稍后重试")
@@ -515,16 +519,15 @@ func influencerRecreateExtractFrames(ctx context.Context, path string, seconds f
 			return nil, nil, context.DeadlineExceeded
 		}
 		timestamp := (float64(index) + 0.5) * seconds / float64(count)
-		command := exec.CommandContext(ctx, tool,
-			"-nostdin", "-v", "error",
-			"-i", path,
+		args := append(
+			safeVideoFFmpegInputArgs(containerKind, path),
 			"-ss", strconv.FormatFloat(timestamp, 'f', 3, 64),
 			"-frames:v", "1",
 			"-vf", fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease", influencerRecreateFrameBox, influencerRecreateFrameBox),
 			"-c:v", "mjpeg", "-q:v", "4",
 			"-f", "image2pipe", "pipe:1",
 		)
-		output, runErr := command.Output()
+		output, _, runErr := runBoundedFFmpegOutput(ctx, tool, args, nil, 4<<20, 16<<10)
 		if runErr != nil || len(output) < 1024 {
 			continue
 		}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -17,10 +16,12 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/samber/lo"
@@ -265,26 +266,18 @@ func FetchUpstreamRatios(c *gin.Context) {
 
 	sem := make(chan struct{}, maxConcurrentFetches)
 
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	transport := &http.Transport{MaxIdleConns: 100, IdleConnTimeout: 90 * time.Second, TLSHandshakeTimeout: 10 * time.Second, ExpectContinueTimeout: 1 * time.Second, ResponseHeaderTimeout: 10 * time.Second}
-	if common.TLSInsecureSkipVerify {
-		transport.TLSClientConfig = common.InsecureTLSConfig.Clone()
+	baseClient := service.GetSSRFProtectedHTTPClient()
+	if baseClient == nil {
+		service.InitHttpClient()
+		baseClient = service.GetSSRFProtectedHTTPClient()
 	}
-	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			host = addr
-		}
-		// 对 github.io 优先尝试 IPv4，失败则回退 IPv6
-		if strings.HasSuffix(host, "github.io") {
-			if conn, err := dialer.DialContext(ctx, "tcp4", addr); err == nil {
-				return conn, nil
-			}
-			return dialer.DialContext(ctx, "tcp6", addr)
-		}
-		return dialer.DialContext(ctx, network, addr)
+	var client http.Client
+	if baseClient != nil {
+		client = *baseClient
 	}
-	client := &http.Client{Transport: transport}
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 
 	for _, chn := range upstreams {
 		wg.Add(1)
@@ -295,43 +288,26 @@ func FetchUpstreamRatios(c *gin.Context) {
 			defer func() { <-sem }()
 
 			isOpenRouter := chItem.Endpoint == "openrouter"
-
-			endpoint := chItem.Endpoint
-			var fullURL string
-			if isOpenRouter {
-				fullURL = chItem.BaseURL + "/v1/models"
-			} else if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
-				fullURL = endpoint
-			} else {
-				if endpoint == "" {
-					endpoint = defaultEndpoint
-				} else if !strings.HasPrefix(endpoint, "/") {
-					endpoint = "/" + endpoint
-				}
-				fullURL = chItem.BaseURL + endpoint
-			}
-			isModelsDev := isModelsDevAPIEndpoint(fullURL)
-
 			uniqueName := chItem.Name
 			if chItem.ID != 0 {
 				uniqueName = fmt.Sprintf("%s(%d)", chItem.Name, chItem.ID)
 			}
 
-			ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(req.Timeout)*time.Second)
-			defer cancel()
-
-			httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
-			if err != nil {
-				logger.LogWarn(c.Request.Context(), common.LogText("build request failed: %s", err.Error()))
-				ch <- upstreamResult{Name: uniqueName, Err: err.Error()}
-				return
-			}
-
-			// OpenRouter requires Bearer token auth
-			if isOpenRouter && chItem.ID != 0 {
+			endpoint := chItem.Endpoint
+			var fullURL string
+			var authHeader string
+			if isOpenRouter {
+				if chItem.ID <= 0 {
+					ch <- upstreamResult{Name: uniqueName, Err: "OpenRouter requires a valid channel with API key"}
+					return
+				}
 				dbCh, err := model.GetChannelById(chItem.ID, true)
 				if err != nil {
 					ch <- upstreamResult{Name: uniqueName, Err: "failed to get channel key: " + err.Error()}
+					return
+				}
+				if dbCh.Type != constant.ChannelTypeOpenRouter {
+					ch <- upstreamResult{Name: uniqueName, Err: "selected channel is not an OpenRouter channel"}
 					return
 				}
 				key, _, apiErr := dbCh.GetNextEnabledKey()
@@ -343,10 +319,42 @@ func FetchUpstreamRatios(c *gin.Context) {
 					ch <- upstreamResult{Name: uniqueName, Err: "no API key configured for this channel"}
 					return
 				}
-				httpReq.Header.Set("Authorization", "Bearer "+strings.TrimSpace(key))
-			} else if isOpenRouter {
-				ch <- upstreamResult{Name: uniqueName, Err: "OpenRouter requires a valid channel with API key"}
+				// Always derive the authenticated OpenRouter target from the stored
+				// channel record, never from caller-supplied base_url.
+				dbBaseURL := strings.TrimRight(strings.TrimSpace(dbCh.GetBaseURL()), "/")
+				if dbBaseURL == "" {
+					dbBaseURL = strings.TrimRight(constant.GetChannelBaseURL(constant.ChannelTypeOpenRouter), "/")
+				}
+				fullURL = dbBaseURL + "/v1/models"
+				authHeader = "Bearer " + strings.TrimSpace(key)
+			} else if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
+				fullURL = endpoint
+			} else {
+				if endpoint == "" {
+					endpoint = defaultEndpoint
+				} else if !strings.HasPrefix(endpoint, "/") {
+					endpoint = "/" + endpoint
+				}
+				fullURL = chItem.BaseURL + endpoint
+			}
+			if err := service.ValidateSSRFProtectedFetchURL(fullURL); err != nil {
+				logger.LogWarn(c.Request.Context(), common.LogText("ratio sync URL rejected for %s: %s", chItem.Name, err.Error()))
+				ch <- upstreamResult{Name: uniqueName, Err: "upstream URL is not allowed"}
 				return
+			}
+			isModelsDev := isModelsDevAPIEndpoint(fullURL)
+
+			ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(req.Timeout)*time.Second)
+			defer cancel()
+
+			httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+			if err != nil {
+				logger.LogWarn(c.Request.Context(), common.LogText("build request failed: %s", err.Error()))
+				ch <- upstreamResult{Name: uniqueName, Err: err.Error()}
+				return
+			}
+			if authHeader != "" {
+				httpReq.Header.Set("Authorization", authHeader)
 			}
 
 			// 简单重试：最多 3 次，指数退避

@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/relay"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
 
 	"github.com/gin-gonic/gin"
@@ -277,6 +278,10 @@ func SetRelayRouter(router *gin.Engine) {
 			controller.Relay(c, types.RelayFormatGemini)
 		})
 		httpRouter.POST("/models/*path", func(c *gin.Context) {
+			if _, _, ok := relaycommon.ValidateGeminiModelPath(c.Request.URL.Path); !ok {
+				controller.RelayNotFound(c)
+				return
+			}
 			controller.Relay(c, types.RelayFormatGemini)
 		})
 
@@ -319,6 +324,12 @@ func SetRelayRouter(router *gin.Engine) {
 		if strings.HasSuffix(c.Request.URL.Path, ":countTokens") {
 			controller.RelayNotFound(c)
 			c.Abort()
+			return
+		}
+		if _, _, ok := relaycommon.ValidateGeminiModelPath(c.Request.URL.Path); !ok {
+			controller.RelayNotFound(c)
+			c.Abort()
+			return
 		}
 	})
 	relayGeminiRouter.Use(middleware.RouteTag("relay"))

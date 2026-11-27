@@ -2,12 +2,18 @@ package model
 
 import (
 	"math"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/glebarez/sqlite"
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -258,4 +264,261 @@ func TestTokenCacheInitPreservesLiveQuotaAndFenceBlocksStaleSnapshot(t *testing.
 	cached, err = cacheGetTokenByKey(token.Key)
 	require.NoError(t, err)
 	assert.Equal(t, 100, cached.RemainQuota)
+}
+
+func TestDirectPurchaseRespectsUnflushedRedisQuotaAndRenewSocialSeatIsAtomic(t *testing.T) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	useUserCacheMiniRedis(t)
+	common.BatchUpdateEnabled = true
+
+	// H-8: User has 100 quota, spends 80 through relay (only in Redis while batch
+	// update is unflushed). Direct purchase needing 50 must fail against Redis.
+	user := createReserveTestUser(t, 100)
+	reserved, err := TryReserveUserQuota(user.Id, 80)
+	require.NoError(t, err)
+	require.True(t, reserved)
+	assert.Equal(t, 100, getUserQuotaFromDB(t, user.Id), "DB still has stale balance")
+
+	plan := &SubscriptionPlan{
+		Title:         "Direct Purchase Guard",
+		PriceAmount:   1,
+		Enabled:       true,
+		DurationUnit:  SubscriptionDurationMonth,
+		DurationValue: 1,
+	}
+	require.NoError(t, DB.Create(plan).Error)
+	oldQuotaPerUnit := common.QuotaPerUnit
+	common.QuotaPerUnit = 50
+	t.Cleanup(func() { common.QuotaPerUnit = oldQuotaPerUnit })
+
+	err = PurchaseSubscriptionWithBalance(user.Id, plan.Id)
+	require.Error(t, err, "direct balance purchase must not spend quota already reserved in Redis")
+	assert.Equal(t, 100, getUserQuotaFromDB(t, user.Id))
+
+	// H-8: Atomic social seat renewal charges once and skips concurrent/second pass.
+	seatUser := createReserveTestUser(t, 100)
+	now := time.Now().UTC()
+	expiredAt := now.Add(-time.Hour)
+	accID := int64(999)
+	seat := &SocialSeat{
+		UserId:            seatUser.Id,
+		Status:            SocialSeatStatusOccupied,
+		ExpiresAt:         expiredAt,
+		OccupiedAccountID: &accID,
+		OpenedQuota:       40,
+		CreatedAt:         expiredAt.Add(-SocialSeatWindow()),
+		UpdatedAt:         expiredAt,
+	}
+	require.NoError(t, DB.Create(seat).Error)
+
+	var firstRenewed, secondRenewed *SocialSeat
+	require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+		var rErr error
+		firstRenewed, _, _, rErr = RenewSocialSeatTx(tx, seat.ID, seatUser.Id, 40, now)
+		return rErr
+	}))
+	require.NotNil(t, firstRenewed)
+	assert.Equal(t, 60, getUserQuotaFromDB(t, seatUser.Id))
+
+	require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+		var rErr error
+		secondRenewed, _, _, rErr = RenewSocialSeatTx(tx, seat.ID, seatUser.Id, 40, now)
+		return rErr
+	}))
+	assert.Nil(t, secondRenewed, "second renewal pass must be a no-op")
+	assert.Equal(t, 60, getUserQuotaFromDB(t, seatUser.Id))
+}
+
+type legacyTopUpRow struct {
+	Id            int `gorm:"primaryKey"`
+	UserId        int `gorm:"index"`
+	Amount        int64
+	Money         float64
+	TradeNo       string `gorm:"uniqueIndex;type:varchar(255)"`
+	PaymentMethod string `gorm:"type:varchar(50)"`
+	CreateTime    int64
+	CompleteTime  int64
+	Status        string `gorm:"type:varchar(50)"`
+}
+
+func (legacyTopUpRow) TableName() string { return "top_ups" }
+
+type legacySubscriptionOrderRow struct {
+	Id            int64 `gorm:"primaryKey"`
+	UserId        int   `gorm:"index"`
+	PlanId        int64 `gorm:"index"`
+	Money         float64
+	TradeNo       string `gorm:"uniqueIndex;type:varchar(128)"`
+	PaymentMethod string `gorm:"type:varchar(32)"`
+	CreateTime    int64
+	CompleteTime  int64
+	Status        string `gorm:"type:varchar(32)"`
+}
+
+func (legacySubscriptionOrderRow) TableName() string { return "subscription_orders" }
+
+func verifySecurityMigrationOnDB(t *testing.T, openDB func() (*gorm.DB, func()), dbType common.DatabaseType) {
+	t.Helper()
+	models := []any{&User{}, &TopUp{}, &SubscriptionOrder{}, &Task{}, &VoiceClone{}}
+
+	t.Run("fresh_and_idempotent", func(t *testing.T) {
+		db, cleanup := openDB()
+		defer cleanup()
+		oldDB := DB
+		oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+		DB = db
+		common.SetDatabaseTypes(dbType, oldLog)
+		defer func() {
+			DB = oldDB
+			common.SetDatabaseTypes(oldMain, oldLog)
+		}()
+
+		require.NoError(t, db.AutoMigrate(models...))
+		require.NoError(t, db.AutoMigrate(models...))
+		require.NoError(t, BackfillVoiceClones())
+		require.NoError(t, BackfillVoiceClones())
+
+		created, err := ClaimOrVerifyVoiceCloneOwner(11, "omnimux_mig_spk_1", "task_1")
+		require.NoError(t, err)
+		assert.True(t, created)
+		// Same-owner retry is idempotent and does not mark as newly claimed.
+		createdAgain, err := ClaimOrVerifyVoiceCloneOwner(11, "omnimux_mig_spk_1", "task_1")
+		require.NoError(t, err)
+		assert.False(t, createdAgain)
+		// Unique index rejects duplicate speaker_id row.
+		require.Error(t, db.Create(&VoiceClone{SpeakerID: "omnimux_mig_spk_1", UserId: 22}).Error)
+		// Foreign owner claim is rejected.
+		_, err = ClaimOrVerifyVoiceCloneOwner(22, "omnimux_mig_spk_1", "task_2")
+		require.ErrorIs(t, err, ErrVoiceCloneOwnedByOther)
+		// lockForUpdate works inside a transaction on this engine.
+		require.NoError(t, db.Create(&User{Id: 11, Username: "mig-lock-user", Password: "x", AffCode: "miglock1", Quota: 50, Status: 1}).Error)
+		require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+			var u User
+			return lockForUpdate(tx).Where("id = ?", 11).First(&u).Error
+		}))
+	})
+
+	t.Run("upgrade_from_legacy_schema", func(t *testing.T) {
+		db, cleanup := openDB()
+		defer cleanup()
+		oldDB := DB
+		oldMain, oldLog := common.MainDatabaseType(), common.LogDatabaseType()
+		DB = db
+		common.SetDatabaseTypes(dbType, oldLog)
+		defer func() {
+			DB = oldDB
+			common.SetDatabaseTypes(oldMain, oldLog)
+		}()
+
+		// Seed pre-change schema and representative rows.
+		require.NoError(t, db.AutoMigrate(&User{}, &legacyTopUpRow{}, &legacySubscriptionOrderRow{}, &Task{}))
+		require.NoError(t, db.Create(&legacyTopUpRow{
+			UserId: 7, Amount: 10, Money: 80, TradeNo: "legacy-topup-1", PaymentMethod: "stripe", Status: common.TopUpStatusPending,
+		}).Error)
+		require.NoError(t, db.Create(&legacySubscriptionOrderRow{
+			UserId: 7, PlanId: 2, Money: 29, TradeNo: "legacy-sub-1", PaymentMethod: "stripe", Status: common.TopUpStatusPending,
+		}).Error)
+		// Seed an earlier failed attempt by another user before the succeeded clone
+		// to ensure BackfillVoiceClones prioritizes SUCCESS and skips FAILURE rows.
+		require.NoError(t, db.Create(&Task{
+			TaskID: "task_vc_failed_earlier", UserId: 99, Action: constant.TaskActionVoiceClone, Status: TaskStatusFailure,
+			PrivateData: TaskPrivateData{UpstreamTaskID: "omnimux_legacy_speaker"},
+		}).Error)
+		require.NoError(t, db.Create(&Task{
+			TaskID: "task_vc_legacy", UserId: 7, Action: constant.TaskActionVoiceClone, Status: TaskStatusSuccess,
+			PrivateData: TaskPrivateData{UpstreamTaskID: "omnimux_legacy_speaker"},
+		}).Error)
+
+		// Run new AutoMigrate + Backfill twice to verify upgrade + idempotency.
+		require.NoError(t, db.AutoMigrate(models...))
+		require.NoError(t, BackfillVoiceClones())
+		require.NoError(t, db.AutoMigrate(models...))
+		require.NoError(t, BackfillVoiceClones())
+
+		// Verify legacy rows survived and new columns are writable.
+		var tu TopUp
+		require.NoError(t, db.Where("trade_no = ?", "legacy-topup-1").First(&tu).Error)
+		assert.Equal(t, int64(10), tu.Amount)
+		require.NoError(t, db.Model(&tu).Updates(map[string]any{
+			"credited_quota": 5000000, "expected_amount_minor": 8000, "expected_currency": "usd",
+		}).Error)
+
+		var sub SubscriptionOrder
+		require.NoError(t, db.Where("trade_no = ?", "legacy-sub-1").First(&sub).Error)
+		assert.Equal(t, 2, sub.PlanId)
+		require.NoError(t, db.Model(&sub).Updates(map[string]any{
+			"expected_amount_minor": 2900, "expected_currency": "usd", "provider_session_id": "cs_legacy",
+		}).Error)
+
+		// Verify legacy VOICE_CLONE task was backfilled into voice_clones.
+		ownerID, found, err := GetVoiceCloneOwner("omnimux_legacy_speaker")
+		require.NoError(t, err)
+		require.True(t, found)
+		assert.Equal(t, 7, ownerID)
+	})
+}
+
+func TestSecuritySchemaMigrationFreshUpgradeAndIdempotency(t *testing.T) {
+	t.Run("sqlite", func(t *testing.T) {
+		verifySecurityMigrationOnDB(t, func() (*gorm.DB, func()) {
+			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+			require.NoError(t, err)
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			sqlDB.SetMaxOpenConns(1)
+			return db, func() { _ = sqlDB.Close() }
+		}, common.DatabaseTypeSQLite)
+	})
+
+	if pgDSN := os.Getenv("SECURITY_VERIFY_PG_DSN"); pgDSN != "" {
+		t.Run("postgres", func(t *testing.T) {
+			verifySecurityMigrationOnDB(t, func() (*gorm.DB, func()) {
+				adminDB, err := gorm.Open(postgres.Open(pgDSN), &gorm.Config{})
+				require.NoError(t, err)
+				schema := "sec_mig_" + common.GetRandomString(8)
+				require.NoError(t, adminDB.Exec("CREATE SCHEMA "+schema).Error)
+				dsnWithSchema := pgDSN + " search_path=" + schema
+				db, err := gorm.Open(postgres.Open(dsnWithSchema), &gorm.Config{})
+				require.NoError(t, err)
+				sqlDB, err := db.DB()
+				require.NoError(t, err)
+				adminSQL, err := adminDB.DB()
+				require.NoError(t, err)
+				return db, func() {
+					_ = sqlDB.Close()
+					_ = adminDB.Exec("DROP SCHEMA IF EXISTS " + schema + " CASCADE").Error
+					_ = adminSQL.Close()
+				}
+			}, common.DatabaseTypePostgreSQL)
+		})
+	}
+
+	if mysqlDSN := os.Getenv("SECURITY_VERIFY_MYSQL_DSN"); mysqlDSN != "" {
+		t.Run("mysql", func(t *testing.T) {
+			verifySecurityMigrationOnDB(t, func() (*gorm.DB, func()) {
+				cfg, err := mysqlDriver.ParseDSN(mysqlDSN)
+				require.NoError(t, err)
+				adminCfg := *cfg
+				adminCfg.DBName = ""
+				adminDB, err := gorm.Open(gormmysql.Open(adminCfg.FormatDSN()), &gorm.Config{})
+				require.NoError(t, err)
+				dbName := "sec_mig_" + common.GetRandomString(8)
+				require.NoError(t, adminDB.Exec("CREATE DATABASE `"+dbName+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci").Error)
+				testCfg := *cfg
+				testCfg.DBName = dbName
+				db, err := gorm.Open(gormmysql.Open(testCfg.FormatDSN()), &gorm.Config{})
+				require.NoError(t, err)
+				sqlDB, err := db.DB()
+				require.NoError(t, err)
+				adminSQL, err := adminDB.DB()
+				require.NoError(t, err)
+				return db, func() {
+					_ = sqlDB.Close()
+					_ = adminDB.Exec("DROP DATABASE IF EXISTS `" + dbName + "`").Error
+					_ = adminSQL.Close()
+				}
+			}, common.DatabaseTypeMySQL)
+		})
+	}
 }

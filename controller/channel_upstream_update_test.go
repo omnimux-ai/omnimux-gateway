@@ -282,18 +282,24 @@ func TestFetchModelsAdvancedCustomEditPreviewUsesSavedKeyAndExplicitClears(t *te
 	rawConfig := string(configBytes)
 	baseURL := server.URL
 	explicitEmpty := ""
-	req := fetchModelsRequest{
+
+	// Changing destination/forwarding fields without a fresh key must be rejected
+	// so savedChannel.Key cannot be exfiltrated to an attacker-controlled base_url.
+	_, err = buildAdvancedCustomModelPreviewChannel(fetchModelsRequest{
 		ChannelID:      savedChannel.Id,
-		BaseURL:        &baseURL,
-		Type:           constant.ChannelTypeAdvancedCustom,
-		Key:            "request-key-must-be-ignored",
+		BaseURL:        &explicitEmpty,
 		AdvancedCustom: &rawConfig,
 		HeaderOverride: &explicitEmpty,
 		Proxy:          &explicitEmpty,
-	}
+	})
+	require.Error(t, err)
+
+	// Providing a fresh key when changing destination uses the caller's key
+	// and never sends savedChannel.Key to the modified base_url.
 	cleared, err := buildAdvancedCustomModelPreviewChannel(fetchModelsRequest{
 		ChannelID:      savedChannel.Id,
 		BaseURL:        &explicitEmpty,
+		Key:            "caller-preview-key",
 		AdvancedCustom: &rawConfig,
 		HeaderOverride: &explicitEmpty,
 		Proxy:          &explicitEmpty,
@@ -304,7 +310,17 @@ func TestFetchModelsAdvancedCustomEditPreviewUsesSavedKeyAndExplicitClears(t *te
 	require.NotNil(t, cleared.HeaderOverride)
 	require.Empty(t, *cleared.HeaderOverride)
 	require.Empty(t, cleared.GetSetting().Proxy)
+	require.Equal(t, "caller-preview-key", cleared.Key)
 
+	req := fetchModelsRequest{
+		ChannelID:      savedChannel.Id,
+		BaseURL:        &baseURL,
+		Type:           constant.ChannelTypeAdvancedCustom,
+		Key:            "caller-preview-key",
+		AdvancedCustom: &rawConfig,
+		HeaderOverride: &explicitEmpty,
+		Proxy:          &explicitEmpty,
+	}
 	body, err := common.Marshal(req)
 	require.NoError(t, err)
 
@@ -323,10 +339,9 @@ func TestFetchModelsAdvancedCustomEditPreviewUsesSavedKeyAndExplicitClears(t *te
 	require.True(t, response.Success, response.Message)
 	require.Equal(t, []string{"edited-preview-model"}, response.Data)
 	require.NotContains(t, recorder.Body.String(), "enabled-saved-key")
-	require.NotContains(t, recorder.Body.String(), "request-key-must-be-ignored")
 
 	headers := <-receivedHeaders
-	require.Equal(t, "Bearer enabled-saved-key", headers.Get("Authorization"))
+	require.Equal(t, "Bearer caller-preview-key", headers.Get("Authorization"))
 	require.Empty(t, headers.Get("X-Saved"))
 }
 

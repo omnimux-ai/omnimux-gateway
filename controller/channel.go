@@ -1138,6 +1138,16 @@ func UpdateChannel(c *gin.Context) {
 		common.ApiErrorT(c, "Unauthorized, insufficient privileges")
 		return
 	}
+	baseURLChanged := false
+	if _, ok := requestData["base_url"]; ok && !equalStringPtr(channel.BaseURL, originChannel.BaseURL) {
+		baseURLChanged = true
+	}
+	freshReplacementKey := strings.TrimSpace(channel.Key) != "" && (channel.KeyMode == nil || *channel.KeyMode != "append")
+	if (baseURLChanged || proxyChanged) && strings.TrimSpace(originChannel.Key) != "" && !freshReplacementKey &&
+		!authz.Can(c.GetInt("id"), c.GetInt("role"), authz.ChannelSecretView) {
+		common.ApiErrorT(c, "Unauthorized, insufficient privileges")
+		return
+	}
 
 	// If the request explicitly specifies a new MultiKeyMode, apply it on top of the original info.
 	if channel.MultiKeyMode != nil && *channel.MultiKeyMode != "" {
@@ -1357,6 +1367,7 @@ type fetchModelsRequest struct {
 
 func buildAdvancedCustomModelPreviewChannel(req fetchModelsRequest) (*model.Channel, error) {
 	var channel *model.Channel
+	var originBaseURL, originProxy, originHeaderOverride string
 	if req.ChannelID > 0 {
 		savedChannel, err := model.GetChannelById(req.ChannelID, true)
 		if err != nil {
@@ -1364,6 +1375,11 @@ func buildAdvancedCustomModelPreviewChannel(req fetchModelsRequest) (*model.Chan
 		}
 		if savedChannel.Type != constant.ChannelTypeAdvancedCustom {
 			return nil, fmt.Errorf("channel %d is not an advanced custom channel", req.ChannelID)
+		}
+		originBaseURL = strings.TrimSpace(savedChannel.GetBaseURL())
+		originProxy = strings.TrimSpace(savedChannel.GetSetting().Proxy)
+		if savedChannel.HeaderOverride != nil {
+			originHeaderOverride = strings.TrimSpace(*savedChannel.HeaderOverride)
 		}
 		channel = savedChannel
 	} else {
@@ -1415,6 +1431,26 @@ func buildAdvancedCustomModelPreviewChannel(req fetchModelsRequest) (*model.Chan
 		channelSettings := channel.GetSetting()
 		channelSettings.Proxy = strings.TrimSpace(*req.Proxy)
 		channel.SetSetting(channelSettings)
+	}
+
+	if req.ChannelID > 0 {
+		currentBaseURL := strings.TrimSpace(channel.GetBaseURL())
+		currentProxy := strings.TrimSpace(channel.GetSetting().Proxy)
+		currentHeaderOverride := ""
+		if channel.HeaderOverride != nil {
+			currentHeaderOverride = strings.TrimSpace(*channel.HeaderOverride)
+		}
+		destinationChanged := currentBaseURL != originBaseURL ||
+			currentProxy != originProxy ||
+			currentHeaderOverride != originHeaderOverride
+		if destinationChanged && strings.TrimSpace(channel.Key) != "" {
+			newKey := strings.TrimSpace(req.Key)
+			if newKey == "" {
+				return nil, fmt.Errorf("changing base_url, proxy, or header_override for an existing channel requires providing a new API key")
+			}
+			channel.Key = strings.Split(newKey, "\n")[0]
+			channel.ChannelInfo = model.ChannelInfo{}
+		}
 	}
 
 	if err := validateChannel(channel, false); err != nil {

@@ -229,6 +229,10 @@ func influencerObjectSwapExtractFrames(ctx context.Context, video []byte, second
 	if seconds <= 0 || len(video) == 0 {
 		return nil, nil, errors.New("reference video is empty")
 	}
+	containerKind := detectSafeVideoContainer(video)
+	if containerKind == safeVideoContainerUnknown {
+		return nil, nil, errors.New("reference video container is unsupported")
+	}
 	tool, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		return nil, nil, errors.New("video frame rendering is unavailable")
@@ -243,6 +247,12 @@ func influencerObjectSwapExtractFrames(ctx context.Context, video []byte, second
 		file.Close()
 		return nil, nil, err
 	}
+	if containerKind == safeVideoContainerISOBMFF {
+		if err = influencerVideoMOVEdits(ctx, file, int64(len(video)), 0, int64(len(video)), 0, new(int)); err != nil {
+			file.Close()
+			return nil, nil, err
+		}
+	}
 	if err = file.Close(); err != nil {
 		return nil, nil, err
 	}
@@ -254,16 +264,15 @@ func influencerObjectSwapExtractFrames(ctx context.Context, video []byte, second
 			return nil, nil, context.DeadlineExceeded
 		}
 		timestamp := (float64(index) + 0.5) * float64(seconds) / float64(count)
-		command := exec.CommandContext(ctx, tool,
-			"-nostdin", "-v", "error",
-			"-i", path,
+		args := append(
+			safeVideoFFmpegInputArgs(containerKind, path),
 			"-ss", strconv.FormatFloat(timestamp, 'f', 3, 64),
 			"-frames:v", "1",
 			"-vf", fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease", InfluencerObjectSwapFrameBox, InfluencerObjectSwapFrameBox),
 			"-c:v", "mjpeg", "-q:v", "4",
 			"-f", "image2pipe", "pipe:1",
 		)
-		output, runErr := command.Output()
+		output, _, runErr := runBoundedFFmpegOutput(ctx, tool, args, nil, 4<<20, 16<<10)
 		if runErr != nil || len(output) < 1024 {
 			continue
 		}
