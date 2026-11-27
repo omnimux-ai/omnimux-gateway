@@ -79,22 +79,30 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	reference := fmt.Sprintf("sub-stripe-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "sub_ref_" + common.Sha1([]byte(reference))
 
-	payLink, err := genStripeSubscriptionLink(referenceId, user.StripeCustomer, user.Email, plan.StripePriceId)
+	checkoutSession, err := genStripeSubscriptionLink(referenceId, user.StripeCustomer, user.Email, plan.StripePriceId)
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Stripe failed to create subscription payment link trade_no=%s plan_id=%d error=%q", referenceId, plan.Id, err.Error()))
 		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}
 
+	expectedMinor := checkoutSession.AmountSubtotal
+	if expectedMinor <= 0 {
+		expectedMinor = checkoutSession.AmountTotal
+	}
 	order := &model.SubscriptionOrder{
-		UserId:          userId,
-		PlanId:          plan.Id,
-		Money:           plan.PriceAmount,
-		TradeNo:         referenceId,
-		PaymentMethod:   model.PaymentMethodStripe,
-		PaymentProvider: model.PaymentProviderStripe,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:              userId,
+		PlanId:              plan.Id,
+		Money:               plan.PriceAmount,
+		ExpectedAmountMinor: expectedMinor,
+		ExpectedCurrency:    strings.ToUpper(string(checkoutSession.Currency)),
+		ExpectedMode:        stripeModeString(checkoutSession.Livemode),
+		ProviderSessionId:   checkoutSession.ID,
+		TradeNo:             referenceId,
+		PaymentMethod:       model.PaymentMethodStripe,
+		PaymentProvider:     model.PaymentProviderStripe,
+		CreateTime:          time.Now().Unix(),
+		Status:              common.TopUpStatusPending,
 	}
 	if err := order.Insert(); err != nil {
 		paymentError(c, common.NewMessage("Failed to create order"))
@@ -104,12 +112,12 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 		"data": gin.H{
-			"pay_link": payLink,
+			"pay_link": checkoutSession.URL,
 		},
 	})
 }
 
-func genStripeSubscriptionLink(referenceId string, customerId string, email string, priceId string) (string, error) {
+func genStripeSubscriptionLink(referenceId string, customerId string, email string, priceId string) (*stripe.CheckoutSession, error) {
 	stripe.Key = setting.StripeApiSecret
 
 	params := &stripe.CheckoutSessionParams{
@@ -136,7 +144,7 @@ func genStripeSubscriptionLink(referenceId string, customerId string, email stri
 
 	result, err := session.New(params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return result.URL, nil
+	return result, nil
 }

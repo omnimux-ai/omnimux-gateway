@@ -26,32 +26,43 @@ func validateHostedQty(qty int) error {
 	return nil
 }
 
-func chargeHostedBalanceTx(tx *gorm.DB, userId int, amountUSD float64) (int, error) {
+func chargeHostedBalanceTx(tx *gorm.DB, userId int, amountUSD float64) (int, bool, func(), error) {
 	quota, clamp, err := HostedUSDToQuota(amountUSD)
 	if err != nil {
-		return 0, err
+		return 0, false, nil, err
 	}
 	if clamp != nil {
-		return 0, clamp
+		return 0, false, nil, clamp
+	}
+	cacheReserved, releaseCache, cacheErr := ReserveWalletForDirectPurchaseTx(tx, userId, quota)
+	if cacheErr != nil {
+		if errors.Is(cacheErr, ErrInsufficientWalletQuota) {
+			return 0, false, nil, ErrHostedBalanceInsufficient
+		}
+		return 0, false, nil, cacheErr
 	}
 	var user User
 	if err := lockForUpdate(tx).Where("id = ?", userId).First(&user).Error; err != nil {
-		return 0, err
+		releaseCache()
+		return 0, false, nil, err
 	}
 	if quota > 0 && user.Quota < quota {
-		return 0, ErrHostedBalanceInsufficient
+		releaseCache()
+		return 0, false, nil, ErrHostedBalanceInsufficient
 	}
 	if quota > 0 {
 		res := tx.Model(&User{}).Where("id = ? AND quota >= ?", userId, quota).
 			Update("quota", gorm.Expr("quota - ?", quota))
 		if res.Error != nil {
-			return 0, res.Error
+			releaseCache()
+			return 0, false, nil, res.Error
 		}
 		if res.RowsAffected != 1 {
-			return 0, ErrHostedBalanceInsufficient
+			releaseCache()
+			return 0, false, nil, ErrHostedBalanceInsufficient
 		}
 	}
-	return quota, nil
+	return quota, cacheReserved, releaseCache, nil
 }
 
 func insertHostedReceipt(tx *gorm.DB, userId int, planId int, amountUSD float64, quota int, kind string) (*SubscriptionOrder, error) {
@@ -104,6 +115,8 @@ func PurchaseHostedChannelsWithBalance(userId int, skuId int64, qty int, prorate
 	}
 
 	var result HostedPurchaseResult
+	var cacheReserved bool
+	var releaseCache func()
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var sku HostedSKU
 		if err := lockForUpdate(tx).Where("id = ?", skuId).First(&sku).Error; err != nil {
@@ -143,10 +156,12 @@ func PurchaseHostedChannelsWithBalance(userId int, skuId int64, qty int, prorate
 				return calcErr
 			}
 		}
-		quota, err := chargeHostedBalanceTx(tx, userId, amount)
+		quota, reserved, release, err := chargeHostedBalanceTx(tx, userId, amount)
 		if err != nil {
 			return err
 		}
+		cacheReserved = reserved
+		releaseCache = release
 
 		receipt, err := insertHostedReceipt(tx, userId, sku.PlanId, amount, quota, kind)
 		if err != nil {
@@ -196,9 +211,12 @@ func PurchaseHostedChannelsWithBalance(userId int, skuId int64, qty int, prorate
 		return nil
 	})
 	if err != nil {
+		if releaseCache != nil {
+			releaseCache()
+		}
 		return nil, err
 	}
-	if result.Quota > 0 {
+	if !cacheReserved && result.Quota > 0 {
 		if err := cacheDecrUserQuota(userId, int64(result.Quota)); err != nil {
 			common.SysLog("failed to decrease user quota cache after hosted purchase: " + err.Error())
 		}
@@ -225,6 +243,8 @@ func RenewHostedEntitlement(userId int, skuId int64, idempotencyKey string) (*Ho
 	}
 
 	var result HostedPurchaseResult
+	var cacheReserved bool
+	var releaseCache func()
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var sku HostedSKU
 		if err := lockForUpdate(tx).Where("id = ?", skuId).First(&sku).Error; err != nil {
@@ -244,10 +264,12 @@ func RenewHostedEntitlement(userId int, skuId int64, idempotencyKey string) (*Ho
 			return errors.New("no hosted quantity to renew")
 		}
 		amount := sku.PriceUSD * float64(ent.Quantity)
-		quota, err := chargeHostedBalanceTx(tx, userId, amount)
+		quota, reserved, release, err := chargeHostedBalanceTx(tx, userId, amount)
 		if err != nil {
 			return err
 		}
+		cacheReserved = reserved
+		releaseCache = release
 		receipt, err := insertHostedReceipt(tx, userId, sku.PlanId, amount, quota, HostedOrderKindRenew)
 		if err != nil {
 			return err
@@ -284,9 +306,12 @@ func RenewHostedEntitlement(userId int, skuId int64, idempotencyKey string) (*Ho
 		return nil
 	})
 	if err != nil {
+		if releaseCache != nil {
+			releaseCache()
+		}
 		return nil, err
 	}
-	if result.Quota > 0 {
+	if !cacheReserved && result.Quota > 0 {
 		if err := cacheDecrUserQuota(userId, int64(result.Quota)); err != nil {
 			common.SysLog("failed to decrease user quota cache after hosted renew: " + err.Error())
 		}

@@ -165,7 +165,12 @@ func RequestWaffoPay(c *gin.Context) {
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	creditedQuota, err := validateTopUpQuota(req.Amount)
+	if err == nil {
+		err = model.ValidateTopUpQuotaCapacity(id, creditedQuota)
+	}
+	if err != nil {
+		paymentError(c, err)
 		return
 	}
 
@@ -224,16 +229,20 @@ func RequestWaffoPay(c *gin.Context) {
 		amount = max(int64(float64(req.Amount)/common.QuotaPerUnit), 1)
 	}
 
+	currency := strings.ToUpper(strings.TrimSpace(getWaffoCurrency()))
 	// 创建本地订单
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          amount,
-		Money:           payMoney,
-		TradeNo:         merchantOrderId,
-		PaymentMethod:   model.PaymentMethodWaffo,
-		PaymentProvider: model.PaymentProviderWaffo,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:              id,
+		Amount:              amount,
+		Money:               payMoney,
+		CreditedQuota:       int64(creditedQuota),
+		ExpectedAmountMinor: model.ExpectedMinorFromMajor(payMoney, currency),
+		ExpectedCurrency:    currency,
+		TradeNo:             merchantOrderId,
+		PaymentMethod:       model.PaymentMethodWaffo,
+		PaymentProvider:     model.PaymentProviderWaffo,
+		CreateTime:          time.Now().Unix(),
+		Status:              common.TopUpStatusPending,
 	}
 	if err := topUp.Insert(); err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Waffo failed to create top-up order user_id=%d trade_no=%s amount=%d error=%q", id, merchantOrderId, req.Amount, err.Error()))
@@ -260,7 +269,6 @@ func RequestWaffoPay(c *gin.Context) {
 		returnUrl = setting.WaffoReturnUrl
 	}
 
-	currency := getWaffoCurrency()
 	goodsInfo := buildWaffoTopUpGoodsInfo(req.Amount)
 	createParams := &order.CreateOrderParams{
 		PaymentRequestID: paymentRequestId,
@@ -361,11 +369,11 @@ func WaffoWebhook(c *gin.Context) {
 	wh := sdk.Webhook()
 	bodyStr := string(bodyBytes)
 	signature := c.GetHeader("X-SIGNATURE")
-	logger.LogInfo(c.Request.Context(), common.LogText("Waffo webhook received request path=%q client_ip=%s signature=%q body=%q", c.Request.RequestURI, c.ClientIP(), signature, bodyStr))
+	logger.LogInfo(c.Request.Context(), common.LogText("Waffo webhook received request path=%q client_ip=%s has_signature=%t body_bytes=%d", c.Request.RequestURI, c.ClientIP(), signature != "", len(bodyBytes)))
 
 	// 验证请求签名
 	if !wh.VerifySignature(bodyStr, signature) {
-		logger.LogWarn(c.Request.Context(), common.LogText("Waffo webhook signature verification failed path=%q client_ip=%s signature=%q body=%q", c.Request.RequestURI, c.ClientIP(), signature, bodyStr))
+		logger.LogWarn(c.Request.Context(), common.LogText("Waffo webhook signature verification failed path=%q client_ip=%s body_bytes=%d", c.Request.RequestURI, c.ClientIP(), len(bodyBytes)))
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -409,15 +417,30 @@ func handleWaffoPayment(c *gin.Context, wh *core.WebhookHandler, result *core.Pa
 		return
 	}
 
+	if setting.WaffoMerchantId != "" && result.MerchantInfo != nil {
+		if mid, ok := result.MerchantInfo["merchantId"].(string); ok && strings.TrimSpace(mid) != "" && strings.TrimSpace(mid) != strings.TrimSpace(setting.WaffoMerchantId) {
+			logger.LogWarn(c.Request.Context(), common.LogText("Waffo webhook merchant mismatch trade_no=%s expected=%s actual=%s client_ip=%s", result.MerchantOrderID, setting.WaffoMerchantId, mid, c.ClientIP()))
+			sendWaffoWebhookResponse(c, wh, false, "merchant mismatch")
+			return
+		}
+	}
+
 	merchantOrderId := result.MerchantOrderID
 
 	LockOrder(merchantOrderId)
 	defer UnlockOrder(merchantOrderId)
 
+	orderCurrency := strings.ToUpper(strings.TrimSpace(result.OrderCurrency))
+	paidMinor, hasPaidAmount := parseDecimalMinor(result.OrderAmount, orderCurrency)
 	paidAmount, _ := strconv.ParseFloat(result.OrderAmount, 64)
 	if err := model.RechargeWaffo(merchantOrderId, c.ClientIP(), model.TopUpAnalyticsPayment{
-		Currency: result.OrderCurrency,
+		Currency: orderCurrency,
 		Amount:   paidAmount,
+		Verification: &model.PaymentVerification{
+			AmountMinor: paidMinor,
+			HasAmount:   hasPaidAmount,
+			Currency:    orderCurrency,
+		},
 	}); err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Waffo top-up processing failed trade_no=%s client_ip=%s error=%q", merchantOrderId, c.ClientIP(), err.Error()))
 		sendWaffoWebhookResponse(c, wh, false, err.Error())

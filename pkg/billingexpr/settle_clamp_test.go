@@ -50,3 +50,26 @@ func TestComputeTieredQuota_NoClampInRange(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, result.Clamp, "in-range settlement must not report a clamp")
 }
+
+func TestRunExprAndComputeTieredQuotaRejectNegativeAndNonFinite(t *testing.T) {
+	// Negative expression output must error rather than credit wallet.
+	_, _, err := billingexpr.RunExpr(`tier("neg", p * -1)`, billingexpr.TokenParams{P: 100})
+	require.Error(t, err)
+
+	// Division by zero (+Inf / NaN) must error.
+	_, _, err = billingexpr.RunExpr(`tier("inf", p / 0)`, billingexpr.TokenParams{P: 100})
+	require.Error(t, err)
+	_, _, err = billingexpr.RunExpr(`tier("nan", 0 / 0)`, billingexpr.TokenParams{})
+	require.Error(t, err)
+
+	// Negative group ratio must be rejected.
+	snap := &billingexpr.BillingSnapshot{
+		BillingMode:  "tiered_expr",
+		ExprString:   `tier("base", p * 2)`,
+		ExprHash:     billingexpr.ExprHashString(`tier("base", p * 2)`),
+		GroupRatio:   -1.0,
+		QuotaPerUnit: 500_000,
+	}
+	_, err = billingexpr.ComputeTieredQuota(snap, billingexpr.TokenParams{P: 1000})
+	require.Error(t, err)
+}

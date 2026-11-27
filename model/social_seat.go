@@ -76,6 +76,51 @@ func SocialUSDToQuota(amountUSD float64) (int, error) {
 	return quota, nil
 }
 
+// LockUserForUpdateTx acquires a row-level lock on the user row inside tx so
+// per-user seat cap checks and seat creation serialize cleanly.
+func LockUserForUpdateTx(tx *gorm.DB, userId int) error {
+	if tx == nil {
+		return errors.New("nil tx")
+	}
+	if userId <= 0 {
+		return errors.New("invalid user")
+	}
+	var user User
+	return lockForUpdate(tx).Select("id").Where("id = ?", userId).First(&user).Error
+}
+
+// ChargeSocialSeatWithCacheTx reserves Redis wallet quota (when enabled) and
+// deducts the user's SQL balance inside tx. Callers must call releaseCache() if
+// the enclosing transaction rolls back, or SyncSocialSeatQuotaCache after commit
+// when cacheReserved is false.
+func ChargeSocialSeatWithCacheTx(tx *gorm.DB, userId int, quota int) (bool, func(), error) {
+	if quota < 0 {
+		return false, func() {}, errors.New("invalid social seat quota")
+	}
+	cacheReserved, releaseCache, cacheErr := ReserveWalletForDirectPurchaseTx(tx, userId, quota)
+	if cacheErr != nil {
+		if errors.Is(cacheErr, ErrInsufficientWalletQuota) {
+			return false, func() {}, ErrSocialSeatQuota
+		}
+		return false, func() {}, cacheErr
+	}
+	if err := ChargeSocialSeatTx(tx, userId, quota); err != nil {
+		releaseCache()
+		return false, func() {}, err
+	}
+	return cacheReserved, releaseCache, nil
+}
+
+// SyncSocialSeatQuotaCache keeps Redis aligned after a SQL-only seat debit.
+func SyncSocialSeatQuotaCache(userId int, quota int) {
+	if quota <= 0 || !common.RedisEnabled || common.RDB == nil {
+		return
+	}
+	if err := cacheDecrUserQuota(userId, int64(quota)); err != nil {
+		common.SysLog(common.LogText("failed to decrease user quota cache after social seat charge: %s", err.Error()))
+	}
+}
+
 // ChargeSocialSeatTx locks the user row and subtracts raw quota.
 // Mirrors chargeHostedBalanceTx; does not touch hosted_orders.
 func ChargeSocialSeatTx(tx *gorm.DB, userId int, quota int) error {
@@ -278,6 +323,49 @@ func MarkSocialSeatExpired(seat *SocialSeat, extra string) error {
 	seat.OccupiedAccountID = nil
 	RecordSocialSeatLog(seat.UserId, SocialSeatActionExpire, seat.ID, 0, extra)
 	return nil
+}
+
+// RenewSocialSeatTx atomically locks an expired occupied seat, charges the user
+// wallet, and advances expires_at inside a single transaction so concurrent
+// renewals cannot double-charge the same seat.
+func RenewSocialSeatTx(tx *gorm.DB, seatID int64, userId int, quota int, now time.Time) (renewed *SocialSeat, cacheReserved bool, releaseCache func(), err error) {
+	releaseCache = func() {}
+	var seat SocialSeat
+	if err := lockForUpdate(tx).
+		Where("id = ? AND user_id = ? AND status = ? AND expires_at <= ?", seatID, userId, SocialSeatStatusOccupied, now).
+		First(&seat).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, releaseCache, nil
+		}
+		return nil, false, releaseCache, err
+	}
+	if seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now) {
+		return nil, false, releaseCache, nil
+	}
+	cacheReserved, releaseCache, err = ChargeSocialSeatWithCacheTx(tx, userId, quota)
+	if err != nil {
+		return nil, false, releaseCache, err
+	}
+	next := seat.ExpiresAt.Add(SocialSeatWindow())
+	if next.Before(now) {
+		next = now.Add(SocialSeatWindow())
+	}
+	res := tx.Model(&SocialSeat{}).
+		Where("id = ? AND user_id = ? AND status = ? AND expires_at <= ?", seat.ID, userId, SocialSeatStatusOccupied, now).
+		Updates(map[string]any{
+			"expires_at":   next,
+			"opened_quota": quota,
+			"updated_at":   now,
+		})
+	if res.Error != nil {
+		return nil, cacheReserved, releaseCache, res.Error
+	}
+	if res.RowsAffected != 1 {
+		return nil, cacheReserved, releaseCache, ErrSocialSeatExpired
+	}
+	seat.ExpiresAt = next
+	seat.OpenedQuota = quota
+	return &seat, cacheReserved, releaseCache, nil
 }
 
 func RenewSocialSeat(seat *SocialSeat, quota int, now time.Time) error {

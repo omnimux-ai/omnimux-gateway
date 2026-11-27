@@ -67,9 +67,16 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 			}
 		}
 	}
-	ai := float64(usage.PromptTokensDetails.AudioTokens)
-	imgO := float64(usage.CompletionTokenDetails.ImageTokens)
-	ao := float64(usage.CompletionTokenDetails.AudioTokens)
+	ai := max(float64(usage.PromptTokensDetails.AudioTokens), 0)
+	imgO := max(float64(usage.CompletionTokenDetails.ImageTokens), 0)
+	ao := max(float64(usage.CompletionTokenDetails.AudioTokens), 0)
+	p = max(p, 0)
+	c = max(c, 0)
+	cr = max(cr, 0)
+	cc5m = max(cc5m, 0)
+	cc1h = max(cc1h, 0)
+	img = max(img, 0)
+	imgCR = max(imgCR, 0)
 
 	// len = total input context length for tier condition evaluation.
 	// Non-Claude: prompt_tokens already includes everything.
@@ -113,13 +120,20 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 	}
 
 	// OpenAI cache-write usage reports unadjusted prefix counts, so cr + cc can
-	// exceed the prompt and drive the remainder negative. Clamp at zero.
-	if p < 0 {
-		p = 0
-	}
-	if c < 0 {
-		c = 0
-	}
+	// exceed the prompt and drive the remainder negative. Clamp all token
+	// categories at zero so malformed negative upstream counts cannot produce
+	// a negative settlement charge.
+	p = max(p, 0)
+	c = max(c, 0)
+	inputLen = max(inputLen, 0)
+	cr = max(cr, 0)
+	cc5m = max(cc5m, 0)
+	cc1h = max(cc1h, 0)
+	img = max(img, 0)
+	imgCR = max(imgCR, 0)
+	imgO = max(imgO, 0)
+	ai = max(ai, 0)
+	ao = max(ao, 0)
 
 	return billingexpr.TokenParams{
 		P:     p,

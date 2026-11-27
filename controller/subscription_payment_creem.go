@@ -54,7 +54,7 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		common.ApiErrorT(c, "CreemProductId is not configured for this plan")
 		return
 	}
-	if setting.CreemWebhookSecret == "" && !setting.CreemTestMode {
+	if setting.CreemWebhookSecret == "" {
 		common.ApiErrorT(c, "Creem webhook is not configured")
 		return
 	}
@@ -85,23 +85,6 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	reference := "sub-creem-ref-" + randstr.String(6)
 	referenceId := "sub_ref_" + common.Sha1([]byte(reference+time.Now().String()+user.Username))
 
-	// create pending order first
-	order := &model.SubscriptionOrder{
-		UserId:          userId,
-		PlanId:          plan.Id,
-		Money:           plan.PriceAmount,
-		TradeNo:         referenceId,
-		PaymentMethod:   model.PaymentMethodCreem,
-		PaymentProvider: model.PaymentProviderCreem,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
-	}
-	if err := order.Insert(); err != nil {
-		paymentError(c, common.NewMessage("Failed to create order"))
-		return
-	}
-
-	// Reuse Creem checkout generator by building a lightweight product reference.
 	currency := "USD"
 	switch operation_setting.GetGeneralSetting().QuotaDisplayType {
 	case operation_setting.QuotaDisplayTypeCNY:
@@ -111,6 +94,28 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	default:
 		currency = "USD"
 	}
+
+	// create pending order first
+	order := &model.SubscriptionOrder{
+		UserId:              userId,
+		PlanId:              plan.Id,
+		Money:               plan.PriceAmount,
+		ExpectedAmountMinor: model.ExpectedMinorFromMajor(plan.PriceAmount, currency),
+		ExpectedCurrency:    currency,
+		ExpectedMode:        creemModeString(setting.CreemTestMode),
+		ProviderProductId:   plan.CreemProductId,
+		TradeNo:             referenceId,
+		PaymentMethod:       model.PaymentMethodCreem,
+		PaymentProvider:     model.PaymentProviderCreem,
+		CreateTime:          time.Now().Unix(),
+		Status:              common.TopUpStatusPending,
+	}
+	if err := order.Insert(); err != nil {
+		paymentError(c, common.NewMessage("Failed to create order"))
+		return
+	}
+
+	// Reuse Creem checkout generator by building a lightweight product reference.
 	product := &CreemProduct{
 		ProductId: plan.CreemProductId,
 		Name:      plan.Title,

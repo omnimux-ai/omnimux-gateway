@@ -3,10 +3,13 @@ package model
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
 )
+
+var ErrInsufficientWalletQuota = errors.New("insufficient wallet quota")
 
 type cacheQuotaResult int
 
@@ -195,6 +198,62 @@ func TryReserveUserQuota(id int, quota int) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// ReserveWalletForDirectPurchaseTx atomically reserves wallet quota in Redis
+// during a direct-SQL balance purchase transaction. Passing tx ensures Redis
+// cache hydration reads through the caller's transaction instead of opening a
+// second DB connection (which avoids SQLite single-connection deadlocks and
+// connection-pool exhaustion under row locks). Callers MUST invoke release() if
+// the SQL transaction fails or rolls back; when reserved is true, callers MUST
+// NOT decrement the Redis user quota cache a second time after commit.
+func ReserveWalletForDirectPurchaseTx(tx *gorm.DB, userId int, quota int) (reserved bool, release func(), err error) {
+	noop := func() {}
+	if quota < 0 {
+		return false, noop, errors.New("quota cannot be negative")
+	}
+	if quota == 0 || !common.RedisEnabled || common.RDB == nil {
+		return false, noop, nil
+	}
+	result, cacheErr := cacheTryReserveUserQuota(userId, int64(quota))
+	if cacheErr == nil && result == cacheQuotaMiss {
+		var hydrateErr error
+		if tx != nil {
+			var user User
+			hydrateErr = tx.Where("id = ?", userId).First(&user).Error
+			if hydrateErr == nil {
+				hydrateErr = populateUserCache(user)
+			}
+		} else {
+			_, hydrateErr = GetUserCache(userId)
+		}
+		if hydrateErr == nil {
+			result, cacheErr = cacheTryReserveUserQuota(userId, int64(quota))
+		}
+	}
+	if cacheErr != nil || result == cacheQuotaMiss {
+		if cacheErr != nil {
+			common.SysLog(common.LogText("direct balance purchase cache reserve unavailable, falling back to database: %s", cacheErr.Error()))
+		}
+		return false, noop, nil
+	}
+	if result == cacheQuotaInsufficient {
+		return false, noop, ErrInsufficientWalletQuota
+	}
+	var released atomic.Bool
+	return true, func() {
+		if !released.CompareAndSwap(false, true) {
+			return
+		}
+		if compensated, compErr := cacheApplyUserQuotaDelta(userId, int64(quota)); compErr != nil || compensated != cacheQuotaOK {
+			common.SysError(common.LogText("failed to compensate direct balance purchase cache reserve: user_id=%d quota=%d result=%d err=%v", userId, quota, compensated, compErr))
+		}
+	}, nil
+}
+
+// ReserveWalletForDirectPurchase reserves wallet quota outside an explicit SQL tx.
+func ReserveWalletForDirectPurchase(userId int, quota int) (reserved bool, release func(), err error) {
+	return ReserveWalletForDirectPurchaseTx(nil, userId, quota)
 }
 
 // TryReserveTokenQuota atomically checks and deducts a token quota. Unlimited

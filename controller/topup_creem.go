@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -37,16 +38,30 @@ func generateCreemSignature(payload string, secret string) string {
 // 验证Creem webhook签名
 func verifyCreemSignature(payload string, signature string, secret string) bool {
 	if secret == "" {
-		logger.LogWarn(context.Background(), common.LogText("Creem webhook secret is not configured test_mode=%t signature=%q body=%q", setting.CreemTestMode, signature, payload))
-		if setting.CreemTestMode {
-			logger.LogInfo(context.Background(), common.LogText("Creem webhook signature check skipped reason=test_mode signature=%q body=%q", signature, payload))
-			return true
-		}
+		logger.LogWarn(context.Background(), common.LogText("Creem webhook secret is not configured test_mode=%t body_bytes=%d", setting.CreemTestMode, len(payload)))
 		return false
 	}
 
 	expectedSignature := generateCreemSignature(payload, secret)
 	return hmac.Equal([]byte(signature), []byte(expectedSignature))
+}
+
+func creemModeString(testMode bool) string {
+	if testMode {
+		return "test"
+	}
+	return "live"
+}
+
+func normalizeCreemEventMode(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "prod", "live":
+		return "live"
+	case "test", "sandbox":
+		return "test"
+	default:
+		return strings.ToLower(strings.TrimSpace(raw))
+	}
 }
 
 type CreemPayRequest struct {
@@ -100,7 +115,12 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	}
 
 	id := c.GetInt("id")
-	if rejectInvalidCreditedQuota(c, id, decimal.NewFromInt(selectedProduct.Quota)) {
+	creditedQuota, err := validateCreditedQuota(decimal.NewFromInt(selectedProduct.Quota))
+	if err == nil {
+		err = model.ValidateTopUpQuotaCapacity(id, creditedQuota)
+	}
+	if err != nil {
+		paymentError(c, err)
 		return
 	}
 
@@ -114,16 +134,22 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 	reference := fmt.Sprintf("creem-api-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "ref_" + common.Sha1([]byte(reference))
 
+	expectedCurrency := strings.ToUpper(strings.TrimSpace(selectedProduct.Currency))
 	// 先创建订单记录，使用产品配置的金额和充值额度
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          selectedProduct.Quota, // 充值额度
-		Money:           selectedProduct.Price, // 支付金额
-		TradeNo:         referenceId,
-		PaymentMethod:   model.PaymentMethodCreem,
-		PaymentProvider: model.PaymentProviderCreem,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:              id,
+		Amount:              selectedProduct.Quota, // 充值额度
+		Money:               selectedProduct.Price, // 支付金额
+		CreditedQuota:       int64(creditedQuota),
+		ExpectedAmountMinor: model.ExpectedMinorFromMajor(selectedProduct.Price, expectedCurrency),
+		ExpectedCurrency:    expectedCurrency,
+		ExpectedMode:        creemModeString(setting.CreemTestMode),
+		ProviderProductId:   selectedProduct.ProductId,
+		TradeNo:             referenceId,
+		PaymentMethod:       model.PaymentMethodCreem,
+		PaymentProvider:     model.PaymentProviderCreem,
+		CreateTime:          time.Now().Unix(),
+		Status:              common.TopUpStatusPending,
 	}
 	err = topUp.Insert()
 	if err != nil {
@@ -259,16 +285,16 @@ func CreemWebhook(c *gin.Context) {
 
 	// 获取签名头
 	signature := c.GetHeader(CreemSignatureHeader)
-	logger.LogInfo(c.Request.Context(), common.LogText("Creem webhook received request path=%q client_ip=%s signature=%q body=%q", c.Request.RequestURI, c.ClientIP(), signature, string(bodyBytes)))
+	logger.LogInfo(c.Request.Context(), common.LogText("Creem webhook received request path=%q client_ip=%s has_signature=%t body_bytes=%d", c.Request.RequestURI, c.ClientIP(), signature != "", len(bodyBytes)))
 	if signature == "" {
-		logger.LogWarn(c.Request.Context(), common.LogText("Creem webhook missing signature path=%q client_ip=%s body=%q", c.Request.RequestURI, c.ClientIP(), string(bodyBytes)))
+		logger.LogWarn(c.Request.Context(), common.LogText("Creem webhook missing signature path=%q client_ip=%s body_bytes=%d", c.Request.RequestURI, c.ClientIP(), len(bodyBytes)))
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
 	// 验证签名
 	if !verifyCreemSignature(string(bodyBytes), signature, setting.CreemWebhookSecret) {
-		logger.LogWarn(c.Request.Context(), common.LogText("Creem webhook signature verification failed path=%q client_ip=%s signature=%q body=%q", c.Request.RequestURI, c.ClientIP(), signature, string(bodyBytes)))
+		logger.LogWarn(c.Request.Context(), common.LogText("Creem webhook signature verification failed path=%q client_ip=%s body_bytes=%d", c.Request.RequestURI, c.ClientIP(), len(bodyBytes)))
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -315,15 +341,35 @@ func handleCheckoutCompleted(c *gin.Context, event *CreemWebhookEvent) {
 		return
 	}
 
+	eventMode := strings.TrimSpace(event.Object.Mode)
+	if eventMode == "" {
+		eventMode = strings.TrimSpace(event.Object.Order.Mode)
+	}
+	productId := strings.TrimSpace(event.Object.Product.Id)
+	if productId == "" {
+		productId = strings.TrimSpace(event.Object.Order.Product)
+	}
+	verification := &model.PaymentVerification{
+		AmountMinor: int64(event.Object.Order.AmountPaid),
+		HasAmount:   true,
+		Currency:    strings.ToUpper(strings.TrimSpace(event.Object.Order.Currency)),
+		Mode:        normalizeCreemEventMode(eventMode),
+		ProductId:   productId,
+	}
+
 	// Try complete subscription order first
 	LockOrder(referenceId)
 	defer UnlockOrder(referenceId)
-	if err := model.CompleteSubscriptionOrder(referenceId, common.GetJsonString(event), model.PaymentProviderCreem, ""); err == nil {
+	if err := model.CompleteSubscriptionOrderVerified(referenceId, common.GetJsonString(event), model.PaymentProviderCreem, "", verification); err == nil {
 		logger.LogInfo(c.Request.Context(), common.LogText("Creem subscription order processed trade_no=%s creem_order_id=%s", referenceId, event.Object.Order.Id))
 		c.Status(http.StatusOK)
 		return
-	} else if err != nil && !errors.Is(err, model.ErrSubscriptionOrderNotFound) {
+	} else if !errors.Is(err, model.ErrSubscriptionOrderNotFound) {
 		logger.LogError(c.Request.Context(), common.LogText("Creem subscription order processing failed trade_no=%s creem_order_id=%s error=%q", referenceId, event.Object.Order.Id, err.Error()))
+		if errors.Is(err, model.ErrPaymentVerificationFailed) {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -364,11 +410,16 @@ func handleCheckoutCompleted(c *gin.Context, event *CreemWebhookEvent) {
 	}
 
 	err := model.RechargeCreem(referenceId, customerEmail, customerName, c.ClientIP(), model.TopUpAnalyticsPayment{
-		Currency: event.Object.Order.Currency,
-		Amount:   float64(event.Object.Order.AmountPaid) / 100,
+		Currency:     event.Object.Order.Currency,
+		Amount:       float64(event.Object.Order.AmountPaid) / 100,
+		Verification: verification,
 	})
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Creem top-up processing failed trade_no=%s creem_order_id=%s client_ip=%s error=%q", referenceId, event.Object.Order.Id, c.ClientIP(), err.Error()))
+		if errors.Is(err, model.ErrPaymentVerificationFailed) {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
