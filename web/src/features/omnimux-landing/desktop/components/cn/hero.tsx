@@ -431,7 +431,8 @@ export function CnHero() {
               <a
                 className='gh-star'
                 href={SOURCE_REPO}
-                rel='noopener noreferrer'
+                rel='noopener'
+                // oxlint-disable-next-line react/jsx-no-target-blank -- keep Referer for GitHub Referrers while preserving noopener
                 target='_blank'
               >
                 <svg
