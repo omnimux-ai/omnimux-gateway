@@ -31,23 +31,36 @@ const SCANNED_ROOTS = [
 const SCANNED_FILES = ['modelcontracts/contracts.json']
 
 /**
- * Upstream resellers we buy from. Model vendor brands (volcengine, jimeng,
- * kling, vertex, openai, gemini, anthropic, deepseek) are deliberately absent:
- * those name the model itself, are public knowledge and appear on the model page.
+ * Upstream reseller names are supplied out-of-band via CI secret or local
+ * ignored config so the public repository never embeds private vendor lists:
+ *   - SUPPLIER_NAME_BLOCKLIST: comma- or newline-separated names
+ *   - SUPPLIER_NAME_BLOCKLIST_FILE: path to a newline/comma-separated file
+ *   - .supplier-blocklist (gitignored local file at repo root, if present)
  */
-const FORBIDDEN = [
-  'autodl',
-  'weijin',
-  'pidoi',
-  'apikeyfun',
-  'evolink',
-  'apimart',
-  'goeasy',
-  'runninghub',
-  'gxgen',
-]
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
-const MATCHER = new RegExp(FORBIDDEN.join('|'), 'i')
+function loadForbiddenNames() {
+  let raw = process.env.SUPPLIER_NAME_BLOCKLIST || ''
+  if (!raw.trim()) {
+    const filePath = process.env.SUPPLIER_NAME_BLOCKLIST_FILE || join(ROOT, '.supplier-blocklist')
+    if (existsSync(filePath)) {
+      try {
+        raw = readFileSync(filePath, 'utf8')
+      } catch {
+        raw = ''
+      }
+    }
+  }
+  return raw
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry && !entry.startsWith('#'))
+}
+
+const FORBIDDEN = loadForbiddenNames()
+const MATCHER = FORBIDDEN.length > 0 ? new RegExp(FORBIDDEN.map(escapeRegExp).join('|'), 'i') : null
 const TEXT_EXTENSIONS = new Set([
   '.md',
   '.mdx',
@@ -77,6 +90,7 @@ function* walk(dir) {
 
 function scanFile(path) {
   const findings = []
+  if (!MATCHER) return findings
   let text
   try {
     text = readFileSync(path, 'utf8')
@@ -98,6 +112,11 @@ function main(argv) {
   if (argv.includes('--list')) {
     console.log('scanned roots:', SCANNED_ROOTS.join(', '))
     console.log('scanned files:', SCANNED_FILES.join(', '))
+  }
+
+  if (FORBIDDEN.length === 0) {
+    console.log('supplier-name gate: SUPPLIER_NAME_BLOCKLIST not set; skipping private vendor scan')
+    return 0
   }
 
   const findings = []

@@ -112,6 +112,7 @@ deploy/worker-proxy/.wrangler/
 # 脚本改为运行时读取（环境变量 <SUPPLIER>_KEY_<CHANNEL_ID> 优先，其次本文件），
 # 见 scripts/ops/lib/local-secrets.js。禁止再把 sk-* 硬编码回任何被跟踪的文件。
 scripts/ops/.secrets.local.json
+.supplier-blocklist
 node_modules
 
 # Local sidecar build outputs (rebuilt via services/inspiration/Makefile)

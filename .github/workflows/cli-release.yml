@@ -36,18 +36,21 @@ jobs:
 
       - name: Resolve version
         id: ver
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RAW="${{ inputs.version }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            RAW="$INPUT_VERSION"
           else
             RAW="${GITHUB_REF_NAME}"
           fi
           # Accept cli-vX.Y.Z or X.Y.Z
           SEMVER="${RAW#cli-}"
           SEMVER="${SEMVER#v}"
-          if ! echo "$SEMVER" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$'; then
-            echo "::error::invalid version: ${RAW}"
+          if ! printf '%s' "$SEMVER" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "::error::invalid version"
             exit 1
           fi
           PKG="$(node -p "require('./cli/package.json').version")"
@@ -86,10 +89,10 @@ jobs:
       - name: Publish GitHub Release (this repository)
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          SEMVER: ${{ steps.ver.outputs.semver }}
         run: |
           set -euo pipefail
-          TAG="${{ steps.ver.outputs.tag }}"
-          SEMVER="${{ steps.ver.outputs.semver }}"
           REPO="${GITHUB_REPOSITORY}"
           BODY="omnimux CLI ${SEMVER}
 
@@ -148,7 +151,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'

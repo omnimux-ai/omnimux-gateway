@@ -47,15 +47,27 @@ jobs:
 
       - name: Resolve tag & write VERSION
         id: version
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          MATRIX_ARCH: ${{ matrix.arch }}
         run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            TAG="${{ github.event.inputs.tag }}"
+          set -euo pipefail
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+            if ! printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
+              echo "::error::Invalid tag format"
+              exit 1
+            fi
             if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
               echo "::error::Tag '$TAG' does not exist"
               exit 1
             fi
           else
-            TAG=${GITHUB_REF#refs/tags/}
+            TAG="${GITHUB_REF#refs/tags/}"
+            if ! printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
+              echo "::error::Invalid tag format"
+              exit 1
+            fi
           fi
           case "$TAG" in
             cli-v*)
@@ -63,10 +75,10 @@ jobs:
               exit 1
               ;;
           esac
-          echo "TAG=${TAG}" >> $GITHUB_ENV
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "${TAG}" > VERSION
-          echo "Building tag: ${TAG} for ${{ matrix.arch }}"
+          echo "Building tag: ${TAG} for ${MATRIX_ARCH}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -103,15 +115,20 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign image with cosign
-        run: cosign sign --yes calciumion/new-api@${{ steps.build.outputs.digest }}
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "calciumion/new-api@${IMAGE_DIGEST}"
 
       - name: Image summary
+        env:
+          MATRIX_ARCH: ${{ matrix.arch }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          echo "### Docker Image Digest (${{ matrix.arch }})" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "calciumion/new-api:${TAG}-${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Image Digest (${MATRIX_ARCH})" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "calciumion/new-api:${TAG}-${MATRIX_ARCH}" >> "$GITHUB_STEP_SUMMARY"
+          echo "${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   create_manifests:
     name: Create multi-arch manifests
@@ -126,7 +143,15 @@ jobs:
 
     steps:
       - name: Set version
-        run: echo "TAG=${{ needs.build_single_arch.outputs.tag }}" >> $GITHUB_ENV
+        env:
+          BUILD_TAG: ${{ needs.build_single_arch.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$BUILD_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
+            echo "::error::Invalid build tag"
+            exit 1
+          fi
+          echo "TAG=${BUILD_TAG}" >> "$GITHUB_ENV"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
@@ -137,9 +162,9 @@ jobs:
       - name: Create & push manifest (version)
         run: |
           docker buildx imagetools create \
-            -t calciumion/new-api:${TAG} \
-            calciumion/new-api:${TAG}-amd64 \
-            calciumion/new-api:${TAG}-arm64
+            -t "calciumion/new-api:${TAG}" \
+            "calciumion/new-api:${TAG}-amd64" \
+            "calciumion/new-api:${TAG}-arm64"
 
       - name: Create & push manifest (latest)
         run: |
@@ -149,16 +174,16 @@ jobs:
             calciumion/new-api:latest-arm64
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign manifests with cosign
         run: |
-          cosign sign --yes calciumion/new-api:${TAG}
+          cosign sign --yes "calciumion/new-api:${TAG}"
           cosign sign --yes calciumion/new-api:latest
 
       - name: Manifest summary
         run: |
-          echo "### Multi-arch Manifest" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          docker buildx imagetools inspect calciumion/new-api:${TAG} >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### Multi-arch Manifest" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          docker buildx imagetools inspect "calciumion/new-api:${TAG}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

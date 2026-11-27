@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Tray, Menu, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
@@ -386,6 +386,30 @@ function startServer() {
   });
 }
 
+function isAllowedExternalUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedAppNavigation(rawUrl, loadPort) {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.protocol === 'http:' &&
+      (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') &&
+      Number(parsed.port || 80) === loadPort;
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.on('omnimux:get-data-dir', (event) => {
+  event.returnValue = process.env.ELECTRON_DATA_DIR || path.join(app.getPath('userData'), 'data');
+});
+
 function createWindow() {
   const isDev = process.env.NODE_ENV === 'development';
   const loadPort = isDev ? DEV_FRONTEND_PORT : PORT;
@@ -396,10 +420,27 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      sandbox: true
     },
     title: 'OmniMux',
     icon: path.join(__dirname, 'icon.png')
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedExternalUrl(url)) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
+    if (!isAllowedAppNavigation(targetUrl, loadPort)) {
+      event.preventDefault();
+      if (isAllowedExternalUrl(targetUrl)) {
+        shell.openExternal(targetUrl);
+      }
+    }
   });
 
   mainWindow.loadURL(`http://127.0.0.1:${loadPort}`);
