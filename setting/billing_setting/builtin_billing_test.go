@@ -203,3 +203,69 @@ func TestVolcengineTTS3BuiltinBillingAndOverrides(t *testing.T) {
 		})
 	}
 }
+
+func TestGemini4BuiltinBillingAndOverrides(t *testing.T) {
+	settings := config.GlobalConfig.Get("billing_setting").(*billing_setting.BillingSetting)
+	saved := *settings
+	savedRatios, savedPrices := ratio_setting.ModelRatio2JSONString(), ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		*settings = saved
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(savedRatios))
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(savedPrices))
+	})
+
+	for _, tc := range []struct {
+		name     string
+		wantExpr string
+		quota    int
+	}{
+		{"gemini-4-hydrogen", `tier("standard", p * 1.5 + c * 7.5 + cr * 0.075)`, 9825},
+		{"gemini-4-neon", `tier("standard", p * 3 + c * 15 + cr * 0.15)`, 19650},
+		{"gemini-4-carbon", `tier("standard", p * 4 + c * 20 + cr * 0.2)`, 26200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			*settings = billing_setting.BillingSetting{BillingMode: map[string]string{}, BillingExpr: map[string]string{}}
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{}`))
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{}`))
+
+			assert.Equal(t, billing_setting.BillingModeTieredExpr, billing_setting.GetBillingMode(tc.name))
+			expression, ok := billing_setting.GetBillingExpr(tc.name)
+			require.True(t, ok)
+			assert.Equal(t, tc.wantExpr, expression)
+
+			usage := &dto.Usage{
+				PromptTokens:     10000,
+				CompletionTokens: 1000,
+				PromptTokensDetails: dto.InputTokenDetails{
+					CachedTokens: 2000,
+				},
+			}
+			result, err := billingexpr.ComputeTieredQuota(
+				&billingexpr.BillingSnapshot{
+					ExprString:   expression,
+					ExprHash:     billingexpr.ExprHashString(expression),
+					GroupRatio:   1,
+					QuotaPerUnit: 500000,
+				},
+				service.BuildTieredTokenParams(usage, false, billingexpr.UsedVars(expression)),
+			)
+			require.NoError(t, err)
+			assert.Equal(t, tc.quota, result.ActualQuotaAfterGroup)
+
+			encoded, err := common.Marshal(map[string]float64{tc.name: 1})
+			require.NoError(t, err)
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(string(encoded)))
+			assert.Equal(t, billing_setting.BillingModeRatio, billing_setting.GetBillingMode(tc.name))
+
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{}`))
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(string(encoded)))
+			assert.Equal(t, billing_setting.BillingModeRatio, billing_setting.GetBillingMode(tc.name))
+
+			settings.BillingMode[tc.name] = billing_setting.BillingModeTieredExpr
+			settings.BillingExpr[tc.name] = `tier("custom", p * 9)`
+			actual, ok := billing_setting.GetBillingExpr(tc.name)
+			require.True(t, ok)
+			assert.Equal(t, `tier("custom", p * 9)`, actual)
+		})
+	}
+}

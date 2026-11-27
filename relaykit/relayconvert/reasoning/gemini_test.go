@@ -50,6 +50,72 @@ func TestRenderGeminiMapsAndClampsInsteadOfRejecting(t *testing.T) {
 			wantCodes:  []string{"gemini_level_adjusted"},
 		},
 		{
+			name:       "xhigh on gemini 4 neon is kept",
+			model:      "gemini-4-neon",
+			intent:     Intent{Mode: ModeEnabled, Effort: EffortXHigh},
+			wantLevel:  "xhigh",
+			wantEffort: EffortXHigh,
+		},
+		{
+			name:       "max on gemini 4 neon moves to xhigh",
+			model:      "gemini-4-neon",
+			intent:     Intent{Mode: ModeEnabled, Effort: EffortMax},
+			wantLevel:  "xhigh",
+			wantEffort: EffortXHigh,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "xhigh on gemini 4 hydrogen is kept",
+			model:      "gemini-4-hydrogen",
+			intent:     Intent{Mode: ModeEnabled, Effort: EffortXHigh},
+			wantLevel:  "xhigh",
+			wantEffort: EffortXHigh,
+		},
+		{
+			name:       "minimal on gemini 4 hydrogen moves to low",
+			model:      "gemini-4-hydrogen",
+			intent:     Intent{Mode: ModeEnabled, Effort: EffortMinimal},
+			wantLevel:  "low",
+			wantEffort: EffortLow,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "nothinking on gemini 4 neon uses lowest level",
+			model:      "gemini-4-neon",
+			intent:     Intent{Mode: ModeDisabled, Effort: EffortNone, Source: SourceSuffix},
+			wantLevel:  "low",
+			wantEffort: EffortLow,
+			wantCodes:  []string{"gemini_thinking_disable_unsupported"},
+		},
+		{
+			name:       "xhigh on gemini 4 carbon moves to high",
+			model:      "gemini-4-carbon",
+			intent:     Intent{Mode: ModeEnabled, Effort: EffortXHigh},
+			wantLevel:  "high",
+			wantEffort: EffortHigh,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "max on gemini 4 argon moves to high",
+			model:      "gemini-4-argon",
+			intent:     Intent{Mode: ModeEnabled, Effort: EffortMax},
+			wantLevel:  "high",
+			wantEffort: EffortHigh,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "enabled without effort on gemini 4 neon keeps high accounting effort",
+			model:      "gemini-4-neon",
+			intent:     Intent{Mode: ModeEnabled, Source: SourceSuffix},
+			wantEffort: EffortHigh,
+		},
+		{
+			name:       "enabled without effort on gemini 4 carbon keeps medium accounting effort",
+			model:      "gemini-4-carbon",
+			intent:     Intent{Mode: ModeEnabled, Source: SourceSuffix},
+			wantEffort: EffortMedium,
+		},
+		{
 			name:       "effort on gemini 2.5 flash becomes budget",
 			model:      "gemini-2.5-flash",
 			intent:     Intent{Mode: ModeEnabled, Effort: EffortHigh},
@@ -234,6 +300,61 @@ func TestNormalizeGeminiThinkingConfigRewritesNativeConfig(t *testing.T) {
 			wantCodes:  []string{"gemini_level_adjusted"},
 		},
 		{
+			name:       "xhigh on gemini 4 neon is kept",
+			model:      "gemini-4-neon",
+			config:     dto.GeminiThinkingConfig{ThinkingLevel: "xhigh"},
+			wantLevel:  "xhigh",
+			wantEffort: EffortXHigh,
+		},
+		{
+			name:       "max on gemini 4 neon moves to xhigh",
+			model:      "gemini-4-neon",
+			config:     dto.GeminiThinkingConfig{ThinkingLevel: "max"},
+			wantLevel:  "xhigh",
+			wantEffort: EffortXHigh,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "minimal on gemini 4 neon moves to low",
+			model:      "gemini-4-neon",
+			config:     dto.GeminiThinkingConfig{ThinkingLevel: "minimal"},
+			wantLevel:  "low",
+			wantEffort: EffortLow,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "max on gemini 4 hydrogen moves to xhigh",
+			model:      "gemini-4-hydrogen",
+			config:     dto.GeminiThinkingConfig{ThinkingLevel: "max"},
+			wantLevel:  "xhigh",
+			wantEffort: EffortXHigh,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "xhigh on gemini 4 carbon moves to high",
+			model:      "gemini-4-carbon",
+			config:     dto.GeminiThinkingConfig{ThinkingLevel: "xhigh"},
+			wantLevel:  "high",
+			wantEffort: EffortHigh,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
+			name:       "budget on gemini 4 carbon becomes level",
+			model:      "gemini-4-carbon",
+			config:     dto.GeminiThinkingConfig{ThinkingBudget: intPtr(8192)},
+			wantLevel:  "medium",
+			wantEffort: EffortMedium,
+			wantCodes:  []string{"gemini_budget_to_level"},
+		},
+		{
+			name:       "max on gemini 4 argon moves to high",
+			model:      "gemini-4-argon",
+			config:     dto.GeminiThinkingConfig{ThinkingLevel: "max"},
+			wantLevel:  "high",
+			wantEffort: EffortHigh,
+			wantCodes:  []string{"gemini_level_adjusted"},
+		},
+		{
 			name:    "unknown level is rejected",
 			model:   "gemini-3.7-flash",
 			config:  dto.GeminiThinkingConfig{ThinkingLevel: "ULTRA"},
@@ -360,6 +481,27 @@ func TestNormalizeGeminiThinkingConfigRewritesNativeConfig(t *testing.T) {
 				require.NotNil(t, generation.ThinkingConfig.IncludeThoughts)
 				assert.Equal(t, *tt.wantThoughts, *generation.ThinkingConfig.IncludeThoughts)
 			}
+		})
+	}
+}
+
+func TestResolveGeminiDefaultGemini4Models(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		model  string
+		effort Effort
+	}{
+		{"gemini-4-hydrogen", EffortHigh},
+		{"gemini-4-neon", EffortHigh},
+		{"gemini-4-carbon", EffortMedium},
+		{"gemini-4-argon", EffortMedium},
+	} {
+		t.Run(tt.model, func(t *testing.T) {
+			t.Parallel()
+			got := ResolveGeminiDefault(tt.model, Intent{})
+			assert.Equal(t, ModeEnabled, got.Mode)
+			assert.Equal(t, tt.effort, got.Effort)
 		})
 	}
 }

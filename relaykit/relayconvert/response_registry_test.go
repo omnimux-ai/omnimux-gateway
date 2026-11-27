@@ -801,3 +801,37 @@ func TestConvertResponseToResponsesRestoresRecordedCustomTools(t *testing.T) {
 		})
 	}
 }
+
+func TestGeminiContinuationFinishReasonMapsToLength(t *testing.T) {
+	finishReason := "CONTINUATION"
+	gemini := &dto.GeminiChatResponse{
+		Candidates: []dto.GeminiChatCandidate{
+			{
+				FinishReason: &finishReason,
+				Content: dto.GeminiChatContent{
+					Parts: []dto.GeminiPart{{Text: "partial"}},
+				},
+			},
+		},
+		UsageMetadata: dto.GeminiUsageMetadata{
+			PromptTokenCount:     2,
+			CandidatesTokenCount: 3,
+			TotalTokenCount:      5,
+		},
+	}
+
+	nonStream, err := ConvertResponse(nil, &convmeta.Values{ChannelMetaAttached: true, UpstreamModelName: "gemini-4-neon"}, types.RelayFormatOpenAI, gemini)
+	require.NoError(t, err)
+	chatResp, ok := nonStream.Value.(*dto.OpenAITextResponse)
+	require.True(t, ok)
+	require.Len(t, chatResp.Choices, 1)
+	assert.Equal(t, types.FinishReasonLength, chatResp.Choices[0].FinishReason)
+
+	stream, err := ConvertStreamResponse(nil, &convmeta.Values{ChannelMetaAttached: true, UpstreamModelName: "gemini-4-neon"}, types.RelayFormatOpenAI, gemini)
+	require.NoError(t, err)
+	streamResp, ok := stream.Value.(*dto.ChatCompletionsStreamResponse)
+	require.True(t, ok)
+	require.Len(t, streamResp.Choices, 1)
+	require.NotNil(t, streamResp.Choices[0].FinishReason)
+	assert.Equal(t, types.FinishReasonLength, *streamResp.Choices[0].FinishReason)
+}

@@ -87,3 +87,50 @@ func TestGeminiChatGenerationConfigPreservesExplicitZeroValuesSnakeCase(t *testi
 	assert.Equal(t, float64(0), generationConfig["seed"])
 	assert.Equal(t, false, generationConfig["responseLogprobs"])
 }
+
+func TestGemini4ContinuationAndMediaProcessingAliases(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "camelCase",
+			raw: `{
+				"continuationToken":{"cursor":"req-1"},
+				"contents":[{"role":"user","parts":[{"text":"hi","mediaProcessing":{"mode":"fast"}}]}],
+				"generationConfig":{"mediaProcessing":{"quality":"high"}}
+			}`,
+		},
+		{
+			name: "snake_case",
+			raw: `{
+				"continuation_token":{"cursor":"req-1"},
+				"contents":[{"role":"user","parts":[{"text":"hi","media_processing":{"mode":"fast"}}]}],
+				"generationConfig":{"media_processing":{"quality":"high"}}
+			}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var req GeminiChatRequest
+			require.NoError(t, kitutil.Unmarshal([]byte(tc.raw), &req))
+			assert.JSONEq(t, `{"cursor":"req-1"}`, string(req.ContinuationToken))
+			require.Len(t, req.Contents, 1)
+			require.Len(t, req.Contents[0].Parts, 1)
+			assert.JSONEq(t, `{"mode":"fast"}`, string(req.Contents[0].Parts[0].MediaProcessing))
+			assert.JSONEq(t, `{"quality":"high"}`, string(req.GenerationConfig.MediaProcessing))
+
+			encoded, err := kitutil.Marshal(req)
+			require.NoError(t, err)
+			var out map[string]any
+			require.NoError(t, kitutil.Unmarshal(encoded, &out))
+			assert.Contains(t, out, "continuationToken")
+		})
+	}
+
+	var resp GeminiChatResponse
+	require.NoError(t, kitutil.Unmarshal([]byte(`{
+		"candidates":[{"content":{"parts":[{"text":"partial"}]},"finishReason":"CONTINUATION","continuationToken":{"cursor":"cand-1"},"index":0}]
+	}`), &resp))
+	require.Len(t, resp.Candidates, 1)
+	assert.JSONEq(t, `{"cursor":"cand-1"}`, string(resp.Candidates[0].ContinuationToken))
+}

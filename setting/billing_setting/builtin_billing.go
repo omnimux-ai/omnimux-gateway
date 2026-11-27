@@ -18,4 +18,10 @@ var builtinBillingExpr = map[string]string{
 	// Han ideographs count as 2 chars, other runes as 1 char, reported in prompt tokens (p).
 	"seed-tts-3.0":        `tier("standard", p * 21)`,
 	"doubao-seed-tts-3.0": `tier("standard", p * 21)`,
+	// https://ai.google.dev/gemini-api/docs/pricing (Standard Paid Tier, 2026-11-27).
+	// Thinking tokens are included in output tokens (c); context caching is implicit read-only (cr).
+	// gemini-4-carbon uses its standard rate ($4/$20/$0.20, effective 2026-12-01; promo $2/$10/$0.10 through 2026-11-30).
+	"gemini-4-hydrogen": `tier("standard", p * 1.5 + c * 7.5 + cr * 0.075)`,
+	"gemini-4-neon":     `tier("standard", p * 3 + c * 15 + cr * 0.15)`,
+	"gemini-4-carbon":   `tier("standard", p * 4 + c * 20 + cr * 0.2)`,
 }
