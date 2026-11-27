@@ -681,3 +681,11 @@ For commercial licensing, please contact support@quantumnous.com
     display: none;
   }
 }
+
+/* fork: chatwoot — lift bottom-right chat bubble above the mobile sticky CTA bar on /pricing. */
+@media (max-width: 767px) {
+  html[data-chatwoot-mobile-lift='true'] .woot-widget-bubble:not(.woot--hide),
+  html[data-chatwoot-mobile-lift='true'] .woot--bubble-holder:not(.woot--hide) {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}

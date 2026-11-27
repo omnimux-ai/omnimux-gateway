@@ -24,4 +24,7 @@ declare module '@visactor/react-vchart' {
 
 interface ImportMetaEnv {
   readonly OMNIMUX_SEARCH_PAGES: import('./features/site-metadata/metadata').SearchPageManifest
+  readonly VITE_CHATWOOT_BASE_URL?: string
+  readonly VITE_CHATWOOT_WEBSITE_TOKEN?: string
+  readonly VITE_CHATWOOT_DARK_MODE?: string
 }

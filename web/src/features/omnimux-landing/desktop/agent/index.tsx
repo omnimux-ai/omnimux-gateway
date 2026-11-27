@@ -23,6 +23,7 @@ import '../assets/cn/fonts/smiley/result.css'
 import '../desktop-cn.css'
 import './agent.css'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { syncChatwootLocale } from '@/lib/chatwoot'
 
 import { DownloadProvider } from '../components/cn/download'
 import { CnFooter } from '../components/cn/footer'
@@ -100,10 +101,12 @@ function AgentPageView(props: AgentPageProps) {
     root.style.backgroundColor = '#0C0B11'
     root.lang = landingLangOption(lang).htmlLang
     document.title = page.title
+    syncChatwootLocale(lang)
     return () => {
       root.style.backgroundColor = previousBg
       root.lang = previousLang
       document.title = previousTitle
+      syncChatwootLocale(previousLang)
     }
   }, [lang, page.title])
 

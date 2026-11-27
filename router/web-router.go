@@ -26,6 +26,11 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 	searchManifest, manifestErr := assets.BuildFS.ReadFile("web/dist/search-pages.json")
 	searchPages, pageErr := buildWebSearchPages(assets.IndexPage, searchManifest)
 	searchPages.injectUmami(os.Getenv("UMAMI_WEBSITE_ID"), os.Getenv("UMAMI_SCRIPT_URL"))
+	searchPages.injectChatwoot(
+		os.Getenv("CHATWOOT_BASE_URL"),
+		os.Getenv("CHATWOOT_WEBSITE_TOKEN"),
+		os.Getenv("CHATWOOT_DARK_MODE"),
+	)
 	if manifestErr != nil {
 		common.SysError(common.LogText("frontend search-page manifest unavailable; SPA pages are noindex: %s", manifestErr.Error()))
 	} else if pageErr != nil {

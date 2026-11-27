@@ -1,8 +1,12 @@
 package controller
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -152,4 +156,122 @@ func TestSessionLimitDoesNotRecordRejectedLoginAsSuccessful(t *testing.T) {
 	var stored model.User
 	require.NoError(t, db.First(&stored, user.Id).Error)
 	assert.Equal(t, previousLastLoginAt, stored.LastLoginAt)
+}
+
+func TestChatwootIdentityHashBrowserSessionOnly(t *testing.T) {
+	previousDB := model.DB
+	previousRedis := common.RedisEnabled
+	previousSecret := common.SessionSecret
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}))
+	model.DB = db
+	common.RedisEnabled = false
+	common.SessionSecret = "chatwoot-session-test-secret"
+	t.Cleanup(func() {
+		model.DB = previousDB
+		common.RedisEnabled = previousRedis
+		common.SessionSecret = previousSecret
+	})
+
+	user := &model.User{
+		Username: "chatwoot-user", Password: "unused", Role: common.RoleCommonUser,
+		Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1,
+	}
+	require.NoError(t, db.Create(user).Error)
+	bundle, err := service.CreateLoginSession(user.Id, "password", "127.0.0.1", "agent-cw")
+	require.NoError(t, err)
+
+	mac := hmac.New(sha256.New, []byte("test-chatwoot-hmac-secret"))
+	_, _ = mac.Write([]byte(strconv.Itoa(user.Id)))
+	expectedHash := hex.EncodeToString(mac.Sum(nil))
+
+	t.Setenv("CHATWOOT_IDENTITY_HMAC_SECRET", "test-chatwoot-hmac-secret")
+	gin.SetMode(gin.TestMode)
+
+	t.Run("GetSelf with browser session includes HMAC hash", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodGet, "/api/user/self", nil)
+		c.Set("id", user.Id)
+		c.Set("role", user.Role)
+		c.Set("session_id", bundle.Session.SID)
+		c.Set("auth_version", user.AuthVersion)
+		c.Set("session_version", int64(1))
+
+		GetSelf(c)
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var resp struct {
+			Success bool           `json:"success"`
+			Data    map[string]any `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, expectedHash, resp.Data["chatwoot_identifier_hash"])
+	})
+
+	t.Run("GetSelf without browser session (PAT) omits HMAC hash", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodGet, "/api/user/self", nil)
+		c.Set("id", user.Id)
+		c.Set("role", user.Role)
+
+		GetSelf(c)
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var resp struct {
+			Success bool           `json:"success"`
+			Data    map[string]any `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		_, exists := resp.Data["chatwoot_identifier_hash"]
+		assert.False(t, exists)
+	})
+
+	t.Run("RefreshAuth includes HMAC hash", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/user/auth/refresh", nil)
+		c.Request.Header.Set("X-Auth-Session", bundle.Session.SID)
+		c.Request.AddCookie(&http.Cookie{Name: service.RefreshCookieName, Value: bundle.RefreshToken})
+
+		RefreshAuth(c)
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var resp struct {
+			Success bool `json:"success"`
+			Data    struct {
+				User map[string]any `json:"user"`
+			} `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, expectedHash, resp.Data.User["chatwoot_identifier_hash"])
+	})
+
+	t.Run("Empty HMAC secret omits chatwoot_identifier_hash", func(t *testing.T) {
+		t.Setenv("CHATWOOT_IDENTITY_HMAC_SECRET", "  ")
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodGet, "/api/user/self", nil)
+		c.Set("id", user.Id)
+		c.Set("role", user.Role)
+		c.Set("session_id", bundle.Session.SID)
+		c.Set("auth_version", user.AuthVersion)
+		c.Set("session_version", int64(1))
+
+		GetSelf(c)
+
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var resp struct {
+			Success bool           `json:"success"`
+			Data    map[string]any `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &resp))
+		_, exists := resp.Data["chatwoot_identifier_hash"]
+		assert.False(t, exists)
+	})
 }

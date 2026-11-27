@@ -54,6 +54,7 @@ import {
 } from './lib/auth-session'
 import { subscribeAuthSessionEvents } from './lib/auth-session-sync'
 import { installBuildMetadata } from './lib/build-metadata'
+import { initChatwoot, syncChatwootUser } from './lib/chatwoot'
 import { applyFaviconToDom } from './lib/dom-utils'
 import { initializeFrontendCache } from './lib/frontend-cache'
 import { captureFirstTouch } from './lib/growth-tracking'
@@ -84,9 +85,17 @@ function LandingRoot() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
+  useEffect(() => {
+    initChatwoot({ locale: landingInitial?.lang })
+    syncChatwootUser(useAuthStore.getState().auth.user)
+  }, [])
+
   useEffect(
     () =>
       useAuthStore.subscribe((state, previousState) => {
+        if (state.auth.user !== previousState.auth.user) {
+          syncChatwootUser(state.auth.user)
+        }
         const sid = state.auth.session?.sid
         const previousSID = previousState.auth.session?.sid
         if (sid !== previousSID) {
