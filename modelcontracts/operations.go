@@ -373,7 +373,7 @@ func projectGatewayOperations(spec specFile) ([]Operation, []string, error) {
 			operation.ModeKind = modeKind
 		}
 		if spec.Gateway.RequestModel != "" {
-			if err := validateManagedVideoOperation(&operation, VideoProtocolGenerations, spec.ModelID == seedance25VideoRequestModel); err != nil {
+			if err := validateManagedVideoOperation(&operation, VideoProtocolGenerations, spec.Gateway.RequestModel, spec.ModelID == seedance25VideoRequestModel); err != nil {
 				return nil, nil, err
 			}
 		}

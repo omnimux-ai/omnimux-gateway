@@ -1152,6 +1152,187 @@ func TestSoraPluginSeedance25FlashFullValidationPipeline(t *testing.T) {
 			require.NotNil(t, taskErr, bad)
 		}
 	})
+
+	t.Run("fixed 480p Flash SKU normalizes pixel size/seconds and rejects mismatched resolution or video_extend", func(t *testing.T) {
+		adaptor, c, info := newJSONContext("jiuyue-sd25-flash-480p", `{
+			"model":"seedance-2-5-flash",
+			"operation":"text_to_video",
+			"prompt":"coastal road",
+			"duration":6,
+			"size":"854x480",
+			"output_format":"mp4"
+		}`)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+		facts, err := adaptor.ExtractUsageFactsValidated(c, info)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"seconds": float64(6)}, facts)
+
+		reader, err := adaptor.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		bodyBytes, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.Unmarshal(bodyBytes, &sent))
+		assert.Equal(t, "jiuyue-sd25-flash-480p", sent["model"])
+		assert.Equal(t, float64(6), sent["seconds"])
+		assert.Equal(t, "480p", sent["resolution"])
+		assert.Equal(t, "16:9", sent["aspect_ratio"])
+		assert.NotContains(t, sent, "operation")
+		assert.NotContains(t, sent, "output_format")
+
+		for _, bad := range []string{
+			`{"model":"seedance-2-5-flash","prompt":"x","duration":-1}`,
+			`{"model":"seedance-2-5-flash","prompt":"x","duration":5,"resolution":"720p"}`,
+			`{"model":"seedance-2-5-flash","prompt":"x","operation":"video_extend","duration":5}`,
+		} {
+			a, ctx, inf := newJSONContext("jiuyue-sd25-flash-480p", bad)
+			taskErr := a.ValidateRequestAndSetAction(ctx, inf)
+			require.NotNil(t, taskErr, bad)
+		}
+	})
+
+	newSeedance25Context := func(upstream, payload string) (*TaskAdaptor, *gin.Context, *relaycommon.RelayInfo) {
+		adaptor, c, info := newJSONContext(upstream, payload)
+		info.OriginModelName = "seedance-2-5"
+		return adaptor, c, info
+	}
+
+	t.Run("fixed 480p Seedance 2.5 SKU preserves multimodal images/audio and rejects 720p or -1", func(t *testing.T) {
+		adaptor, c, info := newSeedance25Context("BT-2.5-480p", `{
+			"model":"seedance-2-5",
+			"operation":"video_multi_ref",
+			"prompt":"lantern festival",
+			"duration":10,
+			"aspect_ratio":"9:16",
+			"images":["https://cdn.example/ref.png"],
+			"audio_urls":["https://cdn.example/bgm.mp3"]
+		}`)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+		facts, err := adaptor.ExtractUsageFactsValidated(c, info)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"seconds": float64(10)}, facts)
+
+		reader, err := adaptor.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		bodyBytes, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.Unmarshal(bodyBytes, &sent))
+		assert.Equal(t, "BT-2.5-480p", sent["model"])
+		assert.Equal(t, float64(10), sent["seconds"])
+		assert.Equal(t, "480p", sent["resolution"])
+		assert.Equal(t, "9:16", sent["aspect_ratio"])
+		assert.Equal(t, []any{"https://cdn.example/ref.png"}, sent["images"])
+		assert.Equal(t, []any{"https://cdn.example/bgm.mp3"}, sent["audio_urls"])
+		assert.NotContains(t, sent, "operation")
+
+		for _, bad := range []string{
+			`{"model":"seedance-2-5","prompt":"x","duration":-1}`,
+			`{"model":"seedance-2-5","prompt":"x","duration":10,"resolution":"720p"}`,
+		} {
+			a, ctx, inf := newSeedance25Context("BT-2.5-480p", bad)
+			taskErr := a.ValidateRequestAndSetAction(ctx, inf)
+			require.NotNil(t, taskErr, bad)
+		}
+	})
+
+	t.Run("fixed 1080p Seedance 2.5 Plus SKU normalizes 1920x1080 and preserves multimodal refs", func(t *testing.T) {
+		adaptor, c, info := newSeedance25Context("sd-2.5-1080p-plus", `{
+			"model":"seedance-2-5",
+			"operation":"video_multi_ref",
+			"prompt":"rainy street",
+			"duration":8,
+			"size":"1920x1080",
+			"images":["https://cdn.example/ref.png"],
+			"video_urls":["https://cdn.example/clip.mp4"],
+			"audio_urls":["https://cdn.example/voice.mp3"]
+		}`)
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+		facts, err := adaptor.ExtractUsageFactsValidated(c, info)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"seconds": float64(8)}, facts)
+
+		reader, err := adaptor.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		bodyBytes, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		var sent map[string]any
+		require.NoError(t, common.Unmarshal(bodyBytes, &sent))
+		assert.Equal(t, "sd-2.5-1080p-plus", sent["model"])
+		assert.Equal(t, float64(8), sent["seconds"])
+		assert.Equal(t, "1080p", sent["resolution"])
+		assert.Equal(t, "16:9", sent["aspect_ratio"])
+		assert.Equal(t, []any{"https://cdn.example/ref.png"}, sent["images"])
+		assert.Equal(t, []any{"https://cdn.example/clip.mp4"}, sent["video_urls"])
+		assert.Equal(t, []any{"https://cdn.example/voice.mp3"}, sent["audio_urls"])
+
+		for _, bad := range []string{
+			`{"model":"seedance-2-5","prompt":"x","duration":-1}`,
+			`{"model":"seedance-2-5","prompt":"x","duration":8,"resolution":"720p"}`,
+		} {
+			a, ctx, inf := newSeedance25Context("sd-2.5-1080p-plus", bad)
+			taskErr := a.ValidateRequestAndSetAction(ctx, inf)
+			require.NotNil(t, taskErr, bad)
+		}
+	})
+
+	t.Run("extractUsageOnComplete ignores wall-clock payload.duration across known SKUs, unlisted runtime SKUs, and echoed model", func(t *testing.T) {
+		for _, tc := range []struct {
+			name      string
+			origin    string
+			upstream  string
+			payload   string
+			wantFacts map[string]any
+		}{
+			{
+				name:      "BT-2.5-480p ignores wall-clock duration and reads video_duration",
+				origin:    "seedance-2-5",
+				upstream:  "BT-2.5-480p",
+				payload:   `{"id":"t1","status":"completed","model":"seedance-2-5","duration":185,"video_duration":10,"size":"1280x720","video_url":"https://cdn.example/v.mp4"}`,
+				wantFacts: map[string]any{"seconds": float64(10)},
+			},
+			{
+				name:      "sd-2.5-1080p-plus ignores wall-clock duration when no explicit seconds field exists",
+				origin:    "seedance-2-5",
+				upstream:  "sd-2.5-1080p-plus",
+				payload:   `{"id":"t2","status":"completed","model":"sd-2.5-1080p-plus","duration":240,"video_url":"https://cdn.example/v.mp4"}`,
+				wantFacts: nil,
+			},
+			{
+				name:      "unlisted runtime SKU uses origin model guard and reads seconds",
+				origin:    "seedance-2-5-flash",
+				upstream:  "custom-runtime-flash-480p",
+				payload:   `{"id":"t3","status":"completed","model":"doubao-seedance-2-5-flash","duration":99,"seconds":7,"video_url":"https://cdn.example/v.mp4"}`,
+				wantFacts: map[string]any{"seconds": float64(7)},
+			},
+			{
+				name:      "echoed seedance-2.5 without matching upstream still blocks wall-clock duration",
+				origin:    "seedance-2-5",
+				upstream:  "custom-runtime-25-720p",
+				payload:   `{"id":"t4","status":"completed","model":"seedance-2.5","duration":150,"actual_duration":12,"video_url":"https://cdn.example/v.mp4"}`,
+				wantFacts: map[string]any{"seconds": float64(12)},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				adaptor := New(plugin)
+				adaptor.Init(&relaycommon.RelayInfo{
+					OriginModelName: tc.origin,
+					ChannelMeta:     &relaycommon.ChannelMeta{ChannelBaseUrl: "https://upstream.example", UpstreamModelName: tc.upstream},
+					TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+				})
+				task := &model.Task{
+					TaskID:      "task-complete",
+					Status:      model.TaskStatusSubmitted,
+					Properties:  model.Properties{OriginModelName: tc.origin, UpstreamModelName: tc.upstream},
+					PrivateData: model.TaskPrivateData{UpstreamTaskID: "up-1"},
+				}
+				resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}}
+				info, err := adaptor.ParseTaskResult(task, resp, []byte(tc.payload))
+				require.NoError(t, err)
+				assert.Equal(t, tc.wantFacts, info.UsageFacts)
+			})
+		}
+	})
 }
 
 func TestTaskAdaptorBoundsNativeUsageBeforeQuotaCalculation(t *testing.T) {

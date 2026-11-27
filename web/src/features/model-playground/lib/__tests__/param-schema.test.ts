@@ -226,7 +226,7 @@ describe('buildParamSchema for a per-call video model', () => {
     model({ model_name: modelName, tags: 'Video Generation,task' })
 
   const PER_CALL_IDS = [
-    'seedance-2-5-task',
+    'synthetic-video-task',
     'seedance-2-0-task',
     'seedance-2-0-fast-task',
     'minimax-h3-task',
@@ -237,7 +237,7 @@ describe('buildParamSchema for a per-call video model', () => {
   // The envelope now reaches the form through the contract rather than the
   // register, so these carry the contract the catalog publishes.
   const published = {
-    model_id: 'seedance-2-5-task',
+    model_id: 'synthetic-video-task',
     family: 'video' as const,
     durations_seconds: { allowed: [30] },
     resolutions: ['720p'],
@@ -246,7 +246,7 @@ describe('buildParamSchema for a per-call video model', () => {
 
   test('pins a declared fixed length to a single locked value instead of a ladder', () => {
     const schema = buildParamSchema({
-      ...perCall('seedance-2-5-task'),
+      ...perCall('synthetic-video-task'),
       contract: published,
     })
     const duration = schema.controls.find(
@@ -286,7 +286,7 @@ describe('buildParamSchema for a per-call video model', () => {
 
   test('narrows a per-call model to the resolutions and ratios its line accepts', () => {
     const schema = buildParamSchema({
-      ...perCall('seedance-2-5-task'),
+      ...perCall('synthetic-video-task'),
       contract: published,
     })
     const resolution = schema.controls.find(
@@ -305,7 +305,7 @@ describe('buildParamSchema for a per-call video model', () => {
 
   test('sends the declared fixed length as a number', () => {
     const schema = buildParamSchema({
-      ...perCall('seedance-2-5-task'),
+      ...perCall('synthetic-video-task'),
       contract: published,
     })
     expect(submitParams(schema, defaultParams(schema)).duration).toBe(30)

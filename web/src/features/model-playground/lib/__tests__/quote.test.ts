@@ -49,15 +49,15 @@ describe('estimateQuote', () => {
 
   test('prices a per-call video model from its flat price instead of showing a placeholder', () => {
     const subject = model({
-      model_name: 'seedance-2-5-task',
+      model_name: 'minimax-h3-task',
       tags: 'Video Generation,task',
-      model_price: 0.558824,
+      model_price: 0.3781,
     })
     const schema = buildParamSchema(subject)
     const quote = estimateQuote(subject, defaultParams(schema), schema)
 
-    expect(quote?.usd).toBeCloseTo(0.558824, 6)
-    expect(quote?.credits).toBeCloseTo(5.58824, 5)
+    expect(quote?.usd).toBeCloseTo(0.3781, 6)
+    expect(quote?.credits).toBeCloseTo(3.781, 5)
   })
 
   test('keeps the flat price for a per-call video model whose length is unestablished', () => {

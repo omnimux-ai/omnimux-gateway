@@ -358,7 +358,9 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			return
 		}
 		rules := modelcontracts.ActiveVideoCapabilities()
-		seedanceOpenAI := rules.HasSeedance25OpenAI(claimedModel)
+		seedanceEconomyOpenAI := rules.HasSeedance25OpenAI(claimedModel)
+		seedanceMultimodalOpenAI := rules.HasSeedanceMultimodalOpenAI(claimedModel)
+		seedanceOpenAI := seedanceEconomyOpenAI || seedanceMultimodalOpenAI
 		if seedanceOpenAI && videoProtocol != "" {
 			// Use the same explicit-group authorization and precedence as distribution.
 			if !applyPerRequestModelGroup(c, modelRequest) {
@@ -366,10 +368,13 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			}
 			if videoProtocol == modelcontracts.VideoProtocolOpenAI || c.GetHeader(modelcontracts.VideoProtocolHeader) == "" {
 				group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
-				economyOnly, resolution := model.Seedance25VideoGroupProfile(rules, generation, claimedModel, group)
+				economyOnly, resolution, decoder := model.Seedance25VideoGroupProfile(rules, generation, claimedModel, group)
 				if economyOnly || videoProtocol == modelcontracts.VideoProtocolOpenAI {
 					videoProtocol = modelcontracts.VideoProtocolOpenAI
 					c.Set(contextKeySeedanceVideoResolution, resolution)
+					if decoder != "" {
+						c.Set(contextKeySeedanceVideoDecoder, decoder)
+					}
 				}
 			}
 			c.Set(contextKeyManagedVideoProtocol, videoProtocol)
@@ -394,7 +399,14 @@ func PinTaskPluginEndpoint() gin.HandlerFunc {
 			lookupModel = model.MuseVideoDecoderModel
 			if seedanceOpenAI {
 				lookupModel = model.SoraVideoBindingModel
-				mappedModel = model.Seedance25OpenAIDecoder
+				mappedModel = c.GetString(contextKeySeedanceVideoDecoder)
+				if mappedModel == "" {
+					if seedanceMultimodalOpenAI && !seedanceEconomyOpenAI {
+						mappedModel = model.SeedanceMultimodalOpenAIDecoder
+					} else {
+						mappedModel = model.Seedance25OpenAIDecoder
+					}
+				}
 			} else if ok && declared == lookupModel {
 				pinModel = declared
 				if claimedModel != declared {
@@ -709,7 +721,7 @@ func PrepareTaskPluginEndpoint() gin.HandlerFunc {
 		if bodyKind == string(pluginruntime.BodyJSON) {
 			requestBody, _ := bodyObject["value"].(map[string]any)
 			if resolution := c.GetString(contextKeySeedanceVideoResolution); resolution != "" &&
-				requestBody != nil && pinned.MappedModel == model.Seedance25OpenAIDecoder {
+				requestBody != nil && (pinned.MappedModel == model.Seedance25OpenAIDecoder || pinned.MappedModel == model.SeedanceMultimodalOpenAIDecoder) {
 				if _, provided := requestBody["resolution"]; !provided {
 					// Use the same prepared JSON for filtering and the adaptor's retry decoder.
 					requestBody["resolution"] = resolution

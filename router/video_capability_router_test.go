@@ -1885,3 +1885,347 @@ func TestApiMartVideoTierBillingPolicyAndAutoDurationSettlement(t *testing.T) {
 		assert.Equal(t, 112500, beforeOver.wallet-afterOver.wallet)
 	})
 }
+
+func TestSeedance25AndFlashMultiGroupCapabilities(t *testing.T) {
+	h := newVideoCapabilityRouteHarness(t)
+	require.NoError(t, model.DB.Where("model IN ?", []string{"seedance-2-5", "seedance-2-5-flash"}).Delete(&model.Ability{}).Error)
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"muse-video":0.01,"seedance-2-5":0.283,"seedance-2-5-flash":0.145588}`))
+
+	groupRatioMap := map[string]float64{
+		"default":                     1,
+		"seedance-2-5-480p-eco":       0.2,
+		"seedance-2-5-720p":           0.55,
+		"seedance-2-5-1080p-plus":     1.05,
+		"seedance-2-5-flash-480p":     0.75,
+		"seedance-2-5-flash-480p-eco": 0.25,
+		"seedance-2-5-flash-720p-eco": 0.4,
+	}
+	usableGroupMap := map[string]string{"default": "Default"}
+	for groupName := range groupRatioMap {
+		if groupName != "default" {
+			usableGroupMap[groupName] = groupName
+		}
+	}
+	groupRatiosJSON, err := common.Marshal(groupRatioMap)
+	require.NoError(t, err)
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(string(groupRatiosJSON)))
+	usableGroupsJSON, err := common.Marshal(usableGroupMap)
+	require.NoError(t, err)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(string(usableGroupsJSON)))
+
+	ch480Eco := h.addSyntheticChannel(t, "s25-480p-eco", "seedance-2-5", "seedance-2-5-480p-eco", "BT-2.5-480p", constant.ChannelTypeOpenAI, 10)
+	ch720Std := h.addSyntheticChannel(t, "s25-720p", "seedance-2-5", "seedance-2-5-720p", "sd-2.5-720p-pro", constant.ChannelTypeOpenAI, 10)
+	ch1080Plus := h.addSyntheticChannel(t, "s25-1080p-plus", "seedance-2-5", "seedance-2-5-1080p-plus", "sd-2.5-1080p-plus", constant.ChannelTypeOpenAI, 10)
+	chFlashNative := h.addSyntheticChannel(t, "flash-480p-native", "seedance-2-5-flash", "seedance-2-5-flash-480p", "seedance-2-5-flash", constant.ChannelTypeApiMart, 10)
+	chFlash480Eco := h.addSyntheticChannel(t, "flash-480p-eco", "seedance-2-5-flash", "seedance-2-5-flash-480p-eco", "jiuyue-sd25-flash-480p", constant.ChannelTypeOpenAI, 10)
+	chFlash720Eco := h.addSyntheticChannel(t, "flash-720p-eco", "seedance-2-5-flash", "seedance-2-5-flash-720p-eco", "jiuyue-sd25-flash-720p", constant.ChannelTypeOpenAI, 10)
+
+	seedanceOpenAIOps := func(resolution string, minSec int, allowVideos bool) string {
+		const ratios = `["16:9","9:16","1:1","4:3","3:4","21:9"]`
+		dur := fmt.Sprintf(`{"name":"duration","type":"integer","minimum":%d,"maximum":30}`, minSec)
+		res := fmt.Sprintf(`{"name":"resolution","type":"enum","enum":[%q],"fixed":%q}`, resolution, resolution)
+		multiRef := `[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":30},{"slot":"reference_audios","max":10}]`
+		if allowVideos {
+			multiRef = `[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":30},{"slot":"reference_videos","max":10},{"slot":"reference_audios","max":10}]`
+		}
+		return fmt.Sprintf(`[
+			{"id":"text_to_video","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":%s}]},
+			{"id":"first_frame","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":["adaptive"],"fixed":"adaptive","default":"adaptive"}]},
+			{"id":"first_last_frame","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":["adaptive"],"fixed":"adaptive","default":"adaptive"}]},
+			{"id":"video_multi_ref","inputs":%s,"parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":%s}]}
+		]`, dur, res, ratios, dur, res, dur, res, multiRef, dur, res, ratios)
+	}
+	flashEcoOps := func(resolution string) string {
+		const ratios = `["16:9","9:16","1:1","4:3","3:4","21:9"]`
+		const dur = `{"name":"duration","type":"integer","minimum":4,"maximum":30}`
+		res := fmt.Sprintf(`{"name":"resolution","type":"enum","enum":[%q],"fixed":%q}`, resolution, resolution)
+		const multiRef = `[{"slot":"prompt"},{"slot":"reference_images","required":true,"max":10},{"slot":"reference_audios","max":5}]`
+		return fmt.Sprintf(`[
+			{"id":"text_to_video","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":%s}]},
+			{"id":"first_frame","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":["adaptive"],"fixed":"adaptive","default":"adaptive"}]},
+			{"id":"first_last_frame","parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":["adaptive"],"fixed":"adaptive","default":"adaptive"}]},
+			{"id":"video_multi_ref","inputs":%s,"parameters":[%s,%s,{"name":"aspect_ratio","type":"enum","enum":%s}]}
+		]`, dur, res, ratios, dur, res, dur, res, multiRef, dur, res, ratios)
+	}
+
+	rulesDoc := fmt.Sprintf(`{"models":{
+		"seedance-2-5":[
+			{"channel_id":%[2]d,"channel_type":%[8]d,"profile":"seedance_openai_video","upstream_model":"BT-2.5-480p","base_url":%[1]q,"evidence":"fixture","operations":%[10]s},
+			{"channel_id":%[3]d,"channel_type":%[8]d,"profile":"seedance_openai_video","upstream_model":"sd-2.5-720p-pro","base_url":%[1]q,"evidence":"fixture","operations":%[11]s},
+			{"channel_id":%[4]d,"channel_type":%[8]d,"profile":"seedance_openai_video","upstream_model":"sd-2.5-1080p-plus","base_url":%[1]q,"evidence":"fixture","operations":%[12]s}
+		],
+		"seedance-2-5-flash":[
+			{"channel_id":%[5]d,"channel_type":%[9]d,"profile":"apimart_video","request_model":"seedance-2-5-flash","upstream_model":"seedance-2-5-flash","base_url":%[1]q,"evidence":"fixture",
+			 "operations":[
+				{"id":"text_to_video","parameters":[{"name":"duration"},{"name":"resolution","fixed":"480p"},{"name":"aspect_ratio"}]},
+				{"id":"first_frame","parameters":[{"name":"duration"},{"name":"resolution","fixed":"480p"}]},
+				{"id":"first_last_frame","parameters":[{"name":"duration"},{"name":"resolution","fixed":"480p"}]},
+				{"id":"video_multi_ref","inputs":[{"slot":"prompt"},{"slot":"reference_images","required":true},{"slot":"reference_videos"},{"slot":"reference_audios"}],"parameters":[{"name":"duration"},{"name":"resolution","fixed":"480p"},{"name":"aspect_ratio"}]},
+				{"id":"video_edit","parameters":[{"name":"duration","fixed":-1},{"name":"resolution","fixed":"480p"}]},
+				{"id":"video_extend","parameters":[{"name":"duration"},{"name":"resolution","fixed":"480p"}]}
+			 ]},
+			{"channel_id":%[6]d,"channel_type":%[8]d,"profile":"seedance_openai_video","upstream_model":"jiuyue-sd25-flash-480p","base_url":%[1]q,"evidence":"fixture","operations":%[13]s},
+			{"channel_id":%[7]d,"channel_type":%[8]d,"profile":"seedance_openai_video","upstream_model":"jiuyue-sd25-flash-720p","base_url":%[1]q,"evidence":"fixture","operations":%[14]s}
+		]
+	}}`, h.upstreamURL, ch480Eco, ch720Std, ch1080Plus, chFlashNative, chFlash480Eco, chFlash720Eco,
+		constant.ChannelTypeOpenAI, constant.ChannelTypeApiMart,
+		seedanceOpenAIOps("480p", 5, false), seedanceOpenAIOps("720p", 5, false), seedanceOpenAIOps("1080p", 5, true),
+		flashEcoOps("480p"), flashEcoOps("720p"))
+
+	rules, err := modelcontracts.ReadVideoCapabilities(strings.NewReader(rulesDoc))
+	require.NoError(t, err)
+	modelcontracts.SetVideoCapabilities(rules)
+	model.InitChannelCache()
+	model.InvalidatePricingCache()
+
+	for _, tc := range []struct {
+		modelID     string
+		openAIGroup map[string]string
+		allGroups   []string
+	}{
+		{
+			modelID:     "seedance-2-5",
+			openAIGroup: map[string]string{"seedance-2-5-480p-eco": "480p", "seedance-2-5-720p": "720p", "seedance-2-5-1080p-plus": "1080p"},
+			allGroups:   []string{"seedance-2-5-480p-eco", "seedance-2-5-720p", "seedance-2-5-1080p-plus"},
+		},
+		{
+			modelID:     "seedance-2-5-flash",
+			openAIGroup: map[string]string{"seedance-2-5-flash-480p-eco": "480p", "seedance-2-5-flash-720p-eco": "720p"},
+			allGroups:   []string{"seedance-2-5-flash-480p", "seedance-2-5-flash-480p-eco", "seedance-2-5-flash-720p-eco"},
+		},
+	} {
+		pricingResp, contractResp := h.syntheticCatalogResponses(t, tc.modelID)
+		data := contractResp["data"].(map[string]any)
+		view := data["effective_video"].(map[string]any)
+		assert.Equal(t, view, pricingResp["data"].([]map[string]any)[0]["effective_video"])
+		published := view["groups"].(map[string]any)
+		assert.ElementsMatch(t, tc.allGroups, slices.Collect(maps.Keys(published)))
+		for groupName, wantRes := range tc.openAIGroup {
+			variants := published[groupName].([]any)
+			require.Len(t, variants, 4, groupName)
+			for _, rawVariant := range variants {
+				resParam := videoFixtureParameter(rawVariant.(map[string]any), "resolution")
+				require.NotNil(t, resParam)
+				assert.Equal(t, wantRes, resParam["default"], groupName)
+				assert.NotContains(t, resParam, "required", groupName)
+			}
+		}
+		encoded, err := common.Marshal(view)
+		require.NoError(t, err)
+		for _, private := range []string{"BT-2.5-480p", "sd-2.5-720p-pro", "sd-2.5-1080p-plus", "jiuyue-sd25-flash-", h.upstreamURL} {
+			assert.NotContains(t, string(encoded), private)
+		}
+	}
+
+	const refImage = "https://media.example/reference.png"
+	const refVideo = "https://media.example/clip.mp4"
+	const refAudio = "https://media.example/voice.mp3"
+
+	t.Run("seedance-2-5 480p-eco omits resolution and forwards image+audio", func(t *testing.T) {
+		before := h.attemptCount()
+		resp := h.submit(t, "/v1/video/generations", "", map[string]any{
+			"model":        "seedance-2-5@seedance-2-5-480p-eco",
+			"operation":    "video_multi_ref",
+			"prompt":       "lantern light",
+			"duration":     6,
+			"aspect_ratio": "16:9",
+			"images":       []string{refImage},
+			"audio_urls":   []string{refAudio},
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		attempts := h.attemptsFrom(before)
+		require.Len(t, attempts, 1)
+		assert.Equal(t, "s25-480p-eco", attempts[0].key)
+		assert.Equal(t, "/v1/videos", attempts[0].path)
+		assert.Equal(t, "BT-2.5-480p", attempts[0].body["model"])
+		assert.Equal(t, "480p", attempts[0].body["resolution"])
+		assert.EqualValues(t, 6, attempts[0].body["seconds"])
+		assert.Equal(t, []any{refImage}, attempts[0].body["images"])
+		assert.Equal(t, []any{refAudio}, attempts[0].body["audio_urls"])
+		assert.NotContains(t, attempts[0].body, "operation")
+	})
+
+	t.Run("seedance-2-5 480p-eco rejects video_urls capability mismatch", func(t *testing.T) {
+		h.requireMismatch(t, "/v1/video/generations", "", map[string]any{
+			"model":        "seedance-2-5@seedance-2-5-480p-eco",
+			"operation":    "video_multi_ref",
+			"prompt":       "lantern light",
+			"duration":     6,
+			"aspect_ratio": "16:9",
+			"images":       []string{refImage},
+			"video_urls":   []string{refVideo},
+		})
+	})
+
+	t.Run("seedance-2-5 1080p-plus forwards multimodal images, video_urls, and audio_urls", func(t *testing.T) {
+		before := h.attemptCount()
+		resp := h.submit(t, "/v1/videos", "", map[string]any{
+			"model":        "seedance-2-5@seedance-2-5-1080p-plus",
+			"operation":    "video_multi_ref",
+			"prompt":       "rainstorm",
+			"duration":     8,
+			"aspect_ratio": "16:9",
+			"images":       []string{refImage},
+			"video_urls":   []string{refVideo},
+			"audio_urls":   []string{refAudio},
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		attempts := h.attemptsFrom(before)
+		require.Len(t, attempts, 1)
+		assert.Equal(t, "s25-1080p-plus", attempts[0].key)
+		assert.Equal(t, "/v1/videos", attempts[0].path)
+		assert.Equal(t, "sd-2.5-1080p-plus", attempts[0].body["model"])
+		assert.Equal(t, "1080p", attempts[0].body["resolution"])
+		assert.EqualValues(t, 8, attempts[0].body["seconds"])
+		assert.Equal(t, []any{refVideo}, attempts[0].body["video_urls"])
+		assert.Equal(t, []any{refAudio}, attempts[0].body["audio_urls"])
+	})
+
+	t.Run("seedance-2-5-flash without explicit group selects tier group on /v1/video/generations", func(t *testing.T) {
+		before := h.attemptCount()
+		resp := h.submit(t, "/v1/video/generations", "", map[string]any{
+			"model":        "seedance-2-5-flash",
+			"operation":    "text_to_video",
+			"prompt":       "mountain sunrise",
+			"duration":     5,
+			"resolution":   "480p",
+			"aspect_ratio": "16:9",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		attempts := h.attemptsFrom(before)
+		require.Len(t, attempts, 1)
+		assert.Equal(t, "flash-480p-native", attempts[0].key)
+		assert.Equal(t, "/v1/videos/generations", attempts[0].path)
+		assert.Equal(t, "seedance-2-5-flash", attempts[0].body["model"])
+		assert.Equal(t, "480p", attempts[0].body["resolution"])
+		assert.Equal(t, "seedance-2-5-flash-480p", h.latestTask(t).Group)
+	})
+
+	t.Run("seedance-2-5-flash explicit eco group bypasses tier selector and injects resolution", func(t *testing.T) {
+		before := h.attemptCount()
+		resp := h.submit(t, "/v1/video/generations", "", map[string]any{
+			"model":        "seedance-2-5-flash@seedance-2-5-flash-480p-eco",
+			"operation":    "text_to_video",
+			"prompt":       "desert dune",
+			"duration":     5,
+			"aspect_ratio": "16:9",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+		attempts := h.attemptsFrom(before)
+		require.Len(t, attempts, 1)
+		assert.Equal(t, "flash-480p-eco", attempts[0].key)
+		assert.Equal(t, "/v1/videos", attempts[0].path)
+		assert.Equal(t, "jiuyue-sd25-flash-480p", attempts[0].body["model"])
+		assert.Equal(t, "480p", attempts[0].body["resolution"])
+		assert.Equal(t, "seedance-2-5-flash-480p-eco", h.latestTask(t).Group)
+	})
+
+	t.Run("seedance-2-5-flash 720p-eco rejects video_edit, 1080p, and 480p mismatch with zero upstream calls", func(t *testing.T) {
+		h.requireMismatch(t, "/v1/videos", "", map[string]any{
+			"model":        "seedance-2-5-flash@seedance-2-5-flash-720p-eco",
+			"operation":    "text_to_video",
+			"prompt":       "mismatched resolution",
+			"duration":     5,
+			"resolution":   "480p",
+			"aspect_ratio": "16:9",
+		})
+		for _, payload := range []map[string]any{
+			{
+				"model":      "seedance-2-5-flash@seedance-2-5-flash-720p-eco",
+				"operation":  "video_edit",
+				"prompt":     "edit clip",
+				"duration":   5,
+				"video_urls": []string{refVideo},
+			},
+			{
+				"model":        "seedance-2-5-flash@seedance-2-5-flash-720p-eco",
+				"operation":    "text_to_video",
+				"prompt":       "too high res",
+				"duration":     5,
+				"resolution":   "1080p",
+				"aspect_ratio": "16:9",
+			},
+		} {
+			start := h.attemptCount()
+			beforeBal, err := h.readBalances("/v1/videos", "")
+			require.NoError(t, err)
+			resp := h.submit(t, "/v1/videos", "", payload)
+			require.Equal(t, http.StatusBadRequest, resp.Code, resp.Body.String())
+			assert.Equal(t, start, h.attemptCount())
+			afterBal, err := h.readBalances("/v1/videos", "")
+			require.NoError(t, err)
+			assert.Equal(t, beforeBal, afterBal)
+		}
+	})
+}
+
+func TestSeedance25MixedProtocolGroupSelectsMultimodalDecoder(t *testing.T) {
+	h := newVideoCapabilityRouteHarness(t)
+	require.NoError(t, model.DB.Where("model = ?", "seedance-2-5").Delete(&model.Ability{}).Error)
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"muse-video":0.01,"seedance-2-5":0.283}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"legacy-eco":0.2,"mixed-pro":0.55}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"Default","legacy-eco":"Legacy Eco","mixed-pro":"Mixed Pro"}`))
+
+	legacyEcoID := h.addSyntheticChannel(t, "legacy-eco-ch", "seedance-2-5", "legacy-eco", "fixture-eco-480p", constant.ChannelTypeOpenAI, 10)
+	mixedNativeID := h.addSyntheticChannel(t, "mixed-native-ch", "seedance-2-5", "mixed-pro", "seedance-2-5", constant.ChannelTypeApiMart, 20)
+	mixedOpenAIID := h.addSyntheticChannel(t, "mixed-openai-ch", "seedance-2-5", "mixed-pro", "sd-2.5-720p-pro", constant.ChannelTypeOpenAI, 10)
+
+	rulesDoc := fmt.Sprintf(`{"models":{"seedance-2-5":[
+		{"channel_id":%[2]d,"channel_type":%[5]d,"profile":"seedance25_openai_video","upstream_model":"fixture-eco-480p","base_url":%[1]q,"evidence":"fixture",
+		 "operations":[{"id":"video_multi_ref","inputs":[{"slot":"prompt"},{"slot":"reference_images","required":true,"min":1,"max":1}],
+		  "parameters":[{"name":"duration","fixed":30},{"name":"aspect_ratio","fixed":"9:16"},{"name":"resolution","fixed":"480p"}]}]},
+		{"channel_id":%[3]d,"channel_type":%[6]d,"profile":"apimart_video","request_model":"seedance-2-5","upstream_model":"seedance-2-5","base_url":%[1]q,"evidence":"fixture",
+		 "operations":[{"id":"text_to_video","parameters":[{"name":"duration"},{"name":"resolution","fixed":"720p"},{"name":"aspect_ratio"}]}]},
+		{"channel_id":%[4]d,"channel_type":%[5]d,"profile":"seedance_openai_video","upstream_model":"sd-2.5-720p-pro","base_url":%[1]q,"evidence":"fixture",
+		 "operations":[{"id":"text_to_video","parameters":[{"name":"duration","type":"integer","minimum":5,"maximum":30},{"name":"resolution","type":"enum","enum":["720p"],"fixed":"720p"},{"name":"aspect_ratio","type":"enum","enum":["16:9","9:16"]}]}]}
+	]}}`, h.upstreamURL, legacyEcoID, mixedNativeID, mixedOpenAIID, constant.ChannelTypeOpenAI, constant.ChannelTypeApiMart)
+
+	rules, err := modelcontracts.ReadVideoCapabilities(strings.NewReader(rulesDoc))
+	require.NoError(t, err)
+	modelcontracts.SetVideoCapabilities(rules)
+	model.InitChannelCache()
+	model.InvalidatePricingCache()
+
+	// Unheaded /v1/video/generations stays on native apimart_video for the mixed group.
+	start := h.attemptCount()
+	nativeResp := h.submit(t, "/v1/video/generations", "", map[string]any{
+		"model":        "seedance-2-5@mixed-pro",
+		"operation":    "text_to_video",
+		"prompt":       "native route",
+		"duration":     6,
+		"resolution":   "720p",
+		"aspect_ratio": "16:9",
+	})
+	require.Equal(t, http.StatusOK, nativeResp.Code, nativeResp.Body.String())
+	attempts := h.attemptsFrom(start)
+	require.Len(t, attempts, 1)
+	assert.Equal(t, "mixed-native-ch", attempts[0].key)
+	assert.Equal(t, "/v1/videos/generations", attempts[0].path)
+
+	// /v1/videos and explicit openai_video header must select SeedanceMultimodalOpenAIDecoder
+	// instead of falling back to legacy Seedance25OpenAIDecoder even though legacyEco is configured.
+	for _, tc := range []struct {
+		path, protocol string
+	}{
+		{"/v1/videos", ""},
+		{"/v1/video/generations", modelcontracts.VideoProtocolOpenAI},
+	} {
+		before := h.attemptCount()
+		resp := h.submitWithProtocol(t, tc.path, "", tc.protocol, map[string]any{
+			"model":        "seedance-2-5@mixed-pro",
+			"operation":    "text_to_video",
+			"prompt":       "multimodal openai route",
+			"duration":     6,
+			"aspect_ratio": "16:9",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, "%s: %s", tc.path, resp.Body.String())
+		got := h.attemptsFrom(before)
+		require.Len(t, got, 1)
+		assert.Equal(t, "mixed-openai-ch", got[0].key)
+		assert.Equal(t, "/v1/videos", got[0].path)
+		assert.Equal(t, "sd-2.5-720p-pro", got[0].body["model"])
+		assert.Equal(t, "720p", got[0].body["resolution"])
+		assert.Equal(t, "16:9", got[0].body["aspect_ratio"])
+		assert.EqualValues(t, 6, got[0].body["seconds"])
+	}
+}

@@ -143,7 +143,7 @@ func normalizePhaseOneVideoRequest(modelID string, raw map[string]any) (map[stri
 // vendor task type used at submission in agreement.
 func normalizeManagedVideoRequest(requestModel string, raw map[string]any) (map[string]any, phaseOneMedia, error) {
 	modelID, _ := canonicalPhaseOneVideoModel(requestModel)
-	if modelID != "seedance-2-5" {
+	if modelID != "seedance-2-5" && modelID != "seedance-2-5-flash" {
 		return nil, phaseOneMedia{}, fmt.Errorf("no verified request decoder for this video profile")
 	}
 	draft := raw["draft"]

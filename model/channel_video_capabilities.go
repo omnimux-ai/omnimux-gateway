@@ -23,20 +23,23 @@ const (
 	// Seedance25OpenAIDecoder selects the factory hook's economy request shape.
 	// The public task and the upstream request still use their own model IDs.
 	Seedance25OpenAIDecoder = "seedance-2-5-openai-decoder"
+	// SeedanceMultimodalOpenAIDecoder selects the multimodal fixed-resolution
+	// Seedance OpenAI decoder in the factory Sora plugin.
+	SeedanceMultimodalOpenAIDecoder = "seedance-multimodal-openai-decoder"
 )
 
 func IsFactorySoraVideoPlugin(plugin *jsplugin.LoadedPlugin) bool {
 	return plugin != nil && plugin.IsFactory() && plugin.Meta.Key == "sora"
 }
 
-// Seedance25VideoGroupProfile identifies the request protocol for old callers
-// that name a concrete group, and the resolution that group can default to.
-// Both decisions use the same verified channels as the catalog and distributor.
-func Seedance25VideoGroupProfile(rules *modelcontracts.VideoCapabilities, generation *jsplugin.RoutingGeneration, modelName, group string) (economyOnly bool, resolution string) {
+// Seedance25VideoGroupProfile identifies the request protocol, fixed resolution,
+// and OpenAI decoder for callers that name a concrete group.
+// All decisions use the same verified channels as the catalog and distributor.
+func Seedance25VideoGroupProfile(rules *modelcontracts.VideoCapabilities, generation *jsplugin.RoutingGeneration, modelName, group string) (economyOnly bool, resolution string, decoder string) {
 	if group == "" || group == "auto" {
-		return false, ""
+		return false, "", ""
 	}
-	var native, ambiguous bool
+	var native, ambiguous, ambiguousDecoder bool
 	for _, id := range rules.ChannelIDs() {
 		identity, exists := rules.ChannelIdentity(modelName, id)
 		if !exists || !IsChannelEnabledForGroupModel(group, modelName, id) {
@@ -46,18 +49,33 @@ func Seedance25VideoGroupProfile(rules *modelcontracts.VideoCapabilities, genera
 		if err != nil || !videoChannelQualified(rules, generation, channel, modelName) {
 			continue
 		}
-		if identity.Protocol == modelcontracts.VideoProtocolGenerations {
+		switch identity.Protocol {
+		case modelcontracts.VideoProtocolGenerations:
 			native = true
-		} else if identity.Profile == modelcontracts.VideoProfileSeedance25OpenAI {
-			ambiguous = ambiguous || resolution != "" && resolution != identity.FixedResolution
-			resolution = identity.FixedResolution
+		case modelcontracts.VideoProtocolOpenAI:
+			var profileDecoder string
+			switch identity.Profile {
+			case modelcontracts.VideoProfileSeedance25OpenAI:
+				profileDecoder = Seedance25OpenAIDecoder
+			case modelcontracts.VideoProfileSeedanceOpenAI:
+				profileDecoder = SeedanceMultimodalOpenAIDecoder
+			}
+			if profileDecoder != "" {
+				ambiguousDecoder = ambiguousDecoder || (decoder != "" && decoder != profileDecoder)
+				decoder = profileDecoder
+				ambiguous = ambiguous || resolution != "" && resolution != identity.FixedResolution
+				resolution = identity.FixedResolution
+			}
 		}
 	}
-	economyOnly = resolution != "" && !native
+	economyOnly = decoder != "" && !native
 	if ambiguous {
 		resolution = ""
 	}
-	return economyOnly, resolution
+	if ambiguousDecoder {
+		decoder = ""
+	}
+	return economyOnly, resolution, decoder
 }
 
 // projectSeedanceEconomyResolution supplies a catalog default when all of the
@@ -167,7 +185,7 @@ func videoChannelQualified(rules *modelcontracts.VideoCapabilities, generation *
 	case modelcontracts.VideoProtocolGenerations:
 		return ch.Type == constant.ChannelTypeApiMart
 	case modelcontracts.VideoProtocolOpenAI:
-		if identity.Profile == modelcontracts.VideoProfileSeedance25OpenAI {
+		if identity.Profile == modelcontracts.VideoProfileSeedance25OpenAI || identity.Profile == modelcontracts.VideoProfileSeedanceOpenAI {
 			owner, _ := generation.GetByChannelType(ch.Type)
 			return ch.Type == constant.ChannelTypeOpenAI && IsFactorySoraVideoPlugin(owner) &&
 				slices.ContainsFunc(generation.LookupEndpointCandidates(http.MethodPost, "/v1/videos", SoraVideoBindingModel), func(candidate jsplugin.ProtocolBinding) bool {
