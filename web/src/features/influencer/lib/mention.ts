@@ -40,7 +40,7 @@ export const MENTION_PATTERN =
 
 function readMention(match: RegExpExecArray): MentionItem | null {
   const index = Number(match[2] || match[4])
-  if (!Number.isSafeInteger(index) || index < 1 || index > 30) return null
+  if (!Number.isSafeInteger(index) || index < 1 || index > 10) return null
   const type =
     (match[1] || match[3]).toLowerCase() === 'video' ? 'video' : 'image'
   const name = `${type === 'video' ? 'Video' : 'Image'} ${index}`
@@ -103,7 +103,7 @@ export function getAvailableMentions(params: {
       url: params.videoUrl,
     })
   }
-  params.characterImages.slice(0, 30).forEach((url, i) => {
+  params.characterImages.slice(0, 10).forEach((url, i) => {
     const index = i + 1
     items.push({
       id: `image:${url}`,

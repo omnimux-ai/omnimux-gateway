@@ -41,11 +41,10 @@ func GetInfluencerVideoInputRules(mode string) (InfluencerVideoInputConstraints,
 	minimum := 2.0
 	switch mode {
 	case "motion":
-		// motion output is floored to 5s at the gateway, so a ≥2s source is safe.
+		// motion output is floored to 4s at the gateway, so a >=2s source is safe.
 	case "replace":
-		// replace renders output_seconds == source_seconds; the source must be
-		// ≥5s because Pidoi-bound lines reject seconds<5.
-		minimum = 5
+		// replace renders output_seconds == source_seconds; MAGI-2 accepts 4-30 whole seconds.
+		minimum = 4
 	case "recreate":
 		// Viral recreation derives its whole-second output from the clip; the
 		// planner accepts 4–30s and the same bound applies before enqueue.

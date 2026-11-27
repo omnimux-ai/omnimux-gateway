@@ -21,15 +21,14 @@ import type { PricingResponse } from '../types'
 
 /**
  * Public model id for the workbench's video surface. The gateway sells one id
- * and maps the requested resolution to a tier group (see
+ * and maps the single 1080p tier to the configured price group (see
  * `controller/influencer_motion.go`), so the quote must use that same group.
  */
-export const VIDEO_MODEL = 'seedance-2-5'
+export const VIDEO_MODEL = 'magi-2'
 
 /** Resolution → price tier group, mirroring the gateway's pinned routing. */
 export const VIDEO_QUOTE_GROUPS: Record<string, string> = {
-  '480p': 'seedance-2-5-480p',
-  '720p': 'seedance-2-5-720p',
+  '1080p': 'default',
 }
 
 /** The gateway rejects output lengths outside this window. */

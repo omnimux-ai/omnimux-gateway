@@ -262,16 +262,16 @@ describe('mention prompt editor', () => {
   })
 
   test('typing a multi-digit reference does not prematurely bind its first digit', () => {
-    const image30 = {
+    const image10 = {
       ...imageB,
-      index: 30,
-      name: 'Image 30',
-      label: '@Image 30',
+      index: 10,
+      name: 'Image 10',
+      label: '@Image 10',
     }
-    render(<Harness items={[imageA, image30]} />)
+    render(<Harness items={[imageA, image10]} />)
     act(() => {
       editor().dispatch({
-        changes: { from: 0, insert: '@Image3' },
+        changes: { from: 0, insert: '@Image1' },
         selection: { anchor: 7 },
         userEvent: 'input.type',
       })
@@ -286,10 +286,10 @@ describe('mention prompt editor', () => {
     })
     expect(
       within(screen.getByRole('textbox', { name: 'Prompt' })).getByText(
-        '@Image 30'
+        '@Image 10'
       )
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Plain prompt')).toHaveTextContent('@Image 30')
+    expect(screen.getByLabelText('Plain prompt')).toHaveTextContent('@Image 10')
   })
 
   test('composition updates stay unwrapped until completion and undo as one edit', async () => {

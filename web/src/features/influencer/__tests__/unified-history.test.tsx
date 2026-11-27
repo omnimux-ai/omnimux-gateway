@@ -331,10 +331,10 @@ describe('InfluencerWorkbench unified history', () => {
       } else {
         expect(screen.getByRole('switch', { name: 'Prompt' })).toBeChecked()
         expect(screen.getByRole('textbox')).toHaveTextContent('Move')
-        expect(screen.getByRole('radio', { name: '720P' })).toHaveAttribute(
-          'aria-checked',
-          'true'
-        )
+        expect(screen.queryByRole('radio', { name: '720P' })).toBeNull()
+        expect(
+          screen.queryByRole('radiogroup', { name: 'Resolution' })
+        ).toBeNull()
         expect(screen.getAllByRole('button', { name: /^Remove/ })).toHaveLength(
           2
         )
@@ -391,7 +391,7 @@ describe('InfluencerWorkbench unified history', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('retains video character, prompt and resolution after visiting history', async () => {
+  it('retains video character and prompt after visiting history', async () => {
     const user = userEvent.setup()
     renderWorkbench()
     await user.click(await screen.findByRole('radio', { name: 'Motion video' }))
@@ -416,7 +416,9 @@ describe('InfluencerWorkbench unified history', () => {
         files: [],
       },
     })
-    await user.click(screen.getByRole('radio', { name: '720P' }))
+    expect(
+      screen.queryByRole('radiogroup', { name: 'Resolution' })
+    ).toBeNull()
     const navigation = screen.getByRole('navigation', { name: 'Workspace' })
     await user.click(
       within(navigation).getByRole('button', { name: 'History' })
@@ -425,10 +427,9 @@ describe('InfluencerWorkbench unified history', () => {
     expect(screen.getByRole('textbox')).toHaveTextContent(
       'Keep this phone draft'
     )
-    expect(screen.getByRole('radio', { name: '720P' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    )
+    expect(
+      screen.queryByRole('radiogroup', { name: 'Resolution' })
+    ).toBeNull()
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
   })
 
@@ -499,10 +500,10 @@ describe('InfluencerWorkbench unified history', () => {
     )
     expect(screen.getByRole('switch', { name: 'Prompt' })).toBeChecked()
     expect(screen.getByRole('textbox')).toHaveTextContent(input.prompt)
-    expect(screen.getByRole('radio', { name: '720P' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    )
+    expect(screen.queryByRole('radio', { name: '720P' })).toBeNull()
+    expect(
+      screen.queryByRole('radiogroup', { name: 'Resolution' })
+    ).toBeNull()
     expect(readBrowserVideoMetadata).toHaveBeenCalledExactlyOnceWith(
       input.video_url,
       expect.any(AbortSignal)
@@ -530,7 +531,7 @@ describe('InfluencerWorkbench unified history', () => {
           aspect_ratio: '16:9',
           duration_sec: 8,
           video_metadata: RAW_VIDEO_METADATA,
-          resolution: '720p',
+          resolution: '1080p',
         }),
         expect.anything()
       )

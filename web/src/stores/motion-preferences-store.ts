@@ -18,13 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { create } from 'zustand'
 
-export const DEFAULT_MOTION_RESOLUTION = '480p'
+export const DEFAULT_MOTION_RESOLUTION = '1080p'
 const KEY = 'influencer:motion-resolution'
 
 function readResolution(): string {
   try {
     const stored = localStorage.getItem(KEY)
-    if (stored === '480p' || stored === '720p') return stored
+    if (stored === '1080p') return stored
   } catch {
     // Unavailable storage must not prevent generation.
   }
@@ -39,7 +39,7 @@ type MotionPreferences = {
 export const useMotionPreferencesStore = create<MotionPreferences>((set) => ({
   resolution: readResolution(),
   setResolution: (resolution) => {
-    if (resolution !== '480p' && resolution !== '720p') return
+    if (resolution !== '1080p') return
     set({ resolution })
     try {
       localStorage.setItem(KEY, resolution)

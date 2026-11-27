@@ -49,7 +49,7 @@
 | 顶栏入口 | 文档、能力、**定价**、**灵感社区** | 定价与灵感为同页锚点，无独立入口 |
 | 模型价目（`/pricing`） | 显式入口，默认 `desktop-720p` 分组 | 页面可直达但无入口、不进 sitemap、`noindex` |
 | 灵感社区（`/inspiration`） | 显式入口 | 页面可直达但无入口、`noindex` |
-| 计费 | `desktop-480p` / `desktop-720p` 模型专属分组 | `seedance-2-5-480p` / `seedance-2-5-720p` |
+| 计费 | `desktop-480p` / `desktop-720p` 模型专属分组 | `magi-2`（`1080p`，`default` 分组） |
 | 收录 | 首页 `index,follow` + canonical，进 sitemap | 保持现有公开页与 sitemap |
 
 下载主 CTA 只能指向 `dl.omnimux.ai`。

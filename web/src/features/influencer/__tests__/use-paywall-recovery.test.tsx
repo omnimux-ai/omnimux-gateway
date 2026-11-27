@@ -98,7 +98,7 @@ const MOTION_BODY: MotionSubmitBody = {
   video_url: 'https://files.example/reference.mp4',
   duration_sec: 5,
   aspect_ratio: '9:16',
-  resolution: '480p',
+  resolution: '1080p',
 }
 
 const MULTIVIEW_BODY: MultiViewSubmitBody = {

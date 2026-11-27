@@ -68,10 +68,25 @@ func prepareInfluencerRecreatePrompt(ctx context.Context, meta influencerVideoPl
 		return errors.New("参考视频拆解时长不可用，视频生成未开始")
 	}
 	out["prompt"] = plan.Prompt
-	out["seconds"] = strconv.Itoa(plan.DurationSec)
-	out["images"] = meta.SubjectImageURLs
+	// In-flight legacy recreate tasks submitted before cutover still target
+	// seedance-2-5 (`seconds` + `images`); preserve their wire contract so
+	// unpinned compatible channels still decode them.
+	modelName, _ := out["model"].(string)
+	normalizedModel := strings.ToLower(strings.TrimSpace(modelName))
+	if normalizedModel == "seedance-2-5" || normalizedModel == "seedance-2.5" {
+		out["seconds"] = strconv.Itoa(plan.DurationSec)
+		out["images"] = meta.SubjectImageURLs
+	} else {
+		out["duration"] = plan.DurationSec
+		out["image_urls"] = meta.SubjectImageURLs
+		out["generate_audio"] = true
+		delete(out, "seconds")
+		delete(out, "images")
+	}
 	// The reference clip is decomposition material only; neither video nor
-	// audio may travel to the provider.
+	// audio may travel to the provider. Clear legacy keys during rollout compat.
+	delete(out, "video_urls")
+	delete(out, "audio_urls")
 	delete(out, "videos")
 	delete(out, "audios")
 	return nil
@@ -101,23 +116,12 @@ func prepareInfluencerVideoPrompt(ctx context.Context, task *model.Task, out map
 		return errors.New("视频生成类型不可读取，任务未开始")
 	}
 
-	videos, videoOK := out["videos"].([]any)
-	images, imageOK := out["images"].([]any)
+	videos, videoOK := influencerMediaURLs(out, "video_urls", "videos")
+	images, imageOK := influencerMediaURLs(out, "image_urls", "images")
 	if !videoOK || len(videos) != 1 || !imageOK || len(images) == 0 {
 		return errors.New("对象替换素材不完整，视频生成未开始")
 	}
-	in := service.InfluencerObjectSwapPlanInput{DurationSec: meta.DurationSec, ImageTags: meta.ImageTags, UserPrompt: meta.Prompt, VerifiedIdentity: meta.VerifiedIdentity}
-	in.VideoURL, _ = videos[0].(string)
-	if strings.TrimSpace(in.VideoURL) == "" {
-		return errors.New("对象替换视频不可读取，视频生成未开始")
-	}
-	for _, value := range images {
-		url, ok := value.(string)
-		if !ok || strings.TrimSpace(url) == "" {
-			return errors.New("对象替换图片不可读取，视频生成未开始")
-		}
-		in.ImageURLs = append(in.ImageURLs, url)
-	}
+	in := service.InfluencerObjectSwapPlanInput{DurationSec: meta.DurationSec, ImageTags: meta.ImageTags, UserPrompt: meta.Prompt, VerifiedIdentity: meta.VerifiedIdentity, VideoURL: videos[0], ImageURLs: images}
 	preparation, begun, err := model.BeginGenerationObjectSwapPreparation(ctx, task, scanner, runnerID)
 	if err != nil {
 		return errors.New("素材理解准备状态不可确认，视频生成未开始")

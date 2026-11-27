@@ -52,7 +52,9 @@ const metadataSchema = z.object({
   durationSec: z.number().finite().positive(),
   width: z.number().finite().positive(),
   height: z.number().finite().positive(),
-  aspectRatio: z.enum(['16:9', '9:16', '3:4']).nullable(),
+  aspectRatio: z
+    .enum(['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'])
+    .nullable(),
 })
 
 const recordSchema = z.object({

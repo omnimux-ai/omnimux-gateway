@@ -279,13 +279,14 @@ describe('browser-only video selection', () => {
       expect(handleServerError).toHaveBeenCalledOnce()
     }
   )
-  it('rejects 3:4 at 720p without replacing the prior source', async () => {
+  it('rejects 3:4 when outputCapabilities omit it without replacing the prior source', async () => {
     const onCommit = vi.fn()
     const { result } = renderHook(() =>
       useVideoReferenceSelection({
         onCommit,
         upload: uploadReference,
-        resolution: '720p',
+        resolution: '1080p',
+        outputAspects: { '1080p': ['16:9', '9:16'] },
       })
     )
     await act(async () => {

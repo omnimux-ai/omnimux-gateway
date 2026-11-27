@@ -156,7 +156,7 @@ function serverBody(url: string): { status: number; data: unknown } {
         success: true,
         data: {
           version: '1',
-          resolutions: { '720p': { aspect_ratios: ['9:16'] } },
+          resolutions: { '1080p': { aspect_ratios: ['9:16'] } },
         },
       },
     }

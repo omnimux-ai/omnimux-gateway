@@ -210,7 +210,7 @@ func PostInfluencerCLIVideo(c *gin.Context) {
 		req.Mode = "motion"
 	}
 	if req.Resolution == "" {
-		req.Resolution = "480p"
+		req.Resolution = "1080p"
 	}
 	req.CharacterTaskID, req.VideoTaskID, req.VideoURL, req.Prompt = strings.TrimSpace(req.CharacterTaskID), strings.TrimSpace(req.VideoTaskID), strings.TrimSpace(req.VideoURL), strings.TrimSpace(req.Prompt)
 	for i := range req.ImageURLs {
@@ -243,7 +243,7 @@ func PostInfluencerCLIVideo(c *gin.Context) {
 	}
 	group, ok := influencerMotionGroups[req.Resolution]
 	if !ok {
-		influencerError(c, http.StatusBadRequest, "invalid_request", "resolution must be 480p or 720p")
+		influencerError(c, http.StatusBadRequest, "invalid_request", "resolution must be 1080p")
 		return
 	}
 	// All three modes share one generation line and its resolution tier group.
@@ -294,8 +294,7 @@ func PostInfluencerCLIVideo(c *gin.Context) {
 			prepared.Discard()
 		}
 	}()
-	// CLI references retain their 4-second minimum on the source clip; the
-	// generated output still bills via influencerMotionMinSeconds (5s floor).
+	// Keep the shared 4-second minimum across source clip duration and generated output.
 	if req.Mode != influencerMotionModeRecreate && (prepared.Metadata.Duration < influencerMotionCLIMinInput || (prepared.Metadata.VideoDuration != 0 && prepared.Metadata.VideoDuration < influencerMotionCLIMinInput)) {
 		influencerError(c, http.StatusBadRequest, "reference_video_invalid", "reference video must be between 4 and 30 seconds, including its actual visual duration")
 		return

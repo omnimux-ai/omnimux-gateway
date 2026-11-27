@@ -30,19 +30,15 @@ import (
 const ActionInfluencerMotion = constant.TaskActionInfluencerMotion
 
 const (
-	influencerMotionModel       = "seedance-2-5"
+	influencerMotionModel       = "magi-2"
 	influencerMotionAspectRatio = "9:16"
-	// Web motion output floor is 5s — Pidoi-bound upstream lines reject
-	// seconds<5 and every other current supplier line accepts ≥5, so 5 keeps
-	// billing and upstream cost consistent. CLI callers keep a separate 4s
-	// floor on the *input* reference clip duration only (a 4s source clip is
-	// legitimate material); the gateway still bills them by the 5s output
-	// floor via influencerMotionMinSeconds.
-	influencerMotionMinSeconds   = 5
+	// Web motion output floor is 4s (MAGI-2 accepts 4-30 whole seconds).
+	// CLI callers keep the same 4s floor on the input reference clip duration.
+	influencerMotionMinSeconds   = 4
 	influencerMotionCLIMinInput  = 4
 	influencerMotionMaxSeconds   = 30
 	influencerMotionMaxPromptLen = 4000
-	influencerMotionMaxImages    = 30
+	influencerMotionMaxImages    = 10
 	influencerMotionMaxTagLen    = 20
 	influencerMotionKind         = "motion"
 	// fork: viral recreation — the reference clip is decomposition material only and
@@ -58,20 +54,13 @@ const (
 // influencerMotionGroups maps the output resolution to the price tier group the
 // upstream line is bound to. A request always carries one of these groups.
 var influencerMotionGroups = map[string]string{
-	"480p": "seedance-2-5-480p",
-	"720p": "seedance-2-5-720p",
+	"1080p": "default",
 }
 
-// influencerMotionOutputRatios is the output framing the bound upstream lines
-// are evidenced to accept per resolution. It is an output contract only: it
-// says nothing about which aspect ratio a reference video may carry. The
-// verified 2026-10-12 supplier catalogs declare 16:9/9:16/3:4 on the 480p
-// stable line and only 16:9/9:16 on the 720p J1 line, so 720p 3:4 is not
-// offered even though the generic vendor model lists it. Other ordinary output
-// choices stay out until verified, including automatic source-preserving edits.
+// influencerMotionOutputRatios is the output framing the bound upstream line
+// accepts at 1080p (MAGI-2 supports 1080p single tier across all 6 ratios).
 var influencerMotionOutputRatios = map[string][]string{
-	"480p": {"16:9", "9:16", "3:4"},
-	"720p": {"16:9", "9:16"},
+	"1080p": {"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"},
 }
 
 // influencerMotionPrompts frames the user's instruction for each mode. Motion
@@ -193,7 +182,7 @@ func prepareInfluencerMotionRequest(c *gin.Context, req influencerMotionRequest,
 	resolution := strings.TrimSpace(req.Resolution)
 	group, ok := influencerMotionGroups[resolution]
 	if !ok {
-		influencerAbort(c, "resolution must be 480p or 720p")
+		influencerAbort(c, "resolution must be 1080p")
 		return nil, nil, nil, false
 	}
 	// Keep explicit output compatibility for the product API; browser requests
@@ -239,7 +228,7 @@ func prepareInfluencerMotionRequest(c *gin.Context, req influencerMotionRequest,
 		return nil, nil, nil, false
 	}
 	if len(subjectURLs) > influencerMotionMaxImages {
-		influencerAbort(c, "subject_image_urls exceeds 30 images")
+		influencerAbort(c, "subject_image_urls exceeds 10 images")
 		return nil, nil, nil, false
 	}
 	for _, u := range subjectURLs {
@@ -445,14 +434,15 @@ func prepareInfluencerMotionRequest(c *gin.Context, req influencerMotionRequest,
 		}
 	}
 	out := map[string]any{
-		"model":        influencerMotionModel,
-		"group":        group,
-		"prompt":       fullPrompt,
-		"seconds":      strconv.Itoa(outputSeconds),
-		"aspect_ratio": aspectRatio,
-		"resolution":   resolution,
-		"images":       subjectURLs,
-		"videos":       []string{prepared.URL},
+		"model":          influencerMotionModel,
+		"group":          group,
+		"prompt":         fullPrompt,
+		"duration":       outputSeconds,
+		"aspect_ratio":   aspectRatio,
+		"resolution":     resolution,
+		"generate_audio": true,
+		"image_urls":     subjectURLs,
+		"video_urls":     []string{prepared.URL},
 	}
 	meta := map[string]any{
 		"kind":                 influencerMotionKind,
@@ -579,6 +569,41 @@ func PostInfluencerMotion(c *gin.Context) {
 // is sent; tests replace it to avoid provider calls.
 var influencerMotionPlanner = service.PlanInfluencerMotionPrompt
 
+// influencerMediaURLs reads a URL slice from out under the canonical key, falling
+// back to the legacy key so in-flight queued tasks survive rolling upgrades.
+func influencerMediaURLs(out map[string]any, primary, fallback string) ([]string, bool) {
+	for _, key := range []string{primary, fallback} {
+		value, exists := out[key]
+		if !exists || value == nil {
+			continue
+		}
+		switch typed := value.(type) {
+		case []string:
+			outURLs := make([]string, 0, len(typed))
+			for _, s := range typed {
+				if strings.TrimSpace(s) == "" {
+					return nil, false
+				}
+				outURLs = append(outURLs, s)
+			}
+			return outURLs, true
+		case []any:
+			outURLs := make([]string, 0, len(typed))
+			for _, item := range typed {
+				s, ok := item.(string)
+				if !ok || strings.TrimSpace(s) == "" {
+					return nil, false
+				}
+				outURLs = append(outURLs, s)
+			}
+			return outURLs, true
+		default:
+			return nil, false
+		}
+	}
+	return nil, false
+}
+
 // planInfluencerMotionPrompt replaces the fixed motion framing in out with a
 // planned prompt: reverse the reference clip, then rewrite it with the caller's
 // images and words. It runs in the queue worker, after enqueue and before any
@@ -595,18 +620,12 @@ func planInfluencerMotionPrompt(ctx context.Context, task *model.Task, out map[s
 	if task == nil || common.UnmarshalJsonStr(task.Properties.Input, &meta) != nil || meta.Mode != "motion" {
 		return
 	}
-	videos, _ := out["videos"].([]any)
-	images, _ := out["images"].([]any)
-	if len(videos) != 1 || len(images) == 0 {
+	videos, videoOK := influencerMediaURLs(out, "video_urls", "videos")
+	images, imageOK := influencerMediaURLs(out, "image_urls", "images")
+	if !videoOK || len(videos) != 1 || !imageOK || len(images) == 0 {
 		return
 	}
-	in := service.InfluencerMotionPlanInput{DurationSec: meta.DurationSec, ImageTags: meta.ImageTags, UserPrompt: meta.Prompt}
-	in.VideoURL, _ = videos[0].(string)
-	for _, value := range images {
-		if url, ok := value.(string); ok {
-			in.ImageURLs = append(in.ImageURLs, url)
-		}
-	}
+	in := service.InfluencerMotionPlanInput{DurationSec: meta.DurationSec, ImageTags: meta.ImageTags, UserPrompt: meta.Prompt, VideoURL: videos[0], ImageURLs: images}
 	plan, err := influencerMotionPlanner(ctx, in)
 	if err != nil {
 		common.SysLog("influencer motion prompt planning fell back to the fixed framing: " + err.Error())
@@ -635,9 +654,7 @@ func influencerMotionTaskRequestBody(out map[string]any) map[string]any {
 
 // setInfluencerMotionTaskRequest hands the task plugin the full upstream body.
 // Without it the plugin rebuilds the body from the generic task request, which
-// keeps only prompt, images, seconds and resolution: the reference video, the
-// aspect ratio and the reference audio never reach the provider, and the
-// provider rejects a video-reference model request that carries no video.
+// keeps only generic fields and drops video references or aspect ratios.
 func setInfluencerMotionTaskRequest(c *gin.Context, out map[string]any) {
 	c.Set("task_request", influencerMotionTaskRequestBody(out))
 }
@@ -656,7 +673,7 @@ func writeInfluencerMotionTaskRequestBody(c *gin.Context, out map[string]any) er
 // server inspection policy and never narrow input ratios to output choices.
 func InfluencerMotionOptions(c *gin.Context) {
 	resolutions := make(map[string]any, len(influencerMotionOutputRatios))
-	for _, resolution := range []string{"480p", "720p"} {
+	for _, resolution := range []string{"1080p"} {
 		resolutions[resolution] = map[string]any{
 			"group":         influencerMotionGroups[resolution],
 			"aspect_ratios": influencerMotionOutputRatios[resolution],
@@ -666,7 +683,7 @@ func InfluencerMotionOptions(c *gin.Context) {
 	replaceRules, _ := service.GetInfluencerVideoInputRules("replace")
 	recreateRules, _ := service.GetInfluencerVideoInputRules("recreate")
 	common.ApiSuccess(c, gin.H{
-		"version":           "motion-contract-v3",
+		"version":           "motion-contract-v4",
 		"resolutions":       resolutions,
 		"input_constraints": gin.H{"motion": motionRules, "replace": replaceRules, "recreate": recreateRules},
 	})

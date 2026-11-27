@@ -20,7 +20,7 @@ import (
 
 // fork: influencer motion prompt planning. Before a queued motion task is sent,
 // a vision model reads the reference clip (reverse) and then writes the final
-// Seedance prompt from that breakdown, the labelled reference images and the
+// MAGI-2 prompt from that breakdown, the labelled reference images and the
 // caller's own words (rewrite). The caller's intent ranks first; the system only
 // completes what the caller left out and keeps one fixed section structure.
 // Any failure returns an error and the caller keeps its fixed framing.

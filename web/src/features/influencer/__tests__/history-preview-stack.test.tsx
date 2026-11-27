@@ -207,7 +207,7 @@ describe('history preview reference stack', () => {
   })
   it('blocks the image action with the supplied capacity reason', () => {
     const actions = referenceActions({
-      useImageDisabledReason: () => 'Up to 30 reference images',
+      useImageDisabledReason: () => 'Up to 10 reference images',
     })
     render(
       <Harness

@@ -58,7 +58,7 @@ export function parseBoundMentions(
     const type =
       (match[1] || match[3]).toLowerCase() === 'video' ? 'video' : 'image'
     const index = Number(match[2] || match[4])
-    if (!Number.isSafeInteger(index) || index < 1 || index > 30) continue
+    if (!Number.isSafeInteger(index) || index < 1 || index > 10) continue
     result.push({
       from: match.index,
       to: match.index + match[0].length,

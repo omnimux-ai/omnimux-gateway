@@ -29,19 +29,28 @@ func stubMotionPlanner(t *testing.T, plan service.InfluencerMotionPlan, err erro
 }
 
 func TestPlanInfluencerMotionPromptReplacesFixedFramingForMotion(t *testing.T) {
-	var seen service.InfluencerMotionPlanInput
-	stubMotionPlanner(t, service.InfluencerMotionPlan{Prompt: "【主体】planned【场景】x"}, nil, &seen)
-	out := map[string]any{"prompt": "fixed", "videos": []any{"https://files.example/v.mp4"}, "images": []any{"https://files.example/i.png"}}
-	planInfluencerMotionPrompt(context.Background(), motionPlanTask(`{"mode":"motion","prompt":"沙发绿色","duration_sec":4,"subject_image_tags":["角色"]}`), out)
-	assert.Equal(t, "【主体】planned【场景】x", out["prompt"])
-	assert.Equal(t, "沙发绿色", seen.UserPrompt, "the caller's words go to the planner, not appended to a fixed framing")
-	assert.Equal(t, []string{"角色"}, seen.ImageTags)
-	assert.Equal(t, "https://files.example/v.mp4", seen.VideoURL)
+	for _, tc := range []struct {
+		name, videoKey, imageKey string
+	}{
+		{"canonical", "video_urls", "image_urls"},
+		{"legacy", "videos", "images"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var seen service.InfluencerMotionPlanInput
+			stubMotionPlanner(t, service.InfluencerMotionPlan{Prompt: "【主体】planned【场景】x"}, nil, &seen)
+			out := map[string]any{"prompt": "fixed", tc.videoKey: []any{"https://files.example/v.mp4"}, tc.imageKey: []any{"https://files.example/i.png"}}
+			planInfluencerMotionPrompt(context.Background(), motionPlanTask(`{"mode":"motion","prompt":"沙发绿色","duration_sec":4,"subject_image_tags":["角色"]}`), out)
+			assert.Equal(t, "【主体】planned【场景】x", out["prompt"])
+			assert.Equal(t, "沙发绿色", seen.UserPrompt, "the caller's words go to the planner, not appended to a fixed framing")
+			assert.Equal(t, []string{"角色"}, seen.ImageTags)
+			assert.Equal(t, "https://files.example/v.mp4", seen.VideoURL)
+		})
+	}
 }
 
 func TestPlanInfluencerMotionPromptKeepsFixedFramingWhenPlannerFails(t *testing.T) {
 	stubMotionPlanner(t, service.InfluencerMotionPlan{}, errors.New("down"), nil)
-	out := map[string]any{"prompt": "fixed", "videos": []any{"https://files.example/v.mp4"}, "images": []any{"https://files.example/i.png"}}
+	out := map[string]any{"prompt": "fixed", "video_urls": []any{"https://files.example/v.mp4"}, "image_urls": []any{"https://files.example/i.png"}}
 	planInfluencerMotionPrompt(context.Background(), motionPlanTask(`{"mode":"motion"}`), out)
 	assert.Equal(t, "fixed", out["prompt"])
 }
@@ -62,13 +71,13 @@ func TestPlanInfluencerMotionPromptLeavesObjectSwapUntouched(t *testing.T) {
 	require.NoError(t, err)
 	planInfluencerMotionPrompt(context.Background(), motionPlanTask(string(input)), probe.body)
 	assert.Equal(t, influencerMotionPrompts["replace"], probe.body["prompt"])
-	assert.Equal(t, []any{motionTestImage}, probe.body["images"])
-	assert.Equal(t, []any{motionTestFrozenVideo}, probe.body["videos"])
+	assert.Equal(t, []any{motionTestImage}, probe.body["image_urls"])
+	assert.Equal(t, []any{motionTestFrozenVideo}, probe.body["video_urls"])
 }
 
 func TestPlanInfluencerMotionPromptKeepsAnimalSpeciesPriority(t *testing.T) {
 	stubMotionPlanner(t, service.InfluencerMotionPlan{Prompt: "【主体】cat【场景】x"}, nil, nil)
-	out := map[string]any{"videos": []any{"https://files.example/v.mp4"}, "images": []any{"https://files.example/i.png"}}
+	out := map[string]any{"video_urls": []any{"https://files.example/v.mp4"}, "image_urls": []any{"https://files.example/i.png"}}
 	planInfluencerMotionPrompt(context.Background(), motionPlanTask(`{"mode":"motion","subject_character_type":"cat"}`), out)
 	prompt, _ := out["prompt"].(string)
 	require.Contains(t, prompt, "【主体】cat")

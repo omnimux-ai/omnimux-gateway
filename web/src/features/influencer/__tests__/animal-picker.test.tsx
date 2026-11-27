@@ -292,7 +292,7 @@ it.each(['motion', 'replace'] as const)(
           aspectRatio: '16:9',
         },
       },
-      resolution: '720p',
+      resolution: '1080p',
     })
     expect(body).not.toBeNull()
     if (!body) throw new Error('missing payload')

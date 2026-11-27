@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Images, Palette, Settings2, Wand2 } from 'lucide-react'
+import { Images, Palette, Wand2 } from 'lucide-react'
 import {
   useEffect,
   useMemo,
@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next'
 import { Switch } from '@/components/ui/switch'
 
 import { fetchMotionOptions } from '../api'
-import { MOTION_RESOLUTIONS, type MotionForm } from '../hooks/use-motion'
+import { MOTION_MAX_IMAGES, type MotionForm } from '../hooks/use-motion'
 import type { ToolHandoffState } from '../hooks/use-tool-handoff'
 import { toastInfluencerError } from '../lib/error-copy'
 import { getAvailableMentions } from '../lib/mention'
@@ -352,8 +352,9 @@ export function MotionPanel(props: Props) {
               />
               <CharacterSlot
                 label={t('Add character, product or clothing images')}
-                hint={t('Up to 30 reference images')}
+                hint={t('Up to 10 reference images')}
                 characters={motion.characters}
+                max={MOTION_MAX_IMAGES}
                 busy={props.submitting}
                 onOpenPicker={motion.openCharacterPicker}
                 onRemoveCharacter={motion.removeCharacter}
@@ -404,22 +405,6 @@ export function MotionPanel(props: Props) {
               placeholder={t(copy.placeholder)}
               onChange={motion.setPrompt}
             />
-          </PanelCard>
-
-          {/* 5. 参数：清晰度决定档位；时长与画幅只读跟随原片，不重复展示。 */}
-          <PanelCard icon={Settings2} label={t('Parameters')}>
-            <div className='flex items-center gap-2'>
-              <span className='inf-param-label'>{t('Resolution')}</span>
-              <SegmentedToggle
-                value={motion.resolution}
-                onChange={motion.setResolution}
-                options={MOTION_RESOLUTIONS.map((value) => ({
-                  value,
-                  label: value.toUpperCase(),
-                }))}
-                ariaLabel={t('Resolution')}
-              />
-            </div>
           </PanelCard>
         </>
       )}

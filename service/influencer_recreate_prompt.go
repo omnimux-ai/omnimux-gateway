@@ -22,7 +22,7 @@ import (
 // fork: influencer viral-recreation planning. A user supplies a reference clip
 // that is used ONLY as decomposition material plus the reference images that
 // define their own product or character. Three internal turns later the workbench
-// has a Seedance prompt and a human-readable breakdown; the generation request
+// has a MAGI-2 prompt and a human-readable breakdown; the generation request
 // later carries images and the prompt and never the clip. The clip therefore
 // never reaches the video model, which is the product promise of this surface.
 
@@ -48,11 +48,11 @@ const (
 	// generation route enforces, counted in runes.
 	InfluencerRecreateMaxPromptRunes = 4000
 	// InfluencerRecreateMaxImages bounds one recreation image set. The mode now
-	// shares the motion line (seedance-2-5), whose reference ceiling is 30.
-	InfluencerRecreateMaxImages = 30
+	// shares the motion line (magi-2), whose reference ceiling is 10.
+	InfluencerRecreateMaxImages = 10
 	// InfluencerRecreateMinSeconds and InfluencerRecreateMaxSeconds bound the
 	// generated clip. The output length follows the reference clip instead of a
-	// caller choice; the shared seedance-2-5 line accepts 4-30 whole seconds.
+	// caller choice; the shared magi-2 line accepts 4-30 whole seconds.
 	InfluencerRecreateMinSeconds = 4
 	InfluencerRecreateMaxSeconds = 30
 
@@ -146,8 +146,8 @@ func PlanInfluencerRecreatePrompt(parent context.Context, in InfluencerRecreateP
 	if len(in.ImageURLs) > InfluencerRecreateMaxImages {
 		return InfluencerRecreatePlan{}, fmt.Errorf("参考图最多 %d 张", InfluencerRecreateMaxImages)
 	}
-	if in.Resolution != "480p" && in.Resolution != "720p" {
-		in.Resolution = "480p"
+	if in.Resolution != "1080p" {
+		in.Resolution = "1080p"
 	}
 
 	video, err := influencerMotionFetchMedia(ctx, in.VideoURL, InfluencerRecreateMaxVideoBytes)

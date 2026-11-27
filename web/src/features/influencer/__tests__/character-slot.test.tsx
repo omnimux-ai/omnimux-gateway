@@ -192,7 +192,7 @@ describe('CharacterSlot', () => {
     expect(onPickDirectFiles).toHaveBeenCalledWith([file])
   })
 
-  it('shows an ordered gallery and plus button below the 30-image limit', async () => {
+  it('shows an ordered gallery and plus button below the 10-image limit', async () => {
     const user = userEvent.setup()
     const onOpenPicker = vi.fn()
     const onRemoveCharacter = vi.fn()
@@ -243,7 +243,7 @@ describe('CharacterSlot', () => {
   it.each(['busy', 'full'])('rejects dropping more images when %s', (state) => {
     const onPickDirectFiles = vi.fn()
     const characters = Array.from(
-      { length: state === 'full' ? 30 : 1 },
+      { length: state === 'full' ? 10 : 1 },
       (_, index) => ({
         url: `/image-${index}.png`,
         fileName: `image-${index}.png`,
@@ -268,9 +268,9 @@ describe('CharacterSlot', () => {
     expect(onPickDirectFiles).not.toHaveBeenCalled()
   })
 
-  it('hides plus button when character count reaches 30', () => {
+  it('hides plus button when character count reaches 10', () => {
     const chars: MotionCharacterSource[] = Array.from(
-      { length: 30 },
+      { length: 10 },
       (_, i) => ({
         url: `https://example.com/${i}.png`,
         fileName: `img-${i}.png`,
@@ -288,9 +288,9 @@ describe('CharacterSlot', () => {
       />
     )
 
-    // 30 items rendered
+    // 10 items rendered
     const removeBtns = screen.getAllByRole('button', { name: /Remove/ })
-    expect(removeBtns).toHaveLength(30)
+    expect(removeBtns).toHaveLength(10)
 
     // Plus button MUST NOT be displayed
     expect(

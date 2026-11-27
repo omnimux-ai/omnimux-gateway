@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { handleServerError } from '@/lib/handle-server-error'
+import { DEFAULT_MOTION_RESOLUTION } from '@/stores/motion-preferences-store'
 
 import { fetchTaskRecord } from '../api'
 import { readBrowserVideoMetadata } from '../lib/browser-video-metadata'
@@ -133,7 +134,7 @@ export function useVideoReferenceSelection(props: Props) {
           ? validateMotionReference(
               checked,
               mode,
-              callbacks.current.resolution ?? '480p',
+              callbacks.current.resolution ?? DEFAULT_MOTION_RESOLUTION,
               callbacks.current.outputAspects
             )
           : checked
@@ -204,7 +205,7 @@ export function useVideoReferenceSelection(props: Props) {
       const checked = validateMotionReference(
         metadata,
         referenceMode,
-        resolution ?? callbacks.current.resolution ?? '480p',
+        resolution ?? callbacks.current.resolution ?? DEFAULT_MOTION_RESOLUTION,
         callbacks.current.outputAspects
       )
       if (!checked.ok) {

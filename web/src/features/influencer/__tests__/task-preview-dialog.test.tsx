@@ -76,7 +76,7 @@ describe('history detail preview', () => {
     const onTurnToMotion = vi.fn()
     setup(task, {
       onTurnToMotion,
-      turnToMotionDisabledReason: 'Up to 30 reference images',
+      turnToMotionDisabledReason: 'Up to 10 reference images',
     })
     const action = screen.getByRole('button', { name: 'Turn to motion' })
     expect(action).toBeDisabled()

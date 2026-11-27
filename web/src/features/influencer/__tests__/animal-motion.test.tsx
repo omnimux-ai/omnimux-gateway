@@ -80,7 +80,7 @@ it.each(['motion', 'replace'] as const)(
           aspectRatio: '16:9',
         },
       },
-      resolution: '720p',
+      resolution: '1080p',
     })
     expect(payload).toMatchObject({
       subject_image_url: 'https://files.example/unknown.png',
@@ -140,7 +140,7 @@ it('removing the first cat reference makes the dog first and the actual payload 
         aspectRatio: '16:9',
       },
     },
-    resolution: '720p',
+    resolution: '1080p',
   })
   expect(payload).toMatchObject({
     subject_image_url: dog.url,

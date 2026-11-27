@@ -59,7 +59,7 @@ interface Props {
   anchorRef?: RefObject<HTMLElement | null>
   onClose: () => void
   characters: MotionCharacterSource[]
-  /** Selection ceiling for this surface; the workbench itself allows 30. */
+  /** Selection ceiling for this surface; the workbench itself allows 10. */
   max?: number
   uploadedCharacters?: MotionCharacterSource[]
   /** Files currently in the multi-select upload batch. */
@@ -79,7 +79,7 @@ interface Props {
   onPreviewImage?: (url: string) => void
 }
 
-/** Local uploads and generated images share one grid, with up to 30 selections. */
+/** Local uploads and generated images share one grid, with up to 10 selections. */
 export function CharacterPickerPanel(props: Props) {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -147,7 +147,7 @@ export function CharacterPickerPanel(props: Props) {
     )
   }, [candidateTasks, filter, props.historyItems, t, uploadThumbs, uploads])
 
-  const max = props.max ?? 30
+  const max = props.max ?? 10
   const isFull = props.characters.length >= max
   const canAutoLoad =
     filter !== 'uploaded' && Boolean(props.hasMore) && !props.isFetchingMore
@@ -218,14 +218,8 @@ export function CharacterPickerPanel(props: Props) {
       }
       title={t('Select reference images')}
       description={t(
-        max === 30
-          ? t(
-              'Choose generated characters or upload character, product or clothing images (up to 30)'
-            )
-          : t(
-              'Choose generated characters or upload character, product or clothing images (up to {{count}})',
-              { count: max }
-            )
+        'Choose generated characters or upload character, product or clothing images (up to {{count}})',
+        { count: max }
       )}
     >
       <input

@@ -138,20 +138,22 @@ describe('motion video metadata validation', () => {
     expect(motionAspectRatio(853, 480)).toBe('16:9')
     expect(motionAspectRatio(480, 853)).toBe('9:16')
     expect(motionAspectRatio(768, 1024)).toBe('3:4')
-    expect(motionAspectRatio(720, 720)).toBeNull()
+    expect(motionAspectRatio(720, 720)).toBe('1:1')
+    expect(motionAspectRatio(1280, 960)).toBe('4:3')
+    expect(motionAspectRatio(2520, 1080)).toBe('21:9')
     expect(motionAspectRatio(700, 1280)).toBeNull()
     expect(motionAspectRatio(600, 480)).toBeNull()
   })
 
   it('keeps non-standard clip dimensions as metadata instead of a rejection', async () => {
     const pending = validateMotionVideo(file())
-    loaded(videos[0], 10, 720, 720)
+    loaded(videos[0], 10, 600, 480)
     expect(await pending).toEqual({
       ok: true,
       rawDurationSec: 10,
       durationSec: 10,
-      width: 720,
-      height: 720,
+      width: 600,
+      height: 480,
       aspectRatio: null,
     })
   })
@@ -380,14 +382,13 @@ describe('motion form metadata gates', () => {
     }
     expect(toast.error).toHaveBeenCalledTimes(2)
   })
-  it('retains the reference and warns when a new resolution cannot preserve 3:4', async () => {
+  it('retains the reference and warns when an unsupported resolution is requested', async () => {
     vi.mocked(readBrowserVideoMetadata).mockResolvedValueOnce({
       ...browserMetadata,
       width: 960,
       height: 1280,
     })
     const { result } = renderHook(() => useMotion())
-    act(() => result.current.setResolution('480p'))
     await act(async () => {
       await result.current.setRemoteVideo(
         'https://cdn.example/portrait.mp4',
@@ -396,7 +397,7 @@ describe('motion form metadata gates', () => {
     })
     const selected = result.current.video
     act(() => result.current.setResolution('720p'))
-    expect(result.current.resolution).toBe('480p')
+    expect(result.current.resolution).toBe('1080p')
     expect(result.current.video).toBe(selected)
     expect(result.current.outputAspect).toBe('3:4')
     expect(toast.error).toHaveBeenCalledOnce()
@@ -415,6 +416,7 @@ describe('motion form metadata gates', () => {
         video_metadata: browserMetadata,
       })
     })
+    expect(result.current.resolution).toBe('1080p')
     expect(result.current.durationSec).toBe(8)
     expect(result.current.outputAspect).toBe('9:16')
     expect(readBrowserVideoMetadata).not.toHaveBeenCalled()
@@ -523,7 +525,7 @@ describe('browser-only reference eligibility', () => {
       version: 1,
     })
     if (!checked.ok) throw new Error('Expected a valid reference')
-    expect(validateMotionOutput(checked, 'motion', '480p')).toMatchObject({
+    expect(validateMotionOutput(checked, 'motion', '1080p')).toMatchObject({
       ok: true,
     })
     const decimal = validateBrowserMotionMetadata(
@@ -531,7 +533,7 @@ describe('browser-only reference eligibility', () => {
       'motion'
     )
     if (!decimal.ok) throw new Error('Decimal duration remains a valid input')
-    expect(validateMotionOutput(decimal, 'motion', '480p')).toEqual({
+    expect(validateMotionOutput(decimal, 'motion', '1080p')).toEqual({
       ok: false,
       reason: 'output-duration',
     })
@@ -553,7 +555,7 @@ describe('browser-only reference eligibility', () => {
       if (!checked.ok) {
         throw new Error('The original remains a valid reference input')
       }
-      expect(validateMotionOutput(checked, mode, '480p')).toEqual({
+      expect(validateMotionOutput(checked, mode, '1080p')).toEqual({
         ok: false,
         reason: 'output-duration',
       })
@@ -569,7 +571,7 @@ describe('browser-only reference eligibility', () => {
     if (!checked.ok) {
       throw new Error('The original remains within motion input bounds')
     }
-    expect(validateMotionOutput(checked, 'motion', '480p')).toEqual({
+    expect(validateMotionOutput(checked, 'motion', '1080p')).toEqual({
       ok: false,
       reason: 'output-duration',
     })
@@ -586,7 +588,7 @@ describe('browser-only reference eligibility', () => {
       if (!checked.ok) {
         throw new Error('The original is a valid reference input')
       }
-      expect(validateMotionOutput(checked, mode, '480p')).toMatchObject({
+      expect(validateMotionOutput(checked, mode, '1080p')).toMatchObject({
         ok: true,
         durationSec: 7,
       })
@@ -632,7 +634,7 @@ describe('browser-only reference eligibility', () => {
       })
       const checked = validateBrowserMotionMetadata(candidate, mode)
       if (!checked.ok) throw new Error('Expected a valid reference input')
-      const output = validateMotionOutput(checked, mode, '480p')
+      const output = validateMotionOutput(checked, mode, '1080p')
       expect(output).toMatchObject({
         ok: true,
         rawDurationSec: duration,
@@ -662,7 +664,7 @@ describe('browser-only reference eligibility', () => {
         frame_rate: frameRate,
       })
       if (!checked.ok) throw new Error('Expected a valid reference input')
-      expect(validateMotionOutput(checked, 'motion', '480p')).toMatchObject({
+      expect(validateMotionOutput(checked, 'motion', '1080p')).toMatchObject({
         ok: true,
         durationSec: 7,
       })
@@ -722,7 +724,7 @@ describe('browser-only reference eligibility', () => {
         frame_rate: frameRate,
       })
       if (!checked.ok) throw new Error('Expected a valid reference input')
-      expect(validateMotionOutput(checked, 'motion', '480p')).toMatchObject({
+      expect(validateMotionOutput(checked, 'motion', '1080p')).toMatchObject({
         ok: true,
         rawDurationSec: duration,
         durationSec: seconds,
@@ -745,7 +747,7 @@ describe('browser-only reference eligibility', () => {
         frame_rate: frameRate,
       })
       if (!checked.ok) throw new Error('Expected a valid reference input')
-      expect(validateMotionOutput(checked, 'motion', '480p')).toEqual({
+      expect(validateMotionOutput(checked, 'motion', '1080p')).toEqual({
         ok: false,
         reason: 'output-duration',
       })
@@ -768,7 +770,7 @@ describe('browser-only reference eligibility', () => {
       })
       const checked = validateBrowserMotionMetadata(candidate, mode)
       if (!checked.ok) throw new Error('Expected a valid reference input')
-      const output = validateMotionOutput(checked, mode, '480p')
+      const output = validateMotionOutput(checked, mode, '1080p')
       expect(output).toMatchObject({
         ok: true,
         rawDurationSec: 5.717007,
@@ -794,7 +796,7 @@ describe('browser-only reference eligibility', () => {
         frame_rate: frameRate,
       })
       if (!checked.ok) throw new Error('Expected a valid reference input')
-      expect(validateMotionOutput(checked, 'motion', '480p')).toMatchObject({
+      expect(validateMotionOutput(checked, 'motion', '1080p')).toMatchObject({
         ok: true,
         durationSec: seconds,
       })
@@ -808,7 +810,7 @@ describe('browser-only reference eligibility', () => {
       'motion'
     )
     if (!checked.ok) throw new Error('Expected a valid motion input')
-    expect(validateMotionOutput(checked, 'motion', '480p')).toEqual({
+    expect(validateMotionOutput(checked, 'motion', '1080p')).toEqual({
       ok: false,
       reason: 'output-duration',
     })
@@ -840,7 +842,7 @@ describe('browser-only reference eligibility', () => {
         audio_codec: audioCodec,
       })
       if (!checked.ok) throw new Error('Expected a valid reference input')
-      expect(validateMotionOutput(checked, 'motion', '480p')).toMatchObject({
+      expect(validateMotionOutput(checked, 'motion', '1080p')).toMatchObject({
         ok: true,
         durationSec: 7,
       })
@@ -862,7 +864,7 @@ describe('browser-only reference eligibility', () => {
           mode
         )
         const output = checked.ok
-          ? validateMotionOutput(checked, mode, '480p')
+          ? validateMotionOutput(checked, mode, '1080p')
           : checked
         expect(output.ok).toBe(false)
       }
@@ -877,7 +879,7 @@ describe('browser-only reference eligibility', () => {
     )
     expect(checked.ok).toBe(true)
     if (!checked.ok) throw new Error('Expected a valid input')
-    expect(validateMotionOutput(checked, 'motion', '480p')).toEqual({
+    expect(validateMotionOutput(checked, 'motion', '1080p')).toEqual({
       ok: false,
       reason: 'output-aspect',
     })

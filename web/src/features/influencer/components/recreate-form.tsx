@@ -16,14 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Images, Settings2, Wand2 } from 'lucide-react'
+import { Images, Wand2 } from 'lucide-react'
 import { useMemo, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Switch } from '@/components/ui/switch'
 
 import {
-  MOTION_RESOLUTIONS,
   RECREATE_INTENT_MAX_RUNES,
   RECREATE_MAX_IMAGES,
   type MotionForm,
@@ -35,7 +34,6 @@ import { CharacterSlot } from './character-slot'
 import { MediaSlot } from './media-slot'
 import { MentionPromptEditor } from './mention-prompt-editor'
 import { PanelCard } from './panel-card'
-import { SegmentedToggle } from './segmented-toggle'
 
 interface Props {
   motion: MotionForm
@@ -52,9 +50,9 @@ interface Props {
 
 /**
  * The recreation form: one decomposition clip, the caller's own reference
- * images, an optional intent and the output quality. Generation is the only
- * action; decomposition runs as part of it. Both inputs share the same
- * one-card asset layout as the other two motion modes.
+ * images, and an optional intent. Generation is the only action; decomposition
+ * runs as part of it. Both inputs share the same one-card asset layout as the
+ * other two motion modes.
  */
 export function RecreateForm(props: Props) {
   const { t } = useTranslation()
@@ -115,7 +113,7 @@ export function RecreateForm(props: Props) {
           />
           <CharacterSlot
             label={t('Add reference images')}
-            hint={t('Up to 30 reference images')}
+            hint={t('Up to 10 reference images')}
             characters={motion.recreateImages}
             max={RECREATE_MAX_IMAGES}
             busy={props.submitting}
@@ -154,21 +152,6 @@ export function RecreateForm(props: Props) {
           maxLength={RECREATE_INTENT_MAX_RUNES}
           onChange={motion.setRecreateIntentPrompt}
         />
-      </PanelCard>
-
-      <PanelCard icon={Settings2} label={t('Parameters')}>
-        <div className='flex items-center gap-2'>
-          <span className='inf-param-label'>{t('Resolution')}</span>
-          <SegmentedToggle
-            value={motion.resolution}
-            onChange={motion.setResolution}
-            options={MOTION_RESOLUTIONS.map((value) => ({
-              value,
-              label: value.toUpperCase(),
-            }))}
-            ariaLabel={t('Resolution')}
-          />
-        </div>
       </PanelCard>
     </>
   )

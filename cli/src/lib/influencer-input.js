@@ -121,10 +121,10 @@ function createInput(kind, flags) {
     if (!["cats", "dogs"].includes(input.tier) && !(input.brief || "").trim() && !input.image_url && !Object.values(input.selection || {}).some((v) => v.length)) throw invalid("provide a brief, selection, or reference image");
   }
   if (kind === "video") {
-    input.mode ??= "motion"; input.resolution ??= "480p";
+    input.mode ??= "motion"; input.resolution ??= "1080p";
     if (!["motion", "replace"].includes(input.mode)) throw invalid("mode must be motion or replace", "--mode");
-    if (!["480p", "720p"].includes(input.resolution)) throw invalid("resolution must be 480p or 720p", "--resolution");
-    if (input.aspect_ratio !== undefined && !(input.resolution === "480p" ? ["16:9", "9:16", "3:4"] : ["16:9", "9:16"]).includes(input.aspect_ratio)) throw invalid("unsupported resolution/aspect ratio pair", "--aspect-ratio");
+    if (input.resolution !== "1080p") throw invalid("resolution must be 1080p", "--resolution");
+    if (input.aspect_ratio !== undefined && !["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"].includes(input.aspect_ratio)) throw invalid("unsupported resolution/aspect ratio pair", "--aspect-ratio");
     if (input.character_task_id !== undefined) requireId(input.character_task_id);
     if (input.video_task_id !== undefined) requireId(input.video_task_id);
     if (input.video_url !== undefined && input.video_task_id !== undefined) throw invalid("--video and --video-task are exclusive");
@@ -133,7 +133,7 @@ function createInput(kind, flags) {
     if (input.image_urls !== undefined && !Array.isArray(input.image_urls)) throw invalid("image_urls must be an ordered array");
     input.image_urls = (input.image_urls || []).map((v) => material(v, "image"));
     const count = input.image_urls.length + (input.character_task_id ? 1 : 0);
-    if (count < 1 || count > 30) throw invalid("video requires 1-30 total character and reference images", "--image");
+    if (count < 1 || count > 10) throw invalid("video requires 1-10 total character and reference images", "--image");
     if (input.prompt !== undefined) text(input.prompt, "prompt", 4000);
   }
   return input;

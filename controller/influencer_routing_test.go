@@ -186,18 +186,16 @@ func TestInfluencerRoutingVideoAndReferenceStayWithinAcceptedGroup(t *testing.T)
 	oldRetry := common.RetryTimes
 	common.RetryTimes = 5
 	t.Cleanup(func() { common.RetryTimes = oldRetry })
-	for _, resolution := range []string{"480p", "720p"} {
-		group := influencerMotionGroups[resolution]
-		routing := generationRequestRouting(influencerRoutingContext("default"), group, "/pg/video/generations")
-		assert.Equal(t, model.GenerationRoutingGroup, routing.Mode)
-		assert.Equal(t, []string{group}, routing.Groups)
-		assert.Equal(t, 2, routing.MaxAttempts)
-	}
-	routing := generationRequestRouting(influencerRoutingContext("default"), influencerReferenceGroup, "/pg/images/edits")
+	group := influencerMotionGroups["1080p"]
+	routing := generationRequestRouting(influencerRoutingContext("default"), group, "/pg/video/generations")
+	assert.Equal(t, model.GenerationRoutingGroup, routing.Mode)
+	assert.Equal(t, []string{group}, routing.Groups)
+	assert.Equal(t, 2, routing.MaxAttempts)
+	routing = generationRequestRouting(influencerRoutingContext("default"), influencerReferenceGroup, "/pg/images/edits")
 	assert.Equal(t, []string{influencerReferenceGroup}, routing.Groups)
 	assert.Equal(t, 1, routing.MaxAttempts)
 	common.RetryTimes = 0
-	routing = generationRequestRouting(influencerRoutingContext("default"), influencerMotionGroups["720p"], "/pg/video/generations")
+	routing = generationRequestRouting(influencerRoutingContext("default"), influencerMotionGroups["1080p"], "/pg/video/generations")
 	assert.Equal(t, 1, routing.MaxAttempts)
 }
 

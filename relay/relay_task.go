@@ -506,7 +506,7 @@ func taskPricingNeedsVideoPlan(expression string) bool {
 			}
 			if field, ok := n.Arguments[0].(*ast.StringNode); ok {
 				switch field.Value {
-				case "seconds", "resolution", "aspect_ratio":
+				case "seconds", "duration", "resolution", "aspect_ratio":
 					stableCalls++
 				}
 			}

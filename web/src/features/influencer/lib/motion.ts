@@ -118,7 +118,7 @@ export const MOTION_EDIT_MIN_SECONDS = 4
 export const MOTION_VIDEO_MAX_SECONDS = 30
 
 /**
- * The recreation line outputs at most 15 seconds, so a longer reference clip
+ * The recreation line outputs 4–30 seconds, so a longer reference clip
  * cannot be followed and is refused before any upload or analysis.
  */
 export const RECREATE_VIDEO_MIN_SECONDS = 4
@@ -210,22 +210,26 @@ export function isAcceptableVideoFile(file: MotionVideoCandidate): boolean {
 }
 
 /** Standard display ratios recognized on a reference clip's own dimensions. */
-export const MOTION_ASPECT_RATIOS = ['16:9', '9:16', '3:4'] as const
+export const MOTION_ASPECT_RATIOS = [
+  '16:9',
+  '9:16',
+  '1:1',
+  '4:3',
+  '3:4',
+  '21:9',
+] as const
 
 /**
- * Output framing the bound supplier lines are evidenced to produce per
- * resolution — the 720p J1 line only supports 16:9/9:16, so 3:4 is excluded
- * even though the generic vendor contract lists it. Mirrors the gateway's
- * `influencerMotionOutputRatios`; the form fetches the live value from
- * `GET /pg/influencer/motion/options` and this map is the typed fallback.
+ * Output framing supported by the single-tier 1080p MAGI-2 route. Mirrors the
+ * gateway's `influencerMotionOutputRatios`; the form fetches the live value
+ * from `GET /pg/influencer/motion/options` and this map is the typed fallback.
  */
 export const MOTION_OUTPUT_ASPECTS: Record<string, MotionAspectRatio[]> = {
-  '480p': ['16:9', '9:16', '3:4'],
-  '720p': ['16:9', '9:16'],
+  '1080p': ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
 }
 
 export function motionOutputAspects(resolution: string): MotionAspectRatio[] {
-  return MOTION_OUTPUT_ASPECTS[resolution] ?? MOTION_OUTPUT_ASPECTS['480p']
+  return MOTION_OUTPUT_ASPECTS[resolution] ?? MOTION_OUTPUT_ASPECTS['1080p']
 }
 
 /**
