@@ -287,6 +287,8 @@ export type PricingData = {
   auto_groups: string[]
   /** Top-level pricing hash from GET /api/pricing; preferred for L2 cache bust */
   pricing_version?: string
+  /** Optional catalog default model IDs by operation (e.g. text_to_video). */
+  defaults?: Record<string, string>
 }
 
 /** Public toolbar / card modality (wider than backend Modality). */

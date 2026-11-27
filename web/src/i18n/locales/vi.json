@@ -9486,7 +9486,6 @@
     "Roughly how much is a 15-second product video?": "Một video bán hàng dài 15 giây tốn khoảng bao nhiêu?",
     "{{value}} seconds": "{{value}} giây",
     "Estimator model": "Mô hình để ước tính",
-    "{{model}} · {{rate}} credits/s": "{{model}} · {{rate}} credit/giây",
     "{{amount}} credits": "{{amount}} credit",
     "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.": "Ước tính từ đơn giá công khai của mô hình để tham khảo khi lập ngân sách. Phí thực tế căn cứ vào mô hình đã chọn, độ phân giải, lịch sử tác vụ và cài đặt ví.",
     "How are credits deducted?": "Credit được trừ như thế nào?",
@@ -9525,6 +9524,15 @@
     "{{credits}} credits (${{usd}} / 30d)": "{{credits}} tín dụng (${{usd}} / 30 ngày)",
     "Vacant until {{date}}": "Trống đến {{date}}",
     "Same account only": "Chỉ cùng tài khoản",
-    "{{count}} swaps left": "Còn {{count}} lần đổi"
+    "{{count}} swaps left": "Còn {{count}} lần đổi",
+    "{{model}} ({{rate}} credits/s)": "{{model}} ({{rate}} credit/giây)",
+    "{{model}} (from {{rate}} credits/s)": "{{model}} (từ {{rate}} credit/giây)",
+    "{{model}} ({{rate}} credits/video)": "{{model}} ({{rate}} credit/video)",
+    "{{model}} (from {{rate}} credits/video)": "{{model}} (từ {{rate}} credit/video)",
+    "{{model}} (quoted at run time)": "{{model}} (báo giá khi chạy)",
+    "Per video": "Theo video",
+    "From {{amount}} credits": "Từ {{amount}} credit",
+    "From ≈ {{amount}}": "Từ ≈ {{amount}}",
+    "Quoted at run time": "Báo giá khi chạy"
   }
 }

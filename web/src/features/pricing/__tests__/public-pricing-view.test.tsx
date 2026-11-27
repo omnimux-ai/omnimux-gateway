@@ -203,6 +203,26 @@ beforeAll(() => {
     'Copy model ID': 'Copy model ID',
     'Copied model ID': 'Copied model ID',
     'Copied to clipboard': 'Copied to clipboard',
+    '{{model}} ({{rate}} credits/s)': '{{model}} ({{rate}} credits/s)',
+    '{{model}} (from {{rate}} credits/s)':
+      '{{model}} (from {{rate}} credits/s)',
+    '{{model}} ({{rate}} credits/video)': '{{model}} ({{rate}} credits/video)',
+    '{{model}} (from {{rate}} credits/video)':
+      '{{model}} (from {{rate}} credits/video)',
+    '{{model}} (quoted at run time)': '{{model}} (quoted at run time)',
+    'Per video': 'Per video',
+    'From {{amount}} credits': 'From {{amount}} credits',
+    'From ≈ {{amount}}': 'From ≈ {{amount}}',
+    'Quoted at run time': 'Quoted at run time',
+    '{{amount}} credits': '{{amount}} credits',
+    '{{value}} seconds': '{{value}} seconds',
+    'Cost estimator': 'Cost estimator',
+    'Roughly how much is a 15-second product video?':
+      'Roughly how much is a 15-second product video?',
+    'Video duration': 'Video duration',
+    'Estimator model': 'Estimator model',
+    'Estimated cost': 'Estimated cost',
+    'View recommended video model rates': 'View recommended video model rates',
   })
 })
 
@@ -210,6 +230,35 @@ describe('PublicPricingView', () => {
   beforeEach(() => {
     forceRefetchMock.mockReset()
     pricingHookState = {
+      rawPricingData: {
+        success: true,
+        data: [
+          {
+            id: 1,
+            model_name: 'kling-v1-5',
+            quota_type: 1,
+            model_ratio: 1,
+            completion_ratio: 1,
+            model_price: 0.2,
+            enable_groups: ['default'],
+            tags: 'Video Generation',
+            contract: {
+              model_id: 'kling-v1-5',
+              family: 'video',
+              billing: {
+                unit: 'per_second',
+                pricing_basis: 'duration_seconds',
+                unit_price_usd: 0.2,
+              },
+            },
+          },
+        ],
+        vendors: VENDORS,
+        group_ratio: { default: 1 },
+        usable_group: { default: 'Standard' },
+        supported_endpoint: {},
+        auto_groups: [],
+      },
       cards: CARDS,
       vendors: VENDORS,
       isLoading: false,
@@ -372,8 +421,10 @@ describe('PublicPricingView', () => {
           completion_ratio: 1,
           model_price: 0.176471,
           enable_groups: [group],
+          tags: 'Video Generation',
           contract: {
             model_id: 'wan-3.0',
+            family: 'video',
             billing: {
               unit: 'per_second',
               pricing_basis: 'duration_seconds',
@@ -394,8 +445,17 @@ describe('PublicPricingView', () => {
       screen.getByRole('combobox', { name: 'Estimator model' }),
       'wan-3.0'
     )
+    expect(
+      screen.getByRole('option', { name: 'wan-3.0 (0.882 credits/s)' })
+    ).toBeInTheDocument()
     expect(screen.getByText('13.2 credits')).toBeInTheDocument()
     expect(screen.getByText('≈ $1.32')).toBeInTheDocument()
+
+    // Decoupled recommended rates table still preserves its curated rows.
+    await user.click(
+      screen.getByRole('button', { name: 'View recommended video model rates' })
+    )
+    expect(screen.getByText('Seedance 2.5')).toBeInTheDocument()
   })
 
   test('shows empty state when filters yield no cards', async () => {

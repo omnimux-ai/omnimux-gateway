@@ -9486,7 +9486,6 @@
     "Roughly how much is a 15-second product video?": "Combien coûte une vidéo produit de 15 secondes ?",
     "{{value}} seconds": "{{value}} s",
     "Estimator model": "Modèle utilisé pour l’estimation",
-    "{{model}} · {{rate}} credits/s": "{{model}} · {{rate}} crédits/s",
     "{{amount}} credits": "{{amount}} crédits",
     "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.": "Estimation budgétaire calculée à partir du tarif public du modèle. Le débit réel dépend du modèle choisi, de la résolution, de l’historique des tâches et des paramètres du portefeuille.",
     "How are credits deducted?": "Comment les crédits sont-ils débités ?",
@@ -9525,6 +9524,15 @@
     "{{credits}} credits (${{usd}} / 30d)": "{{credits}} crédits ({{usd}} $ / 30 j)",
     "Vacant until {{date}}": "Libre jusqu'au {{date}}",
     "Same account only": "Même compte uniquement",
-    "{{count}} swaps left": "{{count}} changements restants"
+    "{{count}} swaps left": "{{count}} changements restants",
+    "{{model}} ({{rate}} credits/s)": "{{model}} ({{rate}} crédits/s)",
+    "{{model}} (from {{rate}} credits/s)": "{{model}} (dès {{rate}} crédits/s)",
+    "{{model}} ({{rate}} credits/video)": "{{model}} ({{rate}} crédits/vidéo)",
+    "{{model}} (from {{rate}} credits/video)": "{{model}} (dès {{rate}} crédits/vidéo)",
+    "{{model}} (quoted at run time)": "{{model}} (tarif à l'exécution)",
+    "Per video": "Par vidéo",
+    "From {{amount}} credits": "À partir de {{amount}} crédits",
+    "From ≈ {{amount}}": "À partir d'≈ {{amount}}",
+    "Quoted at run time": "Tarif à l'exécution"
   }
 }

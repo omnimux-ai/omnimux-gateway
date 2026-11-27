@@ -29,7 +29,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { setPublicAnalyticsIds } from '@/lib/analytics-public-ids'
-import { resolvePricingGroup } from '@/lib/surface'
+import { resolvePricingGroup, resolveSurface } from '@/lib/surface'
 import { cn } from '@/lib/utils'
 
 import {
@@ -59,6 +59,7 @@ import {
 } from './lib/pricing-analytics'
 import {
   getVideoEstimateRates,
+  getVideoEstimatorOptions,
   REFERENCE_CLIP_CREDITS,
 } from './lib/video-cost-estimate'
 import type { PublicModelCardItem } from './types'
@@ -173,6 +174,11 @@ export function PublicPricingView(props: PublicPricingViewProps) {
     Object.hasOwn(rawPricingData?.usable_group ?? {}, requestedGroup)
       ? requestedGroup
       : selectedGroup
+  const surface = resolveSurface()
+  const estimatorOptions = useMemo(
+    () => getVideoEstimatorOptions(rawPricingData, estimateGroup, surface),
+    [rawPricingData, estimateGroup, surface]
+  )
   const rates = useMemo(
     () => getVideoEstimateRates(rawPricingData, estimateGroup),
     [rawPricingData, estimateGroup]
@@ -318,7 +324,7 @@ export function PublicPricingView(props: PublicPricingViewProps) {
       )}
     >
       <BillingHero />
-      <VideoCostEstimator rates={rates} />
+      <VideoCostEstimator options={estimatorOptions} isLoading={isLoading} />
       <TopupLadder
         ladder={TOPUP_LADDER}
         referenceClipCredits={REFERENCE_CLIP_CREDITS}

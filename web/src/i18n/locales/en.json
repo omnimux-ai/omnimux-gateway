@@ -9486,7 +9486,6 @@
     "Roughly how much is a 15-second product video?": "Roughly how much is a 15-second product video?",
     "{{value}} seconds": "{{value}} seconds",
     "Estimator model": "Estimator model",
-    "{{model}} · {{rate}} credits/s": "{{model}} · {{rate}} credits/s",
     "{{amount}} credits": "{{amount}} credits",
     "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.": "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.",
     "How are credits deducted?": "How are credits deducted?",
@@ -9525,6 +9524,15 @@
     "{{credits}} credits (${{usd}} / 30d)": "{{credits}} credits (${{usd}} / 30d)",
     "Vacant until {{date}}": "Vacant until {{date}}",
     "Same account only": "Same account only",
-    "{{count}} swaps left": "{{count}} swaps left"
+    "{{count}} swaps left": "{{count}} swaps left",
+    "{{model}} ({{rate}} credits/s)": "{{model}} ({{rate}} credits/s)",
+    "{{model}} (from {{rate}} credits/s)": "{{model}} (from {{rate}} credits/s)",
+    "{{model}} ({{rate}} credits/video)": "{{model}} ({{rate}} credits/video)",
+    "{{model}} (from {{rate}} credits/video)": "{{model}} (from {{rate}} credits/video)",
+    "{{model}} (quoted at run time)": "{{model}} (quoted at run time)",
+    "Per video": "Per video",
+    "From {{amount}} credits": "From {{amount}} credits",
+    "From ≈ {{amount}}": "From ≈ {{amount}}",
+    "Quoted at run time": "Quoted at run time"
   }
 }
