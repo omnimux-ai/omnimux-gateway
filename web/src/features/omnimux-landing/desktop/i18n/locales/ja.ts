@@ -49,6 +49,7 @@ export const ja: LandingCopy = {
     resourcesMenu: {
       aria: 'リソースメニュー',
       inspiration: 'インスピレーションコミュニティ',
+      blog: 'ブログ',
       docs: '開発者ドキュメント',
     },
     account: {
@@ -834,6 +835,7 @@ export const ja: LandingCopy = {
             external: true,
           },
           { label: 'ガイド', href: '/guides', external: true },
+          { label: 'ブログ', href: '/blog/ja', external: true },
           {
             label: 'ステータス',
             href: 'https://status.omnimux.ai',

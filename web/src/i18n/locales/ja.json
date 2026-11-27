@@ -1128,6 +1128,7 @@
     "Block email aliases (e.g., user+alias@domain.com)": "メールエイリアスをブロック (例: user+alias@domain.com)",
     "Blocked keywords": "ブロックされたキーワード",
     "Blocks messages when sensitive keywords are detected.": "機密性の高いキーワードが検出された場合にメッセージをブロックします。",
+    "Blog": "ブログ",
     "Blonde": "ブロンド",
     "Blue": "ブルー",
     "Blush": "赤みのある頬",

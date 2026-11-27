@@ -52,6 +52,7 @@ export const en: LandingCopy = {
     resourcesMenu: {
       aria: 'Resources menu',
       inspiration: 'Inspiration Community',
+      blog: 'Blog',
       docs: 'Developer Docs',
     },
     account: {
@@ -797,6 +798,7 @@ export const en: LandingCopy = {
         links: [
           { label: 'Docs', href: docsQuickstartUrl('en'), external: true },
           { label: 'Guides', href: '/guides', external: true },
+          { label: 'Blog', href: '/blog', external: true },
           {
             label: 'Status',
             href: 'https://status.omnimux.ai',

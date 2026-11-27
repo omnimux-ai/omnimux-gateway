@@ -208,6 +208,7 @@ function header(brand: SiteBrand, slug: string): string {
 function footer(brand: SiteBrand): string {
   const links = [
     ['Guides', '/guides'],
+    ['Blog', '/blog'],
     ['Pricing', '/pricing'],
     ['About', '/about'],
     ['Documentation', docsQuickstartUrl()],

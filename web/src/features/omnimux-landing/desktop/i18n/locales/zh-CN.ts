@@ -49,6 +49,7 @@ export const zhCN: LandingCopy = {
     resourcesMenu: {
       aria: '资源菜单',
       inspiration: '灵感社区',
+      blog: '博客',
       docs: '开发文档',
     },
     account: {
@@ -796,6 +797,7 @@ export const zhCN: LandingCopy = {
         links: [
           { label: '文档', href: docsQuickstartUrl('zh-CN'), external: true },
           { label: '教程', href: '/guides', external: true },
+          { label: '博客', href: '/blog/zh', external: true },
           {
             label: '服务状态',
             href: 'https://status.omnimux.ai',

@@ -89,8 +89,11 @@ describe('landing nav resources menu', () => {
     // Base UI renders menu items as `menuitem`, not `link`, even when the
     // item renders an anchor.
     const inspiration = within(menu).getByRole('menuitem', { name: '灵感社区' })
+    const blog = within(menu).getByRole('menuitem', { name: '博客' })
     const docs = within(menu).getByRole('menuitem', { name: '开发文档' })
     expect(inspiration).toHaveAttribute('href', '/inspiration')
+    expect(blog).toHaveAttribute('href', '/blog/zh')
+    expect(blog).not.toHaveAttribute('target')
     expect(docs).toHaveAttribute(
       'href',
       'https://docs.omnimux.ai/zh/quickstart'
@@ -103,6 +106,7 @@ describe('landing nav resources menu', () => {
     renderNav()
     const navRow = screen.getByRole('navigation', { name: '主导航' })
     expect(within(navRow).queryByRole('link', { name: '灵感社区' })).toBeNull()
+    expect(within(navRow).queryByRole('link', { name: '博客' })).toBeNull()
     expect(within(navRow).queryByRole('link', { name: '开发文档' })).toBeNull()
   })
 })

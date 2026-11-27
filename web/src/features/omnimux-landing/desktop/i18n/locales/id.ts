@@ -52,6 +52,7 @@ export const id: LandingCopy = {
     resourcesMenu: {
       aria: 'Menu sumber daya',
       inspiration: 'Komunitas inspirasi',
+      blog: 'Blog',
       docs: 'Dokumentasi developer',
     },
     account: {
@@ -841,6 +842,7 @@ export const id: LandingCopy = {
             external: true,
           },
           { label: 'Panduan', href: '/guides', external: true },
+          { label: 'Blog', href: '/blog', external: true },
           {
             label: 'Status',
             href: 'https://status.omnimux.ai',
