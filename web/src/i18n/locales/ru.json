@@ -9486,7 +9486,6 @@
     "Roughly how much is a 15-second product video?": "Сколько примерно стоит 15-секундное видео о товаре?",
     "{{value}} seconds": "{{value}} сек.",
     "Estimator model": "Модель для расчёта",
-    "{{model}} · {{rate}} credits/s": "{{model}} · {{rate}} кр./сек.",
     "{{amount}} credits": "{{amount}} кр.",
     "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.": "Расчёт по опубликованному тарифу модели служит для планирования бюджета. Фактическое списание зависит от модели, разрешения, истории задач и настроек кошелька.",
     "How are credits deducted?": "Как списываются кредиты?",
@@ -9525,6 +9524,15 @@
     "{{credits}} credits (${{usd}} / 30d)": "{{credits}} кредитов (${{usd}} / 30 дн.)",
     "Vacant until {{date}}": "Свободно до {{date}}",
     "Same account only": "Только тот же аккаунт",
-    "{{count}} swaps left": "Осталось смен: {{count}}"
+    "{{count}} swaps left": "Осталось смен: {{count}}",
+    "{{model}} ({{rate}} credits/s)": "{{model}} ({{rate}} кр./сек.)",
+    "{{model}} (from {{rate}} credits/s)": "{{model}} (от {{rate}} кр./сек.)",
+    "{{model}} ({{rate}} credits/video)": "{{model}} ({{rate}} кр./видео)",
+    "{{model}} (from {{rate}} credits/video)": "{{model}} (от {{rate}} кр./видео)",
+    "{{model}} (quoted at run time)": "{{model}} (расчёт при запуске)",
+    "Per video": "За видео",
+    "From {{amount}} credits": "От {{amount}} кр.",
+    "From ≈ {{amount}}": "От ≈ {{amount}}",
+    "Quoted at run time": "Расчёт при запуске"
   }
 }

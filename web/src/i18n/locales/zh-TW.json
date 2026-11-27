@@ -9486,7 +9486,6 @@
     "Roughly how much is a 15-second product video?": "一支 15 秒的商品推廣影片大約多少錢？",
     "{{value}} seconds": "{{value}} 秒",
     "Estimator model": "估算模型",
-    "{{model}} · {{rate}} credits/s": "{{model}} · {{rate}} 積分/秒",
     "{{amount}} credits": "{{amount}} 積分",
     "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.": "依所選模型的公開單價換算，僅供預算參考。實際扣款以所選模型、解析度、任務紀錄與錢包設定為準。",
     "How are credits deducted?": "積分如何扣除？",
@@ -9525,6 +9524,15 @@
     "{{credits}} credits (${{usd}} / 30d)": "{{credits}} 積分（${{usd}} / 30 天）",
     "Vacant until {{date}}": "空席至 {{date}}",
     "Same account only": "僅限原號",
-    "{{count}} swaps left": "剩餘 {{count}} 次換綁"
+    "{{count}} swaps left": "剩餘 {{count}} 次換綁",
+    "{{model}} ({{rate}} credits/s)": "{{model}} ({{rate}} 積分/秒)",
+    "{{model}} (from {{rate}} credits/s)": "{{model}} ({{rate}} 積分/秒起)",
+    "{{model}} ({{rate}} credits/video)": "{{model}} ({{rate}} 積分/支)",
+    "{{model}} (from {{rate}} credits/video)": "{{model}} ({{rate}} 積分/支起)",
+    "{{model}} (quoted at run time)": "{{model}} (以實際報價為準)",
+    "Per video": "按支計費",
+    "From {{amount}} credits": "{{amount}} 積分起",
+    "From ≈ {{amount}}": "≈ {{amount}} 起",
+    "Quoted at run time": "以實際報價為準"
   }
 }

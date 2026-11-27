@@ -9486,7 +9486,6 @@
     "Roughly how much is a 15-second product video?": "一条 15 秒带货视频，大概多少钱？",
     "{{value}} seconds": "{{value}} 秒",
     "Estimator model": "估算模型",
-    "{{model}} · {{rate}} credits/s": "{{model}} · {{rate}} 积分/秒",
     "{{amount}} credits": "{{amount}} 积分",
     "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.": "按所选模型的公开单价折算，仅供预算参考。实际扣费以所选模型、分辨率、任务记录与钱包设置为准。",
     "How are credits deducted?": "积分怎么扣？",
@@ -9525,6 +9524,15 @@
     "{{credits}} credits (${{usd}} / 30d)": "{{credits}} 积分（${{usd}} / 30 天）",
     "Vacant until {{date}}": "空席至 {{date}}",
     "Same account only": "仅限原号",
-    "{{count}} swaps left": "剩余 {{count}} 次换绑"
+    "{{count}} swaps left": "剩余 {{count}} 次换绑",
+    "{{model}} ({{rate}} credits/s)": "{{model}} ({{rate}} 积分/秒)",
+    "{{model}} (from {{rate}} credits/s)": "{{model}} ({{rate}} 积分/秒起)",
+    "{{model}} ({{rate}} credits/video)": "{{model}} ({{rate}} 积分/条)",
+    "{{model}} (from {{rate}} credits/video)": "{{model}} ({{rate}} 积分/条起)",
+    "{{model}} (quoted at run time)": "{{model}} (以实际报价为准)",
+    "Per video": "按条计费",
+    "From {{amount}} credits": "{{amount}} 积分起",
+    "From ≈ {{amount}}": "≈ {{amount}} 起",
+    "Quoted at run time": "以实际报价为准"
   }
 }

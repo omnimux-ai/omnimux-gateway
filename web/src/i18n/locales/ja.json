@@ -9486,7 +9486,6 @@
     "Roughly how much is a 15-second product video?": "15 秒の商品紹介動画はいくらくらい？",
     "{{value}} seconds": "{{value}} 秒",
     "Estimator model": "見積もりに使うモデル",
-    "{{model}} · {{rate}} credits/s": "{{model}} · {{rate}} クレジット/秒",
     "{{amount}} credits": "{{amount}} クレジット",
     "Based on the published model rate for budgeting. Actual charges follow your model, resolution, task records, and wallet settings.": "公開単価を基にした予算の目安です。実際の引き落としは、選択したモデル、解像度、タスク履歴、ウォレット設定に従います。",
     "How are credits deducted?": "クレジットはどのように引き落とされますか？",
@@ -9525,6 +9524,15 @@
     "{{credits}} credits (${{usd}} / 30d)": "{{credits}} クレジット（${{usd}} / 30日）",
     "Vacant until {{date}}": "{{date}} まで空き",
     "Same account only": "同一アカウントのみ",
-    "{{count}} swaps left": "切替残り {{count}} 回"
+    "{{count}} swaps left": "切替残り {{count}} 回",
+    "{{model}} ({{rate}} credits/s)": "{{model}} ({{rate}} クレジット/秒)",
+    "{{model}} (from {{rate}} credits/s)": "{{model}} ({{rate}} クレジット/秒〜)",
+    "{{model}} ({{rate}} credits/video)": "{{model}} ({{rate}} クレジット/本)",
+    "{{model}} (from {{rate}} credits/video)": "{{model}} ({{rate}} クレジット/本〜)",
+    "{{model}} (quoted at run time)": "{{model}} (実行時の見積もりに準拠)",
+    "Per video": "1本あたり",
+    "From {{amount}} credits": "{{amount}} クレジット〜",
+    "From ≈ {{amount}}": "≈ {{amount}}〜",
+    "Quoted at run time": "実行時の見積もりに準拠"
   }
 }
