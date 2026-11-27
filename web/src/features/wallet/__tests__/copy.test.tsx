@@ -27,6 +27,7 @@ import zh from '@/i18n/locales/zh.json'
 import { api } from '@/lib/api'
 
 import { RechargeFormCard } from '../components/recharge-form-card'
+import { SocialSeatsCard } from '../components/social-seats-card'
 
 const i18n = createInstance()
 
@@ -111,9 +112,7 @@ it.each([{ priceRatio: 7.3 }, { priceRatio: 0.000123 }])(
     expect(screen.getAllByRole('button').length).toBeGreaterThan(1)
 
     // The redemption card stays: its input and CTA are still reachable.
-    expect(
-      screen.getByPlaceholderText('输入您的兑换码')
-    ).toBeVisible()
+    expect(screen.getByPlaceholderText('输入您的兑换码')).toBeVisible()
     expect(screen.getByRole('button', { name: '兑换额度' })).toBeVisible()
 
     await act(() => i18n.changeLanguage('en'))
@@ -125,3 +124,67 @@ it.each([{ priceRatio: 7.3 }, { priceRatio: 0.000123 }])(
     expect(screen.getByRole('spinbutton')).toBeVisible()
   }
 )
+
+it('renders SocialSeatsCard in seat mode with localized copy and vacant slots, and hides it in off mode', async () => {
+  const spy = vi.spyOn(api, 'get').mockResolvedValueOnce({
+    data: {
+      success: true,
+      data: {
+        billing_mode: 'seat',
+        seats_purchased: 4,
+        seats_occupied: 2,
+        seats_vacant: 2,
+        seats_cap: 20,
+        next_expiry: '2026-12-27 19:00',
+        seat_price_usd: 2,
+        seat_price_credits: 20,
+        vacant_seats: [
+          {
+            id: 11,
+            expires_at: '2026-12-27T11:00:00Z',
+            swaps_remaining: 2,
+            same_account_only: false,
+          },
+          {
+            id: 12,
+            expires_at: '2026-12-30T11:00:00Z',
+            swaps_remaining: 0,
+            same_account_only: true,
+          },
+        ],
+      },
+    },
+  })
+
+  const { container } = render(
+    <I18nextProvider i18n={i18n}>
+      <SocialSeatsCard />
+    </I18nextProvider>
+  )
+
+  await screen.findByText('社媒绑定席位')
+  expect(screen.getByText('20 积分（$2 / 30 天）')).toBeVisible()
+  expect(screen.getByText('4 / 20')).toBeVisible()
+  expect(screen.getByText('剩余 2 次换绑')).toBeVisible()
+  expect(screen.getByText('仅限原号')).toBeVisible()
+  expect(container.textContent).not.toContain('·')
+
+  await act(() => i18n.changeLanguage('en'))
+  expect(screen.getByText('Social account binding seats')).toBeVisible()
+  expect(screen.getByText('20 credits ($2 / 30d)')).toBeVisible()
+  expect(screen.getByText('2 swaps left')).toBeVisible()
+  expect(screen.getByText('Same account only')).toBeVisible()
+
+  spy.mockResolvedValueOnce({
+    data: { success: true, data: { billing_mode: 'off' } },
+  })
+  const offView = render(
+    <I18nextProvider i18n={i18n}>
+      <SocialSeatsCard />
+    </I18nextProvider>
+  )
+  await act(async () => {
+    await Promise.resolve()
+  })
+  expect(offView.container).toBeEmptyDOMElement()
+})

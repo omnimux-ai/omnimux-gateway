@@ -728,6 +728,7 @@ func TestPrivateAccessTokenScopesPreserveRolesAndSessionBoundary(t *testing.T) {
 	router := gin.New()
 	router.GET("/api/social/v1/accounts", UserAuth(), handler)
 	router.POST("/api/social/v1/posts", UserAuth(), handler)
+	router.POST("/api/social/v1/accounts/:id/renew", UserAuth(), handler)
 	router.GET("/api/hosted/v1/channels", UserAuth(), handler)
 	router.POST("/api/hosted/v1/tasks/batch", UserAuth(), handler)
 	router.POST("/api/inspiration/v1/query", UserAuth(), handler)
@@ -751,6 +752,7 @@ func TestPrivateAccessTokenScopesPreserveRolesAndSessionBoundary(t *testing.T) {
 	}
 	for _, route := range []struct{ method, path, allowed, denied string }{
 		{http.MethodGet, "/api/social/v1/accounts", read, write}, {http.MethodPost, "/api/social/v1/posts", write, read},
+		{http.MethodPost, "/api/social/v1/accounts/1/renew", write, read},
 		{http.MethodGet, "/api/hosted/v1/channels", read, write}, {http.MethodPost, "/api/hosted/v1/tasks/batch", write, read},
 		{http.MethodPost, "/api/inspiration/v1/query", read, write}, {http.MethodGet, "/api/social/v1/seats", read, write},
 		{http.MethodPost, "/api/inspiration/v1/share", write, read}, {http.MethodPost, "/api/inspiration/v1/publish", write, read}, {http.MethodPost, "/api/inspiration/v1/inspirations/1/share", write, read},
@@ -760,7 +762,7 @@ func TestPrivateAccessTokenScopesPreserveRolesAndSessionBoundary(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 		assert.Contains(t, rec.Body.String(), "ACCESS_TOKEN_SCOPE_DENIED")
 	}
-	assert.Equal(t, 9, calls)
+	assert.Equal(t, 10, calls)
 	for _, path := range []string{"/api/hosted/admin/v1/sync", "/api/inspiration/v1/inspirations"} {
 		rec := request(http.MethodPost, path, admin)
 		assert.Equal(t, http.StatusForbidden, rec.Code)
@@ -780,5 +782,5 @@ func TestPrivateAccessTokenScopesPreserveRolesAndSessionBoundary(t *testing.T) {
 			assert.Contains(t, rec.Body.String(), "AUTH_SESSION_REQUIRED")
 		}
 	}
-	assert.Equal(t, 11, calls, "all denied operations must remain outside handlers")
+	assert.Equal(t, 12, calls, "all denied operations must remain outside handlers")
 }

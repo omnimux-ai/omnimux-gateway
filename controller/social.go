@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"html"
 	"io"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/social"
 	"github.com/QuantumNous/new-api/service/social/tiktok"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -273,16 +275,25 @@ func socialError(c *gin.Context, err error) {
 	case errors.Is(err, social.ErrMediaInvalid):
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "code": "SOCIAL_MEDIA_INVALID"})
 	case errors.Is(err, social.ErrSeatQuota):
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(http.StatusPaymentRequired, gin.H{
 			"success":      false,
 			"message":      "社媒绑定席位不足或余额不够",
 			"code":         "SOCIAL_SEAT_QUOTA",
 			"need_credits": social.NeedCreditsForPrice(),
 		})
 	case errors.Is(err, social.ErrSeatCap):
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "社媒绑定席位已达上限，请先解绑一个账号", "code": "SOCIAL_SEAT_CAP"})
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "社媒绑定席位已达上限，请先解绑一个账号", "code": "SOCIAL_SEAT_CAP"})
 	case errors.Is(err, social.ErrSeatExpired):
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "社媒绑定席位已过期，请续费或解绑", "code": "SOCIAL_SEAT_EXPIRED"})
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "社媒绑定席位已过期，请续费或解绑", "code": "SOCIAL_SEAT_EXPIRED"})
+	case errors.Is(err, social.ErrSeatRenewLimit):
+		c.JSON(http.StatusConflict, gin.H{
+			"success":           false,
+			"message":           "社媒绑定席位已达最长有效期上限",
+			"code":              "SOCIAL_SEAT_RENEW_LIMIT",
+			"max_validity_days": operation_setting.SocialSeatMaxValidityDays(),
+		})
+	case errors.Is(err, social.ErrSeatSwapLimit):
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "当前空席已达本周期跨号换绑上限", "code": "SOCIAL_SEAT_SWAP_LIMIT"})
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "not found", "code": "SOCIAL_NOT_FOUND"})
 	// fork: tiktok-direct — structured TikTok upstream error mapping (never 401/403).
@@ -322,10 +333,15 @@ func SocialListAccounts(c *gin.Context) {
 		socialError(c, err)
 		return
 	}
+	seatViews, err := socialSvc.BuildAccountSeatViews(userId, rows)
+	if err != nil {
+		socialError(c, err)
+		return
+	}
 	out := make([]gin.H, 0, len(rows))
 	for _, a := range rows {
 		uploadDraft, publishDirect := socialSvc.TikTokCapabilities(a)
-		out = append(out, gin.H{
+		item := gin.H{
 			"id":           a.ID,
 			"platform":     a.Platform,
 			"username":     a.Username,
@@ -338,9 +354,47 @@ func SocialListAccounts(c *gin.Context) {
 				"upload_draft":   uploadDraft,
 				"publish_direct": publishDirect,
 			},
-		})
+		}
+		if seatViews != nil {
+			if sv := seatViews[a.ID]; sv != nil {
+				item["seat"] = sv
+			}
+		}
+		out = append(out, item)
 	}
 	common.ApiSuccess(c, gin.H{"accounts": out})
+}
+
+type socialRenewSeatRequest struct {
+	Provider string `json:"provider"`
+}
+
+// SocialRenewAccountSeat POST /api/social/v1/accounts/:id/renew
+// fork: social-seats
+func SocialRenewAccountSeat(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		common.ApiErrorMsg(c, "invalid account id")
+		return
+	}
+	provider := strings.TrimSpace(c.Query("provider"))
+	if provider == "" && c.Request.Body != nil && c.Request.ContentLength != 0 {
+		var req socialRenewSeatRequest
+		if bindErr := c.ShouldBindJSON(&req); bindErr != nil && !errors.Is(bindErr, io.EOF) {
+			common.ApiErrorMsg(c, "invalid request body")
+			return
+		}
+		provider = strings.TrimSpace(req.Provider)
+	}
+	seat, err := socialSvc.RenewAccountSeat(c.Request.Context(), c.GetInt("id"), provider, id)
+	if err != nil {
+		socialError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"account_id": id,
+		"seat":       seat,
+	})
 }
 
 type socialConnectRequest struct {
@@ -474,6 +528,45 @@ func SocialTikTokCallback(c *gin.Context) {
 	clearSocialOAuthBrowserCookie(c, state)
 	res, err := socialSvc.HandleTikTokCallback(c.Request.Context(), code, state)
 	if err != nil {
+		const walletURL = "https://omnimux.ai/wallet"
+		switch {
+		case errors.Is(err, social.ErrSeatQuota):
+			needCredits := social.NeedCreditsForPrice()
+			title := "Insufficient Credits"
+			msg := fmt.Sprintf("Connecting this account requires %d credits (30-day seat). Top up your wallet and try again.", needCredits)
+			ctaLabel := "Go to Wallet"
+			if isZh {
+				title = "积分余额不足"
+				msg = fmt.Sprintf("绑定该账号需要 %d 积分（30 天席位），请前往钱包充值后重试。", needCredits)
+				ctaLabel = "前往钱包充值"
+			}
+			c.Data(http.StatusPaymentRequired, "text/html; charset=utf-8", []byte(renderTikTokCallbackPageWithCTA(lang, title, msg, walletURL, ctaLabel)))
+			return
+		case errors.Is(err, social.ErrSeatCap):
+			seatsCap := operation_setting.SocialSeatsCap()
+			title := "Seat Limit Reached"
+			msg := fmt.Sprintf("You have reached the limit of %d social account seats. Unlink an unused account and try again.", seatsCap)
+			ctaLabel := "Open Wallet"
+			if isZh {
+				title = "已达账号席位上限"
+				msg = fmt.Sprintf("当前已达 %d 个社媒账号席位上限，请先解绑不再使用的账号后重试。", seatsCap)
+				ctaLabel = "前往钱包查看"
+			}
+			c.Data(http.StatusConflict, "text/html; charset=utf-8", []byte(renderTikTokCallbackPageWithCTA(lang, title, msg, walletURL, ctaLabel)))
+			return
+		case errors.Is(err, social.ErrSeatSwapLimit):
+			maxSwaps := operation_setting.SocialSeatMaxSwapsPerWindow()
+			title := "Seat Swap Limit Reached"
+			msg := fmt.Sprintf("Your vacant seats have reached the cross-account swap limit (%d per billing window) and the seat limit is full.", maxSwaps)
+			ctaLabel := "Open Wallet"
+			if isZh {
+				title = "空席换绑次数已达上限"
+				msg = fmt.Sprintf("当前空闲席位已达本周期跨号换绑上限（%d 次），且已达账号席位上限。", maxSwaps)
+				ctaLabel = "前往钱包查看"
+			}
+			c.Data(http.StatusConflict, "text/html; charset=utf-8", []byte(renderTikTokCallbackPageWithCTA(lang, title, msg, walletURL, ctaLabel)))
+			return
+		}
 		sanitized := err.Error()
 		lower := strings.ToLower(sanitized)
 		if strings.Contains(lower, "bearer") || strings.Contains(lower, "client_secret") || strings.Contains(sanitized, state) || strings.Contains(sanitized, code) {
@@ -517,20 +610,32 @@ const tikTokCallbackLogoSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 	`</g></svg>`
 
 func renderTikTokCallbackPage(lang, title, msg, handle string) string {
-	htmlLang, ctaLabel := "en", "Return to OmniMux"
-	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "zh") {
-		htmlLang, ctaLabel = "zh", "返回 OmniMux"
-	}
-	deepLink := ""
+	ctaHref, ctaLabel := "", ""
 	if handle != "" {
-		deepLink = `<p><a href="omnimux://social/connected" style="display:inline-block;margin-top:12px;padding:10px 18px;background:#000;color:#fff;border-radius:999px;text-decoration:none">` + ctaLabel + `</a></p>`
+		ctaHref = "omnimux://social/connected"
+		ctaLabel = "Return to OmniMux"
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "zh") {
+			ctaLabel = "返回 OmniMux"
+		}
+	}
+	return renderTikTokCallbackPageWithCTA(lang, title, msg, ctaHref, ctaLabel)
+}
+
+func renderTikTokCallbackPageWithCTA(lang, title, msg, ctaHref, ctaLabel string) string {
+	htmlLang := "en"
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "zh") {
+		htmlLang = "zh"
+	}
+	ctaHTML := ""
+	if ctaHref != "" && ctaLabel != "" {
+		ctaHTML = `<p><a href="` + html.EscapeString(ctaHref) + `" style="display:inline-block;margin-top:12px;padding:10px 18px;background:#000;color:#fff;border-radius:999px;text-decoration:none">` + html.EscapeString(ctaLabel) + `</a></p>`
 	}
 	safeTitle := html.EscapeString(title)
 	safeMsg := html.EscapeString(msg)
 	return `<!doctype html><html lang="` + htmlLang + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + safeTitle + `</title>` +
 		`<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0A0A0B;color:#EDEDED;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}main{text-align:center;max-width:420px;padding:32px}h1{font-size:22px;margin:0 0 8px}p{color:#A19F9D;font-size:14px;line-height:1.6}</style></head><body><main>` +
 		tikTokCallbackLogoSVG +
-		`<h1>` + safeTitle + `</h1><p>` + safeMsg + `</p>` + deepLink +
+		`<h1>` + safeTitle + `</h1><p>` + safeMsg + `</p>` + ctaHTML +
 		`<p style="margin-top:24px;font-size:12px;color:#5b5b5b">omnimux.ai — Twinspace Labs LLC</p></main></body></html>`
 }
 

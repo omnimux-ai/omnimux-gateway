@@ -9506,6 +9506,25 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "Скачайте приложение для компьютера, войдите и начните с пакета на 100 кредитов.",
     "View all {{count}} models and technical specs": "Посмотреть все модели ({{count}}) и их характеристики",
     "View the full model catalog": "Посмотреть полный каталог моделей",
-    "Pay per use, presets from $10": "Оплата по мере использования, готовые пакеты от 10 $"
+    "Pay per use, presets from $10": "Оплата по мере использования, готовые пакеты от 10 $",
+    "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.": "Только ручное продление, 30 дней за цикл, до 90 дней всего и не более 2 смен аккаунта за цикл.",
+    "seat (per-seat billing)": "seat (оплата за места)",
+    "Disabled by default; wallet seat card appears only in seat mode.": "Отключено по умолчанию; карточка мест в кошельке отображается только в режиме seat.",
+    "Seat price (USD / 30 days)": "Цена места (USD / 30 дней)",
+    "1 USD = 10 credits. Default: 2 (20 credits).": "1 USD = 10 кредитов. По умолчанию: 2 (20 кредитов).",
+    "Seat limit per user": "Лимит мест на пользователя",
+    "Includes occupied and unexpired vacant seats. Default: 20.": "Включая занятые и неистёкшие свободные места. По умолчанию: 20.",
+    "Transition days for existing accounts": "Переходный период для существующих аккаунтов (дней)",
+    "0 freezes existing accounts without a seat immediately. Default: 0.": "Значение 0 немедленно замораживает существующие аккаунты без места. По умолчанию: 0.",
+    "Expiry freeze grace days": "Льготный период заморозки после истечения (дней)",
+    "Accounts auto-unlink after grace expires without renewal. Default: 7.": "Аккаунты автоматически отвязываются по истечении льготного периода без продления. По умолчанию: 7.",
+    "Purchased": "Куплено",
+    "Occupied": "Занято",
+    "Vacant": "Свободно",
+    "Next expiry": "Ближайшее истечение",
+    "{{credits}} credits (${{usd}} / 30d)": "{{credits}} кредитов (${{usd}} / 30 дн.)",
+    "Vacant until {{date}}": "Свободно до {{date}}",
+    "Same account only": "Только тот же аккаунт",
+    "{{count}} swaps left": "Осталось смен: {{count}}"
   }
 }

@@ -9506,6 +9506,25 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "Téléchargez l’application de bureau, connectez-vous et commencez avec la recharge de 100 crédits.",
     "View all {{count}} models and technical specs": "Voir les {{count}} modèles et leurs spécifications",
     "View the full model catalog": "Voir le catalogue complet des modèles",
-    "Pay per use, presets from $10": "Paiement à l’usage, recharges prédéfinies à partir de 10 $"
+    "Pay per use, presets from $10": "Paiement à l’usage, recharges prédéfinies à partir de 10 $",
+    "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.": "Renouvellement manuel uniquement, 30 jours par cycle, 90 jours maximum au total et jusqu'à 2 changements de compte par cycle.",
+    "seat (per-seat billing)": "seat (facturation par siège)",
+    "Disabled by default; wallet seat card appears only in seat mode.": "Désactivé par défaut ; la carte des sièges n'apparaît dans le portefeuille qu'en mode seat.",
+    "Seat price (USD / 30 days)": "Prix du siège (USD / 30 jours)",
+    "1 USD = 10 credits. Default: 2 (20 credits).": "1 USD = 10 crédits. Par défaut : 2 (20 crédits).",
+    "Seat limit per user": "Limite de sièges par utilisateur",
+    "Includes occupied and unexpired vacant seats. Default: 20.": "Inclut les sièges occupés et les sièges libres non expirés. Par défaut : 20.",
+    "Transition days for existing accounts": "Jours de transition pour les comptes existants",
+    "0 freezes existing accounts without a seat immediately. Default: 0.": "0 gèle immédiatement les comptes existants sans siège. Par défaut : 0.",
+    "Expiry freeze grace days": "Jours de grâce après expiration",
+    "Accounts auto-unlink after grace expires without renewal. Default: 7.": "Les comptes sont dissociés automatiquement à la fin de la période de grâce sans renouvellement. Par défaut : 7.",
+    "Purchased": "Achetés",
+    "Occupied": "Occupés",
+    "Vacant": "Libres",
+    "Next expiry": "Prochaine expiration",
+    "{{credits}} credits (${{usd}} / 30d)": "{{credits}} crédits ({{usd}} $ / 30 j)",
+    "Vacant until {{date}}": "Libre jusqu'au {{date}}",
+    "Same account only": "Même compte uniquement",
+    "{{count}} swaps left": "{{count}} changements restants"
   }
 }

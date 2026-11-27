@@ -12,19 +12,28 @@ import (
 //
 // fork: social-seats
 type SocialOpsSetting struct {
-	BillingMode     string  `json:"billing_mode"`      // off | seat （fixed 视为 off）
-	SeatPriceUSD    float64 `json:"seat_price_usd"`    // 默认 $8 / 30 天
-	SeatsCap        int     `json:"seats_cap"`         // 每用户未过期已购硬顶（含空闲）
-	GrandfatherDays int     `json:"grandfather_days"`  // 存量无席账号宽限天数
-	GraceDays       int     `json:"grace_days"`        // 占用席欠费冻帖天数
+	BillingMode     string  `json:"billing_mode"`     // off | seat （fixed 视为 off）
+	SeatPriceUSD    float64 `json:"seat_price_usd"`   // 默认 $2（20 积分） / 30 天
+	SeatsCap        int     `json:"seats_cap"`        // 每用户未过期已购硬顶（含空闲）
+	GrandfatherDays int     `json:"grandfather_days"` // 存量无席账号过渡天数（默认 0）
+	GraceDays       int     `json:"grace_days"`       // 到期冻结后宽限天数（默认 7，超时自动解绑）
 }
+
+const (
+	defaultSocialSeatPriceUSD        = 2
+	defaultSocialSeatsCap            = 20
+	defaultSocialSeatGrandfatherDays = 0
+	defaultSocialSeatGraceDays       = 7
+	socialSeatMaxValidityDays        = 90
+	socialSeatMaxSwapsPerWindow      = 2
+)
 
 var socialOpsSetting = SocialOpsSetting{
 	BillingMode:     "off",
-	SeatPriceUSD:    8,
-	SeatsCap:        20,
-	GrandfatherDays: 7,
-	GraceDays:       3,
+	SeatPriceUSD:    defaultSocialSeatPriceUSD,
+	SeatsCap:        defaultSocialSeatsCap,
+	GrandfatherDays: defaultSocialSeatGrandfatherDays,
+	GraceDays:       defaultSocialSeatGraceDays,
 }
 
 func init() {
@@ -52,7 +61,7 @@ func SocialSeatBillingEnabled() bool {
 func SocialSeatPriceUSD() float64 {
 	usd := socialOpsSetting.SeatPriceUSD
 	if usd <= 0 {
-		return 8
+		return defaultSocialSeatPriceUSD
 	}
 	return usd
 }
@@ -65,18 +74,15 @@ func SocialSeatPriceCredits() int {
 func SocialSeatsCap() int {
 	cap := socialOpsSetting.SeatsCap
 	if cap <= 0 {
-		return 20
+		return defaultSocialSeatsCap
 	}
 	return cap
 }
 
 func SocialSeatGrandfatherDays() int {
 	d := socialOpsSetting.GrandfatherDays
-	if d < 0 {
+	if d <= 0 {
 		return 0
-	}
-	if d == 0 {
-		return 7
 	}
 	return d
 }
@@ -86,8 +92,15 @@ func SocialSeatGraceDays() int {
 	if d < 0 {
 		return 0
 	}
-	if d == 0 {
-		return 3
-	}
 	return d
+}
+
+// SocialSeatMaxValidityDays is the maximum cumulative remaining validity allowed via manual renewal.
+func SocialSeatMaxValidityDays() int {
+	return socialSeatMaxValidityDays
+}
+
+// SocialSeatMaxSwapsPerWindow is the maximum number of cross-account swaps per paid billing window.
+func SocialSeatMaxSwapsPerWindow() int {
+	return socialSeatMaxSwapsPerWindow
 }

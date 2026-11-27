@@ -9506,6 +9506,25 @@
     "Download the desktop app, sign in, and start with the 100-credit tier.": "デスクトップアプリをダウンロードしてサインインすると、100 クレジットからチャージできます。",
     "View all {{count}} models and technical specs": "全 {{count}} モデルの技術仕様を見る",
     "View the full model catalog": "すべてのモデルを見る",
-    "Pay per use, presets from $10": "使った分だけお支払い、定額チャージは $10 から"
+    "Pay per use, presets from $10": "使った分だけお支払い、定額チャージは $10 から",
+    "Manual renewal only, 30 days per cycle, up to 90 days total, and at most 2 cross-account swaps per cycle.": "手動更新のみ、1サイクル30日間、最大累計90日間、1サイクルあたり別アカウントへの切り替えは最大2回です。",
+    "seat (per-seat billing)": "seat（シート単位課金）",
+    "Disabled by default; wallet seat card appears only in seat mode.": "デフォルトでは無効です。ウォレットのシートカードは seat モードでのみ表示されます。",
+    "Seat price (USD / 30 days)": "シート単価（USD / 30日）",
+    "1 USD = 10 credits. Default: 2 (20 credits).": "1 USD = 10 クレジット。デフォルト：2（20 クレジット）。",
+    "Seat limit per user": "ユーザーあたりのシート上限",
+    "Includes occupied and unexpired vacant seats. Default: 20.": "使用中および有効期限内の空きシートを含みます。デフォルト：20。",
+    "Transition days for existing accounts": "既存アカウントの移行日数",
+    "0 freezes existing accounts without a seat immediately. Default: 0.": "0 にするとシート未割り当ての既存アカウントは即座に凍結状態になります。デフォルト：0。",
+    "Expiry freeze grace days": "期限切れ凍結の猶予日数",
+    "Accounts auto-unlink after grace expires without renewal. Default: 7.": "猶予期間内に更新されない場合、アカウントは自動的に連携解除されます。デフォルト：7。",
+    "Purchased": "購入済み",
+    "Occupied": "使用中",
+    "Vacant": "空きシート",
+    "Next expiry": "次回期限",
+    "{{credits}} credits (${{usd}} / 30d)": "{{credits}} クレジット（${{usd}} / 30日）",
+    "Vacant until {{date}}": "{{date}} まで空き",
+    "Same account only": "同一アカウントのみ",
+    "{{count}} swaps left": "切替残り {{count}} 回"
   }
 }

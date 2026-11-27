@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
@@ -13,9 +14,11 @@ import (
 )
 
 var (
-	ErrSeatQuota   = model.ErrSocialSeatQuota
-	ErrSeatCap     = model.ErrSocialSeatCap
-	ErrSeatExpired = model.ErrSocialSeatExpired
+	ErrSeatQuota      = model.ErrSocialSeatQuota
+	ErrSeatCap        = model.ErrSocialSeatCap
+	ErrSeatExpired    = model.ErrSocialSeatExpired
+	ErrSeatRenewLimit = model.ErrSocialSeatRenewLimit
+	ErrSeatSwapLimit  = model.ErrSocialSeatSwapLimit
 )
 
 const beijingTZName = "Asia/Shanghai"
@@ -44,17 +47,40 @@ func seatBillingOn() bool {
 	return operation_setting.SocialSeatBillingEnabled()
 }
 
+type VacantSeatView struct {
+	ID              int64  `json:"id"`
+	ExpiresAt       string `json:"expires_at"`
+	SwapsRemaining  int    `json:"swaps_remaining"`
+	SameAccountOnly bool   `json:"same_account_only"`
+}
+
+type AccountSeatView struct {
+	ID                 int64  `json:"id"`
+	Status             string `json:"status"`
+	ExpiresAt          string `json:"expires_at"`
+	GraceUntil         string `json:"grace_until"`
+	SwapCount          int    `json:"swap_count"`
+	SwapsRemaining     int    `json:"swaps_remaining"`
+	CanRenew           bool   `json:"can_renew"`
+	RenewBlockedReason string `json:"renew_blocked_reason"`
+	PriceCredits       int    `json:"price_credits"`
+}
+
 type SeatView struct {
-	BillingMode      string  `json:"billing_mode"`
-	SeatsPurchased   int     `json:"seats_purchased"`
-	SeatsOccupied    int     `json:"seats_occupied"`
-	SeatsVacant      int     `json:"seats_vacant"`
-	SeatsCap         int     `json:"seats_cap"`
-	NextExpiry       *string `json:"next_expiry"`
-	SeatPriceUSD     float64 `json:"seat_price_usd"`
-	SeatPriceCredits int     `json:"seat_price_credits"`
-	WalletOK         bool    `json:"wallet_ok"`
-	GrandfatherUntil *string `json:"grandfather_until"`
+	BillingMode       string           `json:"billing_mode"`
+	SeatsPurchased    int              `json:"seats_purchased"`
+	SeatsOccupied     int              `json:"seats_occupied"`
+	SeatsVacant       int              `json:"seats_vacant"`
+	SeatsCap          int              `json:"seats_cap"`
+	NextExpiry        *string          `json:"next_expiry"`
+	SeatPriceUSD      float64          `json:"seat_price_usd"`
+	SeatPriceCredits  int              `json:"seat_price_credits"`
+	WalletOK          bool             `json:"wallet_ok"`
+	GrandfatherUntil  *string          `json:"grandfather_until"`
+	MaxValidityDays   int              `json:"max_validity_days"`
+	MaxSwapsPerWindow int              `json:"max_swaps_per_window"`
+	GraceDays         int              `json:"grace_days"`
+	VacantSeats       []VacantSeatView `json:"vacant_seats"`
 }
 
 func publicSeatCatalog() map[string]any {
@@ -76,7 +102,7 @@ func (s *Service) PreflightConnect(userId int) error {
 	if !seatBillingOn() {
 		return nil
 	}
-	if err := s.lazyExpireAndRenew(context.Background(), userId); err != nil {
+	if err := s.reconcileExpiredSeats(context.Background(), userId); err != nil {
 		return err
 	}
 	now := nowUTC()
@@ -114,20 +140,39 @@ func (s *Service) SeatsView(ctx context.Context, userId int) (*SeatView, error) 
 		return nil, ErrDisabled
 	}
 	if seatBillingOn() {
-		_ = s.lazyExpireAndRenew(ctx, userId)
-		_ = s.grandfatherActiveAccounts(userId)
+		_ = s.reconcileExpiredSeats(ctx, userId)
 	}
 	now := nowUTC()
 	counts, err := model.CountUserSeatState(userId, now)
 	if err != nil {
 		return nil, err
 	}
+	maxSwaps := operation_setting.SocialSeatMaxSwapsPerWindow()
+	vacantRows, err := model.ListVacantUnexpiredSeats(userId, now)
+	if err != nil {
+		return nil, err
+	}
+	vacantViews := make([]VacantSeatView, 0, len(vacantRows))
+	hasSwappableVacant := false
+	for _, row := range vacantRows {
+		rem := max(0, maxSwaps-row.SwapCount)
+		sameOnly := row.LastAccountID != nil && rem == 0
+		if !sameOnly {
+			hasSwappableVacant = true
+		}
+		vacantViews = append(vacantViews, VacantSeatView{
+			ID:              row.ID,
+			ExpiresAt:       row.ExpiresAt.UTC().Format(time.RFC3339),
+			SwapsRemaining:  rem,
+			SameAccountOnly: sameOnly,
+		})
+	}
 	price, err := seatPriceRaw()
 	if err != nil {
 		return nil, err
 	}
 	walletOK := true
-	if seatBillingOn() && counts.Vacant == 0 {
+	if seatBillingOn() && !hasSwappableVacant {
 		q, qerr := model.GetUserQuota(userId, true)
 		if qerr != nil {
 			return nil, qerr
@@ -135,14 +180,18 @@ func (s *Service) SeatsView(ctx context.Context, userId int) (*SeatView, error) 
 		walletOK = q >= price
 	}
 	view := &SeatView{
-		BillingMode:      operation_setting.EffectiveSocialSeatBillingMode(),
-		SeatsPurchased:   counts.Purchased,
-		SeatsOccupied:    counts.Occupied,
-		SeatsVacant:      counts.Vacant,
-		SeatsCap:         operation_setting.SocialSeatsCap(),
-		SeatPriceUSD:     operation_setting.SocialSeatPriceUSD(),
-		SeatPriceCredits: operation_setting.SocialSeatPriceCredits(),
-		WalletOK:         walletOK,
+		BillingMode:       operation_setting.EffectiveSocialSeatBillingMode(),
+		SeatsPurchased:    counts.Purchased,
+		SeatsOccupied:     counts.Occupied,
+		SeatsVacant:       counts.Vacant,
+		SeatsCap:          operation_setting.SocialSeatsCap(),
+		SeatPriceUSD:      operation_setting.SocialSeatPriceUSD(),
+		SeatPriceCredits:  operation_setting.SocialSeatPriceCredits(),
+		WalletOK:          walletOK,
+		MaxValidityDays:   operation_setting.SocialSeatMaxValidityDays(),
+		MaxSwapsPerWindow: maxSwaps,
+		GraceDays:         operation_setting.SocialSeatGraceDays(),
+		VacantSeats:       vacantViews,
 	}
 	if counts.NextExpiry != nil {
 		s := FormatBeijingExpiry(*counts.NextExpiry)
@@ -155,45 +204,144 @@ func (s *Service) SeatsView(ctx context.Context, userId int) (*SeatView, error) 
 	return view, nil
 }
 
-func (s *Service) grandfatherActiveAccounts(userId int) error {
-	if !seatBillingOn() {
-		return nil
-	}
-	rows, err := model.ListActiveAccountsWithoutSeat(userId)
-	if err != nil {
-		return err
-	}
-	if len(rows) == 0 {
-		return nil
-	}
-	now := nowUTC()
-	until := now.Add(time.Duration(operation_setting.SocialSeatGrandfatherDays()) * 24 * time.Hour)
-	for _, acc := range rows {
-		var created *model.SocialSeat
-		err := model.DB.Transaction(func(tx *gorm.DB) error {
-			seat, e := model.OpenOccupiedSeatTx(tx, userId, acc.ID, 0, now, &until)
-			if e != nil {
-				return e
-			}
-			created = seat
-			sid := seat.ID
-			return tx.Model(acc).Updates(map[string]any{
-				"seat_id":    sid,
-				"updated_at": now,
-			}).Error
-		})
-		if err != nil {
-			return err
-		}
-		if created != nil {
-			model.RecordSocialSeatLog(userId, model.SocialSeatActionOpen, created.ID, 0,
-				fmt.Sprintf("grandfather account_id=%d", acc.ID))
+func buildAccountSeatView(seat *model.SocialSeat, now time.Time, graceDays, maxValidityDays, maxSwaps, priceCredits int) *AccountSeatView {
+	if seat == nil {
+		graceUntil := now.Add(time.Duration(graceDays) * 24 * time.Hour)
+		return &AccountSeatView{
+			ID:                 0,
+			Status:             "unactivated",
+			ExpiresAt:          now.UTC().Format(time.RFC3339),
+			GraceUntil:         graceUntil.UTC().Format(time.RFC3339),
+			SwapCount:          0,
+			SwapsRemaining:     maxSwaps,
+			CanRenew:           true,
+			RenewBlockedReason: "",
+			PriceCredits:       priceCredits,
 		}
 	}
-	return nil
+	graceUntil := seat.ExpiresAt.Add(time.Duration(graceDays) * 24 * time.Hour)
+	active := seat.ExpiresAt.After(now) || (seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now))
+	status := "frozen"
+	switch {
+	case active:
+		status = "active"
+	case seat.OpenedQuota == 0 && seat.GrandfatherUntil == nil:
+		status = "unactivated"
+	}
+	swapsRemaining := max(0, maxSwaps-seat.SwapCount)
+	canRenew := true
+	renewBlockedReason := ""
+	if now.After(graceUntil) {
+		canRenew = false
+		renewBlockedReason = "SOCIAL_SEAT_EXPIRED"
+	} else {
+		var next time.Time
+		if seat.ExpiresAt.After(now) {
+			next = seat.ExpiresAt.Add(model.SocialSeatWindow())
+		} else {
+			next = now.Add(model.SocialSeatWindow())
+		}
+		if next.After(now.Add(time.Duration(maxValidityDays) * 24 * time.Hour)) {
+			canRenew = false
+			renewBlockedReason = "SOCIAL_SEAT_RENEW_LIMIT"
+		}
+	}
+	return &AccountSeatView{
+		ID:                 seat.ID,
+		Status:             status,
+		ExpiresAt:          seat.ExpiresAt.UTC().Format(time.RFC3339),
+		GraceUntil:         graceUntil.UTC().Format(time.RFC3339),
+		SwapCount:          seat.SwapCount,
+		SwapsRemaining:     swapsRemaining,
+		CanRenew:           canRenew,
+		RenewBlockedReason: renewBlockedReason,
+		PriceCredits:       priceCredits,
+	}
 }
 
-func (s *Service) lazyExpireAndRenew(ctx context.Context, userId int) error {
+// BuildAccountSeatViews returns per-account seat status views when seat billing is enabled.
+func (s *Service) BuildAccountSeatViews(userId int, accounts []*model.SocialAccount) (map[int64]*AccountSeatView, error) {
+	if !seatBillingOn() || len(accounts) == 0 {
+		return nil, nil
+	}
+	ids := make([]int64, 0, len(accounts))
+	for _, a := range accounts {
+		ids = append(ids, a.ID)
+	}
+	seatMap, err := model.ListOccupiedSeatsByAccountIDs(userId, ids)
+	if err != nil {
+		return nil, err
+	}
+	now := nowUTC()
+	graceDays := operation_setting.SocialSeatGraceDays()
+	maxValidityDays := operation_setting.SocialSeatMaxValidityDays()
+	maxSwaps := operation_setting.SocialSeatMaxSwapsPerWindow()
+	priceCredits := operation_setting.SocialSeatPriceCredits()
+	out := make(map[int64]*AccountSeatView, len(accounts))
+	for _, a := range accounts {
+		out[a.ID] = buildAccountSeatView(seatMap[a.ID], now, graceDays, maxValidityDays, maxSwaps, priceCredits)
+	}
+	return out, nil
+}
+
+// RenewAccountSeat manually renews an occupied seat or activates an unactivated account.
+func (s *Service) RenewAccountSeat(ctx context.Context, userId int, provider string, accountID int64) (*AccountSeatView, error) {
+	if err := validateProvider(provider, s.cfg.ZernioActive()); err != nil {
+		return nil, err
+	}
+	if !s.cfg.Enabled {
+		return nil, ErrDisabled
+	}
+	if !seatBillingOn() {
+		return nil, errors.New("social seat billing is not enabled")
+	}
+	if err := s.reconcileExpiredSeats(ctx, userId); err != nil {
+		return nil, err
+	}
+	acc, err := model.GetSocialAccountByIDForUser(accountID, userId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountMissing
+		}
+		return nil, err
+	}
+	if err := validateAccountProvider(provider, []*model.SocialAccount{acc}); err != nil {
+		return nil, err
+	}
+	if acc.Status != model.SocialAccountStatusActive {
+		return nil, ErrSeatExpired
+	}
+	price, err := seatPriceRaw()
+	if err != nil {
+		return nil, err
+	}
+	now := nowUTC()
+	graceDays := operation_setting.SocialSeatGraceDays()
+	maxValidityDays := operation_setting.SocialSeatMaxValidityDays()
+	maxSwaps := operation_setting.SocialSeatMaxSwapsPerWindow()
+	seatsCap := operation_setting.SocialSeatsCap()
+
+	var res *model.RenewSocialSeatResult
+	txErr := model.DB.Transaction(func(tx *gorm.DB) error {
+		var e error
+		res, e = model.RenewOrActivateSeatTx(tx, userId, acc.ID, price, graceDays, maxValidityDays, maxSwaps, seatsCap, now)
+		return e
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+	if res.ChargedQuota > 0 {
+		model.SyncSocialSeatDebitCache(userId, res.ChargedQuota, res.Action)
+	}
+	model.RecordSocialSeatLog(userId, res.Action, res.Seat.ID, res.ChargedQuota, fmt.Sprintf("account_id=%d", acc.ID))
+	return buildAccountSeatView(res.Seat, now, graceDays, maxValidityDays, maxSwaps, operation_setting.SocialSeatPriceCredits()), nil
+}
+
+// reconcileExpiredSeats performs pure cleanup and materialization without silent auto-charging:
+// 1. Expires past-due vacant pits.
+// 2. Materializes seats for active accounts without one (grandfather or immediate frozen unactivated).
+// 3. Disconnects and expires occupied seats whose grace window has elapsed.
+func (s *Service) reconcileExpiredSeats(ctx context.Context, userId int) error {
 	if !seatBillingOn() {
 		return nil
 	}
@@ -203,15 +351,67 @@ func (s *Service) lazyExpireAndRenew(ctx context.Context, userId int) error {
 		return err
 	}
 	for _, seat := range vacants {
-		if err := model.MarkSocialSeatExpired(seat, "vacant_expired"); err != nil {
+		if _, err := model.ExpireVacantSeatIfDue(seat.ID, userId, now); err != nil {
 			return err
 		}
 	}
-	occupied, err := model.ListOccupiedExpiredSeats(userId, now)
+
+	unseated, err := model.ListActiveAccountsWithoutSeat(userId)
 	if err != nil {
 		return err
 	}
-	price, err := seatPriceRaw()
+	gfDays := operation_setting.SocialSeatGrandfatherDays()
+	for _, acc := range unseated {
+		var created *model.SocialSeat
+		var extra string
+		err := model.DB.Transaction(func(tx *gorm.DB) error {
+			if err := model.LockSocialSeatUserTx(tx, userId); err != nil {
+				return err
+			}
+			var liveAcc model.SocialAccount
+			if err := tx.Where("id = ? AND user_id = ?", acc.ID, userId).First(&liveAcc).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil
+				}
+				return err
+			}
+			if liveAcc.Status != model.SocialAccountStatusActive {
+				return nil
+			}
+			if _, existingErr := model.GetOccupiedSeatForAccountTx(tx, userId, acc.ID); existingErr == nil {
+				return nil
+			} else if !errors.Is(existingErr, gorm.ErrRecordNotFound) {
+				return existingErr
+			}
+			var seat *model.SocialSeat
+			var e error
+			if gfDays > 0 {
+				until := now.Add(time.Duration(gfDays) * 24 * time.Hour)
+				seat, e = model.OpenOccupiedSeatTx(tx, userId, acc.ID, 0, now, &until)
+				extra = fmt.Sprintf("grandfather account_id=%d", acc.ID)
+			} else {
+				seat, e = model.OpenFrozenUnactivatedSeatTx(tx, userId, acc.ID, now)
+				extra = fmt.Sprintf("unactivated account_id=%d", acc.ID)
+			}
+			if e != nil {
+				return e
+			}
+			created = seat
+			sid := seat.ID
+			return tx.Model(&model.SocialAccount{}).Where("id = ? AND user_id = ?", acc.ID, userId).Updates(map[string]any{
+				"seat_id":    sid,
+				"updated_at": now,
+			}).Error
+		})
+		if err != nil {
+			return err
+		}
+		if created != nil {
+			model.RecordSocialSeatLog(userId, model.SocialSeatActionOpen, created.ID, 0, extra)
+		}
+	}
+
+	occupied, err := model.ListOccupiedExpiredSeats(userId, now)
 	if err != nil {
 		return err
 	}
@@ -220,39 +420,31 @@ func (s *Service) lazyExpireAndRenew(ctx context.Context, userId int) error {
 		if seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now) {
 			continue
 		}
-		charged := false
-		err := model.DB.Transaction(func(tx *gorm.DB) error {
-			if e := model.ChargeSocialSeatTx(tx, userId, price); e != nil {
-				return e
-			}
-			charged = true
-			return nil
-		})
-		if err == nil && charged {
-			if e := model.RenewSocialSeat(seat, price, now); e != nil {
-				return e
-			}
+		graceEnd := seat.ExpiresAt.Add(time.Duration(graceDays) * 24 * time.Hour)
+		if !now.After(graceEnd) {
 			continue
 		}
-		if !errors.Is(err, model.ErrSocialSeatQuota) && err != nil {
+		var won bool
+		var disconnectedAcc *model.SocialAccount
+		err := model.DB.Transaction(func(tx *gorm.DB) error {
+			var e error
+			won, disconnectedAcc, e = model.ExpireGraceElapsedSeatTx(tx, userId, seat.ID, graceDays, now)
+			return e
+		})
+		if err != nil {
 			return err
 		}
-		graceEnd := seat.ExpiresAt.Add(time.Duration(graceDays) * 24 * time.Hour)
-		if now.Before(graceEnd) || now.Equal(graceEnd) {
+		if !won {
 			continue
 		}
-		if seat.OccupiedAccountID != nil {
-			acc, aerr := model.GetSocialAccountByIDForUser(*seat.OccupiedAccountID, userId)
-			if aerr == nil && s.cfg.ZernioActive() && s.client != nil && acc.ProviderAccountID != "" {
-				_ = s.client.DisconnectAccount(ctx, acc.ProviderAccountID)
-			}
-			if aerr == nil {
-				_ = model.MarkSocialAccountDisconnected(acc.ID, userId)
+		if disconnectedAcc != nil {
+			if disconnectedAcc.Provider == ProviderTikTokDirect {
+				s.revokeTikTokAccountToken(ctx, disconnectedAcc)
+			} else if s.cfg.ZernioActive() && s.client != nil && disconnectedAcc.ProviderAccountID != "" {
+				_ = s.client.DisconnectAccount(ctx, disconnectedAcc.ProviderAccountID)
 			}
 		}
-		if e := model.MarkSocialSeatExpired(seat, "renew_failed_grace_elapsed"); e != nil {
-			return e
-		}
+		model.RecordSocialSeatLog(userId, model.SocialSeatActionExpire, seat.ID, 0, "grace_elapsed")
 	}
 	return nil
 }
@@ -265,6 +457,7 @@ type ingestDraft struct {
 	Platform          string
 	Username          string
 	DisplayName       string
+	VaultUpdates      map[string]any
 }
 
 func (s *Service) ingestUpstreamAccount(ctx context.Context, userId int, tenant *model.SocialTenant, upstream zernio.Account) (*model.SocialAccount, error) {
@@ -315,10 +508,7 @@ func (s *Service) ingestUpstreamAccount(ctx context.Context, userId int, tenant 
 		return model.GetSocialAccountByProviderRef(draft.Provider, draft.ProviderAccountID)
 	}
 
-	if err := s.lazyExpireAndRenew(ctx, userId); err != nil {
-		return nil, err
-	}
-	if err := s.grandfatherActiveAccounts(userId); err != nil {
+	if err := s.reconcileExpiredSeats(ctx, userId); err != nil {
 		return nil, err
 	}
 
@@ -333,7 +523,7 @@ func (s *Service) ingestUpstreamAccount(ctx context.Context, userId int, tenant 
 	wasLocallyActive := err == nil && existing.Status == model.SocialAccountStatusActive
 	compensateDisconnect := !wasLocallyActive
 
-	acc, gateErr := s.applySeatGate(ctx, userId, draft, existing)
+	acc, gateErr := s.applySeatGate(ctx, userId, draft)
 	if gateErr != nil {
 		if compensateDisconnect && s.cfg.ZernioActive() && s.client != nil {
 			_ = s.client.DisconnectAccount(ctx, draft.ProviderAccountID)
@@ -351,13 +541,15 @@ func loadSocialAccountByProviderRefTx(tx *gorm.DB, provider, providerAccountID s
 	return &got, nil
 }
 
-func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDraft, existing *model.SocialAccount) (*model.SocialAccount, error) {
+func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDraft) (*model.SocialAccount, error) {
 	_ = ctx
 	now := nowUTC()
 	price, err := seatPriceRaw()
 	if err != nil {
 		return nil, err
 	}
+	maxSwaps := operation_setting.SocialSeatMaxSwapsPerWindow()
+	seatsCap := operation_setting.SocialSeatsCap()
 
 	type pendingLog struct {
 		action string
@@ -367,79 +559,60 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 	}
 	var result *model.SocialAccount
 	var logAfter *pendingLog
+	chargedQuota := 0
 	txErr := model.DB.Transaction(func(tx *gorm.DB) error {
-		if existing != nil && existing.UserId == userId {
-			seat, serr := model.GetOccupiedSeatForAccountTx(tx, userId, existing.ID)
-			if serr == nil && (seat.ExpiresAt.After(now) || (seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now))) {
-				existing.ProviderProfileID = draft.ProviderProfileID
-				existing.Platform = draft.Platform
-				existing.Username = draft.Username
-				existing.DisplayName = draft.DisplayName
-				existing.Status = model.SocialAccountStatusActive
-				sid := seat.ID
-				existing.SeatID = &sid
-				if e := model.UpsertSocialAccountTx(tx, existing); e != nil {
-					return e
-				}
-				result = existing
+		if err := model.LockSocialSeatUserTx(tx, userId); err != nil {
+			return err
+		}
+
+		// Reload inside the locked transaction so concurrent callbacks for the same
+		// provider account cannot bypass the existing active seat check (TOCTOU).
+		existingTx, exErr := loadSocialAccountByProviderRefTx(tx, draft.Provider, draft.ProviderAccountID)
+		if exErr != nil && !errors.Is(exErr, gorm.ErrRecordNotFound) {
+			return exErr
+		}
+		if exErr == nil && existingTx.UserId != userId {
+			return errors.New("social account already bound to another user")
+		}
+
+		applyVault := func(accountID int64) error {
+			if len(draft.VaultUpdates) == 0 {
 				return nil
 			}
+			updates := make(map[string]any, len(draft.VaultUpdates)+1)
+			maps.Copy(updates, draft.VaultUpdates)
+			updates["updated_at"] = now
+			return tx.Model(&model.SocialAccount{}).Where("id = ? AND user_id = ?", accountID, userId).Updates(updates).Error
 		}
 
-		vacant, e := model.CountVacantUnexpiredTx(tx, userId, now)
-		if e != nil {
-			return e
-		}
-		if vacant > 0 {
-			acc := &model.SocialAccount{
-				UserId:            draft.UserId,
-				Provider:          draft.Provider,
-				ProviderAccountID: draft.ProviderAccountID,
-				ProviderProfileID: draft.ProviderProfileID,
-				Platform:          draft.Platform,
-				Username:          draft.Username,
-				DisplayName:       draft.DisplayName,
-				Status:            model.SocialAccountStatusActive,
-			}
-			if e := model.UpsertSocialAccountTx(tx, acc); e != nil {
-				return e
-			}
-			if acc.ID == 0 {
-				got, ge := loadSocialAccountByProviderRefTx(tx, draft.Provider, draft.ProviderAccountID)
-				if ge != nil {
-					return ge
+		var staleFrozenSeat *model.SocialSeat
+		if exErr == nil && existingTx != nil {
+			seat, serr := model.GetOccupiedSeatForAccountTx(tx, userId, existingTx.ID)
+			if serr == nil {
+				if seat.ExpiresAt.After(now) || (seat.GrandfatherUntil != nil && seat.GrandfatherUntil.After(now)) {
+					existingTx.ProviderProfileID = draft.ProviderProfileID
+					existingTx.Platform = draft.Platform
+					existingTx.Username = draft.Username
+					existingTx.DisplayName = draft.DisplayName
+					existingTx.Status = model.SocialAccountStatusActive
+					sid := seat.ID
+					existingTx.SeatID = &sid
+					if e := model.UpsertSocialAccountTx(tx, existingTx); e != nil {
+						return e
+					}
+					if e := applyVault(existingTx.ID); e != nil {
+						return e
+					}
+					result = existingTx
+					return nil
 				}
-				acc = got
+				// Re-authorizing an account whose seat is expired/frozen must not bypass the seat gate.
+				staleFrozenSeat = seat
+			} else if !errors.Is(serr, gorm.ErrRecordNotFound) {
+				return serr
 			}
-			seat, e := model.OccupyEarliestVacantTx(tx, userId, acc.ID, now)
-			if e != nil {
-				return e
-			}
-			sid := seat.ID
-			acc.SeatID = &sid
-			if e := tx.Model(acc).Updates(map[string]any{"seat_id": sid, "updated_at": now}).Error; e != nil {
-				return e
-			}
-			logAfter = &pendingLog{
-				action: model.SocialSeatActionOccupy,
-				seatID: seat.ID,
-				quota:  0,
-				extra:  fmt.Sprintf("account_id=%d", acc.ID),
-			}
-			result = acc
-			return nil
 		}
 
-		purchased, e := model.CountPurchasedSeatsTx(tx, userId, now)
-		if e != nil {
-			return e
-		}
-		if purchased >= operation_setting.SocialSeatsCap() {
-			return ErrSeatCap
-		}
-		if e := model.ChargeSocialSeatTx(tx, userId, price); e != nil {
-			return e
-		}
 		acc := &model.SocialAccount{
 			UserId:            draft.UserId,
 			Provider:          draft.Provider,
@@ -460,7 +633,55 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 			}
 			acc = got
 		}
-		seat, e := model.OpenOccupiedSeatTx(tx, userId, acc.ID, price, now, nil)
+
+		seat, occErr := model.OccupyVacantForAccountTx(tx, userId, acc.ID, maxSwaps, now)
+		if occErr == nil {
+			if staleFrozenSeat != nil {
+				if e := model.ExpireSocialSeatTx(tx, staleFrozenSeat.ID, userId, now); e != nil {
+					return e
+				}
+			}
+			sid := seat.ID
+			acc.SeatID = &sid
+			if e := tx.Model(acc).Updates(map[string]any{"seat_id": sid, "updated_at": now}).Error; e != nil {
+				return e
+			}
+			if e := applyVault(acc.ID); e != nil {
+				return e
+			}
+			logAfter = &pendingLog{
+				action: model.SocialSeatActionOccupy,
+				seatID: seat.ID,
+				quota:  0,
+				extra:  fmt.Sprintf("account_id=%d", acc.ID),
+			}
+			result = acc
+			return nil
+		}
+		if !errors.Is(occErr, gorm.ErrRecordNotFound) {
+			return occErr
+		}
+
+		purchased, e := model.CountPurchasedSeatsTx(tx, userId, now)
+		if e != nil {
+			return e
+		}
+		if purchased >= seatsCap {
+			vacantCount, ve := model.CountVacantUnexpiredTx(tx, userId, now)
+			if ve == nil && vacantCount > 0 {
+				return ErrSeatSwapLimit
+			}
+			return ErrSeatCap
+		}
+		if e := model.ChargeSocialSeatTx(tx, userId, price); e != nil {
+			return e
+		}
+		if staleFrozenSeat != nil {
+			if e := model.ExpireSocialSeatTx(tx, staleFrozenSeat.ID, userId, now); e != nil {
+				return e
+			}
+		}
+		seat, e = model.OpenOccupiedSeatTx(tx, userId, acc.ID, price, now, nil)
 		if e != nil {
 			return e
 		}
@@ -468,7 +689,11 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 		if e := tx.Model(acc).Updates(map[string]any{"seat_id": sid, "updated_at": now}).Error; e != nil {
 			return e
 		}
+		if e := applyVault(acc.ID); e != nil {
+			return e
+		}
 		acc.SeatID = &sid
+		chargedQuota = price
 		logAfter = &pendingLog{
 			action: model.SocialSeatActionOpen,
 			seatID: seat.ID,
@@ -480,6 +705,9 @@ func (s *Service) applySeatGate(ctx context.Context, userId int, draft ingestDra
 	})
 	if txErr != nil {
 		return nil, txErr
+	}
+	if chargedQuota > 0 {
+		model.SyncSocialSeatDebitCache(userId, chargedQuota, model.SocialSeatActionOpen)
 	}
 	if logAfter != nil {
 		model.RecordSocialSeatLog(userId, logAfter.action, logAfter.seatID, logAfter.quota, logAfter.extra)
@@ -502,7 +730,7 @@ func (s *Service) guardSeatsForAccounts(userId int, accounts []*model.SocialAcco
 	if !seatBillingOn() {
 		return nil
 	}
-	_ = s.lazyExpireAndRenew(context.Background(), userId)
+	_ = s.reconcileExpiredSeats(context.Background(), userId)
 	now := nowUTC()
 	grace := operation_setting.SocialSeatGraceDays()
 	for _, a := range accounts {
@@ -533,13 +761,15 @@ func (s *Service) PurgeUserSeats(ctx context.Context, userId int) error {
 		if aerr != nil {
 			continue
 		}
-		// fork: zernio-retire — explicit user offboarding must still attempt the
-		// disconnect against a configured Zernio client. ZernioEnabled only gates
-		// *new* publishing, not cleanup: skipping the call here would expire the
-		// seat without ever proving the upstream account is gone, and would turn a
-		// failed purge into a silent data loss instead of the fail-open "leave the
-		// seat occupied" behaviour DeleteUser relies on.
-		if s.client != nil && acc.ProviderAccountID != "" {
+		if acc.Provider == ProviderTikTokDirect {
+			s.revokeTikTokAccountToken(ctx, acc)
+		} else if s.client != nil && acc.ProviderAccountID != "" {
+			// fork: zernio-retire — explicit user offboarding must still attempt the
+			// disconnect against a configured Zernio client. ZernioEnabled only gates
+			// *new* publishing, not cleanup: skipping the call here would expire the
+			// seat without ever proving the upstream account is gone, and would turn a
+			// failed purge into a silent data loss instead of the fail-open "leave the
+			// seat occupied" behaviour DeleteUser relies on.
 			derr := s.client.DisconnectAccount(ctx, acc.ProviderAccountID)
 			if derr != nil {
 				var apiErr *zernio.APIError

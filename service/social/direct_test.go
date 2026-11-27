@@ -1360,3 +1360,176 @@ func TestTikTokOAuthStartRejectsUnapprovedAuthorizeURLAndDomainMismatch(t *testi
 	_, err = s.HandleTikTokCallback(context.Background(), "code-1", ticket)
 	require.Error(t, err)
 }
+
+func TestHandleTikTokCallbackSeatBilling(t *testing.T) {
+	setupDirectDB(t)
+	withSeatBilling(t, "seat")
+
+	var revokeCalls atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		code := r.Form.Get("code")
+		oid := "oid-" + code
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"access_token":"at-%s","refresh_token":"rt-%s","expires_in":7200,"refresh_expires_in":15552000,"open_id":"%s","scope":"user.info.basic,video.upload","token_type":"Bearer"}`, code, code, oid)
+	})
+	mux.HandleFunc("/v2/user/info/", func(w http.ResponseWriter, r *http.Request) {
+		auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer at-")
+		oid := "oid-" + auth
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"data":{"user":{"open_id":"%s","display_name":"Creator %s","username":"user_%s"}},"error":{"code":"ok","message":""}}`, oid, auth, auth)
+	})
+	mux.HandleFunc("/v2/oauth/revoke/", func(w http.ResponseWriter, r *http.Request) {
+		revokeCalls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cfg := testDirectConfig(t, srv.URL)
+	s := NewService(cfg)
+
+	// 1) First callback charges 20 credits (1_000_000) and links seat_id, last_account_id, swap_count=0.
+	u1 := seedSeatUser(t, 1_000_000)
+	require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:    "seat-st-1",
+		UserId:   u1.Id,
+		Provider: ProviderTikTokDirect,
+	}))
+	res, err := s.HandleTikTokCallback(context.Background(), "first", "seat-st-1")
+	require.NoError(t, err)
+	require.NotNil(t, res.Account)
+	require.NotNil(t, res.Account.SeatID)
+	assert.NotEmpty(t, res.Account.AccessTokenEncrypted)
+
+	var afterU1 model.User
+	require.NoError(t, model.DB.First(&afterU1, u1.Id).Error)
+	assert.Equal(t, 0, afterU1.Quota)
+
+	var seat model.SocialSeat
+	require.NoError(t, model.DB.First(&seat, *res.Account.SeatID).Error)
+	assert.Equal(t, model.SocialSeatStatusOccupied, seat.Status)
+	require.NotNil(t, seat.LastAccountID)
+	assert.Equal(t, res.Account.ID, *seat.LastAccountID)
+	assert.Equal(t, 0, seat.SwapCount)
+	assert.Equal(t, 1_000_000, seat.OpenedQuota)
+
+	// 2) Concurrent 2x callbacks with balance for only 1 seat:
+	// exactly 1 succeeds, 1 fails with ErrSeatQuota + triggers TikTok Revoke + leaves no orphan account.
+	u2 := seedSeatUser(t, 1_000_000)
+	require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:    "seat-conc-1",
+		UserId:   u2.Id,
+		Provider: ProviderTikTokDirect,
+	}))
+	require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:    "seat-conc-2",
+		UserId:   u2.Id,
+		Provider: ProviderTikTokDirect,
+	}))
+
+	type cbOutcome struct {
+		res *TikTokCallbackResult
+		err error
+	}
+	outcomes := make([]cbOutcome, 2)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i, tc := range []struct{ code, state string }{
+		{"conc1", "seat-conc-1"},
+		{"conc2", "seat-conc-2"},
+	} {
+		wg.Go(func() {
+			<-start
+			r, e := s.HandleTikTokCallback(context.Background(), tc.code, tc.state)
+			outcomes[i] = cbOutcome{res: r, err: e}
+		})
+	}
+	close(start)
+	wg.Wait()
+
+	var successes, quotaFails int
+	for _, o := range outcomes {
+		if o.err == nil {
+			successes++
+			require.NotNil(t, o.res)
+			require.NotNil(t, o.res.Account)
+			require.NotNil(t, o.res.Account.SeatID)
+		} else {
+			assert.ErrorIs(t, o.err, ErrSeatQuota)
+			quotaFails++
+		}
+	}
+	assert.Equal(t, 1, successes)
+	assert.Equal(t, 1, quotaFails)
+	assert.EqualValues(t, 1, revokeCalls.Load(), "failed concurrent callback must revoke upstream token")
+
+	var u2Accounts int64
+	require.NoError(t, model.DB.Model(&model.SocialAccount{}).Where("user_id = ?", u2.Id).Count(&u2Accounts).Error)
+	assert.EqualValues(t, 1, u2Accounts, "failed concurrent callback must not leave orphan account")
+
+	var afterU2 model.User
+	require.NoError(t, model.DB.First(&afterU2, u2.Id).Error)
+	assert.Equal(t, 0, afterU2.Quota)
+
+	// 3) Concurrent 2x callbacks for the SAME open_id with balance for 2 seats:
+	// must charge only once, create only 1 occupied seat, and never double-bill.
+	u3 := seedSeatUser(t, 2_000_000)
+	sameRevokeBefore := revokeCalls.Load()
+	sameMux := http.NewServeMux()
+	sameMux.HandleFunc("/v2/oauth/token/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"at-same-oid","refresh_token":"rt-same-oid","expires_in":7200,"refresh_expires_in":15552000,"open_id":"oid-same-concurrent","scope":"user.info.basic,video.upload","token_type":"Bearer"}`))
+	})
+	sameMux.HandleFunc("/v2/user/info/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"user":{"open_id":"oid-same-concurrent","display_name":"Same Creator","username":"same_creator"}},"error":{"code":"ok","message":""}}`))
+	})
+	sameSrv := httptest.NewServer(sameMux)
+	defer sameSrv.Close()
+	sameSvc := NewService(testDirectConfig(t, sameSrv.URL))
+
+	require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:    "same-conc-1",
+		UserId:   u3.Id,
+		Provider: ProviderTikTokDirect,
+	}))
+	require.NoError(t, model.CreateSocialOAuthState(&model.SocialOAuthState{
+		State:    "same-conc-2",
+		UserId:   u3.Id,
+		Provider: ProviderTikTokDirect,
+	}))
+
+	sameOutcomes := make([]cbOutcome, 2)
+	sameStart := make(chan struct{})
+	var sameWG sync.WaitGroup
+	for i, stName := range []string{"same-conc-1", "same-conc-2"} {
+		sameWG.Go(func() {
+			<-sameStart
+			r, e := sameSvc.HandleTikTokCallback(context.Background(), "same-code", stName)
+			sameOutcomes[i] = cbOutcome{res: r, err: e}
+		})
+	}
+	close(sameStart)
+	sameWG.Wait()
+
+	for _, o := range sameOutcomes {
+		require.NoError(t, o.err)
+		require.NotNil(t, o.res)
+		require.NotNil(t, o.res.Account)
+		require.NotNil(t, o.res.Account.SeatID)
+	}
+	assert.Equal(t, sameOutcomes[0].res.Account.ID, sameOutcomes[1].res.Account.ID)
+	assert.Equal(t, *sameOutcomes[0].res.Account.SeatID, *sameOutcomes[1].res.Account.SeatID)
+	assert.Equal(t, sameRevokeBefore, revokeCalls.Load())
+
+	var u3Seats int64
+	require.NoError(t, model.DB.Model(&model.SocialSeat{}).Where("user_id = ? AND status = ?", u3.Id, model.SocialSeatStatusOccupied).Count(&u3Seats).Error)
+	assert.EqualValues(t, 1, u3Seats, "concurrent same-account callbacks must open at most one occupied seat")
+
+	var afterU3 model.User
+	require.NoError(t, model.DB.First(&afterU3, u3.Id).Error)
+	assert.Equal(t, 1_000_000, afterU3.Quota, "concurrent same-account callbacks must charge only once")
+}

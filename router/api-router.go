@@ -258,6 +258,7 @@ func SetApiRouter(router *gin.Engine) {
 				socialAuthed.GET("/accounts", controller.SocialListAccounts)
 				socialAuthed.GET("/accounts/:id/creator-info", controller.SocialAccountCreatorInfo)
 				socialAuthed.POST("/connect", middleware.CriticalRateLimit(), controller.SocialConnect)
+				socialAuthed.POST("/accounts/:id/renew", middleware.CriticalRateLimit(), controller.SocialRenewAccountSeat)
 				socialAuthed.DELETE("/accounts/:id", middleware.CriticalRateLimit(), controller.SocialDisconnectAccount)
 				socialAuthed.POST("/posts", middleware.CriticalRateLimit(), controller.SocialCreatePost)
 				socialAuthed.GET("/posts/:id", controller.SocialGetPost)
