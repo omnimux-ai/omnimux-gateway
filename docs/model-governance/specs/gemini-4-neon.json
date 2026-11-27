@@ -1,0 +1,168 @@
+{
+  "model_id": "gemini-4-neon",
+  "family": "llm",
+  "vendor": "Google",
+  "vendor_model_id": "gemini-4-neon",
+  "capability": "多模态理解、复杂软件工程与高阶分析文本生成（Gemini 4 系列）",
+  "operations": [
+    "chat"
+  ],
+  "status": "documented",
+  "checked_at": "2026-11-27",
+  "context_window_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "audio",
+    "pdf"
+  ],
+  "reference_images": {
+    "formats": [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/heic",
+      "image/heif"
+    ],
+    "source_claim": "官方图片理解文档支持 PNG/JPEG/WEBP/HEIC，网关转换层另支持 image/heif"
+  },
+  "reference_audios": {
+    "formats": [
+      "audio/mp3",
+      "audio/wav",
+      "audio/mpeg"
+    ],
+    "source_claim": "官方音频文档支持 WAV/MP3，网关转换层另支持 audio/mpeg"
+  },
+  "reference_videos": {
+    "formats": [
+      "video/mp4",
+      "video/mov",
+      "video/mpeg",
+      "video/avi",
+      "video/wmv",
+      "video/flv"
+    ],
+    "source_claim": "官方视频理解文档与网关转换层共同支持的标准视频输入格式"
+  },
+  "tool_calling": true,
+  "streaming": true,
+  "prompt_caching": true,
+  "reasoning_efforts": {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "xhigh": "xhigh"
+  },
+  "default_reasoning_effort": "high",
+  "billing": {
+    "unit": "per_token",
+    "unit_label": {
+      "zh": "每百万词元",
+      "en": "per 1M tokens"
+    },
+    "pricing_basis": "reported_tokens",
+    "model_ratio": 1.5,
+    "unit_price_usd": 3,
+    "notes": {
+      "zh": "官方付费标准价：每百万词元输入 3 美元、输出（含思考）15 美元、隐式缓存读取 0.15 美元；实际结算遵循网关计费表达式或管理员覆盖配置。",
+      "en": "Official standard paid pricing: USD 3.00 per 1M input tokens, USD 15.00 per 1M output tokens (including thinking tokens), and USD 0.15 per 1M implicit cached input tokens; effective charges follow the gateway billing expression or operator overrides."
+    }
+  },
+  "sources": [
+    {
+      "claim": "context_window_tokens = 1048576（官方模型页统一输入输出上下文上限）",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-4-neon",
+      "quote": "**Context window (unified input and output token limit)** 1,048,576",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "max_output_tokens = 65536（官方模型页默认同步输出上限，配合 long decode 可达 1048576）",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-4-neon",
+      "quote": "**Max output** 65,536 (default synchronous) / up to 1,048,576 (with [long decode](/docs/long-decode))",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "input_modalities 包含 text、image、video、audio、pdf，输出 text",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-4-neon",
+      "quote": "**Inputs** Text, Image, Video, Audio, and PDF",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "prompt_caching = true（仅支持隐式上下文缓存，不支持显式缓存）",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-4-neon",
+      "quote": "Note: Explicit caching is not supported.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "tool_calling = true（官方模型页 Function calling 支持）",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-4-neon",
+      "quote": "[**Function calling**](/docs/function-calling)",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "reasoning_efforts = low / medium / high / xhigh，默认 high（官方 Thinking 文档对照表）",
+      "url": "https://ai.google.dev/gemini-api/docs/thinking",
+      "quote": "| gemini-4-neon | On (high) | low, medium, high, xhigh |",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "streaming = true（官方平台级 Streaming 文档，非模型页逐模型声明）",
+      "url": "https://ai.google.dev/gemini-api/docs/streaming",
+      "quote": "When creating an Interaction, you can set stream: true to incrementally stream the response using server-sent events (SSE).",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "官方付费标准价：输入 $3.00/1M，输出（含思考）$15.00/1M，隐式缓存 $0.15/1M",
+      "url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "quote": "Gemini 4 Neon is not available on the Free tier. Every token the model processes is counted and billed, including thinking tokens and internal tool system instructions and function declarations when using grounding.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "reference_images.formats：官方图片理解文档列出 PNG/JPEG/WEBP/HEIC MIME",
+      "url": "https://ai.google.dev/gemini-api/docs/image-understanding",
+      "quote": "Gemini supports the following image format MIME types:\n\n*   PNG - `image/png`\n*   JPEG - `image/jpeg`\n*   WEBP - `image/webp`\n*   HEIC - `image/heic`",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "reference_images 含 image/heif：网关转换层 SupportedMimeTypes 明确支持",
+      "url": "repo:relaykit/relayconvert/internal/shared/gemini/request.go",
+      "quote": "\"image/heif\":                true,",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "reference_audios.formats：官方音频文档列出 WAV/MP3 MIME",
+      "url": "https://ai.google.dev/gemini-api/docs/audio",
+      "quote": "Gemini supports the following audio format MIME types:\n\n*   WAV - `audio/wav`\n*   MP3 - `audio/mp3`",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "reference_audios 含 audio/mpeg：网关转换层 IsSupportedMimeType 按 audio/ 前缀接受",
+      "url": "repo:relaykit/relayconvert/internal/shared/gemini/request.go",
+      "quote": "return supportedMimeTypes[mimeType] || strings.HasPrefix(mimeType, \"audio/\") || strings.HasPrefix(mimeType, \"video/\")",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "reference_videos.formats：官方视频理解文档列出 mp4/mpeg/mov/avi 等 MIME",
+      "url": "https://ai.google.dev/gemini-api/docs/video-understanding",
+      "quote": "Gemini supports the following video format MIME types:\n\n*   `video/mp4`\n*   `video/mpeg`\n*   `video/mov`\n*   `video/avi`",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "input_modalities 含 pdf：官方文档理解页声明 Gemini 以原生视觉处理 PDF",
+      "url": "https://ai.google.dev/gemini-api/docs/document-processing",
+      "quote": "Gemini models can process documents in PDF format, using native vision to understand entire document contexts.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "网关转换层将 application/pdf 转为 Gemini inlineData",
+      "url": "repo:relaykit/relayconvert/internal/shared/gemini/request.go",
+      "quote": "\"application/pdf\":           true,",
+      "retrieved_at": "2026-11-27"
+    }
+  ],
+  "unknowns": [],
+  "notes": "官方模型页 https://ai.google.dev/gemini-api/docs/models/gemini-4-neon。默认同步输出上限为 65,536 tokens（配合后台 long decode 可扩展至 1,048,576 tokens）；上下文缓存仅支持隐式缓存（不支持显式缓存）；思考档位支持 low、medium、high（默认）、xhigh（不支持 minimal）。未写入单文件字节上限：官方未对跨接入线路公布统一字节数。"
+}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "64e1305d9c4d1c9c",
+  "version": "5a5e47f1277c0c7f",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -2967,6 +2967,401 @@
         "notes": {
           "en": "Charges use reported usage: USD 1.7 per 1M input tokens, USD 8.5 per 1M output tokens and USD 0.086 per 1M cached input tokens, with a USD 0.01/68 minimum per request rounded to the gateway billing unit. The official input anchor is USD 4 per 1M tokens; model-specific billing rules determine the effective selling price. Input includes reported tool-use input; output includes reported thinking. Cached tokens are an input subset, counted once.",
           "zh": "按实际报告用量结算，每百万词元输入 1.7 美元、输出 8.5 美元、缓存读取 0.086 美元；每次最低 0.01/68 美元，按本站最小计费单位取整。官方输入基准为每百万词元 4 美元，实际售价由模型专属计费规则确定。输入包含已报告的工具输入，输出包含已报告的思考；缓存是输入子集，各计一次。"
+        }
+      }
+    },
+    "gemini-4-carbon": {
+      "model_id": "gemini-4-carbon",
+      "schemaVersion": "2.0",
+      "contractVersion": "9d40bbb9b5330ce3",
+      "execution_status": "live",
+      "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
+      "status": "documented",
+      "operation_ids": [
+        "chat"
+      ],
+      "operations": [
+        {
+          "id": "chat",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false,
+              "allowedMimes": [
+                "image/png",
+                "image/jpeg",
+                "image/webp",
+                "image/heic",
+                "image/heif"
+              ]
+            },
+            {
+              "slot": "video",
+              "type": "video",
+              "required": false,
+              "allowedMimes": [
+                "video/mp4",
+                "video/mov",
+                "video/mpeg",
+                "video/avi",
+                "video/wmv",
+                "video/flv"
+              ]
+            },
+            {
+              "slot": "audio",
+              "type": "audio",
+              "required": false,
+              "allowedMimes": [
+                "audio/mp3",
+                "audio/wav",
+                "audio/mpeg"
+              ]
+            },
+            {
+              "slot": "pdf",
+              "type": "pdf",
+              "required": false
+            }
+          ],
+          "parameters": [],
+          "output": {
+            "type": "text"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "tool_calling": true,
+      "streaming": true,
+      "prompt_caching": true,
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "reasoning_efforts": {
+        "high": "high",
+        "low": "low",
+        "medium": "medium"
+      },
+      "default_reasoning_effort": "medium",
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 4,
+        "model_ratio": 2,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Official standard paid pricing (effective 2026-12-01): USD 4.00 per 1M input tokens, USD 20.00 per 1M output tokens (including thinking tokens), and USD 0.20 per 1M implicit cached input tokens (promotional rate USD 2/10/0.10 through 2026-11-30); effective charges follow the gateway billing expression or operator overrides.",
+          "zh": "官方付费标准价（2026-12-01 起生效）：每百万词元输入 4 美元、输出（含思考）20 美元、隐式缓存读取 0.2 美元（2026-11-30 前官方推广价为 2/10/0.1 美元）；实际结算遵循网关计费表达式或管理员覆盖配置。"
+        }
+      }
+    },
+    "gemini-4-hydrogen": {
+      "model_id": "gemini-4-hydrogen",
+      "schemaVersion": "2.0",
+      "contractVersion": "b02ed6e5abd5862c",
+      "execution_status": "live",
+      "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
+      "status": "documented",
+      "operation_ids": [
+        "chat"
+      ],
+      "operations": [
+        {
+          "id": "chat",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false,
+              "allowedMimes": [
+                "image/png",
+                "image/jpeg",
+                "image/webp",
+                "image/heic",
+                "image/heif"
+              ]
+            },
+            {
+              "slot": "video",
+              "type": "video",
+              "required": false,
+              "allowedMimes": [
+                "video/mp4",
+                "video/mov",
+                "video/mpeg",
+                "video/avi",
+                "video/wmv",
+                "video/flv"
+              ]
+            },
+            {
+              "slot": "audio",
+              "type": "audio",
+              "required": false,
+              "allowedMimes": [
+                "audio/mp3",
+                "audio/wav",
+                "audio/mpeg"
+              ]
+            },
+            {
+              "slot": "pdf",
+              "type": "pdf",
+              "required": false
+            }
+          ],
+          "parameters": [],
+          "output": {
+            "type": "text"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "tool_calling": true,
+      "streaming": true,
+      "prompt_caching": true,
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "reasoning_efforts": {
+        "high": "high",
+        "low": "low",
+        "medium": "medium",
+        "xhigh": "xhigh"
+      },
+      "default_reasoning_effort": "high",
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 1.5,
+        "model_ratio": 0.75,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Official standard paid pricing: USD 1.50 per 1M input tokens, USD 7.50 per 1M output tokens (including thinking tokens), and USD 0.075 per 1M implicit cached input tokens; effective charges follow the gateway billing expression or operator overrides.",
+          "zh": "官方付费标准价：每百万词元输入 1.5 美元、输出（含思考）7.5 美元、隐式缓存读取 0.075 美元；实际结算遵循网关计费表达式或管理员覆盖配置。"
+        }
+      }
+    },
+    "gemini-4-neon": {
+      "model_id": "gemini-4-neon",
+      "schemaVersion": "2.0",
+      "contractVersion": "2eec14964a016d35",
+      "execution_status": "live",
+      "family": "llm",
+      "brand_id": "google",
+      "brand_name": "Google",
+      "status": "documented",
+      "operation_ids": [
+        "chat"
+      ],
+      "operations": [
+        {
+          "id": "chat",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false,
+              "allowedMimes": [
+                "image/png",
+                "image/jpeg",
+                "image/webp",
+                "image/heic",
+                "image/heif"
+              ]
+            },
+            {
+              "slot": "video",
+              "type": "video",
+              "required": false,
+              "allowedMimes": [
+                "video/mp4",
+                "video/mov",
+                "video/mpeg",
+                "video/avi",
+                "video/wmv",
+                "video/flv"
+              ]
+            },
+            {
+              "slot": "audio",
+              "type": "audio",
+              "required": false,
+              "allowedMimes": [
+                "audio/mp3",
+                "audio/wav",
+                "audio/mpeg"
+              ]
+            },
+            {
+              "slot": "pdf",
+              "type": "pdf",
+              "required": false
+            }
+          ],
+          "parameters": [],
+          "output": {
+            "type": "text"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars"
+      ],
+      "input_modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "pdf"
+      ],
+      "tool_calling": true,
+      "streaming": true,
+      "prompt_caching": true,
+      "reference_images": {
+        "formats": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/heic",
+          "image/heif"
+        ]
+      },
+      "reference_videos": {
+        "formats": [
+          "video/mp4",
+          "video/mov",
+          "video/mpeg",
+          "video/avi",
+          "video/wmv",
+          "video/flv"
+        ]
+      },
+      "reference_audios": {
+        "formats": [
+          "audio/mp3",
+          "audio/wav",
+          "audio/mpeg"
+        ]
+      },
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "reasoning_efforts": {
+        "high": "high",
+        "low": "low",
+        "medium": "medium",
+        "xhigh": "xhigh"
+      },
+      "default_reasoning_effort": "high",
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "unit_price_usd": 3,
+        "model_ratio": 1.5,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Official standard paid pricing: USD 3.00 per 1M input tokens, USD 15.00 per 1M output tokens (including thinking tokens), and USD 0.15 per 1M implicit cached input tokens; effective charges follow the gateway billing expression or operator overrides.",
+          "zh": "官方付费标准价：每百万词元输入 3 美元、输出（含思考）15 美元、隐式缓存读取 0.15 美元；实际结算遵循网关计费表达式或管理员覆盖配置。"
         }
       }
     },
