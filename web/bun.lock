@@ -41,7 +41,7 @@
         "katex": "^0.19.1",
         "lucide-react": "^1.23.0",
         "marked": "^18.0.5",
-        "mediainfo.js": "0.3.8",
+        "mediainfo.js": "0.3.9",
         "motion": "^12.42.2",
         "nanoid": "^5.1.16",
         "next-themes": "^0.4.6",
@@ -1841,7 +1841,7 @@
 
     "mdurl": ["mdurl@2.1.0", "", {}, "sha512-1+HBaOx0zi/dQWht8rNv9MYf9qqpqL/kxI0hXImU6Y547zM6Sni8BQibt7ifgMcYtQg41ao3Ivd6cnSM86inpg=="],
 
-    "mediainfo.js": ["mediainfo.js@0.3.8", "", { "dependencies": { "yargs": "^18.1.0" }, "bin": { "mediainfo.js": "./dist/esm/cli.js" } }, "sha512-34ruGC47ytdp5IE9lXx4Yj8XMxESbzqLxDGfnYXimnokxH+aavC/YqubakOKm0vwrC5ZisL55WMmud6R6TmjBw=="],
+    "mediainfo.js": ["mediainfo.js@0.3.9", "", { "dependencies": { "yargs": "^18.2.0" }, "bin": { "mediainfo.js": "./dist/esm/cli.js" } }, "sha512-nmpBtH7i7y1XPlwusxlBGecuAVQioLIZCjvA3D2l9xqL1oCUzcbh/SKUZdoNTQ45wZjQbd6TBSSqyRBpmwnOag=="],
 
     "merge-stream": ["merge-stream@2.0.0", "", {}, "sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w=="],
 
