@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -47,20 +46,24 @@ func TestPrepareInfluencerMotionRequestRecreateHasNoVideo(t *testing.T) {
 		Prompt:           validRecreatePrompt(),
 		SubjectImageURLs: []string{"https://cdn.example.com/a.jpg", "https://cdn.example.com/b.jpg"},
 		DurationSec:      4,
-		Resolution:       "480p",
+		Resolution:       "1080p",
 	}
 	out, meta, prepared, ok := prepareInfluencerMotionRequest(c, req, true)
 	require.True(t, ok)
 	require.NotNil(t, prepared)
+	assert.NotContains(t, out, "video_urls")
+	assert.NotContains(t, out, "audio_urls")
 	assert.NotContains(t, out, "videos")
 	assert.NotContains(t, out, "audios")
-	assert.Equal(t, "seedance-2-5", out["model"])
-	assert.Equal(t, "seedance-2-5-480p", out["group"])
-	assert.Equal(t, "4", out["seconds"])
+	assert.Equal(t, "magi-2", out["model"])
+	assert.Equal(t, "default", out["group"])
+	assert.Equal(t, 4, out["duration"])
 	assert.Equal(t, "9:16", out["aspect_ratio"])
-	assert.Equal(t, "480p", out["resolution"])
-	assert.Equal(t, req.SubjectImageURLs, out["images"])
-	assert.NotContains(t, out, "image_urls")
+	assert.Equal(t, "1080p", out["resolution"])
+	assert.Equal(t, true, out["generate_audio"])
+	assert.Equal(t, req.SubjectImageURLs, out["image_urls"])
+	assert.NotContains(t, out, "images")
+	assert.NotContains(t, out, "seconds")
 	assert.Equal(t, "recreate", meta["mode"])
 	assert.Equal(t, req.SubjectImageURLs, meta["subject_image_urls"])
 }
@@ -80,7 +83,7 @@ func TestPrepareInfluencerMotionRequestRecreateRejectsBadPrompt(t *testing.T) {
 				Prompt:           prompt,
 				SubjectImageURLs: []string{"https://cdn.example.com/a.jpg"},
 				DurationSec:      4,
-				Resolution:       "480p",
+				Resolution:       "1080p",
 			}, true)
 			assert.False(t, ok)
 		})
@@ -99,7 +102,7 @@ func TestInfluencerRecreatePromptGate(t *testing.T) {
 }
 
 // Historical recreation tasks predate video_reference_url and must keep planning
-// from their original video_url.
+// from their original video_url. Both canonical and legacy media keys are cleared.
 func TestPrepareInfluencerVideoPromptRecreatePlansAndDropsVideo(t *testing.T) {
 	const finalPrompt = "Reference image 1 is the hero product. The frame stays free of captions, lettering, logos and watermarks."
 	original := influencerRecreatePlanner
@@ -116,28 +119,78 @@ func TestPrepareInfluencerVideoPromptRecreatePlansAndDropsVideo(t *testing.T) {
 		"video_url":          "https://cdn.example.com/reference.mp4",
 		"subject_image_urls": []string{"https://cdn.example.com/hero.jpg", "https://cdn.example.com/detail.jpg"},
 		"subject_image_tags": []string{"hero", "detail"},
+		"resolution":         "1080p",
+		"duration_sec":       4,
+	})
+	require.NoError(t, err)
+	task := &model.Task{Properties: model.Properties{Input: string(input)}}
+	out := map[string]any{
+		"prompt":     "",
+		"image_urls": []any{"https://cdn.example.com/hero.jpg"},
+		"video_urls": []any{"https://cdn.example.com/reference.mp4"},
+		"audio_urls": []any{"https://cdn.example.com/reference.m4a"},
+		"videos":     []any{"https://cdn.example.com/reference.mp4"},
+		"audios":     []any{"https://cdn.example.com/reference.m4a"},
+	}
+	require.NoError(t, prepareInfluencerVideoPrompt(context.Background(), task, out, nil, ""))
+
+	assert.Equal(t, finalPrompt, out["prompt"])
+	assert.Equal(t, 8, out["duration"])
+	assert.Equal(t, []string{"https://cdn.example.com/hero.jpg", "https://cdn.example.com/detail.jpg"}, out["image_urls"])
+	assert.NotContains(t, out, "video_urls")
+	assert.NotContains(t, out, "audio_urls")
+	assert.NotContains(t, out, "videos")
+	assert.NotContains(t, out, "audios")
+	assert.NotContains(t, out, "images")
+	assert.NotContains(t, out, "seconds")
+	assert.Equal(t, "https://cdn.example.com/reference.mp4", seen.VideoURL)
+	assert.Equal(t, []string{"https://cdn.example.com/hero.jpg", "https://cdn.example.com/detail.jpg"}, seen.ImageURLs)
+	assert.Equal(t, []string{"hero", "detail"}, seen.ImageTags)
+	assert.Equal(t, "keep it punchy", seen.UserPrompt)
+}
+
+func TestPrepareInfluencerVideoPromptRecreatePreservesLegacySeedanceContract(t *testing.T) {
+	const finalPrompt = "Reference image 1 is the hero product. The frame stays free of captions, lettering, logos and watermarks."
+	original := influencerRecreatePlanner
+	t.Cleanup(func() { influencerRecreatePlanner = original })
+	influencerRecreatePlanner = func(_ context.Context, in service.InfluencerRecreatePlanInput) (service.InfluencerRecreatePlan, error) {
+		assert.Equal(t, "480p", in.Resolution)
+		return service.InfluencerRecreatePlan{Prompt: finalPrompt, DurationSec: 8}, nil
+	}
+
+	input, err := common.Marshal(map[string]any{
+		"mode":               "recreate",
+		"prompt":             "legacy inflight",
+		"video_url":          "https://cdn.example.com/reference.mp4",
+		"subject_image_urls": []string{"https://cdn.example.com/hero.jpg", "https://cdn.example.com/detail.jpg"},
 		"resolution":         "480p",
 		"duration_sec":       4,
 	})
 	require.NoError(t, err)
 	task := &model.Task{Properties: model.Properties{Input: string(input)}}
 	out := map[string]any{
-		"prompt": "",
-		"images": []any{"https://cdn.example.com/hero.jpg"},
-		"videos": []any{"https://cdn.example.com/reference.mp4"},
-		"audios": []any{"https://cdn.example.com/reference.m4a"},
+		"model":      "seedance-2-5",
+		"group":      "seedance-2-5-480p",
+		"resolution": "480p",
+		"prompt":     "",
+		"seconds":    "4",
+		"images":     []any{"https://cdn.example.com/hero.jpg"},
+		"videos":     []any{"https://cdn.example.com/reference.mp4"},
+		"audios":     []any{"https://cdn.example.com/reference.m4a"},
 	}
 	require.NoError(t, prepareInfluencerVideoPrompt(context.Background(), task, out, nil, ""))
 
 	assert.Equal(t, finalPrompt, out["prompt"])
 	assert.Equal(t, "8", out["seconds"])
 	assert.Equal(t, []string{"https://cdn.example.com/hero.jpg", "https://cdn.example.com/detail.jpg"}, out["images"])
+	assert.Equal(t, "480p", out["resolution"])
+	assert.Equal(t, "seedance-2-5-480p", out["group"])
+	assert.NotContains(t, out, "duration")
+	assert.NotContains(t, out, "image_urls")
+	assert.NotContains(t, out, "video_urls")
+	assert.NotContains(t, out, "audio_urls")
 	assert.NotContains(t, out, "videos")
 	assert.NotContains(t, out, "audios")
-	assert.Equal(t, "https://cdn.example.com/reference.mp4", seen.VideoURL)
-	assert.Equal(t, []string{"https://cdn.example.com/hero.jpg", "https://cdn.example.com/detail.jpg"}, seen.ImageURLs)
-	assert.Equal(t, []string{"hero", "detail"}, seen.ImageTags)
-	assert.Equal(t, "keep it punchy", seen.UserPrompt)
 }
 
 // A browser task may carry both the original (possibly expiring) URL and the
@@ -160,7 +213,7 @@ func TestPrepareInfluencerVideoPromptRecreatePrefersStableReference(t *testing.T
 		"video_url":           originalURL,
 		"video_reference_url": stableURL,
 		"subject_image_urls":  []string{"https://cdn.example.com/hero.jpg"},
-		"resolution":          "480p",
+		"resolution":          "1080p",
 	})
 	require.NoError(t, err)
 	task := &model.Task{Properties: model.Properties{Input: string(input)}}
@@ -178,15 +231,15 @@ func TestPrepareInfluencerVideoPromptRecreateFailureStopsBeforeVideo(t *testing.
 		"mode":               "recreate",
 		"video_url":          "https://cdn.example.com/reference.mp4",
 		"subject_image_urls": []string{"https://cdn.example.com/hero.jpg"},
-		"resolution":         "480p",
+		"resolution":         "1080p",
 	})
 	require.NoError(t, err)
 	task := &model.Task{Properties: model.Properties{Input: string(input)}}
-	out := map[string]any{"prompt": "", "images": []any{"https://cdn.example.com/hero.jpg"}}
+	out := map[string]any{"prompt": "", "image_urls": []any{"https://cdn.example.com/hero.jpg"}}
 	err = prepareInfluencerVideoPrompt(context.Background(), task, out, nil, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "超时")
-	assert.Equal(t, "https://cdn.example.com/hero.jpg", out["images"].([]any)[0])
+	assert.Equal(t, "https://cdn.example.com/hero.jpg", out["image_urls"].([]any)[0])
 	assert.Empty(t, out["prompt"], "a failed plan must not install a guessed prompt")
 }
 
@@ -203,7 +256,7 @@ func TestPostInfluencerRecreateAnalyzeValidatesInput(t *testing.T) {
 		"missing video":  {"image_urls": []string{"https://cdn.example.com/a.jpg"}},
 		"insecure video": {"video_url": "http://cdn.example.com/a.mp4", "image_urls": []string{"https://cdn.example.com/a.jpg"}},
 		"no images":      {"video_url": "https://cdn.example.com/a.mp4"},
-		"too many":       {"video_url": "https://cdn.example.com/a.mp4", "image_urls": tooManyURLs(31)},
+		"too many":       {"video_url": "https://cdn.example.com/a.mp4", "image_urls": tooManyURLs(11)},
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -229,10 +282,10 @@ func TestPrepareInfluencerMotionRequestRecreateDurationContract(t *testing.T) {
 			Prompt:           validRecreatePrompt(),
 			SubjectImageURLs: []string{"https://cdn.example.com/a.jpg"},
 			DurationSec:      seconds,
-			Resolution:       "480p",
+			Resolution:       "1080p",
 		}, true)
 		require.True(t, ok, "seconds=%d", seconds)
-		assert.Equal(t, strconv.Itoa(seconds), out["seconds"])
+		assert.Equal(t, seconds, out["duration"])
 	}
 	for _, seconds := range []int{0, 3, 31} {
 		c := recreateTestContext()
@@ -241,7 +294,7 @@ func TestPrepareInfluencerMotionRequestRecreateDurationContract(t *testing.T) {
 			Prompt:           validRecreatePrompt(),
 			SubjectImageURLs: []string{"https://cdn.example.com/a.jpg"},
 			DurationSec:      seconds,
-			Resolution:       "480p",
+			Resolution:       "1080p",
 		}, true)
 		assert.False(t, ok, "seconds=%d must not be billable", seconds)
 	}
@@ -258,17 +311,15 @@ func TestInfluencerRecreatePricingUsesResolutionGroup(t *testing.T) {
 		_ = ratio_setting.UpdateModelPriceByJSONString(string(originalPrices))
 		_ = ratio_setting.UpdateGroupRatioByJSONString(string(originalGroups))
 	})
-	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"seedance-2-5":0.8}`))
-	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"seedance-2-5-480p":0.524,"seedance-2-5-720p":0.7206}`))
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"magi-2":0.11}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
 
 	c := recreateTestContext()
 	c.Set("group", "default")
 	pricing := influencerRecreatePricing(c, 11)
 	require.NotNil(t, pricing)
-	// 0.8 USD/s x 11 s x 0.524 / 0.7206 x 10 credits/USD.
-	assert.InDelta(t, 46.11, pricing["480p"], 0.05)
-	assert.InDelta(t, 63.41, pricing["720p"], 0.1)
-	assert.Greater(t, pricing["720p"], pricing["480p"])
+	// 0.11 USD/s x 11 s x 1 x 10 credits/USD.
+	assert.InDelta(t, 12.10, pricing["1080p"], 0.01)
 }
 
 func recreateAnalyzeContext(t *testing.T, body map[string]any) (*gin.Context, *httptest.ResponseRecorder) {
@@ -288,7 +339,7 @@ func validRecreateAnalyzeBody() map[string]any {
 	return map[string]any{
 		"video_url":  "https://cdn.example.com/a.mp4",
 		"image_urls": []string{"https://cdn.example.com/a.jpg"},
-		"resolution": "480p",
+		"resolution": "1080p",
 	}
 }
 
@@ -335,7 +386,7 @@ func setupRecreateAnalysisDB(t *testing.T) (*model.Task, *model.User) {
 		VideoURL:   "https://cdn.example.com/a.mp4",
 		ImageURLs:  []string{"https://cdn.example.com/a.jpg", "https://cdn.example.com/b.jpg"},
 		Prompt:     "换我的产品",
-		Resolution: "480p",
+		Resolution: "1080p",
 	})
 	require.NoError(t, err)
 	task := &model.Task{
@@ -465,7 +516,7 @@ func TestPrepareInfluencerMotionRecreateQueuedUsesBrowserClipAndMetadata(t *test
 		"subject_image_urls": []string{motionTestImage},
 		"video_url":          motionTestVideo,
 		"duration_sec":       4,
-		"resolution":         "480p",
+		"resolution":         "1080p",
 		"video_metadata": service.InfluencerVideoMetadata{
 			Duration: 4, VideoDuration: 4, Width: 720, Height: 1280, FrameRate: 24,
 			VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234,
@@ -474,11 +525,12 @@ func TestPrepareInfluencerMotionRecreateQueuedUsesBrowserClipAndMetadata(t *test
 	rec, probe := runMotionPrepare(t, req)
 	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 	require.True(t, probe.reached)
+	assert.NotContains(t, probe.body, "video_urls")
 	assert.NotContains(t, probe.body, "videos")
 	assert.Equal(t, "", probe.body["prompt"], "the worker owns prompt compilation")
-	assert.Equal(t, "4", probe.body["seconds"])
+	assert.Equal(t, float64(4), probe.body["duration"])
 	assert.Equal(t, "9:16", probe.body["aspect_ratio"])
-	assert.Equal(t, []any{motionTestImage}, probe.body["images"])
+	assert.Equal(t, []any{motionTestImage}, probe.body["image_urls"])
 	assert.Equal(t, "keep the hook but make it mine", probe.meta["prompt"])
 	assert.Equal(t, motionTestVideo, probe.meta["video_url"])
 	assert.Equal(t, "recreate", probe.meta["mode"])
@@ -494,7 +546,7 @@ func TestPrepareInfluencerMotionRecreateQueuedRejectsOverlongIntent(t *testing.T
 		"subject_image_urls": []string{motionTestImage},
 		"video_url":          motionTestVideo,
 		"duration_sec":       4,
-		"resolution":         "480p",
+		"resolution":         "1080p",
 		"video_metadata": service.InfluencerVideoMetadata{
 			Duration: 4, VideoDuration: 4, Width: 720, Height: 1280, FrameRate: 24,
 			VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234,
@@ -518,15 +570,15 @@ func TestInfluencerRecreateDispatchFailureStopsBeforeVideoAndReleasesReservation
 		return service.InfluencerRecreatePlan{}, errors.New("reference video decomposition failed")
 	}
 	out := map[string]any{
-		"model": "queue-correction", "prompt": "", "seconds": "4",
-		"aspect_ratio": "9:16", "resolution": "480p",
-		"images": []any{"https://8.8.4.4/hero.png"},
+		"model": "queue-correction", "prompt": "", "duration": 4,
+		"aspect_ratio": "9:16", "resolution": "1080p",
+		"image_urls": []any{"https://8.8.4.4/hero.png"},
 	}
 	meta := map[string]any{
 		"kind": "motion", "mode": "recreate", "prompt": "make it mine",
 		"video_url":          "https://cdn.example.com/reference.mp4",
 		"subject_image_urls": []string{"https://8.8.4.4/hero.png"},
-		"resolution":         "480p", "duration_sec": 4,
+		"resolution":         "1080p", "duration_sec": 4,
 	}
 	task := generationMaterialQueue(t, user, out, meta, true)
 	claimed, err := model.ClaimGenerationTasks(context.Background(), user.Id, scanner.TaskID)
@@ -571,7 +623,7 @@ func TestPostInfluencerMotionRecreateReturnsTaskIDImmediately(t *testing.T) {
 		"subject_image_urls": []string{motionTestImage},
 		"video_url":          motionTestVideo,
 		"duration_sec":       4,
-		"resolution":         "480p",
+		"resolution":         "1080p",
 		"video_metadata": service.InfluencerVideoMetadata{
 			Duration: 4, VideoDuration: 4, Width: 720, Height: 1280, FrameRate: 24,
 			VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234,
@@ -641,7 +693,7 @@ func TestPostInfluencerMotionRecreateDailyAnalysisBudget(t *testing.T) {
 		"subject_image_urls": []string{motionTestImage},
 		"video_url":          motionTestVideo,
 		"duration_sec":       4,
-		"resolution":         "480p",
+		"resolution":         "1080p",
 		"video_metadata": service.InfluencerVideoMetadata{
 			Duration: 4, VideoDuration: 4, Width: 720, Height: 1280, FrameRate: 24,
 			VideoCodec: "h264", AudioCodec: "aac", Container: "mp4", SizeBytes: 1234,
@@ -669,20 +721,20 @@ func TestPostInfluencerMotionRecreateDailyAnalysisBudget(t *testing.T) {
 }
 
 // The queued recreation worker must write planner output into the request body
-// storage used by native adaptors, and APIMart must translate the gateway's
-// generic `images` field into `image_urls`. This walks both pieces and decodes
-// the exact provider body that would be sent.
+// storage used by native adaptors, and the native adaptor must pass MAGI-2
+// validation and build the reference-to-video request without video_urls.
 func TestInfluencerRecreateWorkerBodyFeedsAPIMartPrompt(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	const finalPrompt = "Reference image 1 is the hero product. The frame stays free of captions, lettering, logos and watermarks."
 
 	out := map[string]any{
-		"model":        "seedance-2-5",
-		"prompt":       "",
-		"seconds":      "4",
-		"aspect_ratio": "9:16",
-		"resolution":   "480p",
-		"images":       []string{"https://cdn.example.com/hero.png"},
+		"model":          "magi-2",
+		"prompt":         "",
+		"duration":       4,
+		"aspect_ratio":   "9:16",
+		"resolution":     "1080p",
+		"generate_audio": true,
+		"image_urls":     []string{"https://cdn.example.com/hero.png"},
 	}
 	initialBody, err := common.Marshal(out)
 	require.NoError(t, err)
@@ -704,7 +756,7 @@ func TestInfluencerRecreateWorkerBodyFeedsAPIMartPrompt(t *testing.T) {
 		"prompt":             "make it mine",
 		"video_url":          "https://cdn.example.com/reference.mp4",
 		"subject_image_urls": []string{"https://cdn.example.com/hero.png"},
-		"resolution":         "480p",
+		"resolution":         "1080p",
 	})
 	require.NoError(t, err)
 	task := &model.Task{Properties: model.Properties{Input: string(meta)}}
@@ -715,23 +767,29 @@ func TestInfluencerRecreateWorkerBodyFeedsAPIMartPrompt(t *testing.T) {
 	require.NoError(t, writeInfluencerMotionTaskRequestBody(c, parsed))
 
 	info := &relaycommon.RelayInfo{
-		OriginModelName: "seedance-2-5",
+		OriginModelName: "magi-2",
 		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
 		ChannelMeta:     &relaycommon.ChannelMeta{},
 	}
 	adaptor := &apimart.TaskAdaptor{}
-	require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info), "the worker body must pass APIMart validation")
+	require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info), "the worker body must pass APIMart magi-2 validation")
 	reader, err := adaptor.BuildRequestBody(c, info)
 	require.NoError(t, err)
 	raw, err := io.ReadAll(reader)
 	require.NoError(t, err)
 	var providerBody map[string]any
 	require.NoError(t, common.Unmarshal(raw, &providerBody))
+	assert.Equal(t, "magi-2-reference-to-video", providerBody["model"])
 	assert.Equal(t, finalPrompt, providerBody["prompt"])
 	assert.Equal(t, []any{"https://cdn.example.com/hero.png"}, providerBody["image_urls"])
 	assert.Equal(t, float64(4), providerBody["duration"])
-	assert.Equal(t, "9:16", providerBody["size"])
+	assert.Equal(t, "1080p", providerBody["quality"])
+	assert.Equal(t, "9:16", providerBody["aspect_ratio"])
+	assert.Equal(t, true, providerBody["generate_audio"])
 	assert.NotContains(t, providerBody, "images")
 	assert.NotContains(t, providerBody, "seconds")
-	assert.NotContains(t, providerBody, "aspect_ratio")
+	assert.NotContains(t, providerBody, "resolution")
+	assert.NotContains(t, providerBody, "size")
+	assert.NotContains(t, providerBody, "video_urls")
+	assert.NotContains(t, providerBody, "videos")
 }

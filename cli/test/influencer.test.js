@@ -209,9 +209,9 @@ test("influencer process: video retains ordered references and explicit mode/res
     else json(res, 500, { code: "unexpected_network" });
   });
   const image = path.join(fx.root, "second.png"); fs.writeFileSync(image, "second-reference");
-  const result = await fx.run(["influencer", "video", "create", "--yes", "--request-id", "video-order-001", "--character", "character-original", "--image", "https://files.example.test/first.png", "--image", image, "--video", "https://files.example.test/reference.mp4", "--mode", "replace", "--resolution", "720p", "--aspect-ratio", "16:9", "--prompt", "keep studio"]);
+  const result = await fx.run(["influencer", "video", "create", "--yes", "--request-id", "video-order-001", "--character", "character-original", "--image", "https://files.example.test/first.png", "--image", image, "--video", "https://files.example.test/reference.mp4", "--mode", "replace", "--resolution", "1080p", "--aspect-ratio", "16:9", "--prompt", "keep studio"]);
   assert.equal(result.code, 0, result.stderr);
-  assert.deepEqual(body, { request_id: "video-order-001", character_task_id: "character-original", image_urls: ["https://files.example.test/first.png", "https://files.example.test/upload-1.png"], video_url: "https://files.example.test/reference.mp4", mode: "replace", resolution: "720p", aspect_ratio: "16:9", prompt: "keep studio" });
+  assert.deepEqual(body, { request_id: "video-order-001", character_task_id: "character-original", image_urls: ["https://files.example.test/first.png", "https://files.example.test/upload-1.png"], video_url: "https://files.example.test/reference.mp4", mode: "replace", resolution: "1080p", aspect_ratio: "16:9", prompt: "keep studio" });
   assert.equal(envelopes(result).meta.command, "influencer.video.create");
 });
 
@@ -399,11 +399,16 @@ test("influencer process: multiview references its parent, defaults stay product
   const video = await fx.run(["influencer", "video", "create", "--character", "parent-source", "--video-task", "reference-source", "--yes"]);
   assert.equal(video.code, 0, video.stderr);
   assert.equal(submitted[1].url, "/api/influencer/v1/videos");
-  assert.equal(submitted[1].body.mode, "motion"); assert.equal(submitted[1].body.resolution, "480p");
+  assert.equal(submitted[1].body.mode, "motion"); assert.equal(submitted[1].body.resolution, "1080p");
   assert.equal(submitted[1].body.aspect_ratio, undefined, "omitted aspect must remain server-inspected");
   assert.equal(submitted[1].body.video_task_id, "reference-source");
   assert.match(submitted[1].body.request_id, /^[A-Za-z0-9._:-]{8,128}$/);
   assert.equal(envelopes(video).data.request_id, submitted[1].body.request_id);
+  const badRes = await fx.run(["influencer", "video", "create", "--character", "parent-source", "--video-task", "reference-source", "--resolution", "480p", "--yes"]);
+  assert.notEqual(badRes.code, 0);
+  const tooManyImages = Array.from({ length: 11 }, (_, i) => ["--image", `https://files.example.test/${i}.png`]).flat();
+  const overImages = await fx.run(["influencer", "video", "create", ...tooManyImages, "--video-task", "reference-source", "--yes"]);
+  assert.notEqual(overImages.code, 0);
 });
 
 test("influencer process: definitive recovery 404 retries only the exact persisted body without upload", async (t) => {

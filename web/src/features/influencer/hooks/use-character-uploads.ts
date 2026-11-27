@@ -20,8 +20,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { MotionCharacterSource, PendingCharacterUpload } from '../types'
 
-/** One pick may add at most thirty reference images. */
-export const MAX_REFERENCE_UPLOAD_BATCH = 30
+/** One pick may add at most ten reference images. */
+export const MAX_REFERENCE_UPLOAD_BATCH = 10
 
 /** Three transfers at a time; later picks join the same queue. */
 const UPLOAD_CONCURRENCY = 3
@@ -96,7 +96,7 @@ function fileIdentity(file: File): string {
 /**
  * Reference-image uploads for the character workbench.
  *
- * A pick with more files than the ceiling allows (thirty per pick, and never
+ * A pick with more files than the ceiling allows (ten per pick, and never
  * more than the mode still has room for) is refused as a whole so the user can
  * re-select. Otherwise every file shows up as an upload card immediately,
  * three transfers run at once, and further picks append to the same queue —

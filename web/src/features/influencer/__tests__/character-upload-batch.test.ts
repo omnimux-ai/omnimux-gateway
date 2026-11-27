@@ -62,14 +62,14 @@ beforeEach(() => {
 })
 
 describe('character upload queue', () => {
-  it('refuses a pick over thirty files as a whole and reports the limit', async () => {
+  it('refuses a pick over ten files as a whole and reports the limit', async () => {
     const onLimit = vi.fn()
     const uploadImage = vi.fn()
     const { result } = renderHook(() =>
       useCharacterUploads({
         uploadImage,
         addCharacter: vi.fn(),
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => 0,
         onLimit,
       })
@@ -84,8 +84,8 @@ describe('character upload queue', () => {
       outcome = await result.current.pickFiles(files)
     })
 
-    expect(outcome).toEqual({ accepted: 0, limit: 30, added: 0, failed: 0 })
-    expect(onLimit).toHaveBeenCalledWith(30)
+    expect(outcome).toEqual({ accepted: 0, limit: 10, added: 0, failed: 0 })
+    expect(onLimit).toHaveBeenCalledWith(10)
     expect(uploadImage).not.toHaveBeenCalled()
     expect(result.current.uploads).toHaveLength(0)
   })
@@ -97,8 +97,8 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter: vi.fn(),
-        imageLimit: () => 30,
-        selectedCount: () => 28,
+        imageLimit: () => 10,
+        selectedCount: () => 8,
         onLimit,
       })
     )
@@ -123,7 +123,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter: vi.fn(),
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => 0,
         onLimit: vi.fn(),
       })
@@ -155,7 +155,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter,
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => order.length,
         onLimit: vi.fn(),
       })
@@ -205,7 +205,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter,
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => addCharacter.mock.calls.length,
         onLimit: vi.fn(),
       })
@@ -242,7 +242,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter: vi.fn(),
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => 0,
         onLimit: vi.fn(),
       })
@@ -273,7 +273,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter,
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => 0,
         onLimit: vi.fn(),
       })
@@ -351,7 +351,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter,
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => 0,
         onLimit: vi.fn(),
       })
@@ -389,7 +389,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter,
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => 0,
         onLimit: vi.fn(),
       })
@@ -413,7 +413,7 @@ describe('character upload queue', () => {
       useCharacterUploads({
         uploadImage,
         addCharacter,
-        imageLimit: () => 30,
+        imageLimit: () => 10,
         selectedCount: () => 0,
         onLimit: vi.fn(),
       })

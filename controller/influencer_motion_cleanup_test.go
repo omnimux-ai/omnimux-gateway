@@ -80,7 +80,7 @@ func TestPreparedReferenceReclaimedWhenDistributionRefuses(t *testing.T) {
 				c.AbortWithStatus(tc.status)
 			})
 			response := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodPost, "/pg/influencer/motion", strings.NewReader(`{"mode":"motion","resolution":"720p","duration_sec":5,"aspect_ratio":"9:16","video_url":"https://files.omnimux.ai/influencer/motion/741a2220a4c89289.mp4","subject_image_url":"https://files.example/subject.png","video_metadata":{"duration":5,"video_duration":5,"width":720,"height":1280,"frame_rate":24,"video_codec":"h264","container":"mp4","size_bytes":1234}}`))
+			request := httptest.NewRequest(http.MethodPost, "/pg/influencer/motion", strings.NewReader(`{"mode":"motion","resolution":"1080p","duration_sec":5,"aspect_ratio":"9:16","video_url":"https://files.omnimux.ai/influencer/motion/741a2220a4c89289.mp4","subject_image_url":"https://files.example/subject.png","video_metadata":{"duration":5,"video_duration":5,"width":720,"height":1280,"frame_rate":24,"video_codec":"h264","container":"mp4","size_bytes":1234}}`))
 			request.Header.Set("Content-Type", "application/json")
 			router.ServeHTTP(response, request)
 			require.Equal(t, tc.status, response.Code, response.Body.String())

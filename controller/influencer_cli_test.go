@@ -87,8 +87,8 @@ func setupInfluencerCLIAPIWithOwner(t *testing.T, user *model.User) (*gin.Engine
 	common.SetDatabaseTypes(dialect, dialect)
 	storage.SetGlobalDriver(&influencerCLIImageTestDriver{influencerPresetTestDriver: newInfluencerPresetTestDriver()})
 	system_setting.ServerAddress, system_setting.TaskPublicAddress, common.CryptoSecret = "https://gateway.example", "", "cli-controller-test-only"
-	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"default","gpt-image-2.5-sunburst-image":"anchor","gpt-image-2.5-sunburst-test":"image","seedance-2-5-480p":"video","seedance-2-5-720p":"video"}`))
-	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"gpt-image-2.5-sunburst-image":1,"gpt-image-2.5-sunburst-test":1,"seedance-2-5-480p":1,"seedance-2-5-720p":2}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"default","gpt-image-2.5-sunburst-image":"anchor","gpt-image-2.5-sunburst-test":"image"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"gpt-image-2.5-sunburst-image":1,"gpt-image-2.5-sunburst-test":1}`))
 	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["gpt-image-2.5-sunburst-test","gpt-image-2.5-sunburst-image"]`))
 	t.Cleanup(func() {
 		model.DB = previousDB
@@ -108,8 +108,7 @@ func setupInfluencerCLIAPIWithOwner(t *testing.T, user *model.User) (*gin.Engine
 	require.NoError(t, db.Create(&channel).Error)
 	for _, binding := range []model.Ability{
 		{Group: channel.Group, Model: influencerImageModel, ChannelId: channel.Id, Enabled: true},
-		{Group: "seedance-2-5-480p", Model: influencerMotionModel, ChannelId: channel.Id, Enabled: true},
-		{Group: "seedance-2-5-720p", Model: influencerMotionModel, ChannelId: channel.Id, Enabled: true},
+		{Group: "default", Model: influencerMotionModel, ChannelId: channel.Id, Enabled: true},
 	} {
 		require.NoError(t, db.Create(&binding).Error)
 	}
@@ -285,9 +284,10 @@ func TestInfluencerCLIVideoUsesOneInspectionAndPreservesOrderedMaterials(t *test
 			require.NoError(t, common.Unmarshal(task.PrivateData.GenerationQueue.Body, &out))
 			require.NoError(t, common.UnmarshalJsonStr(task.Properties.Input, &meta))
 			assert.Equal(t, int32(1), inspected.Load())
-			assert.Equal(t, "5", out["seconds"])
-			assert.Equal(t, "480p", out["resolution"])
+			assert.Equal(t, float64(5), out["duration"])
+			assert.Equal(t, "1080p", out["resolution"])
 			assert.Equal(t, aspectRatio, out["aspect_ratio"])
+			assert.Equal(t, true, out["generate_audio"])
 			if mode == "replace" {
 				assert.Contains(t, out["prompt"], "自主确定合理的替换目标与范围")
 				assert.Contains(t, out["prompt"], "完整实现替换，消除与参考目标冲突的原有特征")
@@ -303,12 +303,15 @@ func TestInfluencerCLIVideoUsesOneInspectionAndPreservesOrderedMaterials(t *test
 			} else {
 				assert.Contains(t, out["prompt"], "anthropomorphic cat")
 			}
-			images := out["images"].([]any)
+			images := out["image_urls"].([]any)
 			require.Len(t, images, 3)
 			assert.Contains(t, images[0], "/v1/tasks/cat-main/artifacts/image/content?access=")
 			assert.Equal(t, motionTestImage, images[1])
 			assert.Equal(t, "https://files.omnimux.ai/images/outfit.png", images[2])
-			assert.Equal(t, []any{motionTestFrozenVideo}, out["videos"])
+			assert.Equal(t, []any{motionTestFrozenVideo}, out["video_urls"])
+			assert.NotContains(t, out, "seconds")
+			assert.NotContains(t, out, "images")
+			assert.NotContains(t, out, "videos")
 			assert.NotContains(t, out, "audios", "no separate audio reference is submitted")
 			assert.NotContains(t, meta, "audio_extracted")
 			if mode == "replace" {
@@ -331,12 +334,16 @@ func TestInfluencerCLIVideoFramingDefaultsAndRejections(t *testing.T) {
 		name, mode, resolution, explicit, want string
 		width, height, status                  int
 	}{
-		{"motion follows source", "motion", "480p", "", "16:9", 1280, 720, 200},
-		{"motion defaults portrait for arbitrary source", "motion", "480p", "", "9:16", 1000, 1000, 200},
-		{"replace follows source", "replace", "720p", "", "16:9", 1280, 720, 200},
-		{"replace rejects conflicting ratio", "replace", "480p", "9:16", "", 1280, 720, 400},
-		{"replace rejects unsupported source", "replace", "480p", "", "", 1000, 1000, 400},
-		{"720 rejects 3x4", "motion", "720p", "3:4", "", 960, 1280, 400},
+		{"motion follows source", "motion", "1080p", "", "16:9", 1280, 720, 200},
+		{"motion defaults portrait for arbitrary source", "motion", "1080p", "", "9:16", 1200, 960, 200},
+		{"motion supports 1x1", "motion", "1080p", "", "1:1", 1000, 1000, 200},
+		{"motion supports 4x3", "motion", "1080p", "4:3", "4:3", 1280, 960, 200},
+		{"motion supports 21x9", "motion", "1080p", "21:9", "21:9", 2520, 1080, 200},
+		{"replace follows source", "replace", "1080p", "", "16:9", 1280, 720, 200},
+		{"replace rejects conflicting ratio", "replace", "1080p", "9:16", "", 1280, 720, 400},
+		{"replace rejects unsupported source", "replace", "1080p", "", "", 1200, 960, 400},
+		{"1080p accepts 3x4", "motion", "1080p", "3:4", "3:4", 960, 1280, 200},
+		{"480p rejected", "motion", "480p", "", "", 1280, 720, 400},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			engine, _ := setupInfluencerCLIAPI(t)
@@ -447,9 +454,8 @@ func TestInfluencerCLIVideoRejectsShortReferencesBeforeAcceptance(t *testing.T) 
 			assert.Zero(t, task.Quota)
 			var out map[string]any
 			require.NoError(t, common.Unmarshal(task.PrivateData.GenerationQueue.Body, &out))
-			// A 4s source clip is still billed/rendered at the 5s output floor
-			// (influencerMotionMinSeconds): Pidoi-bound lines reject <5s.
-			assert.Equal(t, "5", out["seconds"])
+			// A 4s source clip is rendered/billed at the 4s MAGI-2 output floor.
+			assert.Equal(t, float64(4), out["duration"])
 			assert.Len(t, driver.objects, 1, "accepted tasks retain their frozen reference")
 			assert.Empty(t, driver.deleted)
 		})
@@ -661,6 +667,13 @@ func TestInfluencerCLIOptionsReflectAccountRoutesWithoutSupplierControls(t *test
 	assert.Equal(t, false, data["availability"].(map[string]any)["reference_image"])
 	assert.NotContains(t, recorder.Body.String(), "gpt-image-2.5-sunburst-test")
 	assert.NotContains(t, recorder.Body.String(), "seedance-2-5-480p")
+	assert.NotContains(t, recorder.Body.String(), `"group"`)
+	assert.Equal(t, map[string]any{
+		"1080p": map[string]any{
+			"aspect_ratios": []any{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"},
+			"available":     true,
+		},
+	}, data["video"].(map[string]any)["resolutions"])
 	assert.Contains(t, data["taxonomy"], "categories")
 }
 
@@ -744,12 +757,12 @@ func setupInfluencerFundingAPI(t *testing.T, ownerID int, cache *redis.Client) i
 	influencerReferenceHTTPClient = &http.Client{Transport: influencerImageTransport{influencerPresetTestPNG(t, 16, 9)}}
 
 	// Reuse the existing native Sunburst route for text and reference. Video
-	// needs the APIMart adaptor, which validates the Seedance duration and tier.
+	// needs the APIMart adaptor, which validates the MAGI-2 duration and resolution.
 	require.NoError(t, db.Model(&model.Channel{}).Where("id = ?", 1).Updates(model.Channel{
 		Key: "fixture-key", BaseURL: &local.URL,
 		OtherSettings: `{"image_task_contract":{"protocol":"openai_multipart","modes":["text","reference"],"sizes":["1024x576"]}}`,
 	}).Error)
-	video := model.Channel{Type: constant.ChannelTypeApiMart, Name: "local video", Key: "fixture-key", BaseURL: &local.URL, Status: common.ChannelStatusEnabled, Models: influencerMotionModel, Group: influencerMotionGroups["480p"]}
+	video := model.Channel{Type: constant.ChannelTypeApiMart, Name: "local video", Key: "fixture-key", BaseURL: &local.URL, Status: common.ChannelStatusEnabled, Models: influencerMotionModel, Group: influencerMotionGroups["1080p"]}
 	require.NoError(t, db.Create(&video).Error)
 	require.NoError(t, db.Model(&model.Ability{}).Where("model = ?", influencerMotionModel).UpdateColumn("channel_id", video.Id).Error)
 
@@ -803,7 +816,7 @@ func (f influencerFundingFixture) setBalance(t *testing.T, quota int) {
 }
 
 func (f influencerFundingFixture) motionInput(mode string) gin.H {
-	return gin.H{"mode": mode, "resolution": "480p", "video_url": f.videoURL, "video_metadata": f.metadata, "subject_image_url": "https://example.test/subject.png"}
+	return gin.H{"mode": mode, "resolution": "1080p", "video_url": f.videoURL, "video_metadata": f.metadata, "subject_image_url": "https://example.test/subject.png"}
 }
 
 func (f influencerFundingFixture) cliVideoInput() gin.H {
@@ -937,7 +950,7 @@ func TestInfluencerCreationFunding(t *testing.T) {
 
 	t.Run("same_price_candidates", func(t *testing.T) {
 		addInfluencerFundingCandidate(t, influencerImageModel, "gpt-image-2.5-sunburst-test", "", 0)
-		addInfluencerFundingCandidate(t, influencerMotionModel, influencerMotionGroups["480p"], "", 0)
+		addInfluencerFundingCandidate(t, influencerMotionModel, influencerMotionGroups["1080p"], "", 0)
 		f.setBalance(t, 0)
 		for _, route := range routes {
 			t.Run(route.name, func(t *testing.T) {
@@ -973,11 +986,19 @@ func TestInfluencerCreationFundingQuoteBoundaries(t *testing.T) {
 	const motion = "/pg/influencer/motion"
 	t.Run("resolution_group_and_duration", func(t *testing.T) {
 		input := f.motionInput("motion")
-		input["resolution"] = "720p"
-		// The fixture price is 5000 raw quota, with group ratio 2, 5s and a 0.6 video-input ratio.
-		f.setBalance(t, 29_999)
+		input["resolution"] = "1080p"
+		// The fixture price is 5000 raw quota per second, with MAGI-2 tier ratio 1, 5s, and default group ratio 1.
+		f.setBalance(t, 24_999)
 		f.submit(t, motion, input, http.StatusForbidden)
-		f.setBalance(t, 30_000)
+		f.setBalance(t, 25_000)
+		f.submit(t, motion, input, http.StatusOK)
+
+		ratios := ratio_setting.GroupRatio2JSONString()
+		t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(ratios)) })
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":2,"gpt-image-2.5-sunburst-image":1,"gpt-image-2.5-sunburst-test":1}`))
+		f.setBalance(t, 49_999)
+		f.submit(t, motion, input, http.StatusForbidden)
+		f.setBalance(t, 50_000)
 		f.submit(t, motion, input, http.StatusOK)
 	})
 	t.Run("free_model_with_empty_wallet", func(t *testing.T) {
@@ -997,7 +1018,7 @@ func TestInfluencerCreationFundingQuoteBoundaries(t *testing.T) {
 		name, condition string
 		status          int
 	}{
-		{"declared_recreation_inputs_are_priced", `param("seconds") == "5" && param("resolution") == "480p" && param("aspect_ratio") == "9:16"`, http.StatusForbidden},
+		{"declared_recreation_inputs_are_priced", `param("duration") == 5 && param("resolution") == "1080p" && param("aspect_ratio") == "9:16"`, http.StatusForbidden},
 		{"planned_prompt_price_is_deferred", `param("prompt") != ""`, http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1052,7 +1073,7 @@ export function parseTaskResult() { return {status:"SUCCESS"}; }
 	})
 	t.Run("different_channel_rates_use_cheapest_quote", func(t *testing.T) {
 		const cheaper, expensive = "fixture-cheaper-video", "fixture-expensive-video"
-		group := influencerMotionGroups["480p"]
+		group := influencerMotionGroups["1080p"]
 		withTieredBillingConfig(t, map[string]string{influencerMotionModel: "ratio", cheaper: "tiered_expr", expensive: "tiered_expr"},
 			map[string]string{cheaper: `tier("fixture", fixed(0.01))`, expensive: `tier("fixture", fixed(0.02))`})
 		var primary model.Channel
@@ -1105,7 +1126,7 @@ export function parseTaskResult() { return {status:"SUCCESS"}; }
 		source := fmt.Sprintf(`
 export const meta = {apiVersion:1,key:"sora",name:"Quote fixture",version:"1.0.0",author:{name:"Test"},models:[%q],fetchMode:"per_task",usageSchema:{units:{type:"number",unit:"count"}}};
 export function buildSubmitRequest(ctx) {
-  if (ctx.requestBody.resolution === "720p" && !ctx.baseUrl.endsWith("/alternate")) {
+  if (ctx.requestBody.duration === 6 && !ctx.baseUrl.endsWith("/alternate")) {
     try { utils.fetch({url: ctx.baseUrl + "/price-input"}); } catch (e) {}
   }
   return {url:ctx.baseUrl+"/submit",rewriteModel:"fixture-mapped-video",body:ctx.requestBody};
@@ -1130,10 +1151,10 @@ export function parseTaskResult() { return {status:"SUCCESS"}; }
 		input["request_id"] = "issue89-mapped-funded"
 		f.submit(t, path, input, http.StatusOK)
 		f.setBalance(t, 0)
-		input["request_id"], input["resolution"] = "issue89-deferred-fetch", "720p"
+		input["request_id"], input["duration_sec"] = "issue89-deferred-fetch", 6
 		f.submit(t, path, input, http.StatusOK)
 
-		group := influencerMotionGroups["720p"]
+		group := influencerMotionGroups["1080p"]
 		addInfluencerFundingCandidate(t, influencerMotionModel, group, "", 10)
 		t.Run("known_unaffordable_and_unknown", func(t *testing.T) {
 			input["request_id"] = "issue92-known-and-unknown"
@@ -1306,7 +1327,7 @@ func TestInfluencerCreationFundingRedis(t *testing.T) {
 			})
 			f := setupInfluencerFundingAPI(t, userID, client)
 			if tc.samePrice {
-				addInfluencerFundingCandidate(t, influencerMotionModel, influencerMotionGroups["480p"], "", 0)
+				addInfluencerFundingCandidate(t, influencerMotionModel, influencerMotionGroups["1080p"], "", 0)
 			}
 			f.setBalance(t, tc.quota)
 			cacheKey := fmt.Sprintf("user:%d", userID)

@@ -299,7 +299,7 @@ describe('historical motion quota recovery', () => {
         video_url: VIDEO_URL,
         video_metadata: RAW_VIDEO_METADATA,
         duration_sec: 8,
-        resolution: '480p',
+        resolution: '1080p',
       }
       const account = { id: 1, username: 'test', role: 1, quota: 0 }
       let quota = 0
@@ -397,9 +397,9 @@ describe('real motion workbench style submission', () => {
             success: true,
             data: [
               {
-                model_name: 'seedance-2-5',
+                model_name: 'magi-2',
                 model_price: 0.2,
-                enable_groups: ['seedance-2-5-480p'],
+                enable_groups: ['default'],
               },
             ],
           },
@@ -409,7 +409,7 @@ describe('real motion workbench style submission', () => {
         return {
           data: {
             success: true,
-            data: { 'seedance-2-5-480p': { ratio: 0.5 } },
+            data: { default: { ratio: 0.5 } },
           },
         }
       }
@@ -472,7 +472,7 @@ describe('real motion workbench style submission', () => {
       duration_sec: 8,
       video_metadata: RAW_VIDEO_METADATA,
       aspect_ratio: '9:16',
-      resolution: '480p',
+      resolution: '1080p',
     })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(
@@ -512,7 +512,7 @@ describe('real motion workbench style submission', () => {
       duration_sec: 8,
       video_metadata: RAW_VIDEO_METADATA,
       aspect_ratio: '9:16',
-      resolution: '480p',
+      resolution: '1080p',
     })
     await user.click(
       within(screen.getByRole('navigation', { name: 'Workspace' })).getByRole(
@@ -586,7 +586,7 @@ describe('real motion workbench style submission', () => {
       video_metadata: RAW_VIDEO_METADATA,
       duration_sec: 8,
       aspect_ratio: '9:16',
-      resolution: '480p',
+      resolution: '1080p',
     })
     expect(
       network.mock.calls.some(([url]) =>

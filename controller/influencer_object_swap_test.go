@@ -22,10 +22,10 @@ func objectSwapClaimedRequest(t *testing.T, db *gorm.DB, user model.User, scanne
 	driver := generationMaterialStore(t)
 	out := map[string]any{
 		"model": "queue-correction", "prompt": "old generic framing",
-		"images":   []any{"https://8.8.4.4/subject.png", "https://8.8.4.4/detail.png", "https://8.8.4.4/product.png"},
-		"duration": 5, "aspect_ratio": "9:16", "resolution": "480p", "generate_audio": false,
+		"image_urls": []any{"https://8.8.4.4/subject.png", "https://8.8.4.4/detail.png", "https://8.8.4.4/product.png"},
+		"duration":   5, "aspect_ratio": "9:16", "resolution": "1080p", "generate_audio": true,
 	}
-	for _, field := range []string{"videos", "audios"} {
+	for _, field := range []string{"video_urls", "audio_urls"} {
 		key := "influencer-reference/frozen/" + field + ".bin"
 		url, err := driver.Upload(context.Background(), key, []byte("accepted-original-"+field), "application/octet-stream")
 		require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestObjectSwapPreparationUsesFrozenJointInputsAndDurablyReusesPrompt(t *tes
 		return service.InfluencerObjectSwapPlan{Prompt: finalPrompt, Audit: []byte(`{"status":"ready","edits":[{"images":[3],"target":"右侧接水容器"}]}`), Trace: service.InfluencerObjectSwapPlanTrace{Outcome: "completed", RequestID: "joint-request", Usage: []byte(`{"total_tokens":321}`)}}, nil
 	})
 	require.NoError(t, prepareInfluencerVideoPrompt(context.Background(), task, out, scanner, "correction"))
-	assert.Equal(t, out["videos"].([]any)[0], seen.VideoURL)
+	assert.Equal(t, out["video_urls"].([]any)[0], seen.VideoURL)
 	assert.Equal(t, []string{"https://8.8.4.4/subject.png", "https://8.8.4.4/detail.png", "https://8.8.4.4/product.png"}, seen.ImageURLs)
 	assert.Equal(t, []string{"主图", "补充细节", "商品"}, seen.ImageTags)
 	assert.Equal(t, "只换靠右的容器，保持左侧倒水容器和人物不变。", seen.UserPrompt)

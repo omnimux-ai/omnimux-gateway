@@ -43,7 +43,7 @@ interface Props {
   hintTitle?: string
   characters: MotionCharacterSource[]
   busy?: boolean
-  /** Reference ceiling for this surface; the workbench itself allows 30. */
+  /** Reference ceiling for this surface; the workbench itself allows 10. */
   max?: number
   onOpenPicker: () => void
   onRemoveCharacter: (index: number) => void
@@ -63,7 +63,7 @@ export function CharacterSlot(props: Props) {
   const touchPointer = useRef(false)
   const characters = props.characters ?? []
   const hasCharacters = characters.length > 0
-  const max = props.max ?? 30
+  const max = props.max ?? 10
   const isFull = characters.length >= max
   const columns = Math.min(
     characters.length + (isFull ? 0 : 1),
@@ -174,8 +174,8 @@ export function CharacterSlot(props: Props) {
                   className='inf-character-add'
                   title={
                     props.hintTitle ??
-                    (max === 30
-                      ? t('Add reference image (up to 30)')
+                    (max === 10
+                      ? t('Add reference image (up to 10)')
                       : t('Add reference image'))
                   }
                   aria-label={t('Add reference image')}

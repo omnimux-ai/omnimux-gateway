@@ -35,39 +35,46 @@ async function mountMotion() {
 }
 
 describe('motion resolution preference', () => {
-  it('defaults to 480p when no quality has been chosen', async () => {
+  it('defaults to 1080p when no quality has been chosen', async () => {
     const { result } = await mountMotion()
-    expect(result.current.resolution).toBe('480p')
+    expect(result.current.resolution).toBe('1080p')
     expect(localStorage.getItem(KEY)).toBeNull()
   })
 
-  it.each(['480p', '720p'])(
-    'restores the chosen %s after a fresh page mount',
-    async (resolution) => {
-      const form = await mountMotion()
-      act(() => form.result.current.setResolution(resolution))
-      expect(localStorage.getItem(KEY)).toBe(resolution)
-      form.unmount()
-      vi.resetModules()
-      const restored = await mountMotion()
-      expect(restored.result.current.resolution).toBe(resolution)
-    }
-  )
+  it('restores 1080p after a fresh page mount', async () => {
+    const form = await mountMotion()
+    act(() => form.result.current.setResolution('1080p'))
+    expect(localStorage.getItem(KEY)).toBe('1080p')
+    form.unmount()
+    vi.resetModules()
+    const restored = await mountMotion()
+    expect(restored.result.current.resolution).toBe('1080p')
+  })
 
-  it('keeps the selected quality when resetting the form and switching modes', async () => {
+  it('keeps 1080p when resetting the form and switching modes', async () => {
     const { result } = await mountMotion()
-    act(() => result.current.setResolution('720p'))
+    act(() => result.current.setResolution('1080p'))
     act(() => result.current.reset())
     act(() => result.current.setMode('replace'))
     act(() => result.current.setMode('motion'))
-    expect(result.current.resolution).toBe('720p')
-    expect(localStorage.getItem(KEY)).toBe('720p')
+    expect(result.current.resolution).toBe('1080p')
+    expect(localStorage.getItem(KEY)).toBe('1080p')
   })
 
-  it('falls back to 480p when the saved quality is unsupported', async () => {
-    localStorage.setItem(KEY, '1080p')
+  it.each(['480p', '720p'])(
+    'falls back to 1080p when saved legacy quality %s is unsupported',
+    async (legacy) => {
+      localStorage.setItem(KEY, legacy)
+      const { result } = await mountMotion()
+      expect(result.current.resolution).toBe('1080p')
+    }
+  )
+
+  it('ignores attempts to set legacy unsupported resolutions', async () => {
     const { result } = await mountMotion()
-    expect(result.current.resolution).toBe('480p')
+    act(() => result.current.setResolution('720p'))
+    expect(result.current.resolution).toBe('1080p')
+    expect(localStorage.getItem(KEY)).toBeNull()
   })
 
   it('remains usable when preference storage cannot be read or written', async () => {
@@ -78,8 +85,8 @@ describe('motion resolution preference', () => {
       throw new Error('unavailable')
     })
     const { result } = await mountMotion()
-    expect(result.current.resolution).toBe('480p')
-    act(() => result.current.setResolution('720p'))
-    expect(result.current.resolution).toBe('720p')
+    expect(result.current.resolution).toBe('1080p')
+    act(() => result.current.setResolution('1080p'))
+    expect(result.current.resolution).toBe('1080p')
   })
 })

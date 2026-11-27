@@ -86,7 +86,7 @@ describe('recreate mode', () => {
   })
 
   it('accepts a decomposition clip that is not a usable 9:16 source', () => {
-    expect(validateMotionReference(recreateClip, 'recreate', '720p').ok).toBe(
+    expect(validateMotionReference(recreateClip, 'recreate', '1080p').ok).toBe(
       true
     )
   })
@@ -144,7 +144,7 @@ describe('recreate submit payload', () => {
         fileName: 'reference.mp4',
         metadata: clip,
       },
-      resolution: '480p',
+      resolution: '1080p',
     })
 
   it('sends the raw intent, clip and browser metadata as one queued request', () => {
@@ -159,7 +159,7 @@ describe('recreate submit payload', () => {
       video_url: 'https://files.example.com/reference.mp4',
       video_metadata: recreateClip.browserMetadata,
       duration_sec: 6,
-      resolution: '480p',
+      resolution: '1080p',
       aspect_ratio: '9:16',
     })
   })

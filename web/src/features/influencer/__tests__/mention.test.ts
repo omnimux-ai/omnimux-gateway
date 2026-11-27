@@ -12,8 +12,8 @@ describe('mention utilities', () => {
       expect(normalizeMentionText('Let <Picture 1> do something')).toBe(
         'Let @Image 1 do something'
       )
-      expect(normalizeMentionText('<picture 12> dances')).toBe(
-        '@Image 12 dances'
+      expect(normalizeMentionText('<picture 10> dances')).toBe(
+        '@Image 10 dances'
       )
     })
 
@@ -93,7 +93,7 @@ describe('mention utilities', () => {
 
   it('preserves email, invalid indices, incomplete tags and HTML as text', () => {
     const text =
-      'user@Image1.com @Image 0 @Image 31 @Video 9999999999999999 <Picture 0> <Video 1 <img src=x>'
+      'user@Image1.com @Image 0 @Image 11 @Video 9999999999999999 <Picture 0> <Video 1 <img src=x>'
     expect(normalizeMentionText(text)).toBe(text)
   })
 

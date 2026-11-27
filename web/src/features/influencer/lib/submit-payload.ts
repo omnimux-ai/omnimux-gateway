@@ -45,8 +45,8 @@ const storedMotionSchema = z.object({
   source_task_id: z.string().min(1).optional(),
   video_url: z.string(),
   duration_sec: z.number(),
-  size: z.enum(['16:9', '9:16', '3:4', 'adaptive']),
-  resolution: z.enum(['480p', '720p']),
+  size: z.enum(['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive']),
+  resolution: z.enum(['480p', '720p', '1080p']),
   video_metadata: z
     .object({
       duration: z.number().finite().positive(),
@@ -96,8 +96,8 @@ interface BuildInput {
 /** The fixed framing a recreation always asks for. */
 const RECREATE_ASPECT_RATIO: MotionAspectRatio = '9:16'
 
-/** The Web motion and recreation handlers accept at most 30 subject images. */
-const MOTION_MAX_IMAGES = 30
+/** The Web motion and recreation handlers accept at most 10 subject images. */
+const MOTION_MAX_IMAGES = 10
 
 function isMotionReferenceUrl(value: string): boolean {
   const url = value.trim()
@@ -119,7 +119,7 @@ export function parseReplayableMotionPayload(
     return null
   }
 
-  const minimum = body.mode === 'recreate' ? RECREATE_VIDEO_MIN_SECONDS : 5
+  const minimum = body.mode === 'recreate' ? RECREATE_VIDEO_MIN_SECONDS : 4
   const checked = validateBrowserMotionMetadata(metadata, body.mode)
   if (
     !checked.ok ||
@@ -132,7 +132,12 @@ export function parseReplayableMotionPayload(
   }
 
   if (body.mode === 'recreate') {
-    if (body.aspect_ratio !== RECREATE_ASPECT_RATIO) return null
+    if (
+      !outputAspects[body.resolution]?.length ||
+      body.aspect_ratio !== RECREATE_ASPECT_RATIO
+    ) {
+      return null
+    }
   } else if (
     !checked.aspectRatio ||
     body.aspect_ratio !== checked.aspectRatio ||

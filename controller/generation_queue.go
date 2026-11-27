@@ -576,20 +576,15 @@ func dispatchInfluencerGeneration(ctx context.Context, task *model.Task, scanner
 // Frozen videos and audio retain their accepted bytes and original expiry.
 func preflightInfluencerFrozenMedia(ctx context.Context, userID int, out map[string]any) error {
 	driver := storage.GetStorageDriver()
-	for _, field := range []string{"videos", "audios"} {
-		value, exists := out[field]
-		if !exists {
+	for _, field := range []string{"video_urls", "audio_urls", "videos", "audios"} {
+		if _, exists := out[field]; !exists {
 			continue
 		}
-		urls, ok := value.([]any)
+		urls, ok := influencerMediaURLs(out, field, "")
 		if !ok || len(urls) == 0 {
 			return errors.New("invalid frozen media references")
 		}
-		for _, value := range urls {
-			raw, ok := value.(string)
-			if !ok || raw == "" {
-				return errors.New("invalid frozen media URL")
-			}
+		for _, raw := range urls {
 			file, err := model.GetUniqueFileByURL(ctx, raw)
 			if err != nil {
 				return err

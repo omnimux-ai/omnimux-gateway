@@ -105,7 +105,7 @@ function stubMotion(overrides: Partial<MotionForm> = {}): MotionForm {
     durationSec: 4,
     videoMetadataLoading: false,
     videoValidation: null,
-    resolution: '720p',
+    resolution: '1080p',
     setResolution: vi.fn(),
     outputAspect: '9:16',
     outputCapabilities: undefined,
@@ -197,7 +197,7 @@ describe('MotionPanel mode wording', () => {
       expect(
         video.compareDocumentPosition(images) & Node.DOCUMENT_POSITION_FOLLOWING
       ).toBeTruthy()
-      expect(screen.getByText('Up to 30 reference images')).toBeVisible()
+      expect(screen.getByText('Up to 10 reference images')).toBeVisible()
     }
   )
 
@@ -454,8 +454,8 @@ describe('MotionPanel reference parameters', () => {
         )
       ).toBeNull()
       expect(
-        screen.getByRole('radiogroup', { name: 'Resolution' })
-      ).toBeVisible()
+        screen.queryByRole('radiogroup', { name: 'Resolution' })
+      ).toBeNull()
     }
   )
   it.each(['motion', 'replace'] as const)(
@@ -500,11 +500,15 @@ describe('MotionPanel reference parameters', () => {
     expect(screen.queryByRole('spinbutton')).toBeNull()
     expect(screen.queryByText(/Follows reference video/)).toBeNull()
   })
-  it('keeps resolution selectable', async () => {
-    const setResolution = vi.fn()
-    render(<MotionPanel motion={stubMotion({ setResolution })} />)
-    await userEvent.setup().click(screen.getByRole('radio', { name: '480P' }))
-    expect(setResolution).toHaveBeenCalledWith('480p')
+  it('hides resolution controls across modes', () => {
+    for (const mode of ['motion', 'replace', 'recreate'] as const) {
+      const { unmount } = render(<MotionPanel motion={stubMotion({ mode })} />)
+      expect(
+        screen.queryByRole('radiogroup', { name: 'Resolution' })
+      ).toBeNull()
+      expect(screen.queryByText('Parameters')).toBeNull()
+      unmount()
+    }
   })
 })
 
@@ -784,12 +788,12 @@ describe('MotionPanel viral recreate', () => {
       )
     ).toBeNull()
     expect(screen.getByText('Video duration: 4 to 30 seconds')).toBeVisible()
-    expect(screen.getByText('Up to 30 reference images')).toBeVisible()
+    expect(screen.getByText('Up to 10 reference images')).toBeVisible()
     expect(screen.queryByText('Decomposition only')).toBeNull()
-    // Output quality now lives in the form, not in a confirmation step.
-    expect(screen.getByRole('radiogroup', { name: 'Resolution' })).toBeVisible()
-    expect(screen.getByRole('radio', { name: '480P' })).toBeVisible()
-    expect(screen.getByRole('radio', { name: '720P' })).toBeVisible()
+    expect(
+      screen.queryByRole('radiogroup', { name: 'Resolution' })
+    ).toBeNull()
+    expect(screen.queryByText('Parameters')).toBeNull()
     // The prompt uses the same switch card as the two movement modes.
     expect(screen.getByRole('switch', { name: 'Prompt' })).not.toBeChecked()
     expect(screen.queryByRole('textbox', { name: 'Prompt' })).toBeNull()

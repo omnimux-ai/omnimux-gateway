@@ -22,7 +22,7 @@ import (
 
 // fork: influencer viral-recreation analysis. The workbench posts the reference
 // clip plus the caller's own reference images; the server decomposes the clip and
-// compiles one Seedance prompt. The response is the only place the clip's
+// compiles one MAGI-2 prompt. The response is the only place the clip's
 // structure is ever exposed to the browser, and the later generation request
 // carries images and the prompt only.
 
@@ -36,9 +36,8 @@ const influencerRecreateMaxIntentRunes = 1200
 // generation model id for all three modes.
 const influencerCreditsPerUSD = 10
 
-// influencerRecreateQualityChoices is the only user-facing choice in this mode:
-// quality decides the price, so the workbench offers exactly these.
-var influencerRecreateQualityChoices = []string{"480p", "720p"}
+// influencerRecreateQualityChoices lists the supported output resolution tiers.
+var influencerRecreateQualityChoices = []string{"1080p"}
 
 // ActionInfluencerRecreateAnalysis marks a decomposition job in the shared
 // generation queue. It is not a provider submission: the worker plans only.
@@ -119,10 +118,10 @@ func PostInfluencerRecreateAnalyze(c *gin.Context) {
 	}
 	resolution := strings.TrimSpace(req.Resolution)
 	if resolution == "" {
-		resolution = "480p"
+		resolution = "1080p"
 	}
 	if _, ok := influencerMotionGroups[resolution]; !ok {
-		influencerError(c, http.StatusBadRequest, "invalid_request", "分辨率必须是 480p 或 720p")
+		influencerError(c, http.StatusBadRequest, "invalid_request", "分辨率必须是 1080p")
 		return
 	}
 	if !influencerRecreateDailyAllow(c) {
@@ -338,13 +337,14 @@ func influencerRecreateQueuedGenerationOut(c *gin.Context, req influencerMotionR
 		return nil, nil, nil, false
 	}
 	out := map[string]any{
-		"model":        influencerMotionModel,
-		"group":        influencerMotionGroups[resolution],
-		"prompt":       "",
-		"seconds":      strconv.Itoa(seconds),
-		"aspect_ratio": influencerMotionAspectRatio,
-		"resolution":   resolution,
-		"images":       subjectURLs,
+		"model":          influencerMotionModel,
+		"group":          influencerMotionGroups[resolution],
+		"prompt":         "",
+		"duration":       seconds,
+		"aspect_ratio":   influencerMotionAspectRatio,
+		"resolution":     resolution,
+		"generate_audio": true,
+		"image_urls":     subjectURLs,
 	}
 	meta := map[string]any{
 		"kind":               influencerMotionKind,
@@ -394,18 +394,19 @@ func influencerRecreateGenerationOut(req influencerMotionRequest, resolution, pr
 		}
 	}
 	// fork: the recreation now submits on the same audited line as motion/replace
-	// (seedance-2-5, resolution tier group), so all three modes share one public
-	// generation model id. The clip still never travels with this request; the
-	// body is the 2.5 contract (string seconds, `images`) without `videos`.
+	// (magi-2, 1080p single tier), so all three modes share one public generation
+	// model id. The clip still never travels with this request; the body is the
+	// MAGI-2 contract (integer duration, `image_urls`, `generate_audio`) without `video_urls`.
 	group := influencerMotionGroups[resolution]
 	out := map[string]any{
-		"model":        influencerMotionModel,
-		"group":        group,
-		"prompt":       trimmed,
-		"seconds":      strconv.Itoa(seconds),
-		"aspect_ratio": influencerMotionAspectRatio,
-		"resolution":   resolution,
-		"images":       subjectURLs,
+		"model":          influencerMotionModel,
+		"group":          group,
+		"prompt":         trimmed,
+		"duration":       seconds,
+		"aspect_ratio":   influencerMotionAspectRatio,
+		"resolution":     resolution,
+		"generate_audio": true,
+		"image_urls":     subjectURLs,
 	}
 	meta := map[string]any{
 		"kind":               influencerMotionKind,

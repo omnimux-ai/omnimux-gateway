@@ -30,10 +30,10 @@ omnimux influencer video create --character <task_id> --video reference.mp4 --re
 omnimux influencer video create --character <task_id> --video reference.mp4 --request-id video-001 --yes
 ```
 
-- 用 `--character` 复用主图，也可重复使用 `--image` 提供有序图片；没有角色编号时第一张图片是主要角色。角色主图计入总共 1–30 张图片。
+- 用 `--character` 复用主图，也可重复使用 `--image` 提供有序图片；没有角色编号时第一张图片是主要角色。角色主图计入总共 1–10 张图片。
 - `--video` 为本地参考视频或 HTTPS 地址；也可用互斥的 `--video-task` 引用本人成功视频。本地视频上限 100 MiB，真实时长由后台核验，需 4–30 秒，不填写时长参数。
-- 默认 `--mode motion --resolution 480p`。运动交换采用明确指定的画幅，否则由后台按参考视频决定；`--mode replace` 保持来源比例，冲突会拒绝。
-- `--aspect-ratio` 有效组合：480p 支持 `16:9`、`9:16`、`3:4`；720p 支持 `16:9`、`9:16`。原声、图片顺序和角色种类会保留。
+- 默认 `--mode motion --resolution 1080p`。运动交换采用明确指定的画幅，否则由后台按参考视频决定；`--mode replace` 保持来源比例，冲突会拒绝。
+- `--aspect-ratio` 有效组合：1080p 支持 `16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`。原声、图片顺序和角色种类会保留。
 - `--prompt` 可补充创作要求，不新增配音、发布或批量生成。
 - `--input file.json` 可提供相应 HTTP 产品字段，不能与重叠的显式创作字段混用。禁止模型、分组、报价、手填视频时长字段。
 

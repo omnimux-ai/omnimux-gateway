@@ -186,7 +186,7 @@ func browserReferenceUpload(purpose string, metadata *service.InfluencerVideoMet
 	if purpose != influencerReferenceUploadPurpose {
 		return false, nil
 	}
-	_, _, err := influencerBrowserVideoOutput(influencerMotionRequest{Mode: "motion", VideoMetadata: metadata}, "480p")
+	_, _, err := influencerBrowserVideoOutput(influencerMotionRequest{Mode: "motion", VideoMetadata: metadata}, "1080p")
 	if err != nil {
 		return false, err
 	}

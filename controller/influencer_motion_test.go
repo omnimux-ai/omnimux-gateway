@@ -15,6 +15,8 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/apimart"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
@@ -51,8 +53,14 @@ func runMotionPrepare(t *testing.T, payload any, headers ...string) (*httptest.R
 				switch strings.TrimSpace(ratio) {
 				case "16:9":
 					metadata.Width, metadata.Height = 1280, 720
+				case "1:1":
+					metadata.Width, metadata.Height = 800, 800
+				case "4:3":
+					metadata.Width, metadata.Height = 960, 720
 				case "3:4":
 					metadata.Width, metadata.Height = 960, 1280
+				case "21:9":
+					metadata.Width, metadata.Height = 1680, 720
 				}
 			}
 			if duration, ok := body["_probe_duration"].(float64); ok {
@@ -116,7 +124,7 @@ func validMotionRequest() map[string]any {
 		"subject_image_url": motionTestImage,
 		"video_url":         motionTestVideo,
 		"duration_sec":      5,
-		"resolution":        "720p",
+		"resolution":        "1080p",
 		"video_metadata":    service.InfluencerVideoMetadata{Duration: 5, VideoDuration: 5, Width: 720, Height: 1280, FrameRate: 24, VideoCodec: "h264", Container: "mp4", SizeBytes: 1234},
 	}
 }
@@ -126,7 +134,8 @@ func validMotionRequest() map[string]any {
 func TestPrepareInfluencerMotionRejectsInvalidForms(t *testing.T) {
 	cases := map[string]func(map[string]any){
 		"unknown mode":    func(r map[string]any) { r["mode"] = "dance" },
-		"1080p":           func(r map[string]any) { r["resolution"] = "1080p" },
+		"480p":            func(r map[string]any) { r["resolution"] = "480p" },
+		"720p":            func(r map[string]any) { r["resolution"] = "720p" },
 		"too short":       func(r map[string]any) { r["duration_sec"] = 3 },
 		"too long":        func(r map[string]any) { r["duration_sec"] = 31 },
 		"prompt too long": func(r map[string]any) { r["prompt"] = strings.Repeat("字", 4001) },
@@ -134,7 +143,7 @@ func TestPrepareInfluencerMotionRejectsInvalidForms(t *testing.T) {
 		"http image":      func(r map[string]any) { r["subject_image_url"] = "http://files.omnimux.ai/a.png" },
 		"data url image":  func(r map[string]any) { r["subject_image_url"] = "data:image/png;base64,AAAA" },
 		"too many images": func(r map[string]any) {
-			urls := make([]string, 31)
+			urls := make([]string, 11)
 			for i := range urls {
 				urls[i] = motionTestImage
 			}
@@ -163,78 +172,68 @@ func TestPrepareInfluencerMotionRejectsInvalidForms(t *testing.T) {
 	assert.False(t, probe.reached)
 }
 
-// The resolution decides the price tier group; the caller cannot pick another.
+// The resolution decides the pinned tier group; the caller cannot pick another.
 func TestPrepareInfluencerMotionRewritesToVideoSubmitBody(t *testing.T) {
-	for resolution, group := range map[string]string{"480p": "seedance-2-5-480p", "720p": "seedance-2-5-720p"} {
-		t.Run(resolution, func(t *testing.T) {
-			req := validMotionRequest()
-			req["resolution"] = resolution
-			req["group"] = "default"
-			req["model"] = "something-else"
-			rec, probe := runMotionPrepare(t, req, "X-Omnimux-Group", "default", "New-Api-Group", "default")
-			require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
-			require.True(t, probe.reached)
+	req := validMotionRequest()
+	req["resolution"] = "1080p"
+	req["group"] = "other-group"
+	req["model"] = "something-else"
+	rec, probe := runMotionPrepare(t, req, "X-Omnimux-Group", "other-group", "New-Api-Group", "other-group")
+	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+	require.True(t, probe.reached)
 
-			assert.Equal(t, "seedance-2-5", probe.body["model"])
-			assert.Equal(t, group, probe.body["group"])
-			assert.Equal(t, group, probe.group, "distribution reads the group from this header")
-			assert.Equal(t, "5", probe.body["seconds"])
-			assert.Equal(t, "9:16", probe.body["aspect_ratio"])
-			assert.Equal(t, resolution, probe.body["resolution"])
-			assert.Equal(t, []any{motionTestImage}, probe.body["images"])
-			assert.Equal(t, []any{motionTestFrozenVideo}, probe.body["videos"])
-			assert.NotContains(t, probe.body, "audios")
+	assert.Equal(t, "magi-2", probe.body["model"])
+	assert.Equal(t, "default", probe.body["group"])
+	assert.Equal(t, "default", probe.group, "distribution reads the group from this header")
+	assert.Equal(t, float64(5), probe.body["duration"])
+	assert.Equal(t, "9:16", probe.body["aspect_ratio"])
+	assert.Equal(t, "1080p", probe.body["resolution"])
+	assert.Equal(t, true, probe.body["generate_audio"])
+	assert.Equal(t, []any{motionTestImage}, probe.body["image_urls"])
+	assert.Equal(t, []any{motionTestFrozenVideo}, probe.body["video_urls"])
+	assert.NotContains(t, probe.body, "seconds")
+	assert.NotContains(t, probe.body, "images")
+	assert.NotContains(t, probe.body, "videos")
+	assert.NotContains(t, probe.body, "audios")
 
-			assert.Equal(t, "motion", probe.meta["kind"])
-			assert.Equal(t, "smile at the end", probe.meta["prompt"])
-			assert.Equal(t, resolution, probe.meta["resolution"])
-		})
-	}
+	assert.Equal(t, "motion", probe.meta["kind"])
+	assert.Equal(t, "smile at the end", probe.meta["prompt"])
+	assert.Equal(t, "1080p", probe.meta["resolution"])
 }
 
-// Browser requests must follow source framing within each evidenced output set.
-// The 720p bound line supports only 16:9 and 9:16.
+// Browser requests must follow source framing within the 1080p MAGI-2 output set.
 func TestPrepareInfluencerMotionAspectRatio(t *testing.T) {
-	resolutionCases := map[string]struct {
-		allowed []string
-		blocked []string
-	}{
-		"480p": {allowed: []string{"16:9", "9:16", "3:4"}, blocked: []string{"1:1", "4:3", "21:9", "auto", "adaptive"}},
-		"720p": {allowed: []string{"16:9", "9:16"}, blocked: []string{"3:4", "1:1", "4:3", "21:9", "auto", "adaptive"}},
+	allowedRatios := []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"}
+	blockedRatios := []string{"5:4", "auto", "adaptive"}
+	for _, allowed := range allowedRatios {
+		t.Run("1080p/motion/allowed-"+allowed, func(t *testing.T) {
+			req := validMotionRequest()
+			req["resolution"], req["mode"] = "1080p", "motion"
+			req["aspect_ratio"] = allowed
+			rec, probe := runMotionPrepare(t, req)
+			require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+			require.True(t, probe.reached)
+			assert.Equal(t, allowed, probe.body["aspect_ratio"])
+			assert.Equal(t, allowed, probe.meta["size"])
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			setInfluencerMotionTaskRequest(c, probe.body)
+			value, exists := c.Get("task_request")
+			require.True(t, exists)
+			request, ok := value.(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, allowed, request["aspect_ratio"])
+			assert.NotContains(t, request, influencerMotionGroupField)
+		})
 	}
-	for resolution, tc := range resolutionCases {
-		for _, mode := range []string{"motion"} {
-			for _, allowed := range tc.allowed {
-				t.Run(resolution+"/"+mode+"/allowed-"+allowed, func(t *testing.T) {
-					req := validMotionRequest()
-					req["resolution"], req["mode"] = resolution, mode
-					req["aspect_ratio"] = allowed
-					rec, probe := runMotionPrepare(t, req)
-					require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
-					require.True(t, probe.reached)
-					assert.Equal(t, allowed, probe.body["aspect_ratio"])
-					assert.Equal(t, allowed, probe.meta["size"])
-					c, _ := gin.CreateTestContext(httptest.NewRecorder())
-					setInfluencerMotionTaskRequest(c, probe.body)
-					value, exists := c.Get("task_request")
-					require.True(t, exists)
-					request, ok := value.(map[string]any)
-					require.True(t, ok)
-					assert.Equal(t, allowed, request["aspect_ratio"])
-					assert.NotContains(t, request, influencerMotionGroupField)
-				})
-			}
-			for _, blocked := range tc.blocked {
-				t.Run(resolution+"/"+mode+"/blocked-"+blocked, func(t *testing.T) {
-					req := validMotionRequest()
-					req["resolution"], req["mode"] = resolution, mode
-					req["aspect_ratio"] = blocked
-					rec, probe := runMotionPrepare(t, req)
-					assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
-					assert.False(t, probe.reached, "invalid ratios stop before distribution")
-				})
-			}
-		}
+	for _, blocked := range blockedRatios {
+		t.Run("1080p/motion/blocked-"+blocked, func(t *testing.T) {
+			req := validMotionRequest()
+			req["resolution"], req["mode"] = "1080p", "motion"
+			req["aspect_ratio"] = blocked
+			rec, probe := runMotionPrepare(t, req)
+			assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+			assert.False(t, probe.reached, "invalid ratios stop before distribution")
+		})
 	}
 	for name, input := range map[string]any{"empty": "", "whitespace": "   ", "malformed": "16/9", "wrong type": 169} {
 		t.Run("invalid/"+name, func(t *testing.T) {
@@ -282,10 +281,10 @@ func TestInfluencerMotionOptions(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	require.True(t, body.Success)
-	assert.Equal(t, []string{"16:9", "9:16", "3:4"}, body.Data.Resolutions["480p"].AspectRatios)
-	assert.Equal(t, []string{"16:9", "9:16"}, body.Data.Resolutions["720p"].AspectRatios)
+	assert.Len(t, body.Data.Resolutions, 1)
+	assert.Equal(t, []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"}, body.Data.Resolutions["1080p"].AspectRatios)
 	assert.Equal(t, 2.0, body.Data.InputConstraints["motion"].MinDurationSeconds)
-	assert.Equal(t, 5.0, body.Data.InputConstraints["replace"].MinDurationSeconds)
+	assert.Equal(t, 4.0, body.Data.InputConstraints["replace"].MinDurationSeconds)
 	assert.Equal(t, 4.0, body.Data.InputConstraints["recreate"].MinDurationSeconds)
 	assert.Equal(t, 0.4, body.Data.InputConstraints["replace"].MinAspectRatio)
 	assert.Equal(t, 2.5, body.Data.InputConstraints["replace"].MaxAspectRatio)
@@ -293,7 +292,7 @@ func TestInfluencerMotionOptions(t *testing.T) {
 
 func TestPrepareInfluencerMotionMultiImages(t *testing.T) {
 	req := validMotionRequest()
-	urls := make([]string, 30)
+	urls := make([]string, 10)
 	for i := range urls {
 		urls[i] = motionTestImage
 	}
@@ -301,9 +300,9 @@ func TestPrepareInfluencerMotionMultiImages(t *testing.T) {
 	rec, probe := runMotionPrepare(t, req)
 	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 	require.True(t, probe.reached)
-	assert.Len(t, probe.body["images"], 30)
+	assert.Len(t, probe.body["image_urls"], 10)
 	assert.Equal(t, motionTestImage, probe.meta["subject_image_url"])
-	assert.Len(t, probe.meta["subject_image_urls"], 30)
+	assert.Len(t, probe.meta["subject_image_urls"], 10)
 }
 
 func TestPrepareInfluencerMotionFramesPromptPerMode(t *testing.T) {
@@ -371,8 +370,8 @@ func TestPrepareInfluencerReplaceUsesAutonomousRulesForAllImageTypes(t *testing.
 			assert.NotContains(t, prompt, "已保存角色", "an unverified type cannot assert a saved source")
 			assert.NotContains(t, prompt, "用户补充：")
 			assert.NotContains(t, prompt, influencerMotionScene)
-			assert.Equal(t, []any{images[0], images[1]}, probe.body["images"])
-			assert.Equal(t, []any{motionTestFrozenVideo}, probe.body["videos"])
+			assert.Equal(t, []any{images[0], images[1]}, probe.body["image_urls"])
+			assert.Equal(t, []any{motionTestFrozenVideo}, probe.body["video_urls"])
 			assert.Equal(t, "", probe.meta["prompt"])
 		})
 	}
@@ -394,20 +393,21 @@ func TestPrepareInfluencerReplacePreservesFullUserSupplementLast(t *testing.T) {
 	assert.LessOrEqual(t, utf8.RuneCountInString(prompt), 4600, "the existing 4000-character supplement fits the current line")
 }
 
-// The task plugin builds the upstream body from the task request, so every
-// motion field must be in it, not only the generic prompt/images/seconds.
+// The queued body feeds the native video adaptor directly, so every MAGI-2
+// field must pass adaptor validation and omit internal routing keys.
 func TestSetInfluencerMotionTaskRequestKeepsReferences(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	out := map[string]any{
-		"model":        influencerMotionModel,
-		"group":        "seedance-2-5-480p",
-		"prompt":       "p",
-		"seconds":      "5",
-		"aspect_ratio": influencerMotionAspectRatio,
-		"resolution":   "480p",
-		"images":       []string{motionTestImage},
-		"videos":       []string{motionTestVideo},
+		"model":          influencerMotionModel,
+		"group":          "default",
+		"prompt":         "p",
+		"duration":       5,
+		"aspect_ratio":   influencerMotionAspectRatio,
+		"resolution":     "1080p",
+		"generate_audio": true,
+		"image_urls":     []string{motionTestImage},
+		"video_urls":     []string{motionTestVideo},
 	}
 	setInfluencerMotionTaskRequest(c, out)
 	value, ok := c.Get("task_request")
@@ -423,6 +423,33 @@ func TestSetInfluencerMotionTaskRequestKeepsReferences(t *testing.T) {
 	delete(want, influencerMotionGroupField)
 	assert.Equal(t, want, request)
 	assert.NotContains(t, request, influencerMotionGroupField)
+
+	rawReq, err := common.Marshal(request)
+	require.NoError(t, err)
+	storage, err := common.CreateBodyStorage(rawReq)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = storage.Close() })
+	adaptorCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	adaptorCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", strings.NewReader(string(rawReq)))
+	adaptorCtx.Request.Header.Set("Content-Type", "application/json")
+	adaptorCtx.Set(common.KeyBodyStorage, storage)
+	info := &relaycommon.RelayInfo{OriginModelName: "magi-2", TaskRelayInfo: &relaycommon.TaskRelayInfo{}, ChannelMeta: &relaycommon.ChannelMeta{}}
+	adaptor := &apimart.TaskAdaptor{}
+	require.Nil(t, adaptor.ValidateRequestAndSetAction(adaptorCtx, info))
+	reader, err := adaptor.BuildRequestBody(adaptorCtx, info)
+	require.NoError(t, err)
+	bodyBytes, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	var providerBody map[string]any
+	require.NoError(t, common.Unmarshal(bodyBytes, &providerBody))
+	assert.Equal(t, "magi-2-reference-to-video", providerBody["model"])
+	assert.Equal(t, "1080p", providerBody["quality"])
+	assert.Equal(t, "9:16", providerBody["aspect_ratio"])
+	assert.Equal(t, float64(5), providerBody["duration"])
+	assert.Equal(t, true, providerBody["generate_audio"])
+	assert.Equal(t, []any{motionTestImage}, providerBody["image_urls"])
+	assert.Equal(t, []any{motionTestVideo}, providerBody["video_urls"])
+
 	request["prompt"] = "changed"
 	assert.Equal(t, "p", out["prompt"], "the task request is a copy")
 }
@@ -443,7 +470,7 @@ func TestPrepareInfluencerReplaceFollowsIntegerReferenceAndAccurateSourceMetadat
 	response, probe := runMotionPrepare(t, request)
 	require.Equal(t, http.StatusNoContent, response.Code, response.Body.String())
 	require.True(t, probe.reached)
-	assert.Equal(t, "10", probe.body["seconds"])
+	assert.Equal(t, float64(10), probe.body["duration"])
 	assert.Equal(t, "16:9", probe.body["aspect_ratio"])
 	assert.Equal(t, 10.000001, probe.meta["source_duration_sec"])
 	assert.Equal(t, 10.0, probe.meta["request_duration_sec"])
@@ -458,31 +485,28 @@ func TestPrepareInfluencerReplaceRejectsActualShortReference(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	assert.False(t, probe.reached)
 	assert.Contains(t, rec.Body.String(), "3.999")
-	assert.Contains(t, rec.Body.String(), "5至30")
+	assert.Contains(t, rec.Body.String(), "4至30")
 }
 
 func TestPrepareInfluencerReplaceToleratesOneFrameContainerDifference(t *testing.T) {
 	for _, tc := range []struct {
 		source  float64
-		seconds string
+		seconds int
 	}{
-		// 5s is the new source/output floor: Pidoi-bound lines reject <5s.
-		{5, "5"},
-		{9.000001, "9"},
-		{9.041666667, "9"},
-		{30, "30"},
+		{4, 4},
+		{9.000001, 9},
+		{9.041666667, 9},
+		{30, 30},
 	} {
-		t.Run(tc.seconds, func(t *testing.T) {
+		t.Run(strconv.Itoa(tc.seconds), func(t *testing.T) {
 			req := validMotionRequest()
 			req["mode"], req["duration_sec"] = "replace", 0
 			req["_probe_duration"] = tc.source
 			rec, probe := runMotionPrepare(t, req)
 			require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 			require.True(t, probe.reached)
-			assert.Equal(t, tc.seconds, probe.body["seconds"])
-			seconds, err := strconv.Atoi(tc.seconds)
-			require.NoError(t, err)
-			assert.Equal(t, float64(seconds), probe.meta["request_duration_sec"])
+			assert.Equal(t, float64(tc.seconds), probe.body["duration"])
+			assert.Equal(t, float64(tc.seconds), probe.meta["request_duration_sec"])
 			assert.Equal(t, tc.source, probe.meta["source_duration_sec"])
 		})
 	}
@@ -500,14 +524,14 @@ func TestPrepareInfluencerReplaceMatchesOnlySupportedSourceFraming(t *testing.T)
 		width, height           int
 		allowed                 bool
 	}{
-		{"landscape-480p", "480p", "16:9", 1280, 720, true},
-		{"portrait-480p", "480p", "9:16", 720, 1280, true},
-		{"three-four-480p", "480p", "3:4", 960, 1280, true},
-		{"landscape-720p", "720p", "16:9", 1280, 720, true},
-		{"portrait-720p", "720p", "9:16", 720, 1280, true},
-		{"three-four-not-offered-720p", "720p", "", 960, 1280, false},
-		{"legacy-pixel-tolerance", "480p", "16:9", 854, 480, true},
-		{"outside-legacy-pixel-tolerance", "480p", "", 855, 480, false},
+		{"landscape-16x9", "1080p", "16:9", 1280, 720, true},
+		{"portrait-9x16", "1080p", "9:16", 720, 1280, true},
+		{"square-1x1", "1080p", "1:1", 800, 800, true},
+		{"classic-4x3", "1080p", "4:3", 960, 720, true},
+		{"three-four-3x4", "1080p", "3:4", 960, 1280, true},
+		{"ultrawide-21x9", "1080p", "21:9", 1680, 720, true},
+		{"legacy-pixel-tolerance", "1080p", "16:9", 854, 480, true},
+		{"outside-legacy-pixel-tolerance", "1080p", "", 855, 480, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := validMotionRequest()
@@ -525,7 +549,7 @@ func TestPrepareInfluencerReplaceMatchesOnlySupportedSourceFraming(t *testing.T)
 			require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 			require.True(t, probe.reached)
 			assert.Equal(t, tc.ratio, probe.body["aspect_ratio"])
-			assert.Equal(t, "10", probe.body["seconds"])
+			assert.Equal(t, float64(10), probe.body["duration"])
 			assert.NotContains(t, probe.body, "auto_duration")
 			assert.NotContains(t, probe.body, "omni_reference_task_type")
 		})

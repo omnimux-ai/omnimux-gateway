@@ -340,7 +340,7 @@ export interface MotionCharacterSource {
  * Both mean "the slot is filled" to the submit gate, and the second phase sends
  * whichever one is present.
  */
-export type MotionAspectRatio = '16:9' | '9:16' | '3:4'
+export type MotionAspectRatio = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9'
 
 export interface MotionVideoMetadata {
   /** Versioned complete browser result, bound to the source URL in its record. */

@@ -66,7 +66,11 @@ import { WorkbenchModeTabs } from './components/workbench-mode-tabs'
 import { useBuilder } from './hooks/use-builder'
 import { useGenerationQueueNotice } from './hooks/use-generation-queue-notice'
 import { useLoginGate } from './hooks/use-login-gate'
-import { RECREATE_MAX_IMAGES, useMotion } from './hooks/use-motion'
+import {
+  MOTION_MAX_IMAGES,
+  RECREATE_MAX_IMAGES,
+  useMotion,
+} from './hooks/use-motion'
 import { useMultiViewSubmit } from './hooks/use-multiview'
 import { usePaywallRecovery } from './hooks/use-paywall-recovery'
 import { usePreviewStack } from './hooks/use-preview-stack'
@@ -747,10 +751,10 @@ export function InfluencerWorkbench() {
     const url = taskAbsoluteImageUrl(task)
     if (!url || !url.startsWith('https://')) return t('No preview available')
     if (
-      motion.characters.length >= 30 &&
+      motion.characters.length >= MOTION_MAX_IMAGES &&
       !motion.characters.some((item) => item.url === url)
     ) {
-      return t('Up to 30 reference images')
+      return t('Up to 10 reference images')
     }
     return undefined
   }
@@ -1015,10 +1019,10 @@ export function InfluencerWorkbench() {
   const referenceImageDisabledReason = (url: string): string | undefined => {
     if (!url.startsWith('https://')) return t('No preview available')
     if (
-      motion.characters.length >= 30 &&
+      motion.characters.length >= MOTION_MAX_IMAGES &&
       !motion.characters.some((item) => item.url === url)
     ) {
-      return t('Up to 30 reference images')
+      return t('Up to 10 reference images')
     }
     return undefined
   }
@@ -1396,7 +1400,11 @@ export function InfluencerWorkbench() {
             open={motion.characterPickerOpen}
             onClose={motion.closeCharacterPicker}
             characters={motion.characters}
-            max={motion.mode === 'recreate' ? RECREATE_MAX_IMAGES : undefined}
+            max={
+              motion.mode === 'recreate'
+                ? RECREATE_MAX_IMAGES
+                : MOTION_MAX_IMAGES
+            }
             uploadedCharacters={motion.uploadedCharacters}
             uploads={motion.characterUploads}
             historyItems={historyQ.items}

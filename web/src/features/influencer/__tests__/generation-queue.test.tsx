@@ -44,7 +44,7 @@ const recreateBody: MotionSubmitBody = {
   },
   duration_sec: 8,
   aspect_ratio: '9:16',
-  resolution: '480p',
+  resolution: '1080p',
 }
 const page = (items: TaskRecord[]) => ({
   data: { success: true, data: { items, total: items.length } },
@@ -190,7 +190,7 @@ describe('persistent generation queue client', () => {
         video_url: 'https://example.org/video.mp4',
         duration_sec: 8,
         aspect_ratio: '16:9',
-        resolution: '720p',
+        resolution: '1080p',
       })
     })
     settled = true

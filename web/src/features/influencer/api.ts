@@ -239,7 +239,12 @@ export async function fetchMotionOptions(): Promise<MotionOptions | null> {
     for (const [key, value] of Object.entries(body.resolutions)) {
       const ratios = (value?.aspect_ratios ?? []).filter(
         (v): v is MotionAspectRatio =>
-          v === '16:9' || v === '9:16' || v === '3:4'
+          v === '16:9' ||
+          v === '9:16' ||
+          v === '1:1' ||
+          v === '4:3' ||
+          v === '3:4' ||
+          v === '21:9'
       )
       if (ratios.length) resolutions[key] = { aspect_ratios: ratios }
     }

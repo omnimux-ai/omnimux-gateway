@@ -60,7 +60,7 @@ const UPLOADED = {
     },
   },
   durationSec: 10,
-  resolution: '720p',
+  resolution: '1080p',
   outputAspect: '9:16' as const,
 }
 
@@ -91,6 +91,23 @@ describe('historical motion payload', () => {
         ?.aspect_ratio
     ).toBe('16:9')
   })
+  it('reads legacy 480p and 720p stored records while refusing automatic replay for discontinued resolutions', () => {
+    const legacy = {
+      mode: 'motion' as const,
+      prompt: 'legacy clip',
+      subject_image_url: UPLOADED.character.url,
+      subject_image_urls: [UPLOADED.character.url],
+      video_url: UPLOADED.video.url,
+      duration_sec: 10,
+      aspect_ratio: '9:16',
+      resolution: '720p',
+      video_metadata: UPLOADED.video.metadata.browserMetadata,
+    }
+    expect(parseStoredMotionPayload(JSON.stringify(legacy))?.resolution).toBe(
+      '720p'
+    )
+    expect(parseReplayableMotionPayload(JSON.stringify(legacy))).toBeNull()
+  })
 })
 
 describe('replaying a historical Web motion request', () => {
@@ -104,7 +121,7 @@ describe('replaying a historical Web motion request', () => {
     video_metadata: metadata,
     duration_sec: 10,
     aspect_ratio: '9:16',
-    resolution: '720p',
+    resolution: '1080p',
   }
 
   it('restores the original request with bounded, consistent video metadata', () => {
@@ -130,17 +147,17 @@ describe('replaying a historical Web motion request', () => {
       { video_metadata: { ...metadata, size_bytes: undefined } },
     ],
     [
-      'picture duration falls below five seconds',
+      'picture duration falls below four seconds',
       {
-        duration_sec: 5,
-        video_metadata: { ...metadata, duration: 5, video_duration: 4.99 },
+        duration_sec: 4,
+        video_metadata: { ...metadata, duration: 4, video_duration: 3.99 },
       },
     ],
     [
-      'container duration falls below five seconds',
+      'container duration falls below four seconds',
       {
-        duration_sec: 5,
-        video_metadata: { ...metadata, duration: 4.99, video_duration: 5 },
+        duration_sec: 4,
+        video_metadata: { ...metadata, duration: 3.99, video_duration: 4 },
       },
     ],
     [
@@ -197,7 +214,7 @@ describe('buildMotionSubmitPayload — simulated form → gateway body', () => {
       video_url: 'https://files.example.com/clip-01.mp4',
       duration_sec: 10,
       aspect_ratio: '9:16',
-      resolution: '720p',
+      resolution: '1080p',
       video_metadata: UPLOADED.video.metadata.browserMetadata,
     })
   })
@@ -226,12 +243,12 @@ describe('buildMotionSubmitPayload — simulated form → gateway body', () => {
     const out = buildMotionSubmitPayload({
       mode: 'replace',
       ...UPLOADED,
-      resolution: '480p',
+      resolution: '1080p',
     })
     expect(out?.mode).toBe('replace')
     expect(out?.aspect_ratio).toBe('9:16')
     expect(out?.duration_sec).toBe(10)
-    expect(out?.resolution).toBe('480p')
+    expect(out?.resolution).toBe('1080p')
     expect(out?.video_url).toBe('https://files.example.com/clip-01.mp4')
   })
 
@@ -322,39 +339,46 @@ describe('buildMotionSubmitPayload — simulated form → gateway body', () => {
     }
   )
   it.each(['motion', 'replace'] as const)(
-    'preserves 3:4 at 480p but never silently changes it at 720p for %s',
+    'preserves extended aspect ratios at 1080p and refuses retired resolutions for %s',
     (mode) => {
-      const raw = {
-        ...UPLOADED.video.metadata.browserMetadata,
-        width: 960,
-        height: 1280,
+      for (const [ratio, width, height] of [
+        ['3:4', 960, 1280],
+        ['1:1', 1080, 1080],
+        ['4:3', 1280, 960],
+        ['21:9', 2520, 1080],
+      ] as const) {
+        const raw = {
+          ...UPLOADED.video.metadata.browserMetadata,
+          width,
+          height,
+        }
+        const video = {
+          ...UPLOADED.video,
+          metadata: {
+            ...UPLOADED.video.metadata,
+            browserMetadata: raw,
+            width,
+            height,
+            aspectRatio: ratio,
+          },
+        }
+        expect(
+          buildMotionSubmitPayload({
+            ...UPLOADED,
+            mode,
+            video,
+            resolution: '1080p',
+          })
+        ).toMatchObject({ aspect_ratio: ratio, duration_sec: 10, resolution: '1080p' })
+        expect(
+          buildMotionSubmitPayload({
+            ...UPLOADED,
+            mode,
+            video,
+            resolution: '720p',
+          })
+        ).toBeNull()
       }
-      const video = {
-        ...UPLOADED.video,
-        metadata: {
-          ...UPLOADED.video.metadata,
-          browserMetadata: raw,
-          width: 960,
-          height: 1280,
-          aspectRatio: '3:4' as const,
-        },
-      }
-      expect(
-        buildMotionSubmitPayload({
-          ...UPLOADED,
-          mode,
-          video,
-          resolution: '480p',
-        })
-      ).toMatchObject({ aspect_ratio: '3:4', duration_sec: 10 })
-      expect(
-        buildMotionSubmitPayload({
-          ...UPLOADED,
-          mode,
-          video,
-          resolution: '720p',
-        })
-      ).toBeNull()
     }
   )
   it.each([2, 3.999])(

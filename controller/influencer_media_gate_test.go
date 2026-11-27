@@ -53,7 +53,7 @@ func TestPrepareInfluencerMotionRejectsMissingOwnerBeforeMediaOrBilling(t *testi
 	reached := false
 	engine.POST("/pg/influencer/motion", PrepareInfluencerMotion, func(c *gin.Context) { reached = true; c.Status(http.StatusNoContent) })
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/pg/influencer/motion", strings.NewReader(`{"mode":"motion","resolution":"720p","duration_sec":5,"video_url":"https://files.omnimux.ai/videos/dance.mp4","subject_image_url":"https://files.omnimux.ai/images/subject.png"}`))
+	request := httptest.NewRequest(http.MethodPost, "/pg/influencer/motion", strings.NewReader(`{"mode":"motion","resolution":"1080p","duration_sec":5,"video_url":"https://files.omnimux.ai/videos/dance.mp4","subject_image_url":"https://files.omnimux.ai/images/subject.png"}`))
 	request.Header.Set("Content-Type", "application/json")
 	engine.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusUnauthorized, response.Code)
@@ -64,7 +64,7 @@ func TestPrepareInfluencerMotionNeverForwardsMutableOriginalURL(t *testing.T) {
 	response, probe := runMotionPrepare(t, validMotionRequest())
 	require.Equal(t, http.StatusNoContent, response.Code)
 	require.True(t, probe.reached)
-	assert.NotEqual(t, []any{motionTestVideo}, probe.body["videos"], "upstream must use the frozen object, not the original mutable URL")
+	assert.NotEqual(t, []any{motionTestVideo}, probe.body["video_urls"], "upstream must use the frozen object, not the original mutable URL")
 	assert.Equal(t, motionTestVideo, probe.meta["video_url"], "history retains the original material identity")
 }
 

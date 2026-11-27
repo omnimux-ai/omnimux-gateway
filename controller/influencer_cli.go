@@ -536,11 +536,11 @@ func GetInfluencerCLIOptions(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
 		"version": 1, "taxonomy": influencer.Taxonomy(), "taxonomy_etag": influencer.ETag(),
-		"defaults":         gin.H{"tier": "normal", "mode": "motion", "resolution": "480p", "aspect_ratio": "9:16", "wait_timeout_seconds": 600},
+		"defaults":         gin.H{"tier": "normal", "mode": "motion", "resolution": "1080p", "aspect_ratio": "9:16", "wait_timeout_seconds": 600},
 		"creation_enabled": influencerCLIWritesEnabled(),
 		"availability":     gin.H{"character": imageAvailable, "reference_image": referenceAvailable, "multiview": referenceAvailable},
 		"character":        gin.H{"types": []string{"normal", "freak", "total", "cats", "dogs"}, "aspect_ratio": "16:9", "max_brief_characters": 4000},
-		"video":            gin.H{"modes": []string{"motion", "replace"}, "resolutions": video, "min_seconds": 4, "max_seconds": 30, "min_images": 1, "max_images": 30, "max_prompt_characters": 4000, "preserves_reference_audio": true, "server_inspects_media": true},
+		"video":            gin.H{"modes": []string{"motion", "replace"}, "resolutions": video, "min_seconds": 4, "max_seconds": 30, "min_images": 1, "max_images": influencerMotionMaxImages, "max_prompt_characters": 4000, "preserves_reference_audio": true, "server_inspects_media": true},
 		"media":            gin.H{"reference_image_max_bytes": 5 * 1024 * 1024, "reference_image_mime_types": []string{"image/jpeg", "image/png", "image/webp"}, "video_containers": []string{"mp4", "mov"}, "video_codecs": []string{"h264", "hevc"}, "min_dimension": 300, "max_dimension": 6000, "min_pixels": 407696, "max_pixels": 8295044, "min_fps": 24, "max_fps": 60, "min_aspect_ratio": 0.4, "max_aspect_ratio": 2.5},
 	}})
 }

@@ -541,7 +541,7 @@ describe('real creation page style reference', () => {
                   subject_image_url: 'https://files.example/image.png',
                   video_url: 'https://files.example/video.mp4',
                   duration_sec: 8,
-                  resolution: '720p',
+                  resolution: '1080p',
                   size: '16:9',
                 }
               : {
@@ -731,7 +731,7 @@ describe('real creation page style reference', () => {
               subject_image_url: 'https://files.example/image.png',
               video_url: 'https://files.example/video.mp4',
               duration_sec: 8,
-              resolution: '720p',
+              resolution: '1080p',
               size: '16:9',
             }
           : {

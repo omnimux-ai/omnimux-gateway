@@ -21,7 +21,10 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
-import { useMotionPreferencesStore } from '@/stores/motion-preferences-store'
+import {
+  DEFAULT_MOTION_RESOLUTION,
+  useMotionPreferencesStore,
+} from '@/stores/motion-preferences-store'
 
 import type { MotionSubmitBody } from '../api'
 import { toastInfluencerError } from '../lib/error-copy'
@@ -46,11 +49,14 @@ import { useCharacterUploads } from './use-character-uploads'
 import { useUploadLibrary } from './use-upload-library'
 import { useVideoReferenceSelection } from './use-video-reference-selection'
 
-/** Free-tier callers are limited to the lower rung; the switch still shows both. */
-export const MOTION_RESOLUTIONS = ['480p', '720p']
+/** Output tiers exposed by the workbench video backend. */
+export const MOTION_RESOLUTIONS = ['1080p']
+
+/** Motion transfer and object swap share this per-request reference ceiling. */
+export const MOTION_MAX_IMAGES = 10
 
 /** The planner accepts at most this many reference images, in upload order. */
-export const RECREATE_MAX_IMAGES = 30
+export const RECREATE_MAX_IMAGES = 10
 
 /** The planner treats the caller's intent as context, not a provider parameter. */
 export const RECREATE_INTENT_MAX_RUNES = 1200
@@ -294,9 +300,12 @@ export function useMotion() {
     [cancelVideoSelection, video, characters, prompt, promptEnabled]
   )
 
-  /** All three modes now share the 30-reference ceiling. */
+  /** All three modes now share the 10-reference ceiling. */
   const imageLimit = useCallback(
-    () => (currentMode.current === 'recreate' ? RECREATE_MAX_IMAGES : 30),
+    () =>
+      currentMode.current === 'recreate'
+        ? RECREATE_MAX_IMAGES
+        : MOTION_MAX_IMAGES,
     []
   )
 
@@ -319,7 +328,8 @@ export function useMotion() {
    */
   const addUploadedCharacter = useCallback((source: MotionCharacterSource) => {
     const target = characterTargetMode.current
-    const limit = target === 'recreate' ? RECREATE_MAX_IMAGES : 30
+    const limit =
+      target === 'recreate' ? RECREATE_MAX_IMAGES : MOTION_MAX_IMAGES
     const append = (prev: MotionCharacterSource[]) => {
       if (prev.length >= limit) return prev
       if (prev.some((c) => c.url === source.url)) return prev
@@ -551,7 +561,7 @@ export function useMotion() {
             : undefined,
         },
         body.mode,
-        body.resolution
+        DEFAULT_MOTION_RESOLUTION
       )
       if (!accepted) return false
       cancelCharacterUploads()
@@ -568,12 +578,14 @@ export function useMotion() {
       const urls = body.subject_image_urls?.length
         ? body.subject_image_urls
         : [body.subject_image_url]
-      const restoredCharacters = urls.slice(0, 30).map((url, index) => ({
-        url,
-        fileName: url.split('/').pop()?.split('?')[0] || 'image',
-        characterType: index === 0 ? body.subject_character_type : undefined,
-        sourceTaskId: index === 0 ? body.source_task_id : undefined,
-      }))
+      const restoredCharacters = urls
+        .slice(0, MOTION_MAX_IMAGES)
+        .map((url, index) => ({
+          url,
+          fileName: url.split('/').pop()?.split('?')[0] || 'image',
+          characterType: index === 0 ? body.subject_character_type : undefined,
+          sourceTaskId: index === 0 ? body.source_task_id : undefined,
+        }))
       setCharacters(restoredCharacters)
       if (body.mode === 'recreate') {
         setRecreateIntentPromptState(body.prompt)
@@ -588,7 +600,7 @@ export function useMotion() {
         prompt: body.prompt,
         promptEnabled: Boolean(body.prompt),
       }
-      setStoredResolution(body.resolution)
+      setStoredResolution(DEFAULT_MOTION_RESOLUTION)
       return true
     },
     [
@@ -632,7 +644,7 @@ export function useMotion() {
     recreateIntentPromptEnabled,
   ])
 
-  /** Recreate uses the first thirty references, in upload order. */
+  /** Recreate uses the first ten references, in upload order. */
   const recreateImages = useMemo(
     () => characters.slice(0, RECREATE_MAX_IMAGES),
     [characters]
