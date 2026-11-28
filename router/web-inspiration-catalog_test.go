@@ -251,3 +251,135 @@ func TestInspirationDynamicSitemapMergeAndMiddleware(t *testing.T) {
 	require.Equal(t, http.StatusOK, headResp.Code)
 	assert.Empty(t, headResp.Body.String())
 }
+
+func TestInspirationModelCategoryHygieneAndCrossLinks(t *testing.T) {
+	prevExists := inspirationPricingModelExists
+	t.Cleanup(func() { inspirationPricingModelExists = prevExists })
+	inspirationPricingModelExists = func(modelID string) bool {
+		return modelID != "nano-banana-pro"
+	}
+
+	dirtyManifest := `{
+  "version": 1,
+  "generatedAt": "2026-10-01T15:07:07.254Z",
+  "pageSize": 48,
+  "total": 4000,
+  "zones": [
+    {
+      "id": "seedance-2.5",
+      "label": "Seedance 2.5",
+      "mediaType": "video",
+      "count": 1933,
+      "categories": ["cinematic-showcase", "电影级场景展示", "short-film", "短片", "品牌 / 产品广告", "社区精选", "未收录临时标签"]
+    },
+    {
+      "id": "gpt-image-2",
+      "label": "GPT Image 2",
+      "mediaType": "image",
+      "count": 29507,
+      "categories": ["uncategorized", "社交媒体帖子", "social-media-post", "产品营销", "poster-flyer"]
+    },
+    {
+      "id": "nano-banana-pro",
+      "label": "Nano Banana Pro",
+      "mediaType": "image",
+      "count": 23730,
+      "categories": ["uncategorized", "未分类", "Co-branding Ads", "unmapped-new-slug", "首帧控制"]
+    },
+    {
+      "id": "grok-imagine",
+      "label": "Grok Imagine",
+      "mediaType": "video",
+      "count": 1615,
+      "categories": ["Very Long Synthetic Category Name One", "Very Long Synthetic Category Name Two", "Very Long Synthetic Category Name Three", "动画"]
+    },
+    {
+      "id": "claude-opus-5.5",
+      "label": "Claude zone",
+      "mediaType": "video",
+      "count": 277,
+      "categories": ["动效", "讲解", "3D", "交互"]
+    }
+  ]
+}`
+	withStubbedInspirationManifest(t, func(string) ([]byte, error) {
+		return []byte(dirtyManifest), nil
+	})
+	pages, err := buildWebSearchPages([]byte(searchPageTestShell), searchPageTestManifest(t))
+	require.NoError(t, err)
+	routes, err := buildWebAppRoutes([]byte(appRouteTestManifest))
+	require.NoError(t, err)
+	outer := gin.New()
+	outer.NoRoute(routes.serve(pages))
+
+	for _, tc := range []struct {
+		slug          string
+		wantContains  []string
+		wantAbsent    []string
+		wantPricing   string
+		wantBlogGuide string
+	}{
+		{
+			slug:          "seedance-2.5",
+			wantContains:  []string{"Cinematic showcase", "Short film", "Brand commercial", "Community showcase", "Model Capabilities on OmniMux"},
+			wantAbsent:    []string{"\u00b7", "uncategorized", "未收录临时标签", "电影级场景展示"},
+			wantPricing:   "https://omnimux.ai/pricing/seedance-2-5",
+			wantBlogGuide: "https://omnimux.ai/blog/seedance-2-5-prompting-timestamps-and-camera-guide",
+		},
+		{
+			slug:          "gpt-image-2",
+			wantContains:  []string{"Social media post", "Product marketing", "Poster &amp; flyer", "GPT Image 2.5 API Pricing"},
+			wantAbsent:    []string{"\u00b7", "uncategorized", "社交媒体帖子", "产品营销", "Model Capabilities on OmniMux"},
+			wantPricing:   "https://omnimux.ai/pricing/gpt-image-2.5",
+			wantBlogGuide: "https://omnimux.ai/blog/ecommerce-product-image-set-pdp-and-carousels",
+		},
+		{
+			slug:          "nano-banana-pro",
+			wantContains:  []string{"Co-branding Ads", "Unmapped new slug", "First-frame control", "image to image", "Model Capabilities on OmniMux"},
+			wantAbsent:    []string{"\u00b7", "uncategorized", "未分类", "PNG, JPEG", "https://omnimux.ai/pricing/nano-banana-"},
+			wantPricing:   "",
+			wantBlogGuide: "https://omnimux.ai/blog/ecommerce-product-image-set-pdp-and-carousels",
+		},
+		{
+			slug:          "grok-imagine",
+			wantContains:  []string{"Very Long Synthetic Category Name One", "Animation", "with examples on OmniMux"},
+			wantAbsent:    []string{"\u00b7", "Model Capabilities on OmniMux", "https://omnimux.ai/pricing/grok"},
+			wantPricing:   "",
+			wantBlogGuide: "https://omnimux.ai/blog/tiktok-shop-product-video-9-shot-framework",
+		},
+		{
+			slug:          "claude-opus-5.5",
+			wantContains:  []string{"Motion graphics", "Explainer", "3D", "Interactive"},
+			wantAbsent:    []string{"\u00b7", "动效", "讲解", "交互", "https://omnimux.ai/pricing/claude"},
+			wantPricing:   "",
+			wantBlogGuide: "https://omnimux.ai/blog/tiktok-shop-product-video-9-shot-framework",
+		},
+	} {
+		t.Run(tc.slug, func(t *testing.T) {
+			resp := performHostRequest(outer, http.MethodGet, "/inspiration/models/"+tc.slug, "omnimux.ai")
+			require.Equal(t, http.StatusOK, resp.Code)
+			body := resp.Body.String()
+			for _, w := range tc.wantContains {
+				assert.Contains(t, body, w)
+			}
+			for _, a := range tc.wantAbsent {
+				assert.NotContains(t, body, a)
+			}
+			assert.False(t, containsInspirationCJK(body), "inspiration HTML must contain zero CJK characters")
+			if tc.wantPricing != "" {
+				assert.Contains(t, body, tc.wantPricing)
+			}
+			assert.Contains(t, body, tc.wantBlogGuide)
+		})
+	}
+	assert.Equal(t, 1, strings.Count(
+		performHostRequest(outer, http.MethodGet, "/inspiration/models/seedance-2.5", "omnimux.ai").Body.String(),
+		"<li>Cinematic showcase</li>",
+	))
+
+	// When nano-banana-pro is available in gateway pricing, emit its exact canonical link.
+	inspirationPricingModelExists = func(modelID string) bool { return modelID == "nano-banana-pro" }
+	nbLive := performHostRequest(outer, http.MethodGet, "/inspiration/models/nano-banana-pro", "omnimux.ai")
+	require.Equal(t, http.StatusOK, nbLive.Code)
+	assert.Contains(t, nbLive.Body.String(), "https://omnimux.ai/pricing/nano-banana-pro")
+}
