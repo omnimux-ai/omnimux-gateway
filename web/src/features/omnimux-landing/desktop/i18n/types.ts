@@ -107,10 +107,6 @@ export type ToolPageCopy = {
   extractTranscript: string
   parsing: string
   verifying: string
-  /** `{remaining}` and `{limit}` are replaced. */
-  quotaAnon: string
-  /** `{remaining}` and `{limit}` are replaced. */
-  quotaUser: string
   turnstileAria: string
   unavailable: string
   downloadMp4: string

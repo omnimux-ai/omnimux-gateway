@@ -25,7 +25,7 @@ const EN_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: 'How many times can I use it per day?',
-    a: '5 times a day without an account and 50 times a day after signing in. The count resets at 00:00 UTC.',
+    a: 'Daily usage is limited to prevent abuse and resets at 00:00 UTC. Signing in provides a higher daily allowance.',
   },
   {
     q: 'Which links are supported?',
@@ -60,7 +60,7 @@ const EN_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: 'How many times can I use it per day?',
-    a: '5 times a day without an account and 50 times a day after signing in, shared across TikTok tools. The count resets at 00:00 UTC.',
+    a: 'Daily usage is limited and shared across TikTok tools to prevent abuse, resetting at 00:00 UTC. Signing in provides a higher daily allowance.',
   },
   {
     q: 'Which transcript export formats are supported?',

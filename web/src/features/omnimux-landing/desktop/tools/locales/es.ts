@@ -25,7 +25,7 @@ const ES_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: '¿Cuántas veces puedo usarlo al día?',
-    a: '5 veces al día sin cuenta y 50 veces al día tras iniciar sesión. El límite se reinicia a las 00:00 UTC.',
+    a: 'El uso diario está limitado para evitar abusos y se reinicia a las 00:00 UTC. Al iniciar sesión se obtiene una cuota diaria mayor.',
   },
   {
     q: '¿Qué enlaces son compatibles?',
@@ -60,7 +60,7 @@ const ES_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: '¿Cuántas veces puedo usarlo al día?',
-    a: '5 veces al día sin cuenta y 50 veces al día al iniciar sesión, compartidas entre las herramientas de TikTok. Se reinicia a las 00:00 UTC.',
+    a: 'El uso diario está limitado y se comparte entre las herramientas de TikTok para evitar abusos, reiniciándose a las 00:00 UTC. Al iniciar sesión se obtiene una cuota diaria mayor.',
   },
   {
     q: '¿Qué formatos de exportación admite?',

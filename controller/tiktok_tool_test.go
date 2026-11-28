@@ -140,7 +140,8 @@ func TestTikTokToolResolveRequiresTurnstilePassFirst(t *testing.T) {
 	download := gjson.GetBytes(recorder.Body.Bytes(), "data.video.download_url").String()
 	assert.True(t, strings.HasPrefix(download, "/api/tools/tiktok/file/video?"), download)
 	assert.NotContains(t, recorder.Body.String(), "tiktokcdn", "signed CDN URLs never reach the browser")
-	assert.Equal(t, int64(1), gjson.GetBytes(recorder.Body.Bytes(), "data.quota.used").Int())
+	assert.False(t, gjson.GetBytes(recorder.Body.Bytes(), "data.quota").Exists(), "quota counts must stay private")
+	assert.False(t, gjson.GetBytes(recorder.Body.Bytes(), "data.quota_exhausted").Bool())
 }
 
 func TestTikTokToolTurnstileFailsClosedAndRejectsReplay(t *testing.T) {
@@ -200,15 +201,36 @@ func TestTikTokToolQuotaCacheAndErrorsDoNotConsumeQuota(t *testing.T) {
 	assert.Equal(t, "wrong_kind_photo", tiktokToolCode(resolve("https://www.tiktok.com/@californiacore/photo/7671378797177998623", "video")))
 	assert.Equal(t, "unavailable", tiktokToolCode(resolve("https://www.tiktok.com/@someone/video/7400000000000000001", "video")))
 
-	require.Equal(t, http.StatusOK, resolve(video, "video").Code)
+	cfgBefore := tiktokToolRequest(t, GetTikTokToolConfig, http.MethodGet, "/api/tools/tiktok/config", "", cookies, 0)
+	require.Equal(t, http.StatusOK, cfgBefore.Code)
+	assert.False(t, gjson.GetBytes(cfgBefore.Body.Bytes(), "data.quota").Exists(), "config must not leak counts before exhaustion")
+	assert.False(t, gjson.GetBytes(cfgBefore.Body.Bytes(), "data.quota_exhausted").Bool(), "config must report not exhausted before daily limit")
+
+	first := resolve(video, "video")
+	require.Equal(t, http.StatusOK, first.Code)
+	assert.False(t, gjson.GetBytes(first.Body.Bytes(), "data.quota_exhausted").Bool(), "failures above did not exhaust daily limit of 2")
+	assert.False(t, gjson.GetBytes(first.Body.Bytes(), "data.quota").Exists())
 	second := resolve(video, "video")
 	require.Equal(t, http.StatusOK, second.Code)
 	assert.Equal(t, 2, *calls, "the second parse of the same post is served from cache")
-	assert.Equal(t, int64(2), gjson.GetBytes(second.Body.Bytes(), "data.quota.used").Int(), "failures above did not consume quota")
+	assert.True(t, gjson.GetBytes(second.Body.Bytes(), "data.quota_exhausted").Bool(), "second success hits daily limit of 2")
+	assert.False(t, gjson.GetBytes(second.Body.Bytes(), "data.quota").Exists())
 
 	third := resolve(video, "video")
 	assert.Equal(t, http.StatusTooManyRequests, third.Code)
 	assert.Equal(t, "quota_exceeded", tiktokToolCode(third))
+
+	cfgRec := tiktokToolRequest(t, GetTikTokToolConfig, http.MethodGet, "/api/tools/tiktok/config", "", cookies, 0)
+	require.Equal(t, http.StatusOK, cfgRec.Code)
+	assert.False(t, gjson.GetBytes(cfgRec.Body.Bytes(), "data.quota").Exists(), "config must not leak counts")
+	assert.True(t, gjson.GetBytes(cfgRec.Body.Bytes(), "data.quota_exhausted").Bool())
+
+	// Default daily allowances: anonymous 5, signed-in user 10.
+	t.Setenv("TIKTOK_TOOL_ANON_DAILY", "")
+	t.Setenv("TIKTOK_TOOL_USER_DAILY", "")
+	defaults := tiktokToolConfig()
+	assert.Equal(t, 5, defaults.anonDaily)
+	assert.Equal(t, 10, defaults.userDaily)
 }
 
 func TestTikTokToolRejectsCrossSiteAndBurst(t *testing.T) {

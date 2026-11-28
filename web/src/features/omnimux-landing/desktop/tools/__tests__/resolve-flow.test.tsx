@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LandingLangProvider } from '../../i18n'
@@ -64,7 +64,7 @@ function config(overrides: Record<string, unknown> = {}) {
         enabled: true,
         turnstile_site_key: 'site',
         pass_valid: true,
-        quota: { used: 0, limit: 5 },
+        quota_exhausted: false,
         logged_in: false,
         ...overrides,
       },
@@ -89,7 +89,7 @@ const videoResult = {
         preview_url: '/api/tools/tiktok/file/video?u=v',
         download_url: '/api/tools/tiktok/file/video?u=v&dl=1',
       },
-      quota: { used: 1, limit: 5 },
+      quota_exhausted: false,
     },
   },
 }
@@ -127,7 +127,9 @@ describe('TikTok tool resolve flow', () => {
     api.get.mockResolvedValue(config())
     api.post.mockResolvedValue(videoResult)
     renderForm()
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     submit(VIDEO_URL)
 
@@ -141,7 +143,8 @@ describe('TikTok tool resolve flow', () => {
       { url: VIDEO_URL, kind: 'video' },
       expect.anything()
     )
-    expect(await screen.findByText('4/5')).toBeInTheDocument()
+    expect(screen.queryByText(/\d+\/\d+/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/today/i)).not.toBeInTheDocument()
   })
 
   it('shows Turnstile on verification_required and retries resolve after the token is verified', async () => {
@@ -159,7 +162,9 @@ describe('TikTok tool resolve flow', () => {
         : Promise.resolve(videoResult)
     })
     renderForm()
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     submit(VIDEO_URL)
     await screen.findByTestId('turnstile')
@@ -180,7 +185,9 @@ describe('TikTok tool resolve flow', () => {
     api.get.mockResolvedValue(config())
     api.post.mockImplementation(() => rejectWith(400, 'invalid_link'))
     renderForm()
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     submit('https://www.youtube.com/watch?v=abc')
 
@@ -189,13 +196,41 @@ describe('TikTok tool resolve flow', () => {
   })
 
   it('disables Parse with a reason when today’s quota is used up', async () => {
-    api.get.mockResolvedValue(config({ quota: { used: 5, limit: 5 } }))
+    api.get.mockResolvedValue(config({ quota_exhausted: true }))
     renderForm()
 
     const parse = await screen.findByRole('button', { name: /parse/i })
     await waitFor(() => expect(parse).toHaveAttribute('aria-disabled', 'true'))
     expect(parse.getAttribute('title')).toBeTruthy()
     expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('disables Parse after resolve reports quota_exhausted without showing counts', async () => {
+    api.get.mockResolvedValue(config({ quota_exhausted: false }))
+    api.post.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          ...videoResult.data.data,
+          quota_exhausted: true,
+        },
+      },
+    })
+    renderForm()
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    submit(VIDEO_URL)
+
+    expect(
+      await screen.findByRole('link', { name: /download mp4/i })
+    ).toBeInTheDocument()
+    const parse = screen.getByRole('button', { name: /parse/i })
+    await waitFor(() => expect(parse).toHaveAttribute('aria-disabled', 'true'))
+    expect(parse.getAttribute('title')).toMatch(/used up/i)
+    expect(document.querySelector('#tool-quota')).toBeNull()
+    expect(screen.queryByText(/\d+\/\d+/)).not.toBeInTheDocument()
   })
 
   it('keeps a closed tool focusable and explains it on click', async () => {
@@ -219,7 +254,9 @@ describe('TikTok tool resolve flow', () => {
     api.get.mockResolvedValue(config({ pass_valid: true }))
     api.post.mockImplementation(() => rejectWith(503, 'unavailable_service'))
     renderForm()
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     submit(VIDEO_URL)
 
@@ -236,7 +273,9 @@ describe('TikTok tool resolve flow', () => {
       config({ pass_valid: false, turnstile_site_key: '' })
     )
     renderForm()
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     submit(VIDEO_URL)
 
@@ -298,7 +337,7 @@ describe('TikTok tool resolve flow', () => {
               },
             ],
           },
-          quota: { used: 1, limit: 5 },
+          quota_exhausted: false,
         },
       },
     })
@@ -328,7 +367,9 @@ describe('TikTok tool resolve flow', () => {
           <ToolForm kind='transcript' locale='en' />
         </LandingLangProvider>
       )
-      await screen.findByText('5/5')
+      await act(async () => {
+        await Promise.resolve()
+      })
       fireEvent.change(screen.getByRole('textbox'), {
         target: { value: VIDEO_URL },
       })
@@ -431,7 +472,7 @@ describe('TikTok tool resolve flow', () => {
             has_captions: false,
             tracks: [],
           },
-          quota: { used: 1, limit: 5 },
+          quota_exhausted: false,
         },
       },
     })
@@ -441,7 +482,9 @@ describe('TikTok tool resolve flow', () => {
         <ToolForm kind='transcript' locale='en' />
       </LandingLangProvider>
     )
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: VIDEO_URL },
     })
@@ -467,7 +510,9 @@ describe('TikTok tool resolve flow', () => {
         <ToolForm kind='transcript' locale='en' />
       </LandingLangProvider>
     )
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: VIDEO_URL },
     })

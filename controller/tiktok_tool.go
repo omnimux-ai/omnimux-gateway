@@ -77,7 +77,7 @@ func tiktokToolConfig() tiktokToolSettings {
 		siteKey:         strings.TrimSpace(common.GetEnvOrDefaultString("TIKTOK_TOOL_TURNSTILE_SITE_KEY", "")),
 		secretKey:       strings.TrimSpace(common.GetEnvOrDefaultString("TIKTOK_TOOL_TURNSTILE_SECRET_KEY", "")),
 		anonDaily:       max(1, common.GetEnvOrDefault("TIKTOK_TOOL_ANON_DAILY", 5)),
-		userDaily:       max(1, common.GetEnvOrDefault("TIKTOK_TOOL_USER_DAILY", 50)),
+		userDaily:       max(1, common.GetEnvOrDefault("TIKTOK_TOOL_USER_DAILY", 10)),
 		globalAnonDaily: max(1, common.GetEnvOrDefault("TIKTOK_TOOL_GLOBAL_ANON_DAILY", 3000)),
 		burstSeconds:    int64(max(1, common.GetEnvOrDefault("TIKTOK_TOOL_BURST_SECONDS", 10))),
 		allowedHosts:    tiktokToolAllowedHosts(),
@@ -585,7 +585,7 @@ func GetTikTokToolConfig(c *gin.Context) {
 		"enabled":            settings.enabled && settings.channelID > 0,
 		"turnstile_site_key": settings.siteKey,
 		"pass_valid":         tiktokToolPassValid(c, now),
-		"quota":              gin.H{"used": min(used, int64(limit)), "limit": limit},
+		"quota_exhausted":    used >= int64(limit),
 		"logged_in":          c.GetInt("id") > 0,
 	}})
 }
@@ -794,7 +794,7 @@ func ResolveTikTokTool(c *gin.Context) {
 		"kind": body.Kind, "id": post.id,
 		"author":      gin.H{"unique_id": post.uniqueID, "nickname": post.nickname},
 		"description": post.description, "created_at": post.createdAt,
-		"quota": gin.H{"used": min(used, int64(limit)), "limit": limit},
+		"quota_exhausted": used >= int64(limit),
 	}
 	if post.cover != "" {
 		data["cover_url"] = tiktokToolMediaPath(c, now, "image", post.cover, handle+"-"+post.id+"-cover"+tiktokImageExt(post.cover))

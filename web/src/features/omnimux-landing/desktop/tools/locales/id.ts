@@ -25,7 +25,7 @@ const ID_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: 'Berapa kali bisa dipakai setiap hari?',
-    a: '5 kali per hari tanpa akun dan 50 kali per hari setelah masuk. Kuota diatur ulang pukul 00:00 UTC.',
+    a: 'Pemakaian harian dibatasi untuk mencegah penyalahgunaan dan diatur ulang pukul 00:00 UTC. Masuk ke akun memberikan kuota harian yang lebih tinggi.',
   },
   {
     q: 'Tautan apa saja yang didukung?',
@@ -60,7 +60,7 @@ const ID_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: 'Berapa kali pemakaian harian yang tersedia?',
-    a: '5 kali per hari tanpa akun dan 50 kali per hari setelah masuk, berbagi kuota antar alat TikTok dan diatur ulang setiap 00:00 UTC.',
+    a: 'Pemakaian harian dibatasi dan berbagi kuota antar alat TikTok untuk mencegah penyalahgunaan, serta diatur ulang setiap 00:00 UTC. Masuk ke akun memberikan kuota harian yang lebih tinggi.',
   },
   {
     q: 'Format ekspor transkrip apa yang didukung?',

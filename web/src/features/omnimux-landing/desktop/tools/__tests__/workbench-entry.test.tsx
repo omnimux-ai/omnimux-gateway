@@ -70,7 +70,7 @@ const base = {
   description: '',
   created_at: 1739404800,
   cover_url: '',
-  quota: { used: 1, limit: 5 },
+  quota_exhausted: false,
 }
 
 const videoResult = {

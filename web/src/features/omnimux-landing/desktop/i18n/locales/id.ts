@@ -1011,8 +1011,6 @@ export const id: LandingCopy = {
     extractTranscript: 'Ambil transkrip',
     parsing: 'Mengurai',
     verifying: 'Memverifikasi',
-    quotaAnon: 'Hari ini {remaining}/{limit}',
-    quotaUser: 'Hari ini {remaining}/{limit}',
     turnstileAria: 'Verifikasi Cloudflare',
     unavailable: 'Sementara tidak tersedia',
     downloadMp4: 'Unduh MP4',
