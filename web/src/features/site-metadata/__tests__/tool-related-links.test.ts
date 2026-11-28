@@ -7,7 +7,7 @@ import {
 } from '../../omnimux-landing/desktop/tools/content'
 
 const TOOL_KINDS: ToolKind[] = ['video', 'photo', 'transcript']
-const TOOL_LOCALES: ToolLocale[] = ['en', 'zh-CN']
+const TOOL_LOCALES: ToolLocale[] = ['en', 'zh-CN', 'zh-TW', 'ja', 'es', 'id']
 
 describe('tool page related links', () => {
   it('does not point related links at /influencer', () => {

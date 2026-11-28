@@ -886,15 +886,15 @@ export const zhTW: LandingCopy = {
         links: [
           {
             label: 'TikTok 影片下載',
-            href: '/zh/tools/tiktok-video-downloader',
+            href: '/zh-tw/tools/tiktok-video-downloader',
           },
           {
             label: 'TikTok 圖文下載',
-            href: '/zh/tools/tiktok-photo-downloader',
+            href: '/zh-tw/tools/tiktok-photo-downloader',
           },
           {
             label: 'TikTok 字幕提取',
-            href: '/zh/tools/tiktok-transcript-generator',
+            href: '/zh-tw/tools/tiktok-transcript-generator',
           },
           { label: '商品生影片', href: '#tools' },
           { label: '爆款複刻', href: '#tools' },

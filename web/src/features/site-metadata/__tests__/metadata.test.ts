@@ -109,17 +109,53 @@ describe('public page metadata', () => {
       brand.siteUrl,
       '2026-11-10'
     )
+    expect(sitemap).toContain(
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+    )
     const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
       (match) => match[1]
     )
     expect(urls).toEqual(
       Object.keys(fullManifest.pages).map((path) => `${brand.siteUrl}${path}`)
     )
-    expect(urls).toHaveLength(31)
+    expect(urls).toHaveLength(43)
     expect(sitemap).not.toContain('/influencer')
     expect([
+      ...sitemap.matchAll(/<lastmod>2026-11-10<\/lastmod>/g),
+    ]).toHaveLength(43)
+    expect([
       ...sitemap.matchAll(/<lastmod>2026-11-10<\/lastmod><\/url>/g),
-    ]).toHaveLength(31)
+    ]).toHaveLength(13)
+
+    const urlBlocks = [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(
+      (match) => match[1]
+    )
+    expect(urlBlocks).toHaveLength(43)
+    const multiLocaleBlocks = urlBlocks.filter((block) =>
+      block.includes('<xhtml:link')
+    )
+    expect(multiLocaleBlocks).toHaveLength(30)
+    for (const block of multiLocaleBlocks) {
+      const hreflangs = [
+        ...block.matchAll(
+          /<xhtml:link rel="alternate" hreflang="([^"]+)" href="https:\/\/omnimux\.ai[^"]+" \/>/g
+        ),
+      ].map((match) => match[1])
+      expect(hreflangs).toEqual([
+        'en',
+        'zh-Hans',
+        'zh-Hant',
+        'ja',
+        'es',
+        'id',
+        'x-default',
+      ])
+    }
+
+    const browserManifest = browserSearchPageManifest(manifest)
+    expect(
+      'alternates' in browserManifest.pages['/tools/tiktok-video-downloader']
+    ).toBe(false)
   })
 
   it('states no subscription and paid trial packs on the homepage', () => {
@@ -295,10 +331,22 @@ describe('public page metadata', () => {
       '/inspiration/tiktok',
       '/tools/tiktok-video-downloader',
       '/zh/tools/tiktok-video-downloader',
+      '/zh-tw/tools/tiktok-video-downloader',
+      '/ja/tools/tiktok-video-downloader',
+      '/es/tools/tiktok-video-downloader',
+      '/id/tools/tiktok-video-downloader',
       '/tools/tiktok-photo-downloader',
       '/zh/tools/tiktok-photo-downloader',
+      '/zh-tw/tools/tiktok-photo-downloader',
+      '/ja/tools/tiktok-photo-downloader',
+      '/es/tools/tiktok-photo-downloader',
+      '/id/tools/tiktok-photo-downloader',
       '/tools/tiktok-transcript-generator',
       '/zh/tools/tiktok-transcript-generator',
+      '/zh-tw/tools/tiktok-transcript-generator',
+      '/ja/tools/tiktok-transcript-generator',
+      '/es/tools/tiktok-transcript-generator',
+      '/id/tools/tiktok-transcript-generator',
       '/cli',
       '/zh/cli',
       '/zh-tw/cli',
@@ -329,7 +377,7 @@ describe('public page metadata', () => {
       expect(page.summary).not.toMatch(/\bhidden\b|display:\s*none/)
       expect(page.summary).not.toContain('undefined')
     }
-    expect(titles.size).toBe(28)
+    expect(titles.size).toBe(40)
     expect(manifest.pages['/about'].summary).toContain(PRODUCT_DESCRIPTION)
     expect(manifest.pages['/about'].summary).not.toContain(
       'Put your character in any trend'
@@ -373,23 +421,52 @@ describe('public page metadata', () => {
     expect(page.summary).not.toContain(' · /inspiration')
   })
 
-  it('links every TikTok tool page to its language alternates and publishes its FAQ', () => {
-    const paths = {
-      video: [
-        '/tools/tiktok-video-downloader',
-        '/zh/tools/tiktok-video-downloader',
-      ],
-      photo: [
-        '/tools/tiktok-photo-downloader',
-        '/zh/tools/tiktok-photo-downloader',
-      ],
-      transcript: [
-        '/tools/tiktok-transcript-generator',
-        '/zh/tools/tiktok-transcript-generator',
-      ],
+  it('links every TikTok tool page to its six language alternates and publishes its FAQ', () => {
+    const groups = {
+      video: {
+        en: '/tools/tiktok-video-downloader',
+        'zh-Hans': '/zh/tools/tiktok-video-downloader',
+        'zh-Hant': '/zh-tw/tools/tiktok-video-downloader',
+        ja: '/ja/tools/tiktok-video-downloader',
+        es: '/es/tools/tiktok-video-downloader',
+        id: '/id/tools/tiktok-video-downloader',
+      },
+      photo: {
+        en: '/tools/tiktok-photo-downloader',
+        'zh-Hans': '/zh/tools/tiktok-photo-downloader',
+        'zh-Hant': '/zh-tw/tools/tiktok-photo-downloader',
+        ja: '/ja/tools/tiktok-photo-downloader',
+        es: '/es/tools/tiktok-photo-downloader',
+        id: '/id/tools/tiktok-photo-downloader',
+      },
+      transcript: {
+        en: '/tools/tiktok-transcript-generator',
+        'zh-Hans': '/zh/tools/tiktok-transcript-generator',
+        'zh-Hant': '/zh-tw/tools/tiktok-transcript-generator',
+        ja: '/ja/tools/tiktok-transcript-generator',
+        es: '/es/tools/tiktok-transcript-generator',
+        id: '/id/tools/tiktok-transcript-generator',
+      },
     }
-    for (const [en, zh] of Object.values(paths)) {
-      for (const path of [en, zh]) {
+    const expectedOgLocale: Record<string, string> = {
+      en: 'en_US',
+      'zh-Hans': 'zh_CN',
+      'zh-Hant': 'zh_TW',
+      ja: 'ja_JP',
+      es: 'es_ES',
+      id: 'id_ID',
+    }
+    for (const paths of Object.values(groups)) {
+      const expectedAlternates = {
+        ...Object.fromEntries(
+          Object.entries(paths).map(([lang, p]) => [
+            lang,
+            `https://omnimux.ai${p}`,
+          ])
+        ),
+        'x-default': `https://omnimux.ai${paths.en}`,
+      }
+      for (const [hreflang, path] of Object.entries(paths)) {
         const page = manifest.pages[path]
         const head = new DOMParser().parseFromString(page.head, 'text/html')
         const alternates = Object.fromEntries(
@@ -398,15 +475,20 @@ describe('public page metadata', () => {
             link.getAttribute('href'),
           ])
         )
-        expect(alternates).toEqual({
-          en: `https://omnimux.ai${en}`,
-          'zh-Hans': `https://omnimux.ai${zh}`,
-          'x-default': `https://omnimux.ai${en}`,
-        })
+        expect(alternates).toEqual(expectedAlternates)
+        expect(
+          head
+            .querySelector('meta[property="og:locale"]')
+            ?.getAttribute('content')
+        ).toBe(expectedOgLocale[hreflang])
+        expect(head.title.length).toBeLessThanOrEqual(60)
+        if (hreflang !== 'en' && hreflang !== 'zh-Hans') {
+          expect(Buffer.byteLength(head.title, 'utf8')).toBeLessThanOrEqual(60)
+        }
         const graph = JSON.parse(
           head.querySelector('script[type="application/ld+json"]')
             ?.textContent ?? '{}'
-        ) as { '@graph': { '@type': string; mainEntity?: unknown[] }[] }
+        ) as { '@graph': Record<string, unknown>[] }
         const types = graph['@graph'].map((node) => node['@type'])
         expect(types).toEqual([
           'WebPage',
@@ -414,10 +496,18 @@ describe('public page metadata', () => {
           'WebApplication',
           'FAQPage',
         ])
-        const faq = graph['@graph'][3].mainEntity ?? []
+        expect(graph['@graph'][2]).not.toHaveProperty('isAccessibleForFree')
+        expect(graph['@graph'][2]).not.toHaveProperty('offers')
+        const faq =
+          (graph['@graph'][3].mainEntity as unknown[] | undefined) ?? []
         expect(faq.length).toBeGreaterThan(0)
         expect(page.summary).toContain('<noscript>')
-        expect(page.head.toLowerCase()).not.toMatch(/watermark|无水印/)
+        expect(`${page.head}\n${page.summary}`.toLowerCase()).not.toMatch(
+          /watermark|无水印|無浮水印|ウォーターマーク|marca de agua|tanda air/
+        )
+        const mainHtml = page.summary.match(/<main>[\s\S]*<\/main>/)?.[0] ?? ''
+        expect(mainHtml.length).toBeGreaterThan(0)
+        expect(`${page.head}\n${mainHtml}`).not.toContain('\u00b7')
       }
     }
   })

@@ -928,15 +928,15 @@ export const id: LandingCopy = {
         links: [
           {
             label: 'Pengunduh Video TikTok',
-            href: '/tools/tiktok-video-downloader',
+            href: '/id/tools/tiktok-video-downloader',
           },
           {
             label: 'Pengunduh Foto TikTok',
-            href: '/tools/tiktok-photo-downloader',
+            href: '/id/tools/tiktok-photo-downloader',
           },
           {
             label: 'Transkrip TikTok',
-            href: '/tools/tiktok-transcript-generator',
+            href: '/id/tools/tiktok-transcript-generator',
           },
           { label: 'Produk ke video', href: '#tools' },
           { label: 'Buat ulang viral', href: '#tools' },

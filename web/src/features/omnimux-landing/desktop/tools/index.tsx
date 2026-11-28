@@ -37,6 +37,7 @@ import { LandingLangProvider, landingLangOption, useLanding } from '../i18n'
 import type { LandingLang } from '../i18n/types'
 import { ToolForm } from './components/tool-form'
 import {
+  TOOL_LOCALES,
   TOOL_PAGES,
   TOOL_PATHS,
   type ToolKind,
@@ -48,17 +49,10 @@ import { useViralRecreateEntry } from './lib/workbench-handoff'
 /** The related-links entry that falls back to the studio overview. */
 const STUDIO_FALLBACK_PATH = '/ai-influencer-studio'
 
-/** Tool pages exist only in English and Simplified Chinese. */
-const TOOL_LANGS: readonly LandingLang[] = ['en', 'zh-CN']
-
 const TOOL_DOWNLOAD_INTENT: DownloadCtaIntent = {
   cta_id: 'tool_result_download',
   cta_position: 'tool_result',
   cta_variant: 'inline',
-}
-
-function toolLocale(lang: LandingLang): ToolLocale {
-  return lang === 'zh-CN' || lang === 'zh-TW' ? 'zh-CN' : 'en'
 }
 
 export type TikTokToolPageProps = {
@@ -69,8 +63,9 @@ export type TikTokToolPageProps = {
 }
 
 /**
- * A TikTok downloader page. The URL decides the language: `/zh/tools/…`
- * renders zh-CN and `/tools/…` renders English, whatever was stored before.
+ * A TikTok tool page. The URL decides the language: `/zh/tools/…`,
+ * `/zh-tw/tools/…`, `/ja/tools/…`, `/es/tools/…`, `/id/tools/…`, and
+ * `/tools/…` (English), whatever was stored before.
  */
 export function TikTokToolPage(props: TikTokToolPageProps) {
   const navigate = useNavigate()
@@ -78,7 +73,7 @@ export function TikTokToolPage(props: TikTokToolPageProps) {
   const kind = props.kind
 
   const langHref = useCallback(
-    (next: LandingLang) => TOOL_PATHS[toolLocale(next)][kind],
+    (next: LandingLang) => TOOL_PATHS[next][kind],
     [kind]
   )
   const onLangChange = useCallback(
@@ -92,7 +87,7 @@ export function TikTokToolPage(props: TikTokToolPageProps) {
     <LandingLangProvider
       lang={pinned}
       onLangChange={onLangChange}
-      langs={TOOL_LANGS}
+      langs={TOOL_LOCALES}
       langHref={langHref}
     >
       <ToolPageView {...props} />

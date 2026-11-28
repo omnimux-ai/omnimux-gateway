@@ -148,9 +148,26 @@ export default defineConfig(({ envMode }) => {
                   ),
                 },
               }
+              const searchPagesManifest = {
+                ...manifest,
+                pages: Object.fromEntries(
+                  Object.entries(manifest.pages).map(([pagePath, page]) => [
+                    pagePath,
+                    {
+                      head: page.head,
+                      summary: page.summary,
+                      ...(page.documentHtml !== undefined
+                        ? { documentHtml: page.documentHtml }
+                        : {}),
+                    },
+                  ])
+                ),
+              }
               compilation.emitAsset(
                 'search-pages.json',
-                new compiler.webpack.sources.RawSource(JSON.stringify(manifest))
+                new compiler.webpack.sources.RawSource(
+                  JSON.stringify(searchPagesManifest)
+                )
               )
               compilation.emitAsset(
                 'sitemap.xml',

@@ -952,15 +952,15 @@ export const es: LandingCopy = {
         links: [
           {
             label: 'Descargador de vídeos de TikTok',
-            href: '/tools/tiktok-video-downloader',
+            href: '/es/tools/tiktok-video-downloader',
           },
           {
             label: 'Descargador de fotos de TikTok',
-            href: '/tools/tiktok-photo-downloader',
+            href: '/es/tools/tiktok-photo-downloader',
           },
           {
             label: 'Transcripción de TikTok',
-            href: '/tools/tiktok-transcript-generator',
+            href: '/es/tools/tiktok-transcript-generator',
           },
           { label: 'Producto a vídeo', href: '#tools' },
           { label: 'Recreación viral', href: '#tools' },

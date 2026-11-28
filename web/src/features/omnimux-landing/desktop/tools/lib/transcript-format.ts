@@ -119,6 +119,15 @@ function normalizeLanguageTag(track: ToolTranscriptTrack): string {
   return mapped
 }
 
+const TOOL_DISPLAY_LOCALE: Record<ToolLocale, string> = {
+  en: 'en',
+  'zh-CN': 'zh-Hans',
+  'zh-TW': 'zh-Hant',
+  ja: 'ja',
+  es: 'es',
+  id: 'id',
+}
+
 export function formatTrackLabel(
   track: ToolTranscriptTrack,
   locale: ToolLocale,
@@ -128,7 +137,7 @@ export function formatTrackLabel(
   let name = track.lang || track.language_code || tag
   if (tag !== 'und' && typeof Intl !== 'undefined' && Intl.DisplayNames) {
     try {
-      const displayLocale = locale === 'zh-CN' ? 'zh-Hans' : 'en'
+      const displayLocale = TOOL_DISPLAY_LOCALE[locale] ?? 'en'
       const resolved = new Intl.DisplayNames([displayLocale], {
         type: 'language',
       }).of(tag)
@@ -140,22 +149,30 @@ export function formatTrackLabel(
   return track.is_auto_generated ? `${name} (${autoLabel})` : name
 }
 
+const PREFERRED_TRACK_PREFIXES: Partial<Record<ToolLocale, readonly string[]>> =
+  {
+    'zh-TW': ['zh-hant', 'zh'],
+    'zh-CN': ['zh-hans', 'zh'],
+  }
+
 export function pickDefaultTrackIndex(
   tracks: readonly ToolTranscriptTrack[],
   locale: ToolLocale
 ): number {
   if (tracks.length === 0) return 0
-  const preferredPrefix = locale === 'zh-CN' ? 'zh' : 'en'
-  const creatorPreferred = tracks.findIndex(
-    (track) =>
-      !track.is_auto_generated &&
+  const prefixes = PREFERRED_TRACK_PREFIXES[locale] ?? [locale]
+  for (const preferredPrefix of prefixes) {
+    const creatorPreferred = tracks.findIndex(
+      (track) =>
+        !track.is_auto_generated &&
+        normalizeLanguageTag(track).toLowerCase().startsWith(preferredPrefix)
+    )
+    if (creatorPreferred >= 0) return creatorPreferred
+    const anyPreferred = tracks.findIndex((track) =>
       normalizeLanguageTag(track).toLowerCase().startsWith(preferredPrefix)
-  )
-  if (creatorPreferred >= 0) return creatorPreferred
-  const anyPreferred = tracks.findIndex((track) =>
-    normalizeLanguageTag(track).toLowerCase().startsWith(preferredPrefix)
-  )
-  if (anyPreferred >= 0) return anyPreferred
+    )
+    if (anyPreferred >= 0) return anyPreferred
+  }
   const creatorFirst = tracks.findIndex((track) => !track.is_auto_generated)
   return creatorFirst >= 0 ? creatorFirst : 0
 }

@@ -927,15 +927,15 @@ export const ja: LandingCopy = {
         links: [
           {
             label: 'TikTok 動画ダウンローダー',
-            href: '/tools/tiktok-video-downloader',
+            href: '/ja/tools/tiktok-video-downloader',
           },
           {
             label: 'TikTok 写真ダウンローダー',
-            href: '/tools/tiktok-photo-downloader',
+            href: '/ja/tools/tiktok-photo-downloader',
           },
           {
             label: 'TikTok 字幕抽出',
-            href: '/tools/tiktok-transcript-generator',
+            href: '/ja/tools/tiktok-transcript-generator',
           },
           { label: '商品から動画', href: '#tools' },
           { label: 'バズ動画の再現', href: '#tools' },

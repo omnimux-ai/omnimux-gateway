@@ -735,11 +735,19 @@ describe('tool_cta_click', () => {
     { cta_variant: 'strong' },
     { placement: 'hero' },
     { tool: 'audio' },
-    { locale: 'ja' },
+    { locale: 'fr' },
   ])('drops the event for an out-of-enum field %o', (bad) => {
     trackToolCtaClick({ ...click, ...bad } as unknown as ToolCtaClick)
     expect(tracker).not.toHaveBeenCalled()
   })
+
+  it.each(['en', 'zh-CN', 'zh-TW', 'ja', 'es', 'id'] as const)(
+    'records tool_cta click for supported locale %s',
+    (locale) => {
+      trackToolCtaClick({ ...click, locale })
+      expect(tracker).toHaveBeenCalledTimes(1)
+    }
+  )
 
   it('does not copy extra keys such as a pasted link', () => {
     trackToolCtaClick({
