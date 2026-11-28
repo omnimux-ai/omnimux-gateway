@@ -49,6 +49,7 @@ export const zhTW: LandingCopy = {
     resourcesMenu: {
       aria: '資源選單',
       inspiration: '靈感社群',
+      blog: '部落格',
       docs: '開發文件',
     },
     account: {
@@ -796,6 +797,7 @@ export const zhTW: LandingCopy = {
         links: [
           { label: '文件', href: docsQuickstartUrl('zh-TW'), external: true },
           { label: '教學', href: '/guides', external: true },
+          { label: '部落格', href: '/blog', external: true },
           {
             label: '服務狀態',
             href: 'https://status.omnimux.ai',

@@ -57,6 +57,7 @@ export function LandingFooter(props: { containerClassName?: string } = {}) {
 
   const links: FooterLink[] = [
     { label: t('Guides'), href: '/guides', fullPage: true },
+    { label: t('Blog'), href: '/blog', fullPage: true },
     { label: t('About'), href: '/about' },
     {
       label: t('Documentation'),

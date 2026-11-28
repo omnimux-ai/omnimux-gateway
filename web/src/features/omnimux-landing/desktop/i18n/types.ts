@@ -176,6 +176,7 @@ export interface LandingCopy {
     resourcesMenu: {
       aria: string
       inspiration: string
+      blog: string
       docs: string
     }
     account: {

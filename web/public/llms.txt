@@ -17,6 +17,7 @@ Pay-per-generation credits with volume top-up discounts are the billing model. N
 - [Pricing](https://omnimux.ai/pricing): model generation rates and credit top-ups
 - [Inspiration](https://omnimux.ai/inspiration): community gallery of characters, prompts, and recreated videos
 - [Guides](https://omnimux.ai/guides): English step-by-step walkthroughs
+- [Blog](https://omnimux.ai/blog): multilingual guides, benchmarks, and product video workflows
 - [TikTok Video Downloader](https://omnimux.ai/tools/tiktok-video-downloader): save a public TikTok video as MP4, then recreate the post as an AI product video in OmniMux ([中文](https://omnimux.ai/zh/tools/tiktok-video-downloader))
 - [TikTok Photo Downloader](https://omnimux.ai/tools/tiktok-photo-downloader): save the images of a public TikTok photo post in order, then recreate the post as an AI product video in OmniMux ([中文](https://omnimux.ai/zh/tools/tiktok-photo-downloader))
 - [Privacy](https://omnimux.ai/privacy)

@@ -1128,6 +1128,7 @@
     "Block email aliases (e.g., user+alias@domain.com)": "Блокировать псевдонимы email (например, user+alias@domain.com)",
     "Blocked keywords": "Заблокированные ключевые слова",
     "Blocks messages when sensitive keywords are detected.": "Блокирует сообщения при обнаружении конфиденциальных ключевых слов.",
+    "Blog": "Блог",
     "Blonde": "Светлый блонд",
     "Blue": "Синий",
     "Blush": "Румянец",

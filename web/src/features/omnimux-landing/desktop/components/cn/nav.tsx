@@ -129,13 +129,30 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
     },
   ]
   const resourcesMenu = nav.resourcesMenu
-  // The two resource destinations used to sit only in the footer. The header
+  const blogPaths: Partial<Record<AgentLocale, string>> = {
+    'zh-CN': '/blog/zh',
+    ja: '/blog/ja',
+  }
+  const blogHref = blogPaths[lang] ?? '/blog'
+  // The resource destinations used to sit only in the footer. The header
   // now carries them so they are reachable without scrolling to the bottom.
-  const resourceLinks = [
+  const resourceLinks: {
+    href: string
+    label: string
+    icon: IconName
+    external?: boolean
+    fullPage?: boolean
+  }[] = [
     {
       href: '/inspiration',
       label: resourcesMenu.inspiration,
       icon: 'bulb' as IconName,
+    },
+    {
+      href: blogHref,
+      label: resourcesMenu.blog,
+      icon: 'mark' as IconName,
+      fullPage: true,
     },
     {
       href: docsQuickstartUrl(lang),
@@ -263,15 +280,21 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
                             aria-label={resourcesMenu.aria}
                           >
                             {resourceLinks.map((item) =>
-                              item.external ? (
+                              item.external || item.fullPage ? (
                                 <MenuPrimitive.Item
                                   key={item.href}
                                   className='cn-item'
                                   render={
                                     <a
                                       href={item.href}
-                                      target='_blank'
-                                      rel='noopener noreferrer'
+                                      target={
+                                        item.external ? '_blank' : undefined
+                                      }
+                                      rel={
+                                        item.external
+                                          ? 'noopener noreferrer'
+                                          : undefined
+                                      }
                                     >
                                       <Icon name={item.icon} />
                                       {item.label}
@@ -357,12 +380,12 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
               <div className='sheet-group' key={link.key}>
                 <span className='sheet-group-h'>{linkLabel(link.key)}</span>
                 {resourceLinks.map((item) =>
-                  item.external ? (
+                  item.external || item.fullPage ? (
                     <a
                       key={item.href}
                       href={item.href}
-                      target='_blank'
-                      rel='noopener noreferrer'
+                      target={item.external ? '_blank' : undefined}
+                      rel={item.external ? 'noopener noreferrer' : undefined}
                       onClick={() => setSheetOpen(false)}
                     >
                       {item.label}
