@@ -79,6 +79,7 @@ interface ChatwootController {
   desiredUser: ChatwootUserProfile | null
   identifiedUserId: string | null
   identifiedKey: string | null
+  themeObserver: MutationObserver | null
   onReady: () => void
   onMessage: (event: MessageEvent) => void
 }
@@ -93,7 +94,111 @@ interface ChatwootWindow extends Window {
 const CHATWOOT_CONFIG_SELECTOR = '#omnimux-chatwoot-config'
 const CHATWOOT_SCRIPT_ID = 'chatwoot-sdk-script'
 const CHATWOOT_SCRIPT_SELECTOR = `#${CHATWOOT_SCRIPT_ID}`
+const CHATWOOT_HOST_STYLE_ID = 'omnimux-chatwoot-host-style'
+const CHATWOOT_HOST_STYLE_SELECTOR = `#${CHATWOOT_HOST_STYLE_ID}`
+const CHATWOOT_WIDGET_IFRAME_SELECTOR = '#chatwoot_live_chat_widget'
 const CHATWOOT_MESSAGE_PREFIX = 'chatwoot-widget:'
+
+const CHATWOOT_HOST_STYLES = `
+.woot-widget-bubble {
+  background: #6757e7;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.14) !important;
+}
+.woot-widget-bubble:active {
+  transform: scale(0.96);
+}
+html.light .woot-widget-bubble {
+  box-shadow:
+    0 10px 24px rgba(103, 87, 231, 0.28),
+    0 0 0 1px rgba(103, 87, 231, 0.22) !important;
+}
+@media only screen and (min-width: 668px) {
+  .woot-widget-holder:not(.has-unread-view) {
+    background: #0a0a0b;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    bottom: 92px;
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.62),
+      0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  }
+  html.light .woot-widget-holder:not(.has-unread-view) {
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.14) !important;
+  }
+  .woot-widget-bubble:not(.woot-widget--expanded) {
+    width: 56px;
+    height: 56px;
+  }
+}
+@media only screen and (max-width: 667px) {
+  .woot-widget-holder:not(.has-unread-view) {
+    border: 0;
+    border-radius: 0;
+  }
+  .woot-widget-bubble:not(.woot-widget--expanded) {
+    width: 52px;
+    height: 52px;
+  }
+}
+`.trim()
+
+function ensureChatwootHostStyle(): void {
+  if (typeof document === 'undefined') return
+  if (document.querySelector(CHATWOOT_HOST_STYLE_SELECTOR)) return
+  const style = document.createElement('style')
+  style.id = CHATWOOT_HOST_STYLE_ID
+  style.textContent = CHATWOOT_HOST_STYLES
+  const target = document.head ?? document.body
+  target?.append(style)
+}
+
+function resolveColorScheme(
+  configuredMode: ChatwootDarkMode
+): 'dark' | 'light' {
+  if (configuredMode === 'light') return 'light'
+  if (configuredMode === 'dark') return 'dark'
+  if (typeof document !== 'undefined') {
+    const classes = document.documentElement.classList
+    if (classes.contains('light') && !classes.contains('dark')) {
+      return 'light'
+    }
+  }
+  return 'dark'
+}
+
+function applyColorSchemeToWidget(controller: ChatwootController): void {
+  const win = window as ChatwootWindow
+  const scheme = resolveColorScheme(controller.config.darkMode)
+  if (win.$chatwoot) {
+    win.$chatwoot.darkMode = scheme
+  }
+  if (win.chatwootSettings) {
+    win.chatwootSettings.darkMode = scheme
+  }
+  if (!controller.ready || controller.resetPending) return
+  try {
+    if (typeof win.$chatwoot?.setColorScheme === 'function') {
+      win.$chatwoot.setColorScheme(scheme)
+      return
+    }
+    const iframe = document.querySelector<HTMLIFrameElement>(
+      CHATWOOT_WIDGET_IFRAME_SELECTOR
+    )
+    iframe?.contentWindow?.postMessage(
+      `${CHATWOOT_MESSAGE_PREFIX}${JSON.stringify({
+        event: 'set-color-scheme',
+        darkMode: scheme,
+      })}`,
+      controller.baseOrigin
+    )
+  } catch {
+    // Ignore transient widget frame errors.
+  }
+}
 
 function normalizeChatwootBaseURL(raw?: string | null): string | null {
   const trimmed = raw?.trim()
@@ -273,9 +378,11 @@ function triggerWidgetReset(controller: ChatwootController): void {
   delete widget.user
   delete widget.identifier
   widget.locale = controller.locale
-  widget.darkMode = controller.config.darkMode
+  const nextScheme = resolveColorScheme(controller.config.darkMode)
+  widget.darkMode = nextScheme
   if (win.chatwootSettings) {
     win.chatwootSettings.locale = controller.locale
+    win.chatwootSettings.darkMode = nextScheme
   }
 
   controller.resetEpoch += 1
@@ -296,12 +403,13 @@ function loadChatwootSdk(controller: ChatwootController): void {
     return
   }
 
+  ensureChatwootHostStyle()
   const win = window as ChatwootWindow
   win.chatwootSettings = {
     hideMessageBubble: false,
     position: 'right',
     type: 'standard',
-    darkMode: controller.config.darkMode,
+    darkMode: resolveColorScheme(controller.config.darkMode),
     locale: controller.locale,
     useBrowserLanguage: false,
     showPopoutButton: false,
@@ -371,6 +479,7 @@ export function initChatwoot(options?: { locale?: string | null }): void {
   const config = readChatwootConfig()
   if (!config) return
 
+  ensureChatwootHostStyle()
   const win = window as ChatwootWindow
   let controller = win.__OMNIMUX_CHATWOOT_CONTROLLER__
   if (!controller) {
@@ -391,11 +500,12 @@ export function initChatwoot(options?: { locale?: string | null }): void {
       desiredUser: null,
       identifiedUserId: null,
       identifiedKey: null,
+      themeObserver: null,
       onReady: () => {
         created.ready = true
         created.resetPending = false
         try {
-          win.$chatwoot?.setColorScheme?.(created.config.darkMode)
+          applyColorSchemeToWidget(created)
           win.$chatwoot?.setLocale(created.locale)
         } catch {
           // Ignore transient widget frame errors.
@@ -416,6 +526,16 @@ export function initChatwoot(options?: { locale?: string | null }): void {
           }
         })
       },
+    }
+    if (config.darkMode === 'auto' && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(() => {
+        applyColorSchemeToWidget(created)
+      })
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+      })
+      created.themeObserver = observer
     }
     win.__OMNIMUX_CHATWOOT_CONTROLLER__ = created
     window.addEventListener('chatwoot:ready', created.onReady)
@@ -474,6 +594,8 @@ export function resetChatwootControllerForTest(): void {
   const win = window as ChatwootWindow
   const existing = win.__OMNIMUX_CHATWOOT_CONTROLLER__
   if (existing) {
+    existing.themeObserver?.disconnect()
+    existing.themeObserver = null
     window.removeEventListener('chatwoot:ready', existing.onReady)
     window.removeEventListener('message', existing.onMessage)
     delete win.__OMNIMUX_CHATWOOT_CONTROLLER__
@@ -482,4 +604,5 @@ export function resetChatwootControllerForTest(): void {
   delete win.chatwootSDK
   delete win.$chatwoot
   document.querySelector(CHATWOOT_SCRIPT_SELECTOR)?.remove()
+  document.querySelector(CHATWOOT_HOST_STYLE_SELECTOR)?.remove()
 }
