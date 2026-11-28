@@ -221,6 +221,12 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
   { name: 'Vidu', icon: 'Vidu.Color', keywords: ['vidu'] },
   { name: 'Suno', icon: 'Suno', keywords: ['suno'] },
   { name: 'Jimeng', icon: 'Jimeng.Color', keywords: ['jimeng'] },
+  {
+    name: 'Sand AI',
+    icon: 'SandAI',
+    keywords: ['sand-ai/', 'sandai/', 'sand/'],
+    pattern: /(?:^|[/.:])magi-\d/,
+  },
 ]
 
 export function resolveModelProvider(modelName: string): ModelProvider | null {

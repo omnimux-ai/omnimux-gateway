@@ -54,6 +54,9 @@ Copyright (c) QuantumNous and contributors (https://github.com/QuantumNous/new-a
 Licensed under the Apache License, Version 2.0.
 The TypeSafe icon (plugins/tasks/typesafe/icon.png) is the official brand mark of TypeSafe AI (https://typesafe.ai), owned by TypeSafe AI.
 
+Sand AI Brand Mark
+The Sand AI brand mark (web/src/assets/custom/icon-sand-ai.tsx and the sand-ai icon_path in modelcontracts/brands.go / modelcontracts/contracts.json) is the official brand mark of Sand AI (https://sand.ai/), derived from https://sand.ai/migrated/assets/svg/favicon.svg, owned by Sand AI.
+
 ==== Electron / Chromium Notices ====
 
 Desktop distributions include Electron, which embeds Chromium, Node.js, V8,

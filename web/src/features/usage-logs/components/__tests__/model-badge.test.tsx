@@ -249,6 +249,15 @@ const providers = [
   { category: 'Vidu', models: ['vidu-q2'] },
   { category: 'Suno', models: ['suno-v4'] },
   { category: 'Jimeng', models: ['jimeng-v3'] },
+  {
+    category: 'Sand AI',
+    models: [
+      'magi-2',
+      'magi-2-reference-to-video',
+      'sand-ai/magi-2',
+      'sandai/custom',
+    ],
+  },
 ]
 
 it.each(
@@ -279,6 +288,7 @@ it.each([
   'prefix_o3',
   'vendor-o3:latest',
   'wan',
+  'magi',
   'aqa-extra',
   't2v-02',
 ])('keeps unknown model %s in Other with the dot fallback', (model) => {
@@ -313,8 +323,10 @@ it('shows the OpenAI icon in the mobile model button', () => {
   ).toContainElement(screen.getByLabelText('OpenAI'))
 })
 
-it('makes the Wan icon available to model icon selectors', () => {
+it('makes the Wan and Sand AI icons available to model icon selectors', () => {
   expect(getLobeIconNames()).toContain('Wan')
+  expect(getLobeIconNames()).toContain('SandAI')
+  expect(getLobeIconNames()).toContain('Sand')
 })
 
 it('opens the mismatch evidence with the keyboard and shows all three models', async () => {

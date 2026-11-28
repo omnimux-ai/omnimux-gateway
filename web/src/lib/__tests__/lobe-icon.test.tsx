@@ -138,7 +138,27 @@ describe('Lobe icons', () => {
         'SGLang',
         'Sub2API',
         'Wan',
+        'SandAI',
+        'Sand',
       ])
     )
+    expect(getLobeIconNames()).not.toContain('sand ai')
+    expect(getLobeIconNames()).not.toContain('sand-ai')
+  })
+
+  it.each([
+    ['SandAI', 24],
+    ['Sand', 20],
+    ['Sand AI', 20],
+    ['sand-ai', 16],
+  ])('renders the Sand AI monochrome mark for %s at %ipx', (key, size) => {
+    const { container } = render(getLobeIcon(key, size))
+    const svg = container.querySelector('svg')
+    expect(svg).not.toBeNull()
+    expect(svg).toHaveAttribute('viewBox', '0 0 24 24')
+    expect(svg).toHaveAttribute('width', String(size))
+    expect(svg).toHaveAttribute('height', String(size))
+    expect(svg).toHaveAttribute('fill', 'currentColor')
+    expect(svg?.querySelector('path')).not.toBeNull()
   })
 })

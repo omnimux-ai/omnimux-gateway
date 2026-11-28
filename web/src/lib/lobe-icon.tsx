@@ -49,6 +49,7 @@ import {
 } from '@/assets/brand-icons'
 import sglangLogo from '@/assets/brand-icons/sglang.svg'
 import { IconGxgenAI } from '@/assets/custom/icon-gxgenai'
+import { IconSandAI } from '@/assets/custom/icon-sand-ai'
 import { IconSub2api } from '@/assets/custom/icon-sub2api'
 import { IconWan } from '@/assets/custom/icon-wan'
 
@@ -65,6 +66,9 @@ const CUSTOM_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   ),
   Sub2API: IconSub2api,
   Wan: IconWan,
+  // Sand AI (https://sand.ai/ — MAGI video models)
+  SandAI: IconSandAI,
+  Sand: IconSandAI,
   // Product brand (GxgenAI apps / type-61 TaskAdaptor)
   GxgenAI: IconGxgenAI,
   Gxgen: IconGxgenAI,
@@ -81,6 +85,13 @@ const CUSTOM_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   Weibo: IconWeibo,
   Threads: IconThreads,
   Reddit: IconReddit,
+}
+
+const CUSTOM_ICON_ALIASES: Record<string, ComponentType<{ size?: number }>> = {
+  'sand ai': IconSandAI,
+  'sand-ai': IconSandAI,
+  sandai: IconSandAI,
+  sand: IconSandAI,
 }
 
 const ICON_METADATA = new Map(toc.map((icon) => [icon.id, icon]))
@@ -168,7 +179,10 @@ export function getLobeIcon(
 
   const segments = trimmedName.split('.')
   const baseKey = segments[0]
-  const CustomIcon = CUSTOM_ICONS[baseKey]
+  const CustomIcon =
+    CUSTOM_ICONS[baseKey] ??
+    CUSTOM_ICON_ALIASES[trimmedName.toLowerCase()] ??
+    CUSTOM_ICON_ALIASES[baseKey.toLowerCase()]
   if (CustomIcon) return <CustomIcon size={size} />
 
   const metadata = ICON_METADATA.get(baseKey)
