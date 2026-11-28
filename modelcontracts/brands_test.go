@@ -58,6 +58,7 @@ func TestEveryShippedSpecHasValidCanonicalBrand(t *testing.T) {
 	assert.Equal(t, "ByteDance", shipped.Models["seedance-2-5-flash"].BrandName)
 	assert.Equal(t, "sand-ai", shipped.Models["magi-2"].BrandID)
 	assert.Equal(t, "Sand AI", shipped.Models["magi-2"].BrandName)
+	assert.Equal(t, sandAIIconPath, shipped.Brands["sand-ai"].IconPath)
 	assert.Equal(t, "google", shipped.Models["nano-banana-2"].BrandID)
 	assert.Equal(t, "muse", shipped.Models["muse-image"].BrandID)
 	assert.Equal(t, "indextts", shipped.Models["indextts-2"].BrandID)
@@ -215,5 +216,16 @@ func TestBuildValidatesBrandMappingAndOptionalIconPath(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "brand_icon_path")
+	})
+
+	t.Run("explicit sand-ai brand_id inherits canonical icon_path when omitted", func(t *testing.T) {
+		doc := buildSpecDir(t, map[string]string{
+			"magi-probe.json": `{"model_id":"magi-probe","family":"video","brand_id":"sand-ai"}`,
+		})
+		assert.Equal(t, BrandMeta{
+			ID:       "sand-ai",
+			Name:     "Sand AI",
+			IconPath: sandAIIconPath,
+		}, doc.Brands["sand-ai"])
 	})
 }

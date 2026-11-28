@@ -37,6 +37,8 @@ var defaultVendorRules = map[string]string{
 	"kling":    "快手",
 	"jimeng":   "即梦",
 	"vidu":     "Vidu",
+	// fork: OmniMux
+	"magi-": "Sand AI",
 }
 
 // 供应商默认图标映射
@@ -67,6 +69,9 @@ var defaultVendorIcons = map[string]string{
 	"微软":         "AzureAI",
 	"Microsoft":  "AzureAI",
 	"Azure":      "AzureAI",
+	// fork: OmniMux
+	"Sand AI": "SandAI",
+	"Sand":    "SandAI",
 }
 
 // initDefaultVendorMapping 简化的默认供应商映射
@@ -134,6 +139,8 @@ var defaultVendorDisplayIDs = map[string]int{
 	"讯飞":         -1021,
 	"阿里巴巴":       -1022,
 	"零一万物":       -1023,
+	// fork: OmniMux
+	"Sand AI": -1024,
 }
 
 func getDisplayVendor(vendorName string, vendorMap map[int]*Vendor) int {
