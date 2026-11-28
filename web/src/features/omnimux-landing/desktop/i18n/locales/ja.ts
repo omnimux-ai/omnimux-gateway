@@ -567,7 +567,7 @@ export const ja: LandingCopy = {
 
   tools: {
     h2: 'EC コンテンツ制作ツールを 1 つに集約',
-    lead: 'ヒットリサーチ・6,375 素材・動画/画像モデル・編集から直接投稿まで、1 つのアカウントで完結。',
+    lead: 'ヒットリサーチ・6,300+ 素材・動画/画像モデル・編集から直接投稿まで、1 つのアカウントで完結。',
     topologyAria: '各種 AI ツールが OmniMux EC 制作ハブへ統合される構成図',
     sources: [
       'OmniMux デスクトップ',
@@ -621,7 +621,7 @@ export const ja: LandingCopy = {
         id: 'digital-humans',
         category: 'assets',
         icon: 'user',
-        name: '353 デジタルヒューマン',
+        name: '350+ デジタルヒューマン',
         cap: '9 軸で演者を絞り込み',
         desc: '性別・年代・業種・シーンから実写系演者を選び、音声試聴してすぐ起用。',
       },
@@ -629,15 +629,15 @@ export const ja: LandingCopy = {
         id: 'cloud-assets',
         category: 'assets',
         icon: 'folder',
-        name: '6,375 クラウド素材',
+        name: '6,300+ クラウド素材',
         cap: '背景・小物・音声収録',
-        desc: '3,396 背景と 940 小道具、617 音声素材を内蔵し撮影スタジオなしで差し替え可能。',
+        desc: '3,300+ 背景・900+ 小道具・600+ 音声素材を内蔵し撮影スタジオなしで差し替え可能。',
       },
       {
         id: 'viral-hooks',
         category: 'assets',
         icon: 'spark',
-        name: '698 バズ冒頭フック',
+        name: '690+ バズ冒頭フック',
         cap: '最初の 3 秒を強化',
         desc: '反応率の高い 3 秒導入素材やグリーンバックをそのままタイムラインへ配置。',
       },
@@ -795,12 +795,12 @@ export const ja: LandingCopy = {
   },
 
   proof: {
-    h2: '越境 EC 出品者のために設計',
-    lead: 'ヒット探し・分析・制作・投稿まで、1 つのデスクトップで完結。',
+    h2: 'コンテンツ EC のために設計',
+    lead: 'インスピレーション事例・クラウド素材・主要 AI モデルを 1 つのデスクトップに集約。',
     facts: [
-      { value: '6,375', label: 'クラウド人物・実写素材' },
-      { value: '17', label: '内蔵スキル' },
-      { value: '4', label: '投稿プラットフォーム' },
+      { value: '64,000+', label: 'インスピレーション事例' },
+      { value: '6,300+', label: '制作素材' },
+      { value: '350+', label: 'デジタルヒューマン' },
     ],
     paygTitle: '使った分だけ支払う従量制、月額不要',
     paygLead:

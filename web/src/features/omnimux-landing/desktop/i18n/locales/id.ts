@@ -577,7 +577,7 @@ export const id: LandingCopy = {
 
   tools: {
     h2: 'Semua alat konten e-commerce di satu tempat',
-    lead: 'Riset produk, 6,375 aset cloud, model video dan gambar, editing kanvas hingga terbit langsung dalam satu akun.',
+    lead: 'Riset produk, 6,300+ aset cloud, model video dan gambar, editing kanvas hingga terbit langsung dalam satu akun.',
     topologyAria: 'Berbagai alat AI terhubung ke pusat konten OmniMux',
     sources: ['OmniMux Desktop', 'Claude Code', 'Codex', 'Cursor', 'OpenClaw'],
     filterAria: 'Kategori alat',
@@ -625,7 +625,7 @@ export const id: LandingCopy = {
         id: 'digital-humans',
         category: 'assets',
         icon: 'user',
-        name: '353 Digital Human',
+        name: '350+ Digital Human',
         cap: 'Filter 9 dimensi',
         desc: 'Pilih presenter realistis berdasarkan profil, pratinjau suara, lalu produksi.',
       },
@@ -633,15 +633,15 @@ export const id: LandingCopy = {
         id: 'cloud-assets',
         category: 'assets',
         icon: 'folder',
-        name: '6,375 Aset Cloud',
+        name: '6,300+ Aset Cloud',
         cap: 'Latar, properti & audio',
-        desc: 'Tersedia 3,396 latar tempat, 940 properti e-commerce, dan 617 aset audio.',
+        desc: 'Tersedia 3,300+ latar tempat, 900+ properti e-commerce, dan 600+ aset audio.',
       },
       {
         id: 'viral-hooks',
         category: 'assets',
         icon: 'spark',
-        name: '698 Hook Viral',
+        name: '690+ Hook Viral',
         cap: 'Pembuka 3 detik',
         desc: 'Sisipkan klip pembuka 3 detik berretensi tinggi dan green-screen ke timeline.',
       },
@@ -799,12 +799,12 @@ export const id: LandingCopy = {
   },
 
   proof: {
-    h2: 'Dibuat untuk penjual lintas negara',
-    lead: 'Temukan hits, bedah, buat, dan publikasikan — semua di satu aplikasi desktop.',
+    h2: 'Dibuat untuk tim konten e-commerce',
+    lead: 'Kasus inspirasi, aset cloud, dan model AI utama terpadu di satu aplikasi desktop.',
     facts: [
-      { value: '6,375', label: 'aset cloud & avatar' },
-      { value: '17', label: 'skill bawaan' },
-      { value: '4', label: 'platform publikasi' },
+      { value: '64,000+', label: 'kasus inspirasi' },
+      { value: '6,300+', label: 'aset kreatif' },
+      { value: '350+', label: 'digital human' },
     ],
     paygTitle: 'Bayar sesuai pemakaian, tanpa langganan bulanan',
     paygLead:

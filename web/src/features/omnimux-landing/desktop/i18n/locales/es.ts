@@ -589,7 +589,7 @@ export const es: LandingCopy = {
 
   tools: {
     h2: 'Todas las herramientas de contenido en un lugar',
-    lead: 'Datos sociales, 6,375 assets en la nube, modelos de vídeo e imagen, edición y publicación directa unificados.',
+    lead: 'Datos sociales, 6,300+ assets en la nube, modelos de vídeo e imagen, edición y publicación directa unificados.',
     topologyAria:
       'Múltiples herramientas de IA convergentes en el centro OmniMux',
     sources: ['OmniMux Desktop', 'Claude Code', 'Codex', 'Cursor', 'OpenClaw'],
@@ -638,7 +638,7 @@ export const es: LandingCopy = {
         id: 'digital-humans',
         category: 'assets',
         icon: 'user',
-        name: '353 Humanos Digitales',
+        name: '350+ Humanos Digitales',
         cap: 'Filtro 9 dimensiones',
         desc: 'Elige presentadores por perfil e idioma, prueba su voz y genera anuncios.',
       },
@@ -646,15 +646,15 @@ export const es: LandingCopy = {
         id: 'cloud-assets',
         category: 'assets',
         icon: 'folder',
-        name: '6,375 Assets Nube',
+        name: '6,300+ Assets Nube',
         cap: 'Escenas, utilería y audio',
-        desc: 'Accede a 3,396 escenarios, 940 accesorios y 617 audios listos para producir.',
+        desc: 'Accede a 3,300+ escenarios, 900+ accesorios y 600+ audios listos para producir.',
       },
       {
         id: 'viral-hooks',
         category: 'assets',
         icon: 'spark',
-        name: '698 Hooks Virales',
+        name: '690+ Hooks Virales',
         cap: 'Primeros 3 segundos',
         desc: 'Añade aperturas de alto impacto y clips croma directo en tu montaje.',
       },
@@ -822,12 +822,12 @@ export const es: LandingCopy = {
   },
 
   proof: {
-    h2: 'Hecho para vendedores transfronterizos',
-    lead: 'Encuentra éxitos, analízalos, crea y publica — todo dentro de una app de escritorio.',
+    h2: 'Hecho para equipos de comercio de contenido',
+    lead: 'Casos de inspiración, assets en la nube y modelos de IA unificados en una app de escritorio.',
     facts: [
-      { value: '6,375', label: 'assets y humanos digitales' },
-      { value: '17', label: 'skills integradas' },
-      { value: '4', label: 'plataformas de publicación' },
+      { value: '64,000+', label: 'casos de inspiración' },
+      { value: '6,300+', label: 'assets creativos' },
+      { value: '350+', label: 'humanos digitales' },
     ],
     paygTitle: 'Paga por uso, sin suscripción mensual',
     paygLead:
