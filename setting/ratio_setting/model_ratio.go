@@ -29,7 +29,6 @@ const (
 
 var defaultModelRatio = map[string]float64{
 	//"midjourney":                50,
-	"jev":                                      0.021, // TypeSafe Jev: $0.042/1M input tokens
 	"gpt-4-gizmo-*":                            15,
 	"gpt-4o-gizmo-*":                           2.5,
 	"gpt-4-all":                                15,
@@ -333,7 +332,6 @@ var defaultCompletionRatio = map[string]float64{
 	"gpt-4o-gizmo-*": 3,
 	"gpt-4-all":      2,
 	"gpt-image-1":    8,
-	"jev":            0, // TypeSafe Jev output tokens are free
 }
 
 // InitRatioSettings initializes all model related settings maps
@@ -485,10 +483,6 @@ func ResolveCompletionRatio(name string, configured *float64) CompletionRatioInf
 }
 
 func getHardcodedCompletionModelRatio(name string) (float64, bool) {
-	if name == "jev" {
-		return 0, false
-	}
-
 	isReservedModel := strings.HasSuffix(name, "-all") || strings.HasSuffix(name, "-gizmo-*")
 	if isReservedModel {
 		return 2, false

@@ -46,7 +46,6 @@ import (
 	tasksora "github.com/QuantumNous/new-api/relay/channel/task/sora"
 	taskvolcvoice "github.com/QuantumNous/new-api/relay/channel/task/volcvoice"
 	"github.com/QuantumNous/new-api/relay/channel/tencent"
-	"github.com/QuantumNous/new-api/relay/channel/typesafe"
 	"github.com/QuantumNous/new-api/relay/channel/vertex"
 	"github.com/QuantumNous/new-api/relay/channel/volcengine"
 	"github.com/QuantumNous/new-api/relay/channel/xai"
@@ -134,8 +133,6 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &newapi.Adaptor{}
 	case constant.APITypeElevenLabs:
 		return &elevenlabs.Adaptor{}
-	case constant.APITypeTypeSafe:
-		return &typesafe.Adaptor{}
 	}
 	return nil
 }

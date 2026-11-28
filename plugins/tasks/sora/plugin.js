@@ -113,6 +113,23 @@ function requestValues(req, model) {
   return values;
 }
 
+function validateGenericSeconds(req) {
+  const hasSeconds = req && req.seconds !== undefined && req.seconds !== null && !(typeof req.seconds === "string" && req.seconds.trim() === "");
+  const hasDuration = req && req.duration !== undefined && req.duration !== null && !(typeof req.duration === "string" && req.duration.trim() === "");
+  if (!hasSeconds && !hasDuration) return undefined;
+  const parseOne = function (raw) {
+    const n = typeof raw === "boolean" ? NaN : Number(raw);
+    if (!Number.isFinite(n) || n <= 0 || n > 3600) throw new Error("seconds must be between 1 and 3600");
+    return n;
+  };
+  const s = hasSeconds ? parseOne(req.seconds) : undefined;
+  const d = hasDuration ? parseOne(req.duration) : undefined;
+  if (s !== undefined && d !== undefined && s !== d) {
+    throw new Error("seconds and duration must match when both are provided");
+  }
+  return s !== undefined ? s : d;
+}
+
 function seedanceFlashCAResolution(upstreamModel) {
   return SEEDANCE_FLASH_CA_RESOLUTIONS[trimmed(upstreamModel).toLowerCase()] || "";
 }
@@ -439,6 +456,9 @@ export function buildSubmitRequest(ctx) {
     headers["Content-Type"] = "application/json";
     return { url: ctx.baseUrl + "/v1/videos", method: "POST", headers, body };
   }
+  if (!isAsyncImageModel(ctx.upstreamModel || ctx.model || req.model)) {
+    validateGenericSeconds(req);
+  }
   if ((ctx.files || []).length) {
     const parts = [];
     const values = requestValues(req, ctx.upstreamModel);
@@ -481,9 +501,8 @@ export function extractUsage(ctx) {
   if (isSeedanceOpenAIUpstream(ctx.upstreamModel) || isSeedanceMultimodalUsageContext(ctx)) {
     return { seconds: parseSeedanceFlashSeconds(req) };
   }
-  let seconds = Number(req.seconds || req.duration || 4);
-  if (!Number.isFinite(seconds) || seconds <= 0) seconds = 4;
-  return { seconds: Math.min(seconds, 3600), size: req.size || "720x1280" };
+  const validated = validateGenericSeconds(req);
+  return { seconds: validated === undefined ? 4 : validated, size: req.size || "720x1280" };
 }
 
 export function extractUsageOnComplete(task, taskResult, body) {
@@ -683,6 +702,8 @@ export const protocols = {
       else if (Object.prototype.hasOwnProperty.call(req, "duration")) requestBody.seconds = req.duration;
       if (Object.prototype.hasOwnProperty.call(req, "size")) requestBody.size = req.size;
       if (Object.prototype.hasOwnProperty.call(req, "metadata")) requestBody.metadata = req.metadata;
+      const validated = validateGenericSeconds(requestBody);
+      if (validated !== undefined) requestBody.seconds = validated;
       return { kind: "submit", model: model, action: images.length ? "image_to_video" : "text_to_video", requestBody: requestBody };
     },
     renderEvents: function (ctx, task, previousState) {
@@ -943,9 +964,7 @@ protocols.openai_video = {
     if (ctx.body.kind === "json") {
       if (!ctx.body.value || Array.isArray(ctx.body.value)) throw new Error("JSON object required");
       const req = ctx.body.value;
-      const seconds = req.seconds === undefined ? req.duration : req.seconds;
-      if (seconds !== undefined && (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || Number(seconds) > 3600))
-        throw new Error("seconds must be between 1 and 3600");
+      validateGenericSeconds(req);
       return {
         kind: "submit",
         model: ctx.model,
@@ -979,11 +998,8 @@ protocols.openai_video = {
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("metadata must be a JSON object string");
       req.metadata = parsed;
     }
-    if (req.seconds !== undefined) req.seconds = Number(req.seconds);
-    else if (req.duration !== undefined) req.seconds = Number(req.duration);
-    const seconds = req.seconds === undefined ? req.duration : req.seconds;
-    if (seconds !== undefined && (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || Number(seconds) > 3600))
-      throw new Error("seconds must be between 1 and 3600");
+    const validated = validateGenericSeconds(req);
+    if (validated !== undefined) req.seconds = validated;
     return {
       kind: "submit",
       model: ctx.model,

@@ -66,6 +66,10 @@ func TestEveryShippedSpecHasValidCanonicalBrand(t *testing.T) {
 	assert.Equal(t, "xAI", shipped.Models["grok-4.6"].BrandName)
 	assert.Equal(t, "typesafe-ai", shipped.Models["jev"].BrandID)
 	assert.Equal(t, "TypeSafe AI", shipped.Models["jev"].BrandName)
+	for _, id := range []string{"jev-1.14.0", "jev-1.13.0", "jev-latest", "jev-preview"} {
+		assert.Equal(t, "typesafe-ai", shipped.Models[id].BrandID, id)
+		assert.Equal(t, "TypeSafe AI", shipped.Models[id].BrandName, id)
+	}
 }
 
 func TestBrandFieldsDoNotChangeContractVersion(t *testing.T) {

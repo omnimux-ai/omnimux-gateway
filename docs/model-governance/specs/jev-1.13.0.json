@@ -1,0 +1,74 @@
+{
+  "model_id": "jev-1.13.0",
+  "family": "llm",
+  "vendor": "TypeSafe AI",
+  "vendor_model_id": "jev-1.13.0",
+  "capability": "System One judgment",
+  "operations": [
+    "judgment"
+  ],
+  "status": "partial",
+  "checked_at": "2026-11-27",
+  "context_window_tokens": 65536,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "streaming": false,
+  "tool_calling": false,
+  "sources": [
+    {
+      "claim": "Jev 1.13 uses model_id jev-1.13.0, has a default 64k (65536) per-request context and 32k per-question context, and accepts Choice, Score, and Noul primitives.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "64k per-request / 32k per-question",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "Sending TypeSafe-Danger-Zone-Long-Context: true raises both per-request and per-question context limits to 262k tokens on Jev 1.13.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "Long context is off by default and works on both Jev 1.14 and Jev 1.13.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "Jev 1.13 reads natural-language text and PNG/JPEG images.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "Jev reads natural-language text, sent as a string, a JSON object, or an array of text values. It also reads PNG and JPEG images anywhere in the request.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "Box questions require Jev 1.14 and are not supported on Jev 1.13.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "Box questions need Jev 1.14.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "TypeSafe charges $0.042 per 1M input tokens ($42 per Btok) and output tokens are free.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "You pay per input token. Output tokens are free. A Btok is a billion tokens and an Mtok is a million tokens.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "OmniMux routes jev-1.13.0 through the embedded official typesafe@1.2.0 task plugin.",
+      "url": "repo:plugins/tasks/typesafe/plugin.js",
+      "quote": "const MODELS = [\"jev-1.14.0\", \"jev-1.13.0\", \"jev-latest\", \"jev-preview\"];",
+      "retrieved_at": "2026-11-27"
+    }
+  ],
+  "unknowns": [
+    "max_output_tokens: System One models return structured typed answers (Choice, Score, Noul) rather than free-form token streams and TypeSafe docs publish no max_output_tokens limit."
+  ],
+  "notes": "Served via embedded official QuantumNous/new-api-plugins typesafe@1.2.0 plugin (POST /v1/systemone and POST /typesafe/v1/systemone). Supports Choice, Score, and Noul primitives; Box questions require jev-1.14.0. Task billing expression: tier(\"base\", u(\"input_tokens\") * 0.042 / 1000000).",
+  "billing": {
+    "unit": "per_token",
+    "unit_label": {
+      "zh": "每百万词元",
+      "en": "per 1M tokens"
+    },
+    "pricing_basis": "reported_tokens",
+    "notes": {
+      "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。",
+      "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free."
+    }
+  }
+}

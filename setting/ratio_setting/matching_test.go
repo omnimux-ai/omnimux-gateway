@@ -7,31 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestResolveCompletionRatioForJev(t *testing.T) {
-	tests := []struct {
-		name       string
-		configured *float64
-		wantRatio  float64
-		wantLocked bool
-	}{
-		{name: "absent configuration uses free unlocked fallback", wantRatio: 0},
-		{name: "explicit configuration overrides fallback", configured: floatPointer(2.5), wantRatio: 2.5},
-		{name: "explicit zero remains free", configured: floatPointer(0), wantRatio: 0},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := ResolveCompletionRatio("jev", test.configured)
-			assert.Equal(t, test.wantRatio, got.Ratio)
-			assert.Equal(t, test.wantLocked, got.Locked)
-		})
-	}
-}
-
-func floatPointer(value float64) *float64 {
-	return &value
-}
-
 func TestFormatMatchingModelNameDoesNotStripBase(t *testing.T) {
 	assert.Equal(t, "qwen3-max@thinking:on", FormatMatchingModelName("qwen3-max@thinking:on"))
 	assert.Equal(t, "claude-3-7-sonnet-thinking", FormatMatchingModelName("claude-3-7-sonnet-thinking"))

@@ -48,8 +48,6 @@ func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIErro
 		err = relay.RerankHelper(c, info)
 	case relayconstant.RelayModeReader:
 		err = relay.ReaderHelper(c, info)
-	case relayconstant.RelayModeSystemOne:
-		err = relay.SystemOneHelper(c, info)
 	case relayconstant.RelayModeEmbeddings:
 		err = relay.EmbeddingHelper(c, info)
 	case relayconstant.RelayModeResponses, relayconstant.RelayModeResponsesCompact:

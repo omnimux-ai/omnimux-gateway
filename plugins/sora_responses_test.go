@@ -96,3 +96,41 @@ func TestSoraAsyncImageTaskSupport(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "https://tos.example.com/image.jpg", contentMap["url"])
 }
+
+func TestSoraGenericDurationBounds(t *testing.T) {
+	plugin := loadSoraPlugin(t)
+	for _, invalid := range []any{99999, -5, 0} {
+		t.Run("rejects unbounded seconds on openai_responses, submit, and extractUsage", func(t *testing.T) {
+			reqBody := map[string]any{"model": "sora-2", "prompt": "waves", "seconds": invalid}
+			_, err := plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_responses", "decodeRequest"}, map[string]any{
+				"model": "sora-2",
+				"body":  map[string]any{"kind": "json", "value": map[string]any{"model": "sora-2", "input": "waves", "seconds": invalid}},
+			})
+			require.ErrorContains(t, err, "seconds must be between 1 and 3600")
+
+			_, err = plugin.Engine.Call(t.Context(), "buildSubmitRequest", map[string]any{
+				"baseUrl": "https://api.openai.com", "apiKey": "k", "model": "sora-2", "upstreamModel": "sora-2", "action": "text_to_video", "requestBody": reqBody,
+			})
+			require.ErrorContains(t, err, "seconds must be between 1 and 3600")
+
+			_, err = plugin.Engine.Call(t.Context(), "extractUsage", map[string]any{
+				"model": "sora-2", "upstreamModel": "sora-2", "action": "text_to_video", "requestBody": reqBody,
+			})
+			require.ErrorContains(t, err, "seconds must be between 1 and 3600")
+		})
+	}
+
+	t.Run("rejects out-of-range duration alongside valid seconds on openai_video", func(t *testing.T) {
+		_, err := plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_video", "decodeRequest"}, map[string]any{
+			"model": "sora-2",
+			"body":  map[string]any{"kind": "json", "value": map[string]any{"model": "sora-2", "prompt": "waves", "seconds": 4, "duration": 99999}},
+		})
+		require.ErrorContains(t, err, "seconds must be between 1 and 3600")
+
+		_, err = plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_video", "decodeRequest"}, map[string]any{
+			"model": "sora-2",
+			"body":  map[string]any{"kind": "multipart", "fields": map[string]any{"model": []string{"sora-2"}, "prompt": []string{"waves"}, "seconds": []string{"4"}, "duration": []string{"99999"}}},
+		})
+		require.ErrorContains(t, err, "seconds must be between 1 and 3600")
+	})
+}

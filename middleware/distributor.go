@@ -63,11 +63,6 @@ func Distribute() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
 		}
-		// System One has a protocol-level default model. Resolve it before channel
-		// selection; request validation runs later in controller.Relay.
-		if modelRequest != nil && modelRequest.Model == "" && c.Request.URL.Path == "/v1/systemone" {
-			modelRequest.Model = "jev"
-		}
 		if !applyPerRequestModelGroup(c, modelRequest) {
 			return
 		}
@@ -607,16 +602,6 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		c.Set("relay_mode", relayconstant.RelayModeVideoFetchByID)
 		shouldSelectChannel = false
 		modelRequest.Model = getTaskOriginModelName(c)
-	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/systemone") {
-		if c.Request.Method != http.MethodPost {
-			return nil, false, fmt.Errorf("System One requires POST")
-		}
-		req, err := getModelFromRequest(c)
-		if err != nil {
-			return nil, false, err
-		}
-		modelRequest.Model = req.Model
-		c.Set("relay_mode", relayconstant.RelayModeSystemOne)
 	} else if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models/") || strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
 		// Gemini API 路径处理: /v1beta/models/gemini-2.0-flash:generateContent
 		relayMode := relayconstant.RelayModeGemini

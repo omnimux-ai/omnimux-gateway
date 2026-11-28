@@ -423,8 +423,7 @@ export function parseSubmitResponse(){return {taskId:"one"}} export function bui
 
 // A plugin declaring json-order@1 forwards the members in the order the client
 // sent them, through the final decode, the request body hooks receive and the
-// upstream body, while billing bounds still read the decoded value; other
-// plugins keep the host codec's sorted encoding.
+// upstream body; other plugins keep the host codec's sorted encoding.
 func TestTaskAdaptorJSONOrderCapability(t *testing.T) {
 	service.InitHttpClient()
 	client := `{"model":"m","state":{"zeta":"1","alpha":"2","mid":"&<>"},"questions":{"q2":{"type":"noul"},"q1":{"type":"noul"}}}`
@@ -434,7 +433,6 @@ func TestTaskAdaptorJSONOrderCapability(t *testing.T) {
 		source string
 		client string
 		want   string
-		status int
 	}{
 		{name: "declared keeps the client's order", source: orderedProtocolPlugin, client: client,
 			want: `{"model":"m","state":{"zeta":"1","alpha":"2","mid":"&<>"},"questions":{"q2":{"type":"noul"},"q1":{"type":"noul"}}}`},
@@ -443,8 +441,6 @@ func TestTaskAdaptorJSONOrderCapability(t *testing.T) {
 		{name: "declared keeps nested criteria with JavaScript numeric key order", source: orderedProtocolPlugin,
 			client: `{"model":"m","state":{"10":"ten","2":"two","z":"<>&图像","a":[{"last":1,"first":2}]},"questions":{"q2":{"criteria":{"zeta":true,"alpha":false},"type":"noul"},"q1":{"type":"noul"}}}`,
 			want:   `{"model":"m","state":{"2":"two","10":"ten","z":"<>&图像","a":[{"last":1,"first":2}]},"questions":{"q2":{"criteria":{"zeta":true,"alpha":false},"type":"noul"},"q1":{"type":"noul"}}}`},
-		{name: "declared still bounds billing quantities", source: orderedProtocolPlugin,
-			client: `{"model":"m","state":{"duration":3601},"questions":{}}`, status: http.StatusBadRequest},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -475,14 +471,7 @@ func TestTaskAdaptorJSONOrderCapability(t *testing.T) {
 			adaptor := New(plugin)
 			adaptor.Init(info)
 
-			taskErr := adaptor.ValidateRequestAndSetAction(c, info)
-			if tc.status != 0 {
-				require.NotNil(t, taskErr)
-				assert.Equal(t, tc.status, taskErr.StatusCode)
-				assert.Equal(t, "plugin_usage_invalid", taskErr.Code)
-				return
-			}
-			require.Nil(t, taskErr)
+			require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
 			body, err := adaptor.BuildRequestBody(c, info)
 			require.NoError(t, err)
 			raw, err := io.ReadAll(body)
@@ -1381,62 +1370,26 @@ export function extractUsageOnComplete(task, result, body) { return (body || {})
 		return adaptor, context, info
 	}
 
-	requestTests := []struct {
-		name string
-		body map[string]any
-	}{
-		{
-			name: "duration in resolved metadata",
-			body: map[string]any{"metadata": map[string]any{"duration": relaycommon.MaxTaskDurationSeconds + 1}},
-		},
-		{
-			name: "count in resolved metadata",
-			body: map[string]any{"metadata": map[string]any{"count": dto.MaxImageN + 1}},
-		},
-		{
-			name: "declared enum in resolved metadata",
-			body: map[string]any{"metadata": map[string]any{"mode": "turbo"}},
-		},
-		{
-			name: "implicit duration key without declaration",
-			body: map[string]any{"durationSeconds": relaycommon.MaxTaskDurationSeconds + 1},
-		},
-		{
-			name: "implicit count key without declaration",
-			body: map[string]any{"image_count": dto.MaxImageN + 1},
-		},
-		{
-			name: "negative resolved duration",
-			body: map[string]any{"duration": -1},
-		},
-		{
-			name: "non-finite resolved duration",
-			body: map[string]any{"duration": math.Inf(1)},
-		},
-		{
-			name: "metadata cannot hide behind valid top-level duration",
-			body: map[string]any{
-				"duration": relaycommon.MaxTaskDurationSeconds,
-				"metadata": map[string]any{"duration": relaycommon.MaxTaskDurationSeconds + 1},
+	t.Run("request members are not read as quantities and usage facts stay bounded", func(t *testing.T) {
+		// Plugins validate their own requests; members named like a quantity
+		// or a usage field are vendor parameters or client content.
+		adaptor, context, info := newRequest(t, map[string]any{
+			"duration": -1,
+			"metadata": map[string]any{
+				"count":      dto.MaxImageN + 1,
+				"mode":       "turbo",
+				"parameters": map[string]any{"durationSeconds": relaycommon.MaxTaskDurationSeconds + 1},
 			},
-		},
-		{
-			name: "nested passthrough duration",
-			body: map[string]any{
-				"metadata": map[string]any{
-					"parameters": map[string]any{"duration": relaycommon.MaxTaskDurationSeconds + 1},
-				},
-			},
-		},
-	}
-	for _, testCase := range requestTests {
-		t.Run(testCase.name, func(t *testing.T) {
-			adaptor, context, info := newRequest(t, testCase.body)
-			taskErr := adaptor.ValidateRequestAndSetAction(context, info)
-			require.NotNil(t, taskErr)
-			assert.Equal(t, "plugin_usage_invalid", taskErr.Code)
+			"state":            map[string]any{"options": map[string]any{"y": "Yes", "n": "No"}},
+			"hookUsageEntries": []any{map[string]any{"name": "duration", "value": -1}},
 		})
-	}
+		require.Nil(t, adaptor.ValidateRequestAndSetAction(context, info))
+		_, err := adaptor.ExtractUsageFactsValidated(context, info)
+		assert.Error(t, err)
+		ratios, err := adaptor.EstimateBillingValidated(context, info)
+		assert.Error(t, err)
+		assert.Nil(t, ratios)
+	})
 
 	hookTests := []struct {
 		name  string
@@ -1481,17 +1434,6 @@ export function extractUsageOnComplete(task, result, body) { return (body || {})
 		})
 	}
 
-	t.Run("numeric strings remain valid in vendor request fields", func(t *testing.T) {
-		adaptor, context, info := newRequest(t, map[string]any{
-			"metadata": map[string]any{
-				"duration": "5",
-				"count":    "2",
-				"mode":     "std",
-			},
-		})
-		assert.Nil(t, adaptor.ValidateRequestAndSetAction(context, info))
-	})
-
 	t.Run("numeric strings from usage hooks are rejected", func(t *testing.T) {
 		adaptor, context, info := newRequest(t, map[string]any{
 			"hookUsageEntries": []any{map[string]any{"name": "duration", "value": "5"}},
@@ -1500,53 +1442,6 @@ export function extractUsageOnComplete(task, result, body) { return (body || {})
 		ratios, err := adaptor.EstimateBillingValidated(context, info)
 		require.Error(t, err)
 		assert.Nil(t, ratios)
-	})
-
-	t.Run("duration -1 passes only for plugins that declare duration-auto@1", func(t *testing.T) {
-		declaring, err := pluginruntime.NewRegistry().Register(strings.Replace(source, `fetchMode: "per_task",`, `fetchMode: "per_task", requiredCapabilities: ["duration-auto@1"],`, 1), pluginruntime.Options{})
-		require.NoError(t, err)
-		for _, tc := range []struct {
-			name      string
-			declaring bool
-			body      map[string]any
-			accepted  bool
-		}{
-			{"undeclared plugins keep rejecting it", false, map[string]any{"metadata": map[string]any{"duration": -1}}, false},
-			{"vendor parameters and declared usage fields", true, map[string]any{
-				"duration": -1,
-				"metadata": map[string]any{"seconds": "-1", "parameters": map[string]any{"durationSeconds": -1}},
-			}, true},
-			{"other negative durations", true, map[string]any{"metadata": map[string]any{"duration": -2}}, false},
-			{"durations above the host limit", true, map[string]any{"metadata": map[string]any{"duration": relaycommon.MaxTaskDurationSeconds + 1}}, false},
-			{"negative counts", true, map[string]any{"metadata": map[string]any{"count": -1}}, false},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				adaptor, context, info := newRequest(t, tc.body)
-				if tc.declaring {
-					adaptor = New(declaring)
-					adaptor.Init(info)
-				}
-				taskErr := adaptor.ValidateRequestAndSetAction(context, info)
-				if tc.accepted {
-					assert.Nil(t, taskErr)
-					return
-				}
-				require.NotNil(t, taskErr)
-				assert.Equal(t, "plugin_usage_invalid", taskErr.Code)
-			})
-		}
-
-		adaptor, context, info := newRequest(t, map[string]any{
-			"metadata":         map[string]any{"duration": -1},
-			"hookUsageEntries": []any{map[string]any{"name": "duration", "value": -1}},
-		})
-		adaptor = New(declaring)
-		adaptor.Init(info)
-		require.Nil(t, adaptor.ValidateRequestAndSetAction(context, info))
-		_, err = adaptor.ExtractUsageFactsValidated(context, info)
-		assert.Error(t, err, "usage facts stay non-negative")
-		_, err = adaptor.EstimateBillingValidated(context, info)
-		assert.Error(t, err, "billing ratios stay non-negative")
 	})
 
 	t.Run("declared token facts use int32 saturation instead of duration cap", func(t *testing.T) {
@@ -1579,9 +1474,6 @@ export function extractUsageOnComplete(task, result, body) { return (body || {})
 
 	t.Run("canonical maxima and enum are accepted", func(t *testing.T) {
 		adaptor, context, info := newRequest(t, map[string]any{
-			"duration": relaycommon.MaxTaskDurationSeconds,
-			"count":    dto.MaxImageN,
-			"mode":     "std",
 			"hookUsageEntries": []any{
 				map[string]any{"name": "duration", "value": float64(relaycommon.MaxTaskDurationSeconds)},
 				map[string]any{"name": "count", "value": float64(dto.MaxImageN)},
@@ -1839,6 +1731,33 @@ func TestSubmitContextOriginTasksNilDataOnInvalidJSON(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, originTasks, 1)
 	assert.Nil(t, originTasks[0]["data"])
+}
+
+func TestSubmitContextExposesClientHeadersWithoutCredentials(t *testing.T) {
+	plugin, err := pluginruntime.NewRegistry().Register(mockPlugin, pluginruntime.Options{})
+	require.NoError(t, err)
+	adaptor := New(plugin)
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://provider.example"}, TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+	adaptor.Init(info)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/vendor/v1/jobs", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request.Header.Set("TypeSafe-Danger-Zone-Long-Context", "true")
+	c.Request.Header.Add("X-Trace", "first")
+	c.Request.Header.Add("X-Trace", "second")
+	for _, name := range []string{"Authorization", "Proxy-Authorization", "Cookie", "X-Api-Key", "X-Goog-Api-Key", "Mj-Api-Secret"} {
+		c.Request.Header.Set(name, "gateway-secret")
+	}
+
+	headers := adaptor.submitContext(c, info)["requestHeaders"]
+
+	assert.Equal(t, map[string]string{
+		"Content-Type":                      "application/json",
+		"Accept":                            "",
+		"Typesafe-Danger-Zone-Long-Context": "true",
+		"X-Trace":                           "first",
+	}, headers)
+	assert.Equal(t, headers, adaptor.submitContext(nil, info)["requestHeaders"], "hooks without a client request see the submission headers")
 }
 
 func TestSubmitContextNormalizesRequestBodyOnEveryCall(t *testing.T) {
@@ -2275,23 +2194,6 @@ export function extractUsageOnComplete(ctx,result,body){return body.usage;}
 			assert.Equal(t, ratios, adaptor.AdjustBillingOnSubmit(info, body))
 		})
 	}
-
-	t.Run("request revalidated after model rewrite", func(t *testing.T) {
-		adaptor, c, info := newRequest(t, "public-alias", "video", map[string]any{
-			"rewriteTo": "image", "metadata": map[string]any{"units": dto.MaxImageN + 1},
-		})
-		taskErr := adaptor.ValidateRequestAndSetAction(c, info)
-		require.NotNil(t, taskErr)
-		assert.Equal(t, "plugin_usage_invalid", taskErr.Code)
-	})
-
-	t.Run("request enum belongs to the rewritten model", func(t *testing.T) {
-		adaptor, c, info := newRequest(t, "public-alias", "video", map[string]any{
-			"rewriteTo": "image", "mode": "image", "units": 2,
-		})
-		require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
-		assert.Equal(t, "image", info.UpstreamModelName)
-	})
 
 	t.Run("completion selects each persisted model including legacy origin fallback", func(t *testing.T) {
 		adaptor, _, _ := newRequest(t, "public-alias", "image", map[string]any{})
