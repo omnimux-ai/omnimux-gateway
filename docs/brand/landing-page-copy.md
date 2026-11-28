@@ -109,3 +109,8 @@ bun run test --config src/features/omnimux-landing/desktop/components/__tests__/
 ```
 
 首页验收还须覆盖：`/` 返回桌面落地页、`/ai-influencer-studio` 返回角色落地页、首页 `index,follow` 与 canonical、`/pricing` 默认 `desktop-720p`、未登录访问 `/` 与登录后落回 `/`。
+
+## 首页工具矩阵与按次阶梯展示更新
+
+- **工具矩阵（`#tools` / `CnTools`）**：改为五端汇聚拓扑（桌面端、Claude Code、Codex、Cursor、OpenClaw）与按 4 个创作阶段过滤的工具墙（19 个能力卡片 + `#payg-pricing` 锚点入口，涵盖已上线音视频模型、云端资产清单 `6,375` 项（含 `353` 数字人与 `698` 钩子素材）、`17` 个内置技能及内容发布能力），并保留分辨率与制作规格滚动标签。
+- **按次阶梯（`#proof` / `#payg-pricing` / `CnProof`）**：规模数据更新为 `6,375` 项云端数字人与实景素材、`17` 个内置技能、`4` 个发布平台，并嵌入直读 `TOPUP_LADDER` 的 6 档按次积分充值试算器（`$10` 至 `$3,000`）与 WALLET / `/pricing` 跳转入口；常见问题新增按次充值阶梯与自带 API Key 两条说明（六语种同步）。

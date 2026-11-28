@@ -23,9 +23,11 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { TOPUP_LADDER } from '@/features/pricing/constants'
 
 import { LandingLangProvider } from '../../i18n'
 import { zhCN } from '../../i18n/locales/zh-CN'
@@ -39,6 +41,7 @@ import { CnFaq } from '../cn/faq'
 import { CnFooter } from '../cn/footer'
 import { CnHero } from '../cn/hero'
 import { CnProof } from '../cn/proof'
+import { CnTools } from '../cn/tools'
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -306,5 +309,38 @@ describe('desktop CN GitHub referrer links', () => {
     expect(link).not.toBeNull()
     expect(link?.getAttribute('target')).toBe('_blank')
     expect(link?.getAttribute('rel')).toBe('noopener')
+  })
+})
+
+describe('desktop CN tools wall and payg pricing', () => {
+  it('filters tool tiles by category tab and updates the quick detail card', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithLanding(<CnTools />)
+
+    expect(container.querySelector('.tool-tile-anchor')).not.toBeNull()
+
+    await user.click(
+      screen.getByRole('tab', { name: zhCN.tools.filters.assets })
+    )
+    expect(container.querySelector('.tool-tile-anchor')).toBeNull()
+    expect(screen.queryByText('Seedance 2.5')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /17 内置技能/ }))
+    const detail = container.querySelector('.tool-detail')
+    expect(detail?.textContent).toContain('17 内置技能')
+  })
+
+  it('renders all TOPUP_LADDER tiers and updates summary when selecting $3,000', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithLanding(<CnProof />)
+
+    const rungs = screen.getAllByRole('radio')
+    expect(rungs).toHaveLength(TOPUP_LADDER.length)
+
+    await user.click(rungs[TOPUP_LADDER.length - 1])
+    const checkout = container.querySelector('.payg-checkout') as HTMLElement
+    expect(within(checkout).getByText('30,000 积分')).toBeTruthy()
+    expect(within(checkout).getByText('$2,550')).toBeTruthy()
+    expect(within(checkout).getByText(/15%/)).toBeTruthy()
   })
 })

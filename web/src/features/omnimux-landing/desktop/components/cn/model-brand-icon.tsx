@@ -18,7 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import DoubaoColor from '@lobehub/icons/es/Doubao/components/Color'
 import GeminiColor from '@lobehub/icons/es/Gemini/components/Color'
+import GrokMono from '@lobehub/icons/es/Grok/components/Mono'
+import MidjourneyMono from '@lobehub/icons/es/Midjourney/components/Mono'
+import MinimaxColor from '@lobehub/icons/es/Minimax/components/Color'
 import OpenAIMono from '@lobehub/icons/es/OpenAI/components/Mono'
+import QwenColor from '@lobehub/icons/es/Qwen/components/Color'
 import SunoMono from '@lobehub/icons/es/Suno/components/Mono'
 import type { ComponentType } from 'react'
 
@@ -27,8 +31,12 @@ const MODEL_BRAND_ICON_COMPONENTS: Record<
   ComponentType<{ size?: number | string }>
 > = {
   'Doubao.Color': DoubaoColor,
-  OpenAI: OpenAIMono,
   'Gemini.Color': GeminiColor,
+  Grok: GrokMono,
+  Midjourney: MidjourneyMono,
+  'Minimax.Color': MinimaxColor,
+  OpenAI: OpenAIMono,
+  'Qwen.Color': QwenColor,
   Suno: SunoMono,
 }
 
