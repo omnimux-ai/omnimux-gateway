@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
@@ -30,6 +31,13 @@ import {
 
 export function Pricing(props: { search?: PricingCatalogSearch } = {}) {
   const { t } = useTranslation()
+
+  useEffect(() => {
+    document.documentElement.dataset.chatwootMobileLift = 'true'
+    return () => {
+      delete document.documentElement.dataset.chatwootMobileLift
+    }
+  }, [])
 
   return (
     <PublicLayout

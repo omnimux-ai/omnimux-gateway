@@ -1,10 +1,14 @@
 package controller
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -199,6 +203,8 @@ func writeLoginResponse(c *gin.Context, user *model.User, bundle *service.AuthBu
 	service.WriteRefreshCookie(c, bundle.RefreshToken)
 	setAuthNoStore(c)
 	recordLoginAudit(user, c)
+	userData := buildSelfUserData(user)
+	attachBrowserChatwootIdentity(userData, user.Id)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
@@ -207,7 +213,7 @@ func writeLoginResponse(c *gin.Context, user *model.User, bundle *service.AuthBu
 			"token_type":        bundle.TokenType,
 			"access_expires_at": bundle.AccessExpiresAt,
 			"session":           bundle.Session,
-			"user":              buildSelfUserData(user),
+			"user":              userData,
 		},
 	})
 }
@@ -476,6 +482,9 @@ func GetSelf(c *gin.Context) {
 	permissions := calculateUserPermissions(userRole)
 	permissions["admin_permissions"] = authz.Capabilities(id, userRole)
 	responseData["permissions"] = permissions
+	if _, isBrowserSession := middleware.GetSessionAuthIdentity(c); isBrowserSession {
+		attachBrowserChatwootIdentity(responseData, user.Id)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -520,6 +529,21 @@ func buildSelfUserData(user *model.User) map[string]any {
 		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
 		"permissions":       permissions,
 	}
+}
+
+// fork: chatwoot — compute server-side HMAC-SHA256 identity hash for browser
+// sessions only so authenticated visitors cannot impersonate other users.
+func attachBrowserChatwootIdentity(userData map[string]any, userID int) {
+	if userData == nil || userID <= 0 {
+		return
+	}
+	secret := strings.TrimSpace(os.Getenv("CHATWOOT_IDENTITY_HMAC_SECRET"))
+	if secret == "" {
+		return
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(strconv.Itoa(userID)))
+	userData["chatwoot_identifier_hash"] = hex.EncodeToString(mac.Sum(nil))
 }
 
 // 计算用户权限的辅助函数

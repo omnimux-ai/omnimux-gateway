@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { useRouter } from '@tanstack/react-router'
 import { useEffect } from 'react'
 
+import { syncChatwootLocale } from '@/lib/chatwoot'
+
 import './assets/cn/fonts/smiley/result.css'
 import './desktop-cn.css'
 import { CnAgentDemo } from './components/cn/agent-demo'
@@ -82,6 +84,7 @@ function LandingView() {
     root.style.backgroundColor = '#0C0B11'
     root.lang = landingLangOption(lang).htmlLang
     document.title = copy.meta.title
+    syncChatwootLocale(lang)
     return () => {
       root.style.backgroundColor = previousBg
       root.lang = previousLang

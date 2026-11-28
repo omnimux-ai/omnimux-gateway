@@ -20,6 +20,8 @@ import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
+import { syncChatwootLocale } from '@/lib/chatwoot'
+
 import {
   INTERFACE_LANGUAGE_OPTIONS,
   convertDetectedLanguage,
@@ -49,7 +51,8 @@ const localeLoaders: Record<
   () => Promise<TranslationNamespace>
 > = {
   en: () => Promise.resolve(namespaceOf(en)),
-  zhCN: () => import('./locales/zh.json').then((mod) => namespaceOf(mod.default)),
+  zhCN: () =>
+    import('./locales/zh.json').then((mod) => namespaceOf(mod.default)),
   fr: () => import('./locales/fr.json').then((mod) => namespaceOf(mod.default)),
   ru: () => import('./locales/ru.json').then((mod) => namespaceOf(mod.default)),
   ja: () => import('./locales/ja.json').then((mod) => namespaceOf(mod.default)),
@@ -101,7 +104,8 @@ function resolveInitialLanguage(): InterfaceLanguageCode {
             return undefined
           }
         })()
-  const browser = typeof navigator === 'undefined' ? undefined : navigator.language
+  const browser =
+    typeof navigator === 'undefined' ? undefined : navigator.language
 
   return (
     resolveInterfaceLanguage(stored) ??
@@ -181,6 +185,7 @@ export const i18nReady = i18n
   .then(async () => {
     await ensureLocaleLoaded(INITIAL_LANGUAGE)
     applyDocumentLang(INITIAL_LANGUAGE)
+    syncChatwootLocale(INITIAL_LANGUAGE)
   })
   .catch((error: unknown) => {
     // The app still renders its fallback language when a locale chunk fails.
@@ -190,6 +195,7 @@ export const i18nReady = i18n
 
 i18n.on('languageChanged', (lng) => {
   applyDocumentLang(lng)
+  syncChatwootLocale(lng)
   // Switching language loads that locale's chunk; react-i18next re-renders when
   // the bundle lands, so the UI settles on the chosen language either way.
   void ensureLocaleLoaded(lng)

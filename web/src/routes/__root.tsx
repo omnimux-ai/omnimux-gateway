@@ -35,12 +35,14 @@ import { GeneralError } from '@/features/errors/general-error'
 import { NotFoundError } from '@/features/errors/not-found-error'
 import { getSetupStatus } from '@/features/setup/api'
 import { useSystemConfig } from '@/hooks/use-system-config'
+import i18n from '@/i18n/config'
 import {
   bootstrapAuthentication,
   clearAuthenticatedClientState,
   clearAuthentication,
 } from '@/lib/auth-session'
 import { subscribeAuthSessionEvents } from '@/lib/auth-session-sync'
+import { initChatwoot, syncChatwootUser } from '@/lib/chatwoot'
 import { resolveLegacyRoute } from '@/lib/legacy-route'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -52,6 +54,11 @@ function RootComponent() {
   useSystemConfig({ autoLoad: true })
 
   useEffect(() => {
+    initChatwoot({ locale: i18n.resolvedLanguage || i18n.language })
+    syncChatwootUser(useAuthStore.getState().auth.user)
+  }, [])
+
+  useEffect(() => {
     const aff = new URLSearchParams(window.location.search).get('aff')?.trim()
     if (aff) {
       saveAffiliateCode(aff)
@@ -61,6 +68,9 @@ function RootComponent() {
   useEffect(
     () =>
       useAuthStore.subscribe((state, previousState) => {
+        if (state.auth.user !== previousState.auth.user) {
+          syncChatwootUser(state.auth.user)
+        }
         const sid = state.auth.session?.sid
         const previousSID = previousState.auth.session?.sid
         if (sid !== previousSID) {

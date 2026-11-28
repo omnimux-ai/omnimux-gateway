@@ -52,6 +52,10 @@ services:
 #      - GOOGLE_ANALYTICS_ID=G-XXXXXXXXXX  # Google Analytics 的测量 ID (Google Analytics Measurement ID)
 #      - UMAMI_WEBSITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  # Umami 网站 ID (Umami Website ID)
 #      - UMAMI_SCRIPT_URL=https://analytics.umami.is/script.js  # Umami 脚本 URL，默认为官方地址 (Umami Script URL, defaults to official URL)
+#      - CHATWOOT_BASE_URL=https://app.chatwoot.com  # Chatwoot 实例地址，自托管时填写对应域名 (Chatwoot instance base URL)
+#      - CHATWOOT_WEBSITE_TOKEN=xxxxxxxxxxxx  # Chatwoot 网站收件箱 Token，与 CHATWOOT_BASE_URL 同时设置后启用 (Chatwoot Website Inbox token)
+#      - CHATWOOT_IDENTITY_HMAC_SECRET=  # 可选：Chatwoot 身份验证 HMAC 密钥，开启强制身份校验时必填 (Optional: Chatwoot Identity Validation HMAC secret)
+#      - CHATWOOT_DARK_MODE=dark  # 可选：挂件主题，可选 dark、auto、light，默认 dark（旧版 Chatwoot 可设为 auto） (Optional: widget color scheme, dark|auto|light, default dark)
 
     depends_on:
       - redis

@@ -228,6 +228,18 @@ export default defineConfig(({ envMode }) => {
     process.env.VITE_INSPIRATION_CATALOG_BASE ||
     env.rawPublicVars.VITE_INSPIRATION_CATALOG_BASE ||
     ''
+  const chatwootBaseUrl =
+    process.env.VITE_CHATWOOT_BASE_URL ||
+    env.rawPublicVars.VITE_CHATWOOT_BASE_URL ||
+    ''
+  const chatwootWebsiteToken =
+    process.env.VITE_CHATWOOT_WEBSITE_TOKEN ||
+    env.rawPublicVars.VITE_CHATWOOT_WEBSITE_TOKEN ||
+    ''
+  const chatwootDarkMode =
+    process.env.VITE_CHATWOOT_DARK_MODE ||
+    env.rawPublicVars.VITE_CHATWOOT_DARK_MODE ||
+    ''
   const devProxy = Object.fromEntries(
     (['/api', '/v1', '/mj', '/pg'] as const).map((key) => [
       key,
@@ -327,6 +339,12 @@ export default defineConfig(({ envMode }) => {
         'import.meta.env.VITE_INSPIRATION_CATALOG_BASE': JSON.stringify(
           inspirationCatalogBase
         ),
+        'import.meta.env.VITE_CHATWOOT_BASE_URL':
+          JSON.stringify(chatwootBaseUrl),
+        'import.meta.env.VITE_CHATWOOT_WEBSITE_TOKEN':
+          JSON.stringify(chatwootWebsiteToken),
+        'import.meta.env.VITE_CHATWOOT_DARK_MODE':
+          JSON.stringify(chatwootDarkMode),
         'import.meta.env.OMNIMUX_SEARCH_PAGES': JSON.stringify(browserPages),
       },
     },

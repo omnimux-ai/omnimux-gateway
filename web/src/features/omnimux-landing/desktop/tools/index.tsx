@@ -20,6 +20,7 @@ import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
+import { syncChatwootLocale } from '@/lib/chatwoot'
 import type { DownloadCtaIntent } from '@/lib/download-cta'
 import { trackToolCtaClick, type ToolCtaClick } from '@/lib/growth-tracking'
 
@@ -126,10 +127,12 @@ function ToolPageView(props: TikTokToolPageProps) {
     root.style.backgroundColor = '#0C0B11'
     root.lang = landingLangOption(lang).htmlLang
     document.title = page.title
+    syncChatwootLocale(lang)
     return () => {
       root.style.backgroundColor = previousBg
       root.lang = previousLang
       document.title = previousTitle
+      syncChatwootLocale(previousLang)
     }
   }, [lang, page.title])
 

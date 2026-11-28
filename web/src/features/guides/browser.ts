@@ -1,3 +1,5 @@
+import { initChatwoot } from '@/lib/chatwoot'
+
 import './guides.css'
 
 /** Native image links and anchors work without this optional enhancement. */
@@ -94,3 +96,5 @@ if (tocLinks.length > 0) {
   )
   updateToc()
 }
+
+initChatwoot({ locale: 'en' })
