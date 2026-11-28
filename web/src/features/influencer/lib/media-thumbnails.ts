@@ -242,10 +242,14 @@ export async function generateImageThumbnail(
 function waitForMedia(
   element: HTMLVideoElement,
   event: string,
-  timeoutMs: number
+  timeoutMs: number,
+  signal?: AbortSignal
 ): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Cancelled', 'AbortError'))
+  }
   return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => {
+    const timer = globalThis.setTimeout(() => {
       cleanup()
       reject(new Error('media timeout'))
     }, timeoutMs)
@@ -257,21 +261,34 @@ function waitForMedia(
       cleanup()
       reject(new Error('media failed'))
     }
+    const onAbort = () => {
+      cleanup()
+      reject(new DOMException('Cancelled', 'AbortError'))
+    }
     const cleanup = () => {
-      window.clearTimeout(timer)
+      globalThis.clearTimeout(timer)
       element.removeEventListener(event, onEvent)
       element.removeEventListener('error', onError)
+      signal?.removeEventListener('abort', onAbort)
     }
     element.addEventListener(event, onEvent, { once: true })
     element.addEventListener('error', onError, { once: true })
+    signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
 
 /** Best-effort first-frame poster for a local video; upload never waits for it. */
 export async function captureVideoPoster(
-  file: File
+  file: File,
+  signal?: AbortSignal
 ): Promise<LocalThumbnail | null> {
-  if (typeof document === 'undefined') return null
+  if (
+    signal?.aborted ||
+    typeof document === 'undefined' ||
+    typeof URL?.createObjectURL !== 'function'
+  ) {
+    return null
+  }
   const url = URL.createObjectURL(file)
   const video = document.createElement('video')
   video.muted = true
@@ -279,10 +296,10 @@ export async function captureVideoPoster(
   video.preload = 'metadata'
   video.src = url
   try {
-    await waitForMedia(video, 'loadedmetadata', VIDEO_TIMEOUT_MS)
+    await waitForMedia(video, 'loadedmetadata', VIDEO_TIMEOUT_MS, signal)
     const duration = Number.isFinite(video.duration) ? video.duration : 0
     video.currentTime = duration > 0 ? Math.min(0.2, duration / 2) : 0
-    await waitForMedia(video, 'seeked', VIDEO_TIMEOUT_MS)
+    await waitForMedia(video, 'seeked', VIDEO_TIMEOUT_MS, signal)
     if (!video.videoWidth || !video.videoHeight) return null
     const size = scaledSize(video.videoWidth, video.videoHeight)
     const canvas = createCanvas(size.width, size.height)
@@ -300,7 +317,13 @@ export async function captureVideoPoster(
     return null
   } finally {
     video.removeAttribute('src')
-    video.load()
-    URL.revokeObjectURL(url)
+    try {
+      video.load()
+    } catch {
+      /* Detached or torn-down media elements may reject load(). */
+    }
+    if (typeof URL?.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(url)
+    }
   }
 }
