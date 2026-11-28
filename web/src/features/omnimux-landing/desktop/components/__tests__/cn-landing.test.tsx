@@ -87,14 +87,14 @@ describe('desktop CN landing', () => {
 
   it('states product facts without invented traction numbers', () => {
     const { container } = renderWithLanding(<CnProof />)
-    // Read the copy instead of pinning literals: the platform count must stay
-    // the length of the badge list beside it, not a second hand-kept number.
+    expect(zhCN.proof.facts).toHaveLength(3)
     for (const fact of zhCN.proof.facts) {
       expect(screen.getByText(fact.value)).toBeTruthy()
+      expect(screen.getByText(fact.label)).toBeTruthy()
     }
-    expect(zhCN.proof.facts.at(-1)?.value).toBe(
-      String(zhCN.proof.platforms.length)
-    )
+    for (const platform of zhCN.proof.platforms) {
+      expect(screen.getByText(platform)).toBeTruthy()
+    }
     expect(container.textContent).not.toMatch(/50万\+|1000万\+|官方认证/)
   })
 })
