@@ -24,7 +24,7 @@ func searchPageTestManifest(t *testing.T) []byte {
 	for path, name := range map[string]string{
 		"/": "Home", "/ai-influencer-studio": "AI Influencer Studio", "/pricing": "Pricing",
 		"/about": "About", "/privacy": "Privacy", "/terms": "Terms", "/refunds": "Refunds",
-		"/acceptable-use": "Acceptable use", "/inspiration": "Inspiration",
+		"/acceptable-use": "Acceptable use", "/inspiration": "Inspiration", "/inspiration/tiktok": "TikTok Ad Library",
 		"/tools/tiktok-video-downloader": "TikTok Video Downloader", "/tools/tiktok-photo-downloader": "TikTok Photo Downloader",
 		"/zh/tools/tiktok-video-downloader": "TikTok 视频下载", "/zh/tools/tiktok-photo-downloader": "TikTok 图文下载",
 		"/cli": "CLI", "/skills": "Skills",
@@ -133,7 +133,7 @@ func TestWebSearchPagesServeDistinctPublicContent(t *testing.T) {
 	require.NoError(t, err)
 	outer := gin.New()
 	outer.NoRoute(pages.serve)
-	for path, name := range map[string]string{"/": "Home", "/about": "About", "/privacy": "Privacy", "/terms": "Terms", "/refunds": "Refunds", "/acceptable-use": "Acceptable use", "/pricing": "Pricing", "/inspiration": "Inspiration"} {
+	for path, name := range map[string]string{"/": "Home", "/about": "About", "/privacy": "Privacy", "/terms": "Terms", "/refunds": "Refunds", "/acceptable-use": "Acceptable use", "/pricing": "Pricing", "/inspiration": "Inspiration", "/inspiration/tiktok": "TikTok Ad Library"} {
 		t.Run(name, func(t *testing.T) {
 			response := performPluginRequest(outer, http.MethodGet, path+"?source=search")
 			require.Equal(t, http.StatusOK, response.Code)

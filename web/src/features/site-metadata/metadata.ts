@@ -250,6 +250,67 @@ export function createSearchPageManifest(
         brand
       ),
     },
+    {
+      path: '/inspiration/tiktok',
+      title: `TikTok Ad Library | Product Video Examples | ${brand.brandName}`,
+      description:
+        'Browse real TikTok product video ads by region, clip length, views, and traffic source on OmniMux, then recreate winning structures in the studio.',
+      graph: {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'CollectionPage',
+            '@id': `${brand.siteUrl}/inspiration/tiktok#webpage`,
+            url: `${brand.siteUrl}/inspiration/tiktok`,
+            name: `TikTok Ad Library | Product Video Examples | ${brand.brandName}`,
+            description:
+              'Browse real TikTok product video ads by region, clip length, views, and traffic source on OmniMux, then recreate winning structures in the studio.',
+            isPartOf: {
+              '@type': 'WebSite',
+              name: brand.brandName,
+              url: `${brand.siteUrl}/`,
+            },
+            breadcrumb: {
+              '@id': `${brand.siteUrl}/inspiration/tiktok#breadcrumb`,
+            },
+          },
+          {
+            '@type': 'BreadcrumbList',
+            '@id': `${brand.siteUrl}/inspiration/tiktok#breadcrumb`,
+            itemListElement: [
+              {
+                '@type': 'ListItem',
+                position: 1,
+                name: brand.brandName,
+                item: `${brand.siteUrl}/`,
+              },
+              {
+                '@type': 'ListItem',
+                position: 2,
+                name: 'Prompt inspiration',
+                item: `${brand.siteUrl}/inspiration`,
+              },
+              {
+                '@type': 'ListItem',
+                position: 3,
+                name: translatedText('TikTok Ad Library'),
+                item: `${brand.siteUrl}/inspiration/tiktok`,
+              },
+            ],
+          },
+        ],
+      },
+      // fork: shares the same i18n key as TikTokAdGallery's rendered <h1>.
+      summary: summary(
+        translatedText('TikTok Ad Library'),
+        `${paragraph(
+          'Filter real TikTok Shop and product video ads across seven dimensions: region, content type, clip length, views, traffic source, publish window, and sort order.'
+        )}${paragraph(
+          'Inspect hooks and ad structure, then open AI Influencer Studio to recreate the workflow with your own product and character.'
+        )}<h2>Explore more</h2><p><a href="${escapeHtml(brand.siteUrl)}/inspiration">Prompt inspiration</a> | <a href="${escapeHtml(brand.siteUrl)}/tools/tiktok-video-downloader">TikTok Video Downloader</a> | <a href="${escapeHtml(brand.siteUrl)}/ai-influencer-studio">AI Influencer Studio</a></p>`,
+        brand
+      ),
+    },
     // fork: TikTok tool pages (en + zh-CN). Copy is shared with the page UI.
     ...toolSearchPages(brand, { escapeHtml, paragraph, summary }),
     // fork: Agent CLI / Skills entry pages across 6 locales.

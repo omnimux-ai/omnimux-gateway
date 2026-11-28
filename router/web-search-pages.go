@@ -17,7 +17,7 @@ import (
 )
 
 // fork: only pages with public, route-specific content may be indexed.
-var publicSearchPagePaths = [...]string{"/", "/ai-influencer-studio", "/about", "/privacy", "/terms", "/refunds", "/acceptable-use", "/pricing", "/inspiration", "/guides", "/guides/create-ai-character", "/guides/recreate-video-with-your-character", "/tools/tiktok-video-downloader", "/tools/tiktok-photo-downloader", "/zh/tools/tiktok-video-downloader", "/zh/tools/tiktok-photo-downloader", "/cli", "/skills", "/zh/cli", "/zh/skills", "/zh-tw/cli", "/zh-tw/skills", "/ja/cli", "/ja/skills", "/es/cli", "/es/skills", "/id/cli", "/id/skills"}
+var publicSearchPagePaths = [...]string{"/", "/ai-influencer-studio", "/about", "/privacy", "/terms", "/refunds", "/acceptable-use", "/pricing", "/inspiration", "/inspiration/tiktok", "/guides", "/guides/create-ai-character", "/guides/recreate-video-with-your-character", "/tools/tiktok-video-downloader", "/tools/tiktok-photo-downloader", "/zh/tools/tiktok-video-downloader", "/zh/tools/tiktok-photo-downloader", "/cli", "/skills", "/zh/cli", "/zh/skills", "/zh-tw/cli", "/zh-tw/skills", "/ja/cli", "/ja/skills", "/es/cli", "/es/skills", "/id/cli", "/id/skills"}
 
 // fork: these editorial routes must never degrade to a successful application shell.
 var staticGuidePagePaths = map[string]bool{
@@ -42,11 +42,13 @@ type webSearchPages struct {
 	public      map[string][]byte
 	private     []byte
 	unavailable []byte
+	catalog     *inspirationCatalogStore
 }
 
 func buildWebSearchPages(indexPage, manifestData []byte) (webSearchPages, error) {
 	pages := webSearchPages{
 		public: make(map[string][]byte), private: indexPage,
+		catalog: newInspirationCatalogStore(),
 		unavailable: []byte(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Guide temporarily unavailable | OmniMux</title><meta name="robots" content="noindex,follow"><!--umami-->
 </head><body><main><h1>Guide temporarily unavailable</h1><p>Please try again later.</p><a href="/">Back to OmniMux</a></main></body></html>`),
 	}
@@ -315,6 +317,10 @@ func (pages webSearchPages) serve(c *gin.Context) {
 	urlPath := c.Request.URL.Path
 	if strings.HasPrefix(urlPath, "/s/") {
 		pages.serveSharePage(c, urlPath)
+		return
+	}
+	if strings.HasPrefix(urlPath, inspirationModelsPrefix) {
+		pages.serveInspirationModelPage(c, urlPath)
 		return
 	}
 	if urlPath != "/" && strings.HasSuffix(urlPath, "/") {
