@@ -3,6 +3,7 @@ import {
   docsQuickstartUrl,
   X_URL,
 } from '../omnimux-landing/lib/landing-urls'
+import { agentSearchPages } from './agent-pages'
 import {
   ABOUT_RIGHTS,
   ABOUT_STEPS,
@@ -45,6 +46,13 @@ export interface SearchPage {
   /** Language alternates of the same page, rendered as hreflang links. */
   alternates?: { hreflang: string; path: string }[]
   ogLocale?: string
+}
+
+/** Renderers owned by metadata.ts; passed to sub-registries to avoid cycles. */
+export interface SearchPageRenderers {
+  escapeHtml: (value: string) => string
+  paragraph: (text: string) => string
+  summary: (title: string, body: string, brand: SiteBrand) => string
 }
 
 export function escapeHtml(value: string): string {
@@ -244,6 +252,8 @@ export function createSearchPageManifest(
     },
     // fork: TikTok tool pages (en + zh-CN). Copy is shared with the page UI.
     ...toolSearchPages(brand, { escapeHtml, paragraph, summary }),
+    // fork: Agent CLI / Skills entry pages across 6 locales.
+    ...agentSearchPages(brand, { escapeHtml, paragraph, summary }),
   ]
   return {
     pages: Object.fromEntries(

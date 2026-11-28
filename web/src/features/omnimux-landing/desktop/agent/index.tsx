@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link, useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 
 import '../assets/cn/fonts/smiley/result.css'
@@ -79,36 +79,23 @@ export function AgentPage(props: AgentPageProps) {
 
 function AgentPageView(props: AgentPageProps) {
   const { lang, copy } = useLanding()
-  const router = useRouter()
   const page = AGENT_PAGES[props.locale][props.kind]
 
-  // The global page-metadata sync rewrites <title> after each navigation;
-  // re-assert this page's title once it has run (same as the tool pages).
-  useEffect(
-    () =>
-      router.subscribe('onResolved', () => {
-        document.title = page.title
-        document.documentElement.lang = landingLangOption(lang).htmlLang
-      }),
-    [router, lang, page.title]
-  )
-
+  // app-main.tsx (applyPageMetadata) owns <title> and head tags for all 12
+  // Agent URLs; managing document.title here would overwrite outbound routes.
   useEffect(() => {
     const root = document.documentElement
     const previousBg = root.style.backgroundColor
-    const previousTitle = document.title
     const previousLang = root.lang
     root.style.backgroundColor = '#0C0B11'
     root.lang = landingLangOption(lang).htmlLang
-    document.title = page.title
     syncChatwootLocale(lang)
     return () => {
       root.style.backgroundColor = previousBg
       root.lang = previousLang
-      document.title = previousTitle
       syncChatwootLocale(previousLang)
     }
-  }, [lang, page.title])
+  }, [lang])
 
   return (
     <div className='omc js'>

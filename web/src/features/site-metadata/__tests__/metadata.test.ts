@@ -115,11 +115,11 @@ describe('public page metadata', () => {
     expect(urls).toEqual(
       Object.keys(fullManifest.pages).map((path) => `${brand.siteUrl}${path}`)
     )
-    expect(urls).toHaveLength(16)
+    expect(urls).toHaveLength(28)
     expect(sitemap).not.toContain('/influencer')
     expect([
       ...sitemap.matchAll(/<lastmod>2026-11-10<\/lastmod><\/url>/g),
-    ]).toHaveLength(16)
+    ]).toHaveLength(28)
   })
 
   it('states no subscription and paid trial packs on the homepage', () => {
@@ -252,6 +252,15 @@ describe('public page metadata', () => {
       expect(manifest.pages[path].head).toContain(
         '下载后可在 OmniMux 拆解并复刻为带货视频。'
       )
+      const head = new DOMParser().parseFromString(
+        manifest.pages[path].head,
+        'text/html'
+      )
+      const description =
+        head
+          .querySelector('meta[name="description"]')
+          ?.getAttribute('content') ?? ''
+      expect(description.length, path).toBeGreaterThanOrEqual(70)
     }
   })
 
@@ -270,6 +279,18 @@ describe('public page metadata', () => {
       '/zh/tools/tiktok-video-downloader',
       '/tools/tiktok-photo-downloader',
       '/zh/tools/tiktok-photo-downloader',
+      '/cli',
+      '/zh/cli',
+      '/zh-tw/cli',
+      '/ja/cli',
+      '/es/cli',
+      '/id/cli',
+      '/skills',
+      '/zh/skills',
+      '/zh-tw/skills',
+      '/ja/skills',
+      '/es/skills',
+      '/id/skills',
     ])
     const titles = new Set<string>()
     for (const [path, page] of Object.entries(manifest.pages)) {
@@ -288,7 +309,7 @@ describe('public page metadata', () => {
       expect(page.summary).not.toMatch(/\bhidden\b|display:\s*none/)
       expect(page.summary).not.toContain('undefined')
     }
-    expect(titles.size).toBe(13)
+    expect(titles.size).toBe(25)
     expect(manifest.pages['/about'].summary).toContain(PRODUCT_DESCRIPTION)
     expect(manifest.pages['/about'].summary).not.toContain(
       'Put your character in any trend'
@@ -355,6 +376,82 @@ describe('public page metadata', () => {
         expect(faq.length).toBeGreaterThan(0)
         expect(page.summary).toContain('<noscript>')
         expect(page.head.toLowerCase()).not.toMatch(/watermark|无水印/)
+      }
+    }
+  })
+
+  it('links every Agent entry page to all six language alternates and publishes its FAQ', () => {
+    const groups = {
+      cli: {
+        en: '/cli',
+        'zh-Hans': '/zh/cli',
+        'zh-Hant': '/zh-tw/cli',
+        ja: '/ja/cli',
+        es: '/es/cli',
+        id: '/id/cli',
+      },
+      skills: {
+        en: '/skills',
+        'zh-Hans': '/zh/skills',
+        'zh-Hant': '/zh-tw/skills',
+        ja: '/ja/skills',
+        es: '/es/skills',
+        id: '/id/skills',
+      },
+    } as const
+    const expectedOgLocale: Record<string, string> = {
+      en: 'en_US',
+      'zh-Hans': 'zh_CN',
+      'zh-Hant': 'zh_TW',
+      ja: 'ja_JP',
+      es: 'es_ES',
+      id: 'id_ID',
+    }
+    for (const pathsByLang of Object.values(groups)) {
+      const expectedAlternates = {
+        ...Object.fromEntries(
+          Object.entries(pathsByLang).map(([lang, path]) => [
+            lang,
+            `https://omnimux.ai${path}`,
+          ])
+        ),
+        'x-default': `https://omnimux.ai${pathsByLang.en}`,
+      }
+      for (const [lang, path] of Object.entries(pathsByLang)) {
+        const page = manifest.pages[path]
+        const head = new DOMParser().parseFromString(page.head, 'text/html')
+        const alternates = Object.fromEntries(
+          [...head.querySelectorAll('link[rel="alternate"]')].map((link) => [
+            link.getAttribute('hreflang'),
+            link.getAttribute('href'),
+          ])
+        )
+        expect(alternates, path).toEqual(expectedAlternates)
+        expect(
+          head
+            .querySelector('meta[property="og:locale"]')
+            ?.getAttribute('content'),
+          path
+        ).toBe(expectedOgLocale[lang])
+        expect(page.head).not.toContain('isAccessibleForFree')
+        const graph = JSON.parse(
+          head.querySelector('script[type="application/ld+json"]')
+            ?.textContent ?? '{}'
+        ) as { '@graph': { '@type': string; mainEntity?: unknown[] }[] }
+        expect(
+          graph['@graph'].map((node) => node['@type']),
+          path
+        ).toEqual([
+          'WebPage',
+          'BreadcrumbList',
+          'SoftwareApplication',
+          'FAQPage',
+        ])
+        expect(
+          (graph['@graph'][3].mainEntity ?? []).length,
+          path
+        ).toBeGreaterThan(0)
+        expect(page.summary, path).toContain('<noscript>')
       }
     }
   })
@@ -429,7 +526,14 @@ describe('public page metadata', () => {
     document.head.innerHTML =
       '<title>Old</title><script id="analytics"></script><meta name="viewport" content="width=device-width">'
     applyPageMetadata(manifest, '/')
+    applyPageMetadata(manifest, '/cli')
+    expect(
+      document.querySelectorAll('link[rel="alternate"][hreflang]')
+    ).toHaveLength(7)
     applyPageMetadata(manifest, '/about')
+    expect(
+      document.querySelectorAll('link[rel="alternate"][hreflang]')
+    ).toHaveLength(0)
     expect(document.title).toContain('About')
     expect(document.querySelectorAll('link[rel="canonical"]')).toHaveLength(1)
     expect(
@@ -441,6 +545,10 @@ describe('public page metadata', () => {
     expect(
       document.querySelector('meta[name="robots"]')?.getAttribute('content')
     ).toBe('noindex,follow')
+    applyPageMetadata(manifest, '/zh/skills')
+    expect(
+      document.querySelectorAll('link[rel="alternate"][hreflang]')
+    ).toHaveLength(7)
     applyPageMetadata(manifest, '/about')
     expect(document.title).toContain('About OmniMux')
     expect(

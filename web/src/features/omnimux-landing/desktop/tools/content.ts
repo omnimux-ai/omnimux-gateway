@@ -174,7 +174,7 @@ export const TOOL_PAGES: Record<
       path: TOOL_PATHS['zh-CN'].video,
       title: 'TikTok 视频下载 — 保存为 MP4 | OmniMux',
       description:
-        '粘贴公开 TikTok 视频链接，在浏览器里保存为 MP4。下载后可在 OmniMux 拆解并复刻为带货视频。',
+        '粘贴公开 TikTok 视频链接或短链接，无需注册或安装软件，直接在浏览器解析并保存为 MP4 文件。下载后可在 OmniMux 拆解并复刻为带货视频。',
       h1: 'TikTok 视频下载',
       subtitle: '粘贴公开 TikTok 视频链接，保存为 MP4',
       stepsTitle: '三步保存 TikTok 视频',
@@ -197,7 +197,7 @@ export const TOOL_PAGES: Record<
       path: TOOL_PATHS['zh-CN'].photo,
       title: 'TikTok 图文下载 — 保存原图 | OmniMux',
       description:
-        '粘贴公开 TikTok 图文链接，按帖子顺序保存原图。下载后可在 OmniMux 拆解并复刻为带货视频。',
+        '粘贴公开 TikTok 图文链接或短链接，无需安装软件，在浏览器按帖子顺序保存原始 JPEG/WebP 图片。下载后可在 OmniMux 拆解并复刻为带货视频。',
       h1: 'TikTok 图文下载',
       subtitle: '粘贴公开 TikTok 图文链接，按顺序保存原图',
       stepsTitle: '三步保存 TikTok 图文',

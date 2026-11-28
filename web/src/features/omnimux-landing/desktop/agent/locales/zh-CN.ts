@@ -190,7 +190,7 @@ export const zhCN: Record<'cli' | 'skills', AgentPageContent> = {
   cli: {
     ...SHELL,
     path: AGENT_PATHS['zh-CN'].cli,
-    title: 'OmniMux CLI — 在任意 AI 中分析 TikTok、发布视频与生成内容',
+    title: 'OmniMux CLI | AI Agent 分析、生成与发布 TikTok',
     description:
       '安装 OmniMux CLI，即可在 Codex、Claude Code、OpenClaw 等 Agent 中调用 TikTok 分析、AI 视频与图片生成，以及发布能力。',
     badge: 'AI Agent CLI for TikTok',
@@ -236,7 +236,7 @@ export const zhCN: Record<'cli' | 'skills', AgentPageContent> = {
   skills: {
     ...SHELL,
     path: AGENT_PATHS['zh-CN'].skills,
-    title: 'OmniMux Skills — 给任意 AI 装上 TikTok 爆款分析与短视频生成能力',
+    title: 'OmniMux Skills | AI Agent TikTok 爆款分析与短视频',
     description:
       '给 Codex、OpenClaw、Claude Code 等装上 OmniMux Skills，自动分析 TikTok 爆款、生成短视频。',
     badge: 'AI Agent Skills for TikTok',

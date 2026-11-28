@@ -7,12 +7,13 @@ const PAGE_METADATA_SELECTOR = [
   'meta[name="description"]',
   'meta[name="robots"]',
   'link[rel="canonical"]',
+  'link[rel="alternate"][hreflang]',
   'meta[property^="og:"]',
   'meta[name^="twitter:"]',
   'script[type="application/ld+json"]',
 ].join(',')
 
-/** Remove the previous page's canonical and graph before applying the next page. */
+/** Remove the previous page's canonical, alternates, and graph before applying the next page. */
 export function applyPageMetadata(
   manifest: SearchPageManifest,
   pathname: string

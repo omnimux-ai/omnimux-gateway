@@ -217,4 +217,15 @@ describe('Agent entry pages across all six languages', () => {
       path
     )
   })
+
+  it('sets zh-Hans root lang and leaves outbound document.title intact on unmount', () => {
+    document.documentElement.lang = 'en'
+    document.title = 'Initial'
+    const { unmount } = renderPage('cli', 'zh-CN')
+    expect(document.documentElement.lang).toBe('zh-Hans')
+    document.title = 'OmniMux Pricing'
+    unmount()
+    expect(document.title).toBe('OmniMux Pricing')
+    expect(document.documentElement.lang).toBe('en')
+  })
 })

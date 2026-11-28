@@ -204,8 +204,7 @@ export const en: Record<'cli' | 'skills', AgentPageContent> = {
   cli: {
     ...SHELL,
     path: AGENT_PATHS.en.cli,
-    title:
-      'OmniMux CLI — TikTok analysis, publishing and AI generation from your agent',
+    title: 'OmniMux CLI | TikTok Analysis, AI Video & Publishing',
     description:
       'Install the OmniMux CLI and call TikTok analysis, AI video and image generation, and publishing from Codex, Claude Code, OpenClaw and other agents.',
     badge: 'AI Agent CLI for TikTok',
@@ -265,8 +264,7 @@ export const en: Record<'cli' | 'skills', AgentPageContent> = {
   skills: {
     ...SHELL,
     path: AGENT_PATHS.en.skills,
-    title:
-      'OmniMux Skills — TikTok analysis and short-video generation for any agent',
+    title: 'OmniMux Skills | TikTok Analysis & Short Video for Agents',
     description:
       'Give Codex, OpenClaw, Claude Code and other agents OmniMux skills to analyze TikTok hits and generate short videos.',
     badge: 'AI Agent Skills for TikTok',
