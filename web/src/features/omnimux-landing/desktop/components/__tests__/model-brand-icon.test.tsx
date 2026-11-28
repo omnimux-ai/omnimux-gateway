@@ -26,6 +26,10 @@ describe('ModelBrandIcon', () => {
     ['Doubao.Color', 'Doubao'],
     ['OpenAI', 'OpenAI'],
     ['Gemini.Color', 'Gemini'],
+    ['Qwen.Color', 'Qwen'],
+    ['Minimax.Color', 'Minimax'],
+    ['Grok', 'Grok'],
+    ['Midjourney', 'Midjourney'],
     ['Suno', 'Suno'],
   ])('renders the static %s icon at the requested size', (icon, title) => {
     const { container } = render(<ModelBrandIcon icon={icon} size={18} />)

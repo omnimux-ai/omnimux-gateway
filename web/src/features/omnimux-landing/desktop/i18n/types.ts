@@ -64,13 +64,22 @@ export type FlowStepCopy = {
   secondary?: string
 }
 
-export type ToolGroupCopy = {
-  title: string
-  lead: string
-  items: readonly { icon: IconName; label: string }[]
-}
+export type ToolWallCategory =
+  | 'all'
+  | 'research'
+  | 'assets'
+  | 'create'
+  | 'studio'
 
-export type ModelCopy = { mark: string; name: string; kind: string }
+export type ToolWallItemCopy = {
+  id: string
+  category: Exclude<ToolWallCategory, 'all'>
+  name: string
+  cap: string
+  desc: string
+  icon?: IconName
+  brandIcon?: string
+}
 
 export type FooterColumnCopy = {
   title: string
@@ -453,11 +462,15 @@ export interface LandingCopy {
   tools: {
     h2: string
     lead: string
-    centerLabel: string
-    groups: readonly ToolGroupCopy[]
+    topologyAria: string
+    sources: readonly [string, string, string, string, string]
+    filterAria: string
+    filters: Record<ToolWallCategory, string>
+    items: readonly ToolWallItemCopy[]
+    anchorTitle: string
+    anchorCap: string
+    detailCta: string
     modelsTitle: string
-    modelsAria: string
-    models: readonly ModelCopy[]
     chipsAria: string
     capabilityRows: readonly { icon: IconName; label: string }[][]
   }
@@ -477,6 +490,21 @@ export interface LandingCopy {
     h2: string
     lead: string
     facts: readonly { value: string; label: string }[]
+    paygTitle: string
+    paygLead: string
+    pillars: readonly { value: string; label: string }[]
+    ladderAria: string
+    creditsUnit: string
+    standardRate: string
+    /** `{percent}` replaced with integer discount percentage, e.g. 5 / 10 / 15. */
+    discountBadge: string
+    /** `{saved}` and `{percent}` replaced. */
+    saveSummary: string
+    summaryCredits: string
+    summaryPay: string
+    summaryBenefit: string
+    ctaTopup: string
+    ctaPricing: string
     platformsAria: string
     platforms: readonly string[]
     badges: readonly string[]

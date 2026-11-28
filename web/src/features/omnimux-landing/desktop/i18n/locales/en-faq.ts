@@ -68,5 +68,13 @@ export const enFaq: LandingFaqCopy = {
       q: 'Can I use generated videos commercially?',
       a: 'Commercial usage is governed by the Terms of Service. For uploaded portraits, product images and reference videos, you confirm you hold the rights to use them and comply with each platform’s rules.',
     },
+    {
+      q: 'Is a monthly subscription required? How do credits work?',
+      a: 'No monthly fee is required. Credits follow a transparent rate ($1 = 10 credits) across all tools, with 5%, 10%, and 15% volume discounts at $300, $1,000, and $3,000.',
+    },
+    {
+      q: 'Can I bring my own API keys?',
+      a: 'Yes. Desktop settings let you plug in your own model API keys stored locally on your machine, or use your unified OmniMux credit balance.',
+    },
   ],
 }

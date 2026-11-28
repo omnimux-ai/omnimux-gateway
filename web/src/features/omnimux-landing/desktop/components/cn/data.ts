@@ -130,15 +130,18 @@ export type IconName =
 export type Mode = 'agent' | 'video' | 'image'
 
 /**
- * LobeHub icon spec per model row, keyed by the brand name in
- * `copy.models[].name` (identical across locales). Rows missing here
- * fall back to `model.mark`.
+ * LobeHub icon spec keyed by model brand display name.
  */
 export const MODEL_BRAND_ICONS: Record<string, string> = {
   'Seedance 2.5': 'Doubao.Color',
   'Seedance 2.0': 'Doubao.Color',
+  'Wan 3.0': 'Qwen.Color',
+  'MiniMax H3': 'Minimax.Color',
+  'Grok Imagine': 'Grok',
   'GPT Image 2.5': 'OpenAI',
   'Nano Banana': 'Gemini.Color',
+  'Nano Banana / Seedream': 'Gemini.Color',
+  Midjourney: 'Midjourney',
   Suno: 'Suno',
   Gemini: 'Gemini.Color',
 }

@@ -16,46 +16,45 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+
+import type { DownloadCtaIntent } from '@/lib/download-cta'
 
 import { useCopy } from '../../i18n/context'
-import { MODEL_BRAND_ICONS, type IconName } from './data'
-import { usePrefersReducedMotion } from './hooks'
+import type { ToolWallCategory } from '../../i18n/types'
+import { useDownload } from './download-context'
 import { Icon } from './icons'
 import { ModelBrandIcon } from './model-brand-icon'
 
-function ToolList(props: { items: readonly { icon: IconName; label: string }[] }) {
-  return (
-    <ul>
-      {props.items.map((item) => (
-        <li key={item.label}>
-          <Icon name={item.icon} />
-          {item.label}
-        </li>
-      ))}
-    </ul>
-  )
+const CATEGORY_ORDER: readonly ToolWallCategory[] = [
+  'all',
+  'research',
+  'assets',
+  'create',
+  'studio',
+]
+
+const TOOLS_DETAIL_DOWNLOAD_INTENT: DownloadCtaIntent = {
+  cta_id: 'tools_detail_download',
+  cta_position: 'footer',
+  cta_variant: 'section',
 }
 
 export function CnTools() {
-  const [active, setActive] = useState(0)
-  const reduced = usePrefersReducedMotion()
   const copy = useCopy().tools
-  const groups = copy.groups
+  const { open } = useDownload()
+  const [category, setCategory] = useState<ToolWallCategory>('all')
+  const [selectedId, setSelectedId] = useState<string>('digital-humans')
 
-  useEffect(() => {
-    if (reduced) return
-    const timer = window.setInterval(
-      () => setActive((index) => (index + 1) % copy.models.length),
-      2000
-    )
-    return () => window.clearInterval(timer)
-  }, [reduced, copy.models.length])
+  const visibleItems =
+    category === 'all'
+      ? copy.items
+      : copy.items.filter((item) => item.category === category)
 
-  const left = groups[0]
-  const right = groups[4]
-  const bottom = groups[5]
-  const center = groups.slice(1, 4)
+  const selectedItem =
+    visibleItems.find((item) => item.id === selectedId) ??
+    visibleItems[0] ??
+    copy.items[0]
 
   return (
     <section className='sec' id='tools'>
@@ -65,85 +64,249 @@ export function CnTools() {
           <p className='lead'>{copy.lead}</p>
         </div>
 
-        <div className='tools-map'>
-          <div className='tm tm-left'>
-            <h3>{left.title}</h3>
-            <p>{left.lead}</p>
-            <ToolList items={left.items} />
-            <span className='tm-link' aria-hidden='true' />
-          </div>
-          <div className='tm tm-center'>
-            {center.map((group) => (
-              <div className='tm-col' key={group.title}>
-                <h3>{group.title}</h3>
-                <p>{group.lead}</p>
-                <ToolList items={group.items} />
+        <div className='tool-topo' aria-label={copy.topologyAria}>
+          <div className='tool-sources'>
+            {copy.sources.map((label) => (
+              <div key={label} className='tool-src'>
+                {label}
               </div>
             ))}
-            <div className='tm-label'>{copy.centerLabel}</div>
           </div>
-          <div className='tm tm-right'>
-            <h3>{right.title}</h3>
-            <p>{right.lead}</p>
-            <ToolList items={right.items} />
-            <span className='tm-link' aria-hidden='true' />
+
+          <svg
+            className='tool-svg tool-svg-desktop'
+            viewBox='0 0 1000 56'
+            preserveAspectRatio='none'
+            aria-hidden='true'
+          >
+            <path
+              className='tool-beam-base'
+              d='M100 0 C100 32, 500 20, 500 56'
+            />
+            <path
+              className='tool-beam-base'
+              d='M300 0 C300 32, 500 20, 500 56'
+            />
+            <path className='tool-beam-base' d='M500 0 L500 56' />
+            <path
+              className='tool-beam-base'
+              d='M700 0 C700 32, 500 20, 500 56'
+            />
+            <path
+              className='tool-beam-base'
+              d='M900 0 C900 32, 500 20, 500 56'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M100 0 C100 32, 500 20, 500 56'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M300 0 C300 32, 500 20, 500 56'
+            />
+            <path className='tool-beam-pulse' d='M500 0 L500 56' />
+            <path
+              className='tool-beam-pulse'
+              d='M700 0 C700 32, 500 20, 500 56'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M900 0 C900 32, 500 20, 500 56'
+            />
+          </svg>
+
+          <svg
+            className='tool-svg tool-svg-mobile'
+            viewBox='0 0 360 40'
+            preserveAspectRatio='none'
+            aria-hidden='true'
+          >
+            <path className='tool-beam-base' d='M90 0 C90 22, 180 14, 180 40' />
+            <path
+              className='tool-beam-base'
+              d='M270 0 C270 22, 180 14, 180 40'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M90 0 C90 22, 180 14, 180 40'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M270 0 C270 22, 180 14, 180 40'
+            />
+          </svg>
+
+          <div className='tool-hub'>
+            <img src='/logo.svg' alt='' width={22} height={22} />
+            <span>OmniMux</span>
           </div>
+
+          <svg
+            className='tool-svg tool-svg-desktop'
+            viewBox='0 0 1000 56'
+            preserveAspectRatio='none'
+            aria-hidden='true'
+          >
+            <path
+              className='tool-beam-base'
+              d='M500 0 C500 34, 100 20, 100 56'
+            />
+            <path
+              className='tool-beam-base'
+              d='M500 0 C500 34, 300 20, 300 56'
+            />
+            <path className='tool-beam-base' d='M500 0 L500 56' />
+            <path
+              className='tool-beam-base'
+              d='M500 0 C500 34, 700 20, 700 56'
+            />
+            <path
+              className='tool-beam-base'
+              d='M500 0 C500 34, 900 20, 900 56'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M500 0 C500 34, 100 20, 100 56'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M500 0 C500 34, 300 20, 300 56'
+            />
+            <path className='tool-beam-pulse' d='M500 0 L500 56' />
+            <path
+              className='tool-beam-pulse'
+              d='M500 0 C500 34, 700 20, 700 56'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M500 0 C500 34, 900 20, 900 56'
+            />
+          </svg>
+
+          <svg
+            className='tool-svg tool-svg-mobile'
+            viewBox='0 0 360 40'
+            preserveAspectRatio='none'
+            aria-hidden='true'
+          >
+            <path className='tool-beam-base' d='M180 0 C180 24, 90 14, 90 40' />
+            <path
+              className='tool-beam-base'
+              d='M180 0 C180 24, 270 14, 270 40'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M180 0 C180 24, 90 14, 90 40'
+            />
+            <path
+              className='tool-beam-pulse'
+              d='M180 0 C180 24, 270 14, 270 40'
+            />
+          </svg>
         </div>
 
-        <div className='tm tm-bottom'>
-          <div>
-            <h3>{bottom.title}</h3>
-            <p style={{ fontSize: 13, color: 'var(--fg-3)', marginTop: 2 }}>
-              {bottom.lead}
-            </p>
+        <div
+          className='tool-filters'
+          role='tablist'
+          aria-label={copy.filterAria}
+        >
+          {CATEGORY_ORDER.map((cat) => {
+            const active = cat === category
+            return (
+              <button
+                key={cat}
+                type='button'
+                role='tab'
+                aria-selected={active}
+                className={active ? 'tool-filter on' : 'tool-filter'}
+                onClick={() => setCategory(cat)}
+              >
+                {copy.filters[cat]}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className='tool-wall'>
+          {visibleItems.map((item) => {
+            const selected = item.id === selectedItem.id
+            return (
+              <button
+                key={item.id}
+                type='button'
+                aria-pressed={selected}
+                className={selected ? 'tool-tile on' : 'tool-tile'}
+                onClick={() => setSelectedId(item.id)}
+              >
+                <span className='tool-tile-ico'>
+                  {item.brandIcon ? (
+                    <ModelBrandIcon icon={item.brandIcon} size={18} />
+                  ) : (
+                    <Icon name={item.icon ?? 'spark'} />
+                  )}
+                </span>
+                <span className='tool-tile-body'>
+                  <strong>{item.name}</strong>
+                  <span>{item.cap}</span>
+                </span>
+              </button>
+            )
+          })}
+
+          {category === 'all' ? (
+            <a className='tool-tile tool-tile-anchor' href='#payg-pricing'>
+              <span className='tool-tile-body'>
+                <strong>{copy.anchorTitle}</strong>
+                <span>{copy.anchorCap}</span>
+              </span>
+              <Icon name='right' />
+            </a>
+          ) : null}
+        </div>
+
+        <div className='tool-detail' aria-live='polite'>
+          <span className='tool-tile-ico'>
+            {selectedItem.brandIcon ? (
+              <ModelBrandIcon icon={selectedItem.brandIcon} size={18} />
+            ) : (
+              <Icon name={selectedItem.icon ?? 'spark'} />
+            )}
+          </span>
+          <div className='tool-detail-info'>
+            <h3>{selectedItem.name}</h3>
+            <p>{selectedItem.desc}</p>
           </div>
-          <ToolList items={bottom.items} />
+          <button
+            type='button'
+            className='btn btn-sm btn-primary'
+            onClick={() => open(undefined, TOOLS_DETAIL_DOWNLOAD_INTENT)}
+          >
+            {copy.detailCta}
+          </button>
         </div>
 
         <div className='models' id='models'>
           <h3>{copy.modelsTitle}</h3>
-          <div className='models-grid'>
-            <div className='wheel' aria-label={copy.modelsAria}>
-              <ul>
-                {copy.models.map((model, index) => (
-                  <li key={model.name} className={index === active ? 'on' : undefined}>
-                    <i>
-                      {MODEL_BRAND_ICONS[model.name] ? (
-                        <ModelBrandIcon
-                          icon={MODEL_BRAND_ICONS[model.name]}
-                          size={18}
-                        />
-                      ) : (
-                        model.mark
-                      )}
-                    </i>
-                    {model.name}
-                    <span>{model.kind}</span>
-                  </li>
+          <div className='chiprows' aria-label={copy.chipsAria}>
+            {copy.capabilityRows.map((row, rowIndex) => (
+              <div
+                className={rowIndex === 1 ? 'chiprow rev' : 'chiprow'}
+                key={row[0].label}
+              >
+                {row.map((chip) => (
+                  <span key={chip.label}>
+                    <Icon name={chip.icon} />
+                    {chip.label}
+                  </span>
                 ))}
-              </ul>
-            </div>
-            <div className='chiprows' aria-label={copy.chipsAria}>
-              {copy.capabilityRows.map((row, rowIndex) => (
-                <div
-                  className={`chiprow${rowIndex === 1 ? ' rev' : ''}`}
-                  key={row[0].label}
-                >
-                  {row.map((chip) => (
-                    <span key={chip.label}>
-                      <Icon name={chip.icon} />
-                      {chip.label}
-                    </span>
-                  ))}
-                  {row.map((chip) => (
-                    <span key={`dup-${chip.label}`} aria-hidden='true'>
-                      <Icon name={chip.icon} />
-                      {chip.label}
-                    </span>
-                  ))}
-                </div>
-              ))}
-            </div>
+                {row.map((chip) => (
+                  <span key={`dup-${chip.label}`} aria-hidden='true'>
+                    <Icon name={chip.icon} />
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       </div>
