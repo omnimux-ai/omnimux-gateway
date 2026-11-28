@@ -1047,6 +1047,101 @@ export const id: LandingCopy = {
       'Video ini tidak memiliki takarir pembuat atau takarir otomatis di TikTok. Salin deskripsi atau unduh MP4 di bawah.',
     transcriptOpenStudio: 'Buka Studio',
     transcriptRecreate: 'Buat ulang di Studio',
+    transcriptSectionTitle: 'Hasil ekstraksi',
+    transcriptSectionSub:
+      'Putar video di kiri, ketuk baris stempel waktu untuk melompat, lalu kelola transkrip, terjemahan, dan bedah struktur di kanan.',
+    transcriptDemoBadge: 'Contoh',
+    transcriptReturnDemo: 'Lihat contoh',
+    transcriptTabScript: 'Naskah',
+    transcriptTabBreakdown: 'Bedah alur',
+    transcriptStatDuration: 'Durasi',
+    transcriptStatSegments: 'Segmen',
+    transcriptStatTracks: 'Jalur takarir',
+    transcriptStatSections: 'Babak',
+    transcriptScriptSub:
+      'Ketuk baris waktu untuk menggeser video ke momen terkait, saring kata kunci, terjemahkan, atau ekspor.',
+    transcriptBreakdownSub:
+      'Bedah struktur narasi secara kronologis yang terhubung dengan kutipan asli dan stempel waktu.',
+    transcriptTranslate: 'Terjemahkan',
+    transcriptTranslating: 'Menerjemahkan',
+    transcriptTranslateTargetAria: 'Bahasa target terjemahan',
+    transcriptViewOrig: 'Asli',
+    transcriptViewBilingual: 'Dwibahasa',
+    transcriptViewTranslated: 'Terjemahan',
+    transcriptAnalyzeBtn: 'Bedah alur',
+    transcriptAnalyzing: 'Menganalisis',
+    transcriptBreakdownCopy: 'Salin analisis',
+    transcriptBreakdownLoginTitle: 'Masuk untuk bedah narasi AI',
+    transcriptBreakdownLoginBody:
+      'Masuk ke akun untuk menyusun analisis pembuka, bukti produk, dan ajakan beli secara otomatis dari transkrip.',
+    transcriptBreakdownLoginBtn: 'Masuk untuk analisis',
+    transcriptBreakdownRetry: 'Coba lagi',
+    transcriptStageLabels: {
+      hook: 'Pembuka',
+      product_intro: 'Produk',
+      demo_scene: 'Demo',
+      proof_effect: 'Bukti',
+      authenticity: 'Kredibilitas',
+      usage_detail: 'Cara pakai',
+      cta: 'CTA',
+      pacing: 'Alur',
+    },
+    transcriptAgentHint: 'Tersedia juga lewat terminal dan alur agen AI',
+    transcriptAgentCli: 'OmniMux CLI',
+    transcriptAgentSkills: 'Agent Skills',
+    transcriptInspTitle: 'Referensi video pilihan',
+    transcriptInspSub:
+      'Contoh terkurasi dari pustaka publik OmniMux. Muat tautan ke kolom atas untuk menelaah ritmenya.',
+    transcriptInspAll: 'Jelajahi pustaka',
+    transcriptInspLoad: 'Muat tautan',
+    transcriptInspOpen: 'Buka pustaka',
+    transcriptInspPrev: 'Set sebelumnya',
+    transcriptInspNext: 'Set berikutnya',
+    transcriptInspRange: '{from}–{to} dari {total}',
+    transcriptCapsTitle: 'Paket lengkap dari satu tautan TikTok',
+    transcriptCapsSub:
+      'Pemutar tersinkron, teks siap salin, terjemahan AI, bedah alur narasi, dan unduh MP4 dalam satu panel.',
+    transcriptCaps: [
+      {
+        title: 'Sinkron pemutar & stempel waktu',
+        body: 'Klik baris waktu untuk melompat ke detik tepat dan melihat sorotan kalimat saat video diputar.',
+      },
+      {
+        title: 'Multi-jalur & teks polos',
+        body: 'Beralih antara takarir kreator atau otomatis lalu salin naskah bersih untuk brief maupun prompt.',
+      },
+      {
+        title: 'Terjemahan AI sekali klik',
+        body: 'Setelah masuk, terjemahkan transkrip ke bahasa sasaran dan tinjau dalam tampilan dwibahasa.',
+      },
+      {
+        title: 'Bedah kait & struktur cerita',
+        body: 'Pahami susunan kait awal, pengenalan manfaat, bukti visual, dan penutup CTA secara terstruktur.',
+      },
+      {
+        title: 'Ekspor standar & ke Studio',
+        body: 'Simpan TXT, SRT, VTT, atau MP4, lalu lanjut buat ulang dengan karakter AI di Studio.',
+      },
+    ],
+    transcriptWhoTitle: 'Cocok untuk siapa alat ini?',
+    transcriptWho: [
+      {
+        title: 'Kreator video pendek',
+        body: 'Ambil kait pembuka dan pola penyampaian cepat tanpa menyalin audio secara manual.',
+      },
+      {
+        title: 'Tim iklan performa',
+        body: 'Evaluasi materi unggulan dengan memetakan urutan nilai jual dan bukti di layar.',
+      },
+      {
+        title: 'Pengelola TikTok Shop',
+        body: 'Ubah demo kreator menjadi poin penawaran rapi untuk naskah produk maupun cuplikan live.',
+      },
+      {
+        title: 'Riset konten & kompetitor',
+        body: 'Terjemahkan video lintas bahasa dan bandingkan kepadatan naskah antarakun.',
+      },
+    ],
     ctaTitle: 'Simpan referensi, lalu buat ulang dengan karaktermu',
     ctaBody:
       'Ritme dan shot yang sama, dengan karakter AI dan produkmu sendiri.',
@@ -1070,6 +1165,10 @@ export const id: LandingCopy = {
       turnstileFailed: 'Verifikasi gagal, coba lagi',
       turnstileUnavailable:
         'Verifikasi sementara tidak tersedia, coba lagi nanti',
+      loginRequired: 'Masuk untuk memakai terjemahan dan analisis AI',
+      cacheExpired:
+        'Sesi urai kedaluwarsa — urai ulang tautan untuk melanjutkan',
+      aiQuotaExceeded: 'Batas analisis AI harian tercapai — kembali besok',
       generic: 'Gagal mengurai tautan ini, coba lagi nanti',
     },
   },

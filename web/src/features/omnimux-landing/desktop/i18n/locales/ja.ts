@@ -1050,6 +1050,101 @@ export const ja: LandingCopy = {
       'この動画には TikTok 上に字幕または自動字幕が含まれていません。下の投稿説明文のコピーや MP4 保存を利用できます。',
     transcriptOpenStudio: 'スタジオを開く',
     transcriptRecreate: 'ワークベンチで再現',
+    transcriptSectionTitle: '抽出結果',
+    transcriptSectionSub:
+      '左側で動画を再生しながらタイムスタンプから該当シーンへ移動し、右側で台本の整理・翻訳・構成分析を行います。',
+    transcriptDemoBadge: 'サンプル',
+    transcriptReturnDemo: 'サンプルに戻す',
+    transcriptTabScript: '台本テキスト',
+    transcriptTabBreakdown: '構成分析',
+    transcriptStatDuration: '動画の長さ',
+    transcriptStatSegments: '字幕行数',
+    transcriptStatTracks: '字幕トラック',
+    transcriptStatSections: '構成パート',
+    transcriptScriptSub:
+      'タイムスタンプ行をクリックすると動画の該当秒数へシークし、トラック切替・検索・翻訳・書き出しを行えます。',
+    transcriptBreakdownSub:
+      '動画の流れに沿ってフックからCTAまでの役割を整理し、訴求順序を把握できます。',
+    transcriptTranslate: '翻訳',
+    transcriptTranslating: '翻訳中',
+    transcriptTranslateTargetAria: '翻訳先の言語',
+    transcriptViewOrig: '原文',
+    transcriptViewBilingual: '二言語',
+    transcriptViewTranslated: '訳文',
+    transcriptAnalyzeBtn: '構成分析',
+    transcriptAnalyzing: '分析中',
+    transcriptBreakdownCopy: '分析をコピー',
+    transcriptBreakdownLoginTitle: 'ログインして AI 構成分析を実行',
+    transcriptBreakdownLoginBody:
+      'アカウントにログインすると、抽出した字幕からフック・製品紹介・実証・CTAの流れを構造化できます。',
+    transcriptBreakdownLoginBtn: 'ログインして分析',
+    transcriptBreakdownRetry: '再試行',
+    transcriptStageLabels: {
+      hook: 'フック',
+      product_intro: '商品紹介',
+      demo_scene: '実演',
+      proof_effect: '効果実証',
+      authenticity: '信頼根拠',
+      usage_detail: '使い方',
+      cta: 'CTA',
+      pacing: '展開',
+    },
+    transcriptAgentHint: 'ターミナルや AI エージェントからも呼び出せます',
+    transcriptAgentCli: 'OmniMux CLI',
+    transcriptAgentSkills: 'Agent Skills',
+    transcriptInspTitle: '注目の参考スクリプト事例',
+    transcriptInspSub:
+      '公開インスピレーションライブラリからピックアップした事例です。URL を読み込んで構成を確認できます。',
+    transcriptInspAll: 'ライブラリを見る',
+    transcriptInspLoad: 'URL を読み込む',
+    transcriptInspOpen: 'ライブラリへ',
+    transcriptInspPrev: '前のグループ',
+    transcriptInspNext: '次のグループ',
+    transcriptInspRange: '{from}–{to} 件 / 全 {total} 件',
+    transcriptCapsTitle: '1 本の TikTok リンクから再利用可能な素材を一括取得',
+    transcriptCapsSub:
+      '再生連動字幕、クリーンな台本コピー、AI 翻訳、構成分析、MP4 保存まで 1 つの画面で完結します。',
+    transcriptCaps: [
+      {
+        title: '動画と同期したタイムライン',
+        body: '各行のタイムスタンプをクリックして再生位置を移動し、再生中のセリフをハイライトします。',
+      },
+      {
+        title: '複数トラックとプレーン台本',
+        body: '投稿者字幕と自動字幕を切り替え、企画書やプロンプトにそのまま貼れる台本へ整えます。',
+      },
+      {
+        title: 'ワンクリック AI 翻訳',
+        body: 'ログイン後は外国語のセリフをワンクリックで翻訳し、原文との対訳ビューで確認できます。',
+      },
+      {
+        title: 'フックと構成パート分解',
+        body: '導入フック・実演・根拠・CTA の構成比を整理し、伸びる動画の設計図を読み解きます。',
+      },
+      {
+        title: '各種書き出しと再現連携',
+        body: 'TXT・SRT・VTT・MP4 を保存し、そのままスタジオで自分のキャラクターに置き換えて再現できます。',
+      },
+    ],
+    transcriptWhoTitle: 'どんなチーム・クリエイターに向いていますか？',
+    transcriptWho: [
+      {
+        title: 'ショート動画クリエイター',
+        body: '文字起こしの手間を省き、冒頭フックや言い回しの型を素早くストックできます。',
+      },
+      {
+        title: '広告運用・制作チーム',
+        body: '成果の出ているクリエイティブの台本と訴求順を分解し、次の検証パターンを量産できます。',
+      },
+      {
+        title: 'TikTok Shop 運用者',
+        body: '実演シーンの伝え方や購入を促す締め方を抽出し、商品紹介台本の精度を高めます。',
+      },
+      {
+        title: 'コンテンツ・競合リサーチャー',
+        body: '海外アカウントの動画を翻訳・比較して、自社の企画テンプレートを構築できます。',
+      },
+    ],
     ctaTitle: '参考を保存して、自分のキャラクターで再現',
     ctaBody:
       '同じテンポとカットで、あなたの AI キャラクターと商品に置き換えます。',
@@ -1074,6 +1169,10 @@ export const ja: LandingCopy = {
       turnstileFailed: '認証に失敗しました。もう一度お試しください',
       turnstileUnavailable:
         '認証が一時的に利用できません。しばらくしてからお試しください',
+      loginRequired: 'AI 翻訳と構成分析を利用するにはログインしてください',
+      cacheExpired:
+        '解析結果の有効期限が切れました。リンクを再度抽出してください',
+      aiQuotaExceeded: '本日の AI 分析上限に達しました。明日またお試しください',
       generic:
         'このリンクを解析できませんでした。しばらくしてからお試しください',
     },

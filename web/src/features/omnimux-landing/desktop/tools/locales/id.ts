@@ -56,7 +56,7 @@ const ID_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: 'Apakah harus daftar atau pasang aplikasi?',
-    a: 'Tidak. Tautan publik langsung diekstrak di browser dengan pemeriksaan Cloudflare satu kali.',
+    a: 'Tidak. Ekstraksi tautan publik langsung berjalan di browser dengan pemeriksaan Cloudflare satu kali; masuk ke akun juga membuka terjemahan AI dan pembedahan naskah.',
   },
   {
     q: 'Berapa kali pemakaian harian yang tersedia?',

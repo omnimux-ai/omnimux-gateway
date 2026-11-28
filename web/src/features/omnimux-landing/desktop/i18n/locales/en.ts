@@ -993,6 +993,101 @@ export const en: LandingCopy = {
       'This video has no creator subtitles or auto captions published on TikTok. Copy the post description or save the MP4.',
     transcriptOpenStudio: 'Open Studio',
     transcriptRecreate: 'Recreate in Studio',
+    transcriptSectionTitle: 'Transcript workbench',
+    transcriptSectionSub:
+      'Play the video alongside synced captions, click any timestamp to jump, then translate or break down the narrative.',
+    transcriptDemoBadge: 'Sample',
+    transcriptReturnDemo: 'Reset to sample',
+    transcriptTabScript: 'Transcript',
+    transcriptTabBreakdown: 'Breakdown',
+    transcriptStatDuration: 'Duration',
+    transcriptStatSegments: 'Caption cues',
+    transcriptStatTracks: 'Tracks',
+    transcriptStatSections: 'Story beats',
+    transcriptScriptSub:
+      'Click any timestamp line to seek the player, filter by keyword, or export clean text and subtitles.',
+    transcriptBreakdownSub:
+      'Structured narrative sequence grounded in the spoken lines and timestamps.',
+    transcriptTranslate: 'Translate',
+    transcriptTranslating: 'Translating',
+    transcriptTranslateTargetAria: 'Translation target language',
+    transcriptViewOrig: 'Original',
+    transcriptViewBilingual: 'Bilingual',
+    transcriptViewTranslated: 'Translated',
+    transcriptAnalyzeBtn: 'Break down',
+    transcriptAnalyzing: 'Analyzing',
+    transcriptBreakdownCopy: 'Copy breakdown',
+    transcriptBreakdownLoginTitle: 'Sign in for AI narrative breakdown',
+    transcriptBreakdownLoginBody:
+      'Sign in to generate a structured hook, proof, and CTA breakdown from the extracted captions.',
+    transcriptBreakdownLoginBtn: 'Sign in to analyze',
+    transcriptBreakdownRetry: 'Try again',
+    transcriptStageLabels: {
+      hook: 'Hook',
+      product_intro: 'Product intro',
+      demo_scene: 'Demo',
+      proof_effect: 'Proof',
+      authenticity: 'Trust',
+      usage_detail: 'Usage',
+      cta: 'CTA',
+      pacing: 'Pacing',
+    },
+    transcriptAgentHint: 'Use from your terminal or agent workflow',
+    transcriptAgentCli: 'OmniMux CLI',
+    transcriptAgentSkills: 'Agent Skills',
+    transcriptInspTitle: 'Featured video breakdowns',
+    transcriptInspSub:
+      'Curated reference clips from our public library. Load one into the extractor to study its pacing.',
+    transcriptInspAll: 'Explore library',
+    transcriptInspLoad: 'Load link',
+    transcriptInspOpen: 'View library',
+    transcriptInspPrev: 'Previous set',
+    transcriptInspNext: 'Next set',
+    transcriptInspRange: '{from}–{to} of {total}',
+    transcriptCapsTitle: 'Everything extracted from one link',
+    transcriptCapsSub:
+      'Five outputs in one workspace: synced transcript, clean copy, translation, narrative breakdown, and MP4 download.',
+    transcriptCaps: [
+      {
+        title: 'Timestamp-synced playback',
+        body: 'Jump directly to any spoken moment in the clip and keep playback highlighted line by line.',
+      },
+      {
+        title: 'Multi-track & clean script',
+        body: 'Switch creator captions or auto tracks and copy plain script text into briefs or prompts.',
+      },
+      {
+        title: 'One-click AI translation',
+        body: 'Translate extracted cues while signed in and compare original lines side by side in bilingual view.',
+      },
+      {
+        title: 'Hook & beat breakdown',
+        body: 'See how the opening hook, product reveal, proof points, and CTA fit together in sequence.',
+      },
+      {
+        title: 'Standard exports & Studio handoff',
+        body: 'Save TXT, SRT, VTT, or MP4, or send the reference straight into OmniMux Studio to recreate.',
+      },
+    ],
+    transcriptWhoTitle: 'Built for short-video teams',
+    transcriptWho: [
+      {
+        title: 'Short-video creators',
+        body: 'Capture opening hooks and spoken pacing quickly without manual transcription.',
+      },
+      {
+        title: 'Performance ad teams',
+        body: 'Deconstruct high-performing creatives to map value claims and proof order.',
+      },
+      {
+        title: 'TikTok Shop operators',
+        body: 'Turn creator demos and live clips into reusable product talking points.',
+      },
+      {
+        title: 'Content researchers',
+        body: 'Compare script density and narrative beats across niches to plan new shoots.',
+      },
+    ],
     ctaTitle: 'Save the reference, then recreate it with your character',
     ctaBody: 'Same pacing and shots, with your own AI character and product.',
     ctaStart: 'Start recreating',
@@ -1015,6 +1110,11 @@ export const en: LandingCopy = {
       turnstileFailed: 'Verification failed, please try again',
       turnstileUnavailable:
         'Verification is temporarily unavailable, please try again later',
+      loginRequired: 'Sign in to use AI translation and breakdown',
+      cacheExpired:
+        'This parse session expired — parse the link again to continue',
+      aiQuotaExceeded:
+        "Today's AI analysis limit is reached — come back tomorrow",
       generic: "Couldn't parse this link, try again later",
     },
   },

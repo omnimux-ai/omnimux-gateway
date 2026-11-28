@@ -56,7 +56,7 @@ const ES_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: '¿Necesito registrarme o instalar algo?',
-    a: 'No. Cada enlace público se procesa en tu navegador con una verificación única de Cloudflare al primer análisis.',
+    a: 'No. La extracción básica funciona en tu navegador con una verificación única de Cloudflare; al iniciar sesión desbloqueas la traducción y el desglose con IA.',
   },
   {
     q: '¿Cuántas veces puedo usarlo al día?',

@@ -1077,6 +1077,101 @@ export const es: LandingCopy = {
       'Este vídeo no incluye subtítulos de autor ni subtítulos automáticos. Copia la descripción o descarga el MP4.',
     transcriptOpenStudio: 'Abrir Studio',
     transcriptRecreate: 'Recrear en Studio',
+    transcriptSectionTitle: 'Resultado de extracción',
+    transcriptSectionSub:
+      'Reproduce el vídeo a la izquierda, haz clic en cualquier marca de tiempo para saltar y gestiona guion, traducción y desglose a la derecha.',
+    transcriptDemoBadge: 'Ejemplo',
+    transcriptReturnDemo: 'Ver ejemplo',
+    transcriptTabScript: 'Guion',
+    transcriptTabBreakdown: 'Desglose',
+    transcriptStatDuration: 'Duración',
+    transcriptStatSegments: 'Fragmentos',
+    transcriptStatTracks: 'Pistas',
+    transcriptStatSections: 'Bloques',
+    transcriptScriptSub:
+      'Pulsa cualquier línea con tiempo para saltar en el vídeo, filtrar palabras, traducir o exportar subtítulos.',
+    transcriptBreakdownSub:
+      'Desglose cronológico por intención narrativa conectado directamente con las citas y segundos reales.',
+    transcriptTranslate: 'Traducir',
+    transcriptTranslating: 'Traduciendo',
+    transcriptTranslateTargetAria: 'Idioma de destino',
+    transcriptViewOrig: 'Original',
+    transcriptViewBilingual: 'Bilingüe',
+    transcriptViewTranslated: 'Traducido',
+    transcriptAnalyzeBtn: 'Desglosar',
+    transcriptAnalyzing: 'Analizando',
+    transcriptBreakdownCopy: 'Copiar desglose',
+    transcriptBreakdownLoginTitle: 'Inicia sesión para desglosar con IA',
+    transcriptBreakdownLoginBody:
+      'Accede a tu cuenta para estructurar automáticamente el gancho, la demostración, la prueba y el cierre del guion.',
+    transcriptBreakdownLoginBtn: 'Iniciar sesión y analizar',
+    transcriptBreakdownRetry: 'Reintentar',
+    transcriptStageLabels: {
+      hook: 'Gancho',
+      product_intro: 'Presentación',
+      demo_scene: 'Demo',
+      proof_effect: 'Prueba',
+      authenticity: 'Confianza',
+      usage_detail: 'Uso',
+      cta: 'CTA',
+      pacing: 'Ritmo',
+    },
+    transcriptAgentHint: 'También disponible desde terminal o flujos de agente',
+    transcriptAgentCli: 'OmniMux CLI',
+    transcriptAgentSkills: 'Agent Skills',
+    transcriptInspTitle: 'Referencias destacadas',
+    transcriptInspSub:
+      'Selección curada de la biblioteca pública de OmniMux. Carga un enlace al instante para estudiar su ritmo.',
+    transcriptInspAll: 'Ver biblioteca',
+    transcriptInspLoad: 'Cargar enlace',
+    transcriptInspOpen: 'Abrir biblioteca',
+    transcriptInspPrev: 'Grupo anterior',
+    transcriptInspNext: 'Siguiente grupo',
+    transcriptInspRange: '{from}–{to} de {total}',
+    transcriptCapsTitle: 'Todo a partir de un enlace de TikTok',
+    transcriptCapsSub:
+      'Transcripción sincronizada, guion listo para copiar, traducción con IA, desglose narrativo y descarga MP4 en una sola vista.',
+    transcriptCaps: [
+      {
+        title: 'Reproducción sincronizada',
+        body: 'Salta al segundo exacto haciendo clic en cualquier línea y sigue la frase activa mientras ves el clip.',
+      },
+      {
+        title: 'Multiidioma y texto limpio',
+        body: 'Alterna entre subtítulos del creador o automáticos y copia el guion sin marcas para briefs o prompts.',
+      },
+      {
+        title: 'Traducción en un clic',
+        body: 'Al iniciar sesión, traduce líneas al idioma objetivo y compáralas en vista bilingüe.',
+      },
+      {
+        title: 'Análisis de gancho y cierre',
+        body: 'Identifica en segundos cómo el vídeo atrapa la atención, prueba el beneficio y guía al clic.',
+      },
+      {
+        title: 'Exportación y envío a Studio',
+        body: 'Descarga TXT, SRT, VTT o MP4, o lleva la referencia a Studio para recrearla con tu personaje.',
+      },
+    ],
+    transcriptWhoTitle: '¿Para quién está pensado este espacio?',
+    transcriptWho: [
+      {
+        title: 'Creadores de vídeo corto',
+        body: 'Extrae ganchos y ritmo oral en segundos sin transcribir manualmente cada toma.',
+      },
+      {
+        title: 'Equipos de anuncios',
+        body: 'Analiza creativos ganadores ordenando argumentos de venta y pruebas visuales.',
+      },
+      {
+        title: 'Operadores de TikTok Shop',
+        body: 'Convierte demos reales de creadores en puntos claros para fichas y guiones propios.',
+      },
+      {
+        title: 'Investigación competitiva',
+        body: 'Traduce referencias internacionales y compara la estructura de cuentas del sector.',
+      },
+    ],
     ctaTitle: 'Guarda la referencia y recréala con tu personaje',
     ctaBody:
       'El mismo ritmo y los mismos planos, con tu propio personaje de IA y tu producto.',
@@ -1102,6 +1197,11 @@ export const es: LandingCopy = {
       turnstileFailed: 'La verificación falló, inténtalo de nuevo',
       turnstileUnavailable:
         'La verificación no está disponible por ahora, inténtalo más tarde',
+      loginRequired: 'Inicia sesión para traducir o analizar el guion con IA',
+      cacheExpired:
+        'El análisis caducó — vuelve a extraer el enlace para continuar',
+      aiQuotaExceeded:
+        'Se alcanzó el límite diario de análisis IA — vuelve mañana',
       generic: 'No se pudo analizar este enlace, inténtalo más tarde',
     },
   },

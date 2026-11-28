@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,6 +36,7 @@ func tiktokToolTestEnv(t *testing.T) *int {
 	common.RedisEnabled = false
 	tiktokToolCounters = &tiktokToolCounter{values: map[string]tiktokToolCount{}}
 	tiktokToolCache.entries = map[string]tiktokToolCacheEntry{}
+	tiktokToolAICache.entries = map[string]tiktokToolAICacheEntry{}
 	calls := 0
 	upstream, verify := tiktokPostUpstream, tiktokTurnstileVerify
 	tiktokPostUpstream = func(_ context.Context, _ int, id string) (tiktokPost, int, error) {
@@ -646,4 +648,138 @@ func TestTikTokCaptionFetchGuards(t *testing.T) {
 	_, err = tiktokCaptionFetch(ctx, "https://captions.example.test/oversize-chunked")
 	assert.ErrorContains(t, err, "exceeds size limit")
 	assert.Zero(t, evilHits, "redirect to disallowed host must be stopped before dialing")
+}
+
+func TestTikTokToolAITranslateAndBreakdown(t *testing.T) {
+	tiktokToolTestEnv(t)
+	videoID := "7470610564927032609"
+	noCapID := "7470610564927032699"
+
+	// Cross-origin caller rejected before auth or LLM execution.
+	crossRec := httptest.NewRecorder()
+	crossCtx, _ := gin.CreateTestContext(crossRec)
+	crossCtx.Request = httptest.NewRequest(http.MethodPost, "/api/tools/tiktok/translate", strings.NewReader(`{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"zh-CN"}`))
+	crossCtx.Request.Host = "omnimux.ai"
+	crossCtx.Request.Header.Set("Origin", "https://evil.example")
+	TranslateTikTokToolTranscript(crossCtx)
+	assert.Equal(t, http.StatusForbidden, crossRec.Code)
+	assert.Equal(t, "forbidden", tiktokToolCode(crossRec))
+
+	// Anonymous user gets login_required.
+	anonRes := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"zh-CN"}`, nil, 0)
+	assert.Equal(t, http.StatusUnauthorized, anonRes.Code)
+	assert.Equal(t, "login_required", tiktokToolCode(anonRes))
+
+	// Input validation & expired cache checks.
+	badID := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"bad","target_lang":"zh-CN"}`, nil, 42)
+	assert.Equal(t, http.StatusBadRequest, badID.Code)
+	assert.Equal(t, "invalid_param", tiktokToolCode(badID))
+
+	badLang := tiktokToolRequest(t, BreakdownTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/breakdown", `{"video_id":"`+videoID+`","target_lang":"xx"}`, nil, 42)
+	assert.Equal(t, http.StatusBadRequest, badLang.Code)
+	assert.Equal(t, "invalid_param", tiktokToolCode(badLang))
+
+	missingCache := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","target_lang":"zh-CN"}`, nil, 42)
+	assert.Equal(t, http.StatusGone, missingCache.Code)
+	assert.Equal(t, "cache_expired", tiktokToolCode(missingCache))
+
+	// Seed cached posts: one with captions, one without.
+	now := time.Now()
+	tiktokToolCache.Lock()
+	tiktokToolCache.entries[noCapID] = tiktokToolCacheEntry{
+		body:    tiktokPost{id: noCapID, kind: "video", transcriptsLoaded: true, transcripts: nil},
+		expires: now.Add(time.Hour),
+	}
+	tiktokToolCache.entries[videoID] = tiktokToolCacheEntry{
+		body: tiktokPost{
+			id:                videoID,
+			kind:              "video",
+			durationMs:        12000,
+			transcriptsLoaded: true,
+			transcripts: []tiktokTranscriptTrack{
+				{
+					ID:           "en-auto",
+					Lang:         "eng-US",
+					LanguageCode: "en",
+					Cues: []tiktokTranscriptCue{
+						{StartMs: 0, EndMs: 3200, Text: "First hook line"},
+						{StartMs: 3200, EndMs: 7000, Text: "Second proof step"},
+					},
+				},
+			},
+		},
+		expires: now.Add(time.Hour),
+	}
+	tiktokToolCache.Unlock()
+
+	noCapRes := tiktokToolRequest(t, BreakdownTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/breakdown", `{"video_id":"`+noCapID+`","target_lang":"zh-CN"}`, nil, 42)
+	assert.Equal(t, http.StatusBadRequest, noCapRes.Code)
+	assert.Equal(t, "no_captions", tiktokToolCode(noCapRes))
+
+	aiCalls := 0
+	failNext := false
+	prevChat := service.TikTokToolAIChat
+	service.TikTokToolAIChat = func(_ context.Context, _ string, _ string, system, _ string, check func(string) error) (string, error) {
+		aiCalls++
+		if failNext {
+			failNext = false
+			return "", assert.AnError
+		}
+		var reply string
+		if strings.Contains(system, `"cues"`) {
+			reply = "```json\n{\"cues\":[{\"i\":0,\"text\":\"第一句开场钩子\"},{\"i\":1,\"text\":\"第二步效果展示\"}]}\n```"
+		} else {
+			reply = `{"summary":"先抛出痛点再实操证明","sections":[{"stage":"hook","label":"开场钩子","start_ms":0,"end_ms":3200,"quote":"First hook line","analysis":"直接吸引停留"},{"stage":"custom_weird","label":"核心实测","start_ms":3200,"end_ms":99000,"quote":"Second proof step","analysis":"用画面证明效果"}]}`
+		}
+		if check != nil {
+			require.NoError(t, check(reply))
+		}
+		return reply, nil
+	}
+	t.Cleanup(func() {
+		service.TikTokToolAIChat = prevChat
+	})
+
+	// Translate preserves timestamps, hides numeric quota fields, and caches hits.
+	tr1 := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"zh-CN"}`, nil, 42)
+	require.Equal(t, http.StatusOK, tr1.Code, tr1.Body.String())
+	assert.Equal(t, 1, aiCalls)
+	assert.False(t, gjson.GetBytes(tr1.Body.Bytes(), "data.quota").Exists())
+	assert.Equal(t, "第一句开场钩子", gjson.GetBytes(tr1.Body.Bytes(), "data.cues.0.text").String())
+	assert.Equal(t, int64(3200), gjson.GetBytes(tr1.Body.Bytes(), "data.cues.1.start_ms").Int())
+
+	tr2 := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"zh-CN"}`, nil, 42)
+	require.Equal(t, http.StatusOK, tr2.Code)
+	assert.Equal(t, 1, aiCalls, "second translate hits cache without invoking model or burst")
+
+	// Failed model call must return 502 and must not increment user AI quota.
+	failNext = true
+	trFail := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"ja"}`, nil, 42)
+	assert.Equal(t, http.StatusBadGateway, trFail.Code)
+	assert.Equal(t, "upstream_failed", tiktokToolCode(trFail))
+
+	aiQuotaKey := "tiktoktool:v1:ai_user:" + tiktokToolDay(time.Now()) + ":42"
+	usedAfterFail, err := tiktokToolCounters.get(context.Background(), aiQuotaKey)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), usedAfterFail)
+
+	// Breakdown normalizes unknown stage to "pacing", clamps end_ms to video duration, and caches hit.
+	bd1 := tiktokToolRequest(t, BreakdownTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/breakdown", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"zh-CN"}`, nil, 42)
+	require.Equal(t, http.StatusOK, bd1.Code, bd1.Body.String())
+	assert.Equal(t, "先抛出痛点再实操证明", gjson.GetBytes(bd1.Body.Bytes(), "data.summary").String())
+	assert.Equal(t, "pacing", gjson.GetBytes(bd1.Body.Bytes(), "data.sections.1.stage").String())
+	assert.Equal(t, int64(12000), gjson.GetBytes(bd1.Body.Bytes(), "data.sections.1.end_ms").Int())
+
+	callsBeforeCache := aiCalls
+	bd2 := tiktokToolRequest(t, BreakdownTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/breakdown", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"zh-CN"}`, nil, 42)
+	require.Equal(t, http.StatusOK, bd2.Code)
+	assert.Equal(t, callsBeforeCache, aiCalls)
+
+	// Enforce per-user daily AI limit on fresh user.
+	t.Setenv("TIKTOK_TOOL_AI_USER_DAILY", "1")
+	okUser := tiktokToolRequest(t, BreakdownTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/breakdown", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"es"}`, nil, 99)
+	require.Equal(t, http.StatusOK, okUser.Code)
+	overLimit := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"es"}`, nil, 99)
+	assert.Equal(t, http.StatusTooManyRequests, overLimit.Code)
+	assert.Equal(t, "ai_quota_exceeded", tiktokToolCode(overLimit))
 }

@@ -20,12 +20,12 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { CnLangMenu } from '../../components/cn/lang-menu'
 import {
   LANDING_LANG_STORAGE_KEY,
   LandingLangProvider,
   useLanding,
 } from '../../i18n'
-import { CnLangMenu } from '../../components/cn/lang-menu'
 
 function Probe() {
   const landing = useLanding()

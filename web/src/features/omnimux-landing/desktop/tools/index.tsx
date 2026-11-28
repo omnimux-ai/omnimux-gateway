@@ -27,7 +27,7 @@ import { trackToolCtaClick, type ToolCtaClick } from '@/lib/growth-tracking'
 import '../assets/cn/fonts/smiley/result.css'
 import '../desktop-cn.css'
 import './tools.css'
-import { ASSETS } from '../components/cn/data'
+import { ASSETS, type IconName } from '../components/cn/data'
 import { DownloadProvider } from '../components/cn/download'
 import { useDownload } from '../components/cn/download-context'
 import { CnFooter } from '../components/cn/footer'
@@ -36,6 +36,7 @@ import { CnNav } from '../components/cn/nav'
 import { LandingLangProvider, landingLangOption, useLanding } from '../i18n'
 import type { LandingLang } from '../i18n/types'
 import { ToolForm } from './components/tool-form'
+import { TranscriptInspirationStrip } from './components/transcript-inspiration-strip'
 import {
   TOOL_LOCALES,
   TOOL_PAGES,
@@ -48,6 +49,13 @@ import { useViralRecreateEntry } from './lib/workbench-handoff'
 
 /** The related-links entry that falls back to the studio overview. */
 const STUDIO_FALLBACK_PATH = '/ai-influencer-studio'
+const TRANSCRIPT_CAP_ICONS: readonly IconName[] = [
+  'clock',
+  'subs',
+  'spark',
+  'flow',
+  'dl',
+]
 
 const TOOL_DOWNLOAD_INTENT: DownloadCtaIntent = {
   cta_id: 'tool_result_download',
@@ -101,6 +109,22 @@ function ToolPageView(props: TikTokToolPageProps) {
   const tool = copy.toolPage
   // The parsed result is shown by the form and carried by the recreate band.
   const [resolved, setResolved] = useState<ToolResult | null>(null)
+  const [pickedUrl, setPickedUrl] = useState<
+    { url: string; nonce: number } | undefined
+  >(undefined)
+  useEffect(() => {
+    setResolved(null)
+    setPickedUrl(undefined)
+  }, [props.kind])
+  const handlePickUrl = useCallback((url: string) => {
+    setPickedUrl({ url, nonce: Date.now() })
+    const input = document.querySelector<HTMLInputElement>('#tool-url')
+    input?.focus()
+    document.querySelector('.tool-box')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -167,10 +191,36 @@ function ToolPageView(props: TikTokToolPageProps) {
                 kind={props.kind}
                 locale={props.locale}
                 initialUrl={props.initialUrl}
+                externalUrl={pickedUrl}
                 onResult={setResolved}
               />
             </div>
           </section>
+
+          {props.kind === 'transcript' ? (
+            <>
+              <TranscriptInspirationStrip onPickUrl={handlePickUrl} />
+              <section className='tool-sec'>
+                <div className='wrap'>
+                  <div className='tx-sec-head'>
+                    <h2 className='h2'>{tool.transcriptCapsTitle}</h2>
+                    <p className='tx-sec-sub'>{tool.transcriptCapsSub}</p>
+                  </div>
+                  <div className='tx-cap-grid'>
+                    {tool.transcriptCaps.map((cap, index) => (
+                      <article className='tx-cap-card' key={cap.title}>
+                        <div className='tx-cap-icon' aria-hidden='true'>
+                          <Icon name={TRANSCRIPT_CAP_ICONS[index] ?? 'spark'} />
+                        </div>
+                        <h3>{cap.title}</h3>
+                        <p>{cap.body}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </>
+          ) : null}
 
           <section className='tool-sec'>
             <div className='wrap'>
@@ -186,6 +236,27 @@ function ToolPageView(props: TikTokToolPageProps) {
               </ol>
             </div>
           </section>
+
+          {props.kind === 'transcript' ? (
+            <section className='tool-sec tool-sec-tight'>
+              <div className='wrap'>
+                <h2 className='h2'>{tool.transcriptWhoTitle}</h2>
+                <div className='tx-who-grid'>
+                  {tool.transcriptWho.map((item, index) => (
+                    <article className='tx-who-card' key={item.title}>
+                      <span className='tx-who-idx'>
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <div>
+                        <h3>{item.title}</h3>
+                        <p>{item.body}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className='tool-sec tool-sec-tight'>
             <div className='wrap'>

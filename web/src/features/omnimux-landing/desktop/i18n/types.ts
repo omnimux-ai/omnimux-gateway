@@ -148,6 +148,58 @@ export type ToolPageCopy = {
   transcriptNoCapBody: string
   transcriptOpenStudio: string
   transcriptRecreate: string
+  transcriptSectionTitle: string
+  transcriptSectionSub: string
+  transcriptDemoBadge: string
+  transcriptReturnDemo: string
+  transcriptTabScript: string
+  transcriptTabBreakdown: string
+  transcriptStatDuration: string
+  transcriptStatSegments: string
+  transcriptStatTracks: string
+  transcriptStatSections: string
+  transcriptScriptSub: string
+  transcriptBreakdownSub: string
+  transcriptTranslate: string
+  transcriptTranslating: string
+  transcriptTranslateTargetAria: string
+  transcriptViewOrig: string
+  transcriptViewBilingual: string
+  transcriptViewTranslated: string
+  transcriptAnalyzeBtn: string
+  transcriptAnalyzing: string
+  transcriptBreakdownCopy: string
+  transcriptBreakdownLoginTitle: string
+  transcriptBreakdownLoginBody: string
+  transcriptBreakdownLoginBtn: string
+  transcriptBreakdownRetry: string
+  transcriptStageLabels: {
+    hook: string
+    product_intro: string
+    demo_scene: string
+    proof_effect: string
+    authenticity: string
+    usage_detail: string
+    cta: string
+    pacing: string
+  }
+  transcriptAgentHint: string
+  transcriptAgentCli: string
+  transcriptAgentSkills: string
+  transcriptInspTitle: string
+  transcriptInspSub: string
+  transcriptInspAll: string
+  transcriptInspLoad: string
+  transcriptInspOpen: string
+  transcriptInspPrev: string
+  transcriptInspNext: string
+  /** `{from}`, `{to}`, `{total}` are replaced. */
+  transcriptInspRange: string
+  transcriptCapsTitle: string
+  transcriptCapsSub: string
+  transcriptCaps: { title: string; body: string }[]
+  transcriptWhoTitle: string
+  transcriptWho: { title: string; body: string }[]
   ctaTitle: string
   ctaBody: string
   ctaStart: string
@@ -169,6 +221,9 @@ export type ToolPageCopy = {
     rateLimited: string
     turnstileFailed: string
     turnstileUnavailable: string
+    loginRequired: string
+    cacheExpired: string
+    aiQuotaExceeded: string
     generic: string
   }
 }

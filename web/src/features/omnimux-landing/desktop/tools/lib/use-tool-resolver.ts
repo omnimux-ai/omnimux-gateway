@@ -239,6 +239,10 @@ export function useToolResolver(options: {
     setChallenge((value) => value + 1)
   }, [])
 
+  const resetResult = useCallback(() => {
+    showResult(null)
+  }, [showResult])
+
   return {
     config,
     quotaExhausted,
@@ -247,6 +251,7 @@ export function useToolResolver(options: {
     challenge,
     challengeOpen,
     submit,
+    resetResult,
     onToken,
     onTokenExpire,
   }
