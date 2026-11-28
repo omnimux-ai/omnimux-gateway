@@ -120,8 +120,18 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 				c.Header("Cache-Control", "no-cache")
 				c.Header("X-Robots-Tag", "noindex, follow")
 				c.AbortWithStatus(http.StatusNotFound)
-			case "/robots.txt", "/sitemap.xml":
+			case "/robots.txt":
 				c.Header("Cache-Control", "no-cache")
+			case "/sitemap.xml":
+				canonicalSiteURL := searchPageCanonicalHost(searchPages.public["/"])
+				if canonicalSiteURL == "" {
+					canonicalSiteURL = searchPageCanonicalHost(assets.IndexPage)
+				}
+				c.Header("Cache-Control", "no-cache")
+				if isAPISubdomainHost(c.Request.Host, canonicalSiteURL) {
+					c.Header("X-Robots-Tag", "noindex, follow")
+					c.AbortWithStatus(http.StatusNotFound)
+				}
 			default:
 				if strings.HasSuffix(c.Request.URL.Path, ".html") {
 					c.Header("X-Robots-Tag", "noindex, follow")

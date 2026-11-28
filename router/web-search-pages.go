@@ -3,7 +3,9 @@ package router
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -188,6 +190,26 @@ func searchPageCanonicalHost(home []byte) string {
 	return strings.TrimSuffix(url[:end], "/")
 }
 
+// isAPISubdomainHost reports whether requestHost targets the `api.` subdomain
+// of canonicalSiteURL so gateway API hosts never compete in web search results.
+func isAPISubdomainHost(requestHost, canonicalSiteURL string) bool {
+	reqHost := strings.ToLower(strings.TrimSpace(requestHost))
+	if host, _, err := net.SplitHostPort(reqHost); err == nil {
+		reqHost = host
+	}
+	reqHost = strings.Trim(reqHost, "[]")
+	parsed, err := url.Parse(strings.TrimSpace(canonicalSiteURL))
+	if err != nil {
+		return false
+	}
+	siteHost := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	siteHost = strings.TrimPrefix(siteHost, "www.")
+	if reqHost == "" || siteHost == "" {
+		return false
+	}
+	return reqHost == "api."+siteHost
+}
+
 // fork: inspiration share pages get their own indexable head only when the
 // share is a durable, complete record. Ephemeral (72h) and incomplete shares
 // stay noindex so temporary links never enter the index.
@@ -268,7 +290,12 @@ func (pages webSearchPages) serveSharePage(c *gin.Context, index string) {
 		servePrivate()
 		return
 	}
-	middleware.SetHTMLCacheHeaders(c, true)
+	if isAPISubdomainHost(c.Request.Host, siteUrl) {
+		middleware.SetHTMLCacheHeaders(c, false)
+		c.Header("X-Robots-Tag", "noindex, follow")
+	} else {
+		middleware.SetHTMLCacheHeaders(c, true)
+	}
 	c.Data(http.StatusOK, "text/html; charset=utf-8", page)
 }
 
@@ -294,7 +321,12 @@ func (pages webSearchPages) serve(c *gin.Context) {
 	page, public := pages.public[urlPath]
 	status := http.StatusOK
 	if public {
-		middleware.SetHTMLCacheHeaders(c, true)
+		if isAPISubdomainHost(c.Request.Host, searchPageCanonicalHost(pages.public["/"])) {
+			middleware.SetHTMLCacheHeaders(c, false)
+			c.Header("X-Robots-Tag", "noindex, follow")
+		} else {
+			middleware.SetHTMLCacheHeaders(c, true)
+		}
 	} else {
 		page = pages.private
 		if staticGuidePagePaths[urlPath] {

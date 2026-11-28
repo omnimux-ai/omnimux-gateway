@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,4 +92,61 @@ func TestInstallScriptsRedirectToGatewayRawWhenEmbeddedMissing(t *testing.T) {
 			assert.Equal(t, want, response.Header().Get("Location"))
 		})
 	}
+}
+
+func TestWebSearchPagesAPISubdomainIsNoindex(t *testing.T) {
+	previous := inspirationShareLookup
+	t.Cleanup(func() { inspirationShareLookup = previous })
+	inspirationShareLookup = func(shareId string) (*model.InspirationShare, error) {
+		if shareId == "insp_permanent01" {
+			return &model.InspirationShare{
+				ShareId:     "insp_permanent01",
+				Title:       "Vintage poster character",
+				Description: "A vintage poster look recreated with an OmniMux character",
+				CoverUrl:    "https://files.omnimux.ai/cover.jpg",
+			}, nil
+		}
+		return nil, nil
+	}
+
+	pages, err := buildWebSearchPages([]byte(searchPageTestShell), searchPageTestManifest(t))
+	require.NoError(t, err)
+
+	outer := gin.New()
+	outer.NoRoute(pages.serve)
+
+	for _, host := range []string{"api.omnimux.ai", "api.omnimux.ai:443"} {
+		for _, path := range []string{"/", "/pricing", "/privacy", "/ai-influencer-studio", "/guides", "/s/insp_permanent01"} {
+			t.Run(host+path, func(t *testing.T) {
+				response := performHostRequest(outer, http.MethodGet, path, host)
+				require.Equal(t, http.StatusOK, response.Code)
+				assert.Equal(t, "noindex, follow", response.Header().Get("X-Robots-Tag"))
+				assert.Equal(t, middleware.PrivateHTMLCacheControl, response.Header().Get("Cache-Control"))
+				assert.Contains(t, response.Body.String(), `<link rel="canonical" href="https://omnimux.ai`)
+			})
+		}
+	}
+
+	primary := performHostRequest(outer, http.MethodGet, "/", "omnimux.ai")
+	require.Equal(t, http.StatusOK, primary.Code)
+	assert.Empty(t, primary.Header().Get("X-Robots-Tag"))
+}
+
+func TestWebRouterHidesSitemapOnAPISubdomain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	outer := gin.New()
+	SetWebRouter(outer, WebAssets{IndexPage: []byte(searchPageTestShell)}, func(c *gin.Context) { c.Next() })
+
+	apiSitemap := performHostRequest(outer, http.MethodGet, "/sitemap.xml", "api.omnimux.ai")
+	assert.Equal(t, http.StatusNotFound, apiSitemap.Code)
+	assert.Equal(t, "noindex, follow", apiSitemap.Header().Get("X-Robots-Tag"))
+	assert.Equal(t, "no-cache", apiSitemap.Header().Get("Cache-Control"))
+
+	// robots.txt on api.omnimux.ai is not aborted by the sitemap guard (with empty BuildFS here it falls through to servePage).
+	apiRobots := performHostRequest(outer, http.MethodGet, "/robots.txt", "api.omnimux.ai")
+	assert.Equal(t, http.StatusOK, apiRobots.Code)
+
+	// Primary site /sitemap.xml is not aborted by the API host guard.
+	webSitemap := performHostRequest(outer, http.MethodGet, "/sitemap.xml", "omnimux.ai")
+	assert.Equal(t, http.StatusOK, webSitemap.Code)
 }

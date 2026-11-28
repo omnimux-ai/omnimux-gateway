@@ -221,7 +221,7 @@ export function createSearchPageManifest(
           'Browse the live catalog of generation rates across text, image, video, audio, and social models. Prices and credit balances update from your wallet and the current price list.'
         )}${paragraph(
           'Top up credits and pay per generation. No subscription; trial packs are paid. Check current prices before you generate.'
-        )}<h2>FAQ</h2><h3>${escapeHtml(translatedText('influencer_landing.faq.q2'))}</h3>${paragraph(translatedText('influencer_landing.faq.a2'))}<h3>${escapeHtml(translatedText('influencer_landing.faq.q3'))}</h3>${paragraph(translatedText('influencer_landing.faq.a3'))}`,
+        )}<h2>Supported API &amp; model families</h2><ul><li><strong>Language models</strong>: Claude, GPT, and Gemini families through one OpenAI-compatible API (<code>POST /v1/chat/completions</code> and <code>/v1/responses</code>).</li><li><strong>Image generation &amp; editing</strong>: Grok Imagine, Nano Banana, Seedream, Qwen Image, and VolcEngine 2x image upscaling.</li><li><strong>Video generation</strong>: Seedance, MiniMax H3, Wan, and LTX digital human workflows.</li><li><strong>Audio</strong>: Doubao ASR speech-to-text, Doubao TTS 3.0 speech synthesis, and IndexTTS.</li></ul><h2>Resources</h2><p><a href="${escapeHtml(docsQuickstartUrl())}">API Quickstart</a> · <a href="${escapeHtml(brand.siteUrl)}/ai-influencer-studio">AI Influencer Studio</a></p><h2>FAQ</h2><h3>${escapeHtml(translatedText('influencer_landing.faq.q2'))}</h3>${paragraph(translatedText('influencer_landing.faq.a2'))}<h3>${escapeHtml(translatedText('influencer_landing.faq.q3'))}</h3>${paragraph(translatedText('influencer_landing.faq.a3'))}`,
         brand
       ),
     },

@@ -305,6 +305,15 @@ describe('public page metadata', () => {
     expect(about).not.toContain('href="https://docs.omnimux.ai"')
   })
 
+  it('lists supported API families and quickstart/studio links in the /pricing summary', () => {
+    const pricing = manifest.pages['/pricing'].summary
+    expect(pricing).toContain('<h2>Supported API &amp; model families</h2>')
+    expect(pricing).toContain('Claude, GPT, and Gemini')
+    expect(pricing).toContain('Doubao ASR')
+    expect(pricing).toContain('href="https://docs.omnimux.ai/en/quickstart"')
+    expect(pricing).toContain('href="https://omnimux.ai/ai-influencer-studio"')
+  })
+
   it('links every TikTok tool page to its language alternates and publishes its FAQ', () => {
     const paths = {
       video: [
