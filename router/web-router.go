@@ -133,7 +133,7 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 					c.Header("X-Robots-Tag", "noindex, follow")
 					c.AbortWithStatus(http.StatusNotFound)
 				} else if len(staticSitemap) > 0 && (c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead) {
-					serveDynamicSitemap(c, staticSitemap, canonicalSiteURL, searchPages.catalog.get(canonicalSiteURL))
+					serveDynamicSitemapWithModels(c, staticSitemap, canonicalSiteURL, searchPages.catalog.get(canonicalSiteURL), indexablePricingModels())
 					c.Abort()
 				}
 			default:

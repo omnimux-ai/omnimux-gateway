@@ -323,6 +323,10 @@ func (pages webSearchPages) serve(c *gin.Context) {
 		pages.serveInspirationModelPage(c, urlPath)
 		return
 	}
+	if strings.HasPrefix(urlPath, pricingModelsPrefix) && urlPath != pricingModelsPrefix {
+		pages.servePricingModelPage(c)
+		return
+	}
 	if urlPath != "/" && strings.HasSuffix(urlPath, "/") {
 		canonicalPath := strings.TrimSuffix(urlPath, "/")
 		_, public := pages.public[canonicalPath]

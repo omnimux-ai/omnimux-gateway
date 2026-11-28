@@ -16,6 +16,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -487,8 +488,13 @@ func (pages webSearchPages) serveInspirationModelPage(c *gin.Context, urlPath st
 }
 
 func renderDynamicSitemap(staticSitemap []byte, siteURL string, snapshot *inspirationCatalogSnapshot) []byte {
+	return renderDynamicSitemapWithModels(staticSitemap, siteURL, snapshot, nil)
+}
+
+func renderDynamicSitemapWithModels(staticSitemap []byte, siteURL string, snapshot *inspirationCatalogSnapshot, pricingModels []model.Pricing) []byte {
 	site := strings.TrimRight(strings.TrimSpace(siteURL), "/")
-	if len(staticSitemap) == 0 || snapshot == nil || len(snapshot.zones) == 0 || site == "" {
+	hasZones := snapshot != nil && len(snapshot.zones) > 0
+	if len(staticSitemap) == 0 || site == "" || (!hasZones && len(pricingModels) == 0) {
 		return staticSitemap
 	}
 	raw := string(staticSitemap)
@@ -502,19 +508,16 @@ func renderDynamicSitemap(staticSitemap []byte, siteURL string, snapshot *inspir
 	for _, match := range inspirationSitemapLocPattern.FindAllStringSubmatch(raw, -1) {
 		existing[match[1]] = true
 	}
-	lastmod := snapshot.lastmod
-	if lastmod == "" {
-		if match := inspirationSitemapLastmodPattern.FindStringSubmatch(raw); len(match) > 1 {
-			lastmod = match[1]
-		}
+	fallbackLastmod := ""
+	if match := inspirationSitemapLastmodPattern.FindStringSubmatch(raw); len(match) > 1 {
+		fallbackLastmod = match[1]
 	}
 
 	esc := htmlEscaper.Replace
 	var extra strings.Builder
-	for _, zone := range snapshot.zones {
-		loc := site + inspirationModelsPrefix + zone.ID
+	appendEntry := func(loc, lastmod string) {
 		if existing[loc] {
-			continue
+			return
 		}
 		existing[loc] = true
 		extra.WriteString("  <url><loc>")
@@ -527,6 +530,26 @@ func renderDynamicSitemap(staticSitemap []byte, siteURL string, snapshot *inspir
 		}
 		extra.WriteString("</url>\n")
 	}
+
+	if hasZones {
+		zoneLastmod := snapshot.lastmod
+		if zoneLastmod == "" {
+			zoneLastmod = fallbackLastmod
+		}
+		for _, zone := range snapshot.zones {
+			appendEntry(site+inspirationModelsPrefix+zone.ID, zoneLastmod)
+		}
+	}
+	for _, row := range pricingModels {
+		if !isIndexablePricingModel(row) {
+			continue
+		}
+		lastmod := fallbackLastmod
+		if row.UpdatedTime > 0 {
+			lastmod = time.Unix(row.UpdatedTime, 0).UTC().Format("2006-01-02")
+		}
+		appendEntry(site+pricingModelsPrefix+url.PathEscape(row.ModelName), lastmod)
+	}
 	if extra.Len() == 0 {
 		return staticSitemap
 	}
@@ -538,7 +561,11 @@ func renderDynamicSitemap(staticSitemap []byte, siteURL string, snapshot *inspir
 }
 
 func serveDynamicSitemap(c *gin.Context, staticSitemap []byte, siteURL string, snapshot *inspirationCatalogSnapshot) {
-	body := renderDynamicSitemap(staticSitemap, siteURL, snapshot)
+	serveDynamicSitemapWithModels(c, staticSitemap, siteURL, snapshot, nil)
+}
+
+func serveDynamicSitemapWithModels(c *gin.Context, staticSitemap []byte, siteURL string, snapshot *inspirationCatalogSnapshot, pricingModels []model.Pricing) {
+	body := renderDynamicSitemapWithModels(staticSitemap, siteURL, snapshot, pricingModels)
 	if c.Request.Method == http.MethodHead {
 		c.Header("Content-Type", "application/xml; charset=utf-8")
 		c.Status(http.StatusOK)
