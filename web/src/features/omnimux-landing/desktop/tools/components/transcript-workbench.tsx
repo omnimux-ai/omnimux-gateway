@@ -158,7 +158,9 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
   const [breakdowns, setBreakdowns] = useState<
     Record<string, ToolBreakdownResult>
   >({})
-  const [breakdownLoading, setBreakdownLoading] = useState(false)
+  const [breakdownLoadingKey, setBreakdownLoadingKey] = useState<string | null>(
+    null
+  )
   const [breakdownError, setBreakdownError] = useState('')
 
   const [query, setQuery] = useState('')
@@ -202,7 +204,7 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
     setTranslations({})
     setBreakdowns({})
     setBreakdownError('')
-    setBreakdownLoading(false)
+    setBreakdownLoadingKey(null)
     setQuery('')
     setCopiedMain(false)
     setCopiedBd(false)
@@ -226,6 +228,8 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
     : undefined
 
   const breakdownKey = activeTrack ? `${activeTrack.id}:${props.locale}` : ''
+  const breakdownLoading =
+    breakdownKey !== '' && breakdownLoadingKey === breakdownKey
   let activeBreakdown: ToolBreakdownResult | undefined
   if (props.isDemo) {
     activeBreakdown = props.demoBreakdown
@@ -246,6 +250,7 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
       if (error.code === 'rate_limited' || error.status === 429) {
         return copy.errors.rateLimited
       }
+      if (error.code === 'busy') return copy.errors.busy
       if (error.code === 'upstream_failed') return copy.errors.upstreamFailed
       if (error.code === 'unavailable_service') {
         return copy.errors.serviceUnavailable
@@ -360,9 +365,12 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
 
   const runBreakdown = useCallback(
     async (force = false) => {
-      if (props.isDemo || !activeTrack || !props.loggedIn) return
+      if (props.isDemo || !activeTrack || !props.loggedIn || !breakdownKey) {
+        return
+      }
       if (!force && activeBreakdown) return
-      setBreakdownLoading(true)
+      const keyForRun = breakdownKey
+      setBreakdownLoadingKey(keyForRun)
       setBreakdownError('')
       try {
         const res = await breakdownTikTokTranscript(
@@ -370,11 +378,11 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
           activeTrack.id,
           props.locale
         )
-        setBreakdowns((prev) => ({ ...prev, [breakdownKey]: res }))
+        setBreakdowns((prev) => ({ ...prev, [keyForRun]: res }))
       } catch (error) {
         setBreakdownError(mapAIError(error))
       } finally {
-        setBreakdownLoading(false)
+        setBreakdownLoadingKey((curr) => (curr === keyForRun ? null : curr))
       }
     },
     [
@@ -634,7 +642,7 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
                     <span className='tx-stage-badge'>
                       {stageLabelFor(section.stage, section.label)}
                     </span>
-                    <b>{section.label}</b>
+                    <h3>{section.label}</h3>
                   </div>
                   <button
                     type='button'
@@ -801,6 +809,7 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
                   type='button'
                   role='tab'
                   id='tx-tab-script'
+                  className='tx-tab-script'
                   aria-selected={tab === 'script'}
                   aria-controls='tx-panel-script'
                   onClick={() => setTab('script')}
@@ -811,6 +820,7 @@ export function TranscriptWorkbench(props: TranscriptWorkbenchProps) {
                   type='button'
                   role='tab'
                   id='tx-tab-breakdown'
+                  className='tx-tab-breakdown'
                   aria-selected={tab === 'breakdown'}
                   aria-controls='tx-panel-breakdown'
                   onClick={openBreakdownTab}

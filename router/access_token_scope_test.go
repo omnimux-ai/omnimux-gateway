@@ -551,9 +551,49 @@ func TestAccessTokenPersonalGrantsNeverIncludeAdminAndPlayground(t *testing.T) {
 		_, err := service.NormalizeAccessTokenScopes(1, common.RoleCommonUser, []string{scope})
 		assert.ErrorIs(t, err, service.ErrAccessTokenScopeForbidden)
 	}
-	for _, key := range []string{"POST /pg/chat/completions", "POST /pg/video/generations", "POST /pg/images/generations", "POST /pg/images/edits", "POST /pg/influencer/sheet", "POST /pg/influencer/multiview", "POST /pg/influencer/motion", "POST /api/user/device/approve", "POST /api/user/device/deny"} {
+	for _, key := range []string{"POST /pg/chat/completions", "POST /pg/video/generations", "POST /pg/images/generations", "POST /pg/images/edits", "POST /pg/influencer/sheet", "POST /pg/influencer/multiview", "POST /pg/influencer/motion", "POST /api/user/device/approve", "POST /api/user/device/deny", "POST /api/tools/tiktok/translate", "POST /api/tools/tiktok/breakdown"} {
 		rule, ok := middleware.AccessTokenRouteRule(key)
 		require.True(t, ok)
 		assert.Equal(t, "session", rule.Kind())
+	}
+}
+
+func TestAccessTokenTikTokToolAIRoutesRejectPAT(t *testing.T) {
+	previousDB := model.DB
+	previousMain := common.MainDatabaseType()
+	previousRedis, previousMemory := common.RedisEnabled, common.MemoryCacheEnabled
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	model.DB = db
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	common.RedisEnabled, common.MemoryCacheEnabled = false, false
+	t.Cleanup(func() {
+		assert.NoError(t, sqlDB.Close())
+		model.DB = previousDB
+		common.SetDatabaseTypes(previousMain, previousMain)
+		common.RedisEnabled, common.MemoryCacheEnabled = previousRedis, previousMemory
+	})
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserAccessToken{}, &model.Option{}, &model.AuditLog{}, &model.Channel{}))
+	require.NoError(t, model.EnsureLegacyAccessTokenRetireAt(time.Now().Unix()))
+	user := &model.User{Username: "pat_tx_user", Role: common.RoleCommonUser, Status: common.UserStatusEnabled}
+	require.NoError(t, db.Create(user).Error)
+	pat, _ := newRouterScopedCredential(t, user.Id, "profile:read", "influencer_creation:write")
+	t.Setenv("TIKTOK_TOOL_ENABLED", "true")
+	t.Setenv("TIKTOK_TOOL_CHANNEL_ID", "1")
+	t.Setenv("TIKTOK_TOOL_ALLOWED_HOSTS", "example.com")
+
+	engine := newAccessTokenScopeTestEngine(t)
+	for _, path := range []string{"/api/tools/tiktok/translate", "/api/tools/tiktok/breakdown"} {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"video_id":"7470610564927032609","target_lang":"zh-CN"}`))
+		req.Host = "example.com"
+		req.Header.Set("Origin", "http://example.com")
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+pat)
+		rec := httptest.NewRecorder()
+		engine.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusUnauthorized, rec.Code, rec.Body.String())
+		assert.Contains(t, rec.Body.String(), "login_required")
 	}
 }

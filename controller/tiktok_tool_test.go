@@ -782,4 +782,19 @@ func TestTikTokToolAITranslateAndBreakdown(t *testing.T) {
 	overLimit := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"es"}`, nil, 99)
 	assert.Equal(t, http.StatusTooManyRequests, overLimit.Code)
 	assert.Equal(t, "ai_quota_exceeded", tiktokToolCode(overLimit))
+
+	// Enforce per-user 4 req/30s burst limit without burning daily quota on the rejected 5th request.
+	t.Setenv("TIKTOK_TOOL_AI_USER_DAILY", "10")
+	burstDailyKey := "tiktoktool:v1:ai_user:" + tiktokToolDay(time.Now()) + ":101"
+	for _, lang := range []string{"ja", "es", "id", "zh-TW"} {
+		rec := tiktokToolRequest(t, TranslateTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/translate", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"`+lang+`"}`, nil, 101)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	}
+	burstHit := tiktokToolRequest(t, BreakdownTikTokToolTranscript, http.MethodPost, "/api/tools/tiktok/breakdown", `{"video_id":"`+videoID+`","track_id":"en-auto","target_lang":"zh-TW"}`, nil, 101)
+	assert.Equal(t, http.StatusTooManyRequests, burstHit.Code)
+	assert.Equal(t, "rate_limited", tiktokToolCode(burstHit))
+	assert.Equal(t, "30", burstHit.Header().Get("Retry-After"))
+	usedAfterBurst, err := tiktokToolCounters.get(context.Background(), burstDailyKey)
+	require.NoError(t, err)
+	assert.Equal(t, int64(4), usedAfterBurst)
 }

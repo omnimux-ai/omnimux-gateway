@@ -46,7 +46,11 @@ function formatCompactViews(views: number): string {
 function isTikTokUrl(raw: string | null | undefined): raw is string {
   if (!raw) return false
   try {
-    const host = new URL(raw).hostname.toLowerCase()
+    const parsed = new URL(raw)
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return false
+    }
+    const host = parsed.hostname.toLowerCase()
     return host === 'tiktok.com' || host.endsWith('.tiktok.com')
   } catch {
     return false
