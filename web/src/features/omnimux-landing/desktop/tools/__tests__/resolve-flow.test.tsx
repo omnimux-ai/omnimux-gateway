@@ -268,7 +268,7 @@ describe('TikTok tool resolve flow', () => {
           author: { unique_id: 'mythicshadowws', nickname: 'M' },
           description: 'Morning skincare demo desc',
           created_at: 1739404800,
-          cover_url: '',
+          cover_url: '/api/tools/tiktok/file/image?u=c',
           video: {
             duration_ms: 15000,
             width: 720,
@@ -341,6 +341,13 @@ describe('TikTok tool resolve flow', () => {
         expect.anything()
       )
 
+      const coverImg = screen.getByRole('img', { name: '@mythicshadowws' })
+      fireEvent.error(coverImg)
+      expect(
+        screen.queryByRole('img', { name: '@mythicshadowws' })
+      ).not.toBeInTheDocument()
+      expect(document.querySelector('.tx-cover-empty')).toBeInTheDocument()
+
       const esTrack = screen.getByRole('button', { name: /spanish/i })
       expect(esTrack).toHaveAttribute('aria-pressed', 'false')
       fireEvent.click(esTrack)
@@ -412,7 +419,7 @@ describe('TikTok tool resolve flow', () => {
           author: { unique_id: 'mythicshadowws', nickname: 'M' },
           description: 'Morning skincare demo desc',
           created_at: 1739404800,
-          cover_url: '',
+          cover_url: '/api/tools/tiktok/file/image?u=c',
           video: {
             duration_ms: 15000,
             width: 720,

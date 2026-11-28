@@ -733,6 +733,10 @@ For commercial licensing, please contact support@quantumnous.com
   gap: 12px;
   margin-top: 16px;
 }
+.omc .tool-result,
+.omc .tool-result :is(button, a, input) {
+  scroll-margin-top: 96px;
+}
 @media (max-width: 640px) {
   .omc .tx-head {
     grid-template-columns: 60px minmax(0, 1fr);

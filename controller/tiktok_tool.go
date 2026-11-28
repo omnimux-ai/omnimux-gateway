@@ -463,7 +463,7 @@ func mapTikTokPost(root gjson.Result, awemeID string) (tiktokPost, bool) {
 		nickname:    detail.Get("author.nickname").String(),
 		description: detail.Get("desc").String(),
 		createdAt:   detail.Get("create_time").Int(),
-		cover:       firstHTTPURL(detail.Get("video.origin_cover.url_list"), detail.Get("video.cover.url_list")),
+		cover:       firstBrowserImageURL(detail.Get("video.origin_cover.url_list"), detail.Get("video.cover.url_list")),
 	}
 	images := detail.Get("image_post_info.images")
 	if images.IsArray() && len(images.Array()) > 0 {
@@ -472,7 +472,7 @@ func mapTikTokPost(root gjson.Result, awemeID string) (tiktokPost, bool) {
 			if len(post.images) >= tiktokToolMaxImages {
 				break
 			}
-			src := firstHTTPURL(image.Get("display_image.url_list"), image.Get("owner_watermark_image.url_list"))
+			src := firstBrowserImageURL(image.Get("display_image.url_list"), image.Get("owner_watermark_image.url_list"))
 			if src == "" {
 				continue
 			}
@@ -508,6 +508,30 @@ func firstHTTPURL(lists ...gjson.Result) string {
 		}
 	}
 	return ""
+}
+
+// firstBrowserImageURL picks a browser-decodable HTTPS TikTok media image over
+// HEIC/HEIF variants when available, falling back to the first valid URL if
+// upstream returns only HEIC/HEIF.
+func firstBrowserImageURL(lists ...gjson.Result) string {
+	fallback := ""
+	for _, list := range lists {
+		for _, item := range list.Array() {
+			raw := item.String()
+			parsed, err := url.Parse(raw)
+			if err != nil || parsed.Scheme != "https" || !tiktokMediaHostAllowed(parsed.Hostname()) {
+				continue
+			}
+			if fallback == "" {
+				fallback = raw
+			}
+			lowerPath := strings.ToLower(parsed.Path)
+			if !strings.HasSuffix(lowerPath, ".heic") && !strings.HasSuffix(lowerPath, ".heif") {
+				return raw
+			}
+		}
+	}
+	return fallback
 }
 
 // ---------------------------------------------------------------- handlers

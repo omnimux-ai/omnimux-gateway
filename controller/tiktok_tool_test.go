@@ -286,6 +286,19 @@ func TestMapTikTokPostReadsVideoAndPhotoDetails(t *testing.T) {
 
 	_, ok = mapTikTokPost(gjson.Parse(`{"data":{"aweme_detail":{"aweme_id":"3"}}}`), "2")
 	assert.False(t, ok, "a different post id is unavailable")
+
+	heicPreferJpeg, ok := mapTikTokPost(gjson.Parse(`{"data":{"aweme_detail":{"aweme_id":"4","video":{"play_addr":{"url_list":["https://v16.tiktokcdn.com/v.mp4"]},"origin_cover":{"url_list":["https://p16.tiktokcdn.com/cover.heic?x=1"]},"cover":{"url_list":["https://p16.tiktokcdn.com/cover.jpeg?x=2"]}}}}}`), "4")
+	require.True(t, ok)
+	assert.Equal(t, "https://p16.tiktokcdn.com/cover.jpeg?x=2", heicPreferJpeg.cover, "prefers browser-decodable image over heic")
+
+	heicFallback, ok := mapTikTokPost(gjson.Parse(`{"data":{"aweme_detail":{"aweme_id":"5","video":{"play_addr":{"url_list":["https://v16.tiktokcdn.com/v.mp4"]},"origin_cover":{"url_list":["https://p16.tiktokcdn.com/only.heic"]}}}}}`), "5")
+	require.True(t, ok)
+	assert.Equal(t, "https://p16.tiktokcdn.com/only.heic", heicFallback.cover, "falls back to heic when no other format exists")
+
+	photoWebp, ok := mapTikTokPost(gjson.Parse(`{"data":{"aweme_detail":{"aweme_id":"6","image_post_info":{"images":[{"display_image":{"width":1080,"height":1440,"url_list":["https://p16.tiktokcdn.com/1.heic","https://p16.tiktokcdn.com/1.webp"]}}]}}}}`), "6")
+	require.True(t, ok)
+	require.Len(t, photoWebp.images, 1)
+	assert.Equal(t, "https://p16.tiktokcdn.com/1.webp", photoWebp.images[0].url)
 }
 
 func TestCopyChannelTikTokToolKeepsOnlyTheVideoRouteDisabled(t *testing.T) {

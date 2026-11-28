@@ -292,6 +292,7 @@ export function ToolTranscriptResult(props: {
   const [query, setQuery] = useState('')
   const [copiedMain, setCopiedMain] = useState(false)
   const [copiedCue, setCopiedCue] = useState<number | null>(null)
+  const [coverFailed, setCoverFailed] = useState(false)
   const copiedMainTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const copiedCueTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -311,7 +312,8 @@ export function ToolTranscriptResult(props: {
     setQuery('')
     setCopiedMain(false)
     setCopiedCue(null)
-  }, [props.result.id, props.locale, tracks])
+    setCoverFailed(false)
+  }, [props.result.id, props.result.cover_url, props.locale, tracks])
 
   const video = props.result.video
   const frame = video ? formatFrame(video.width, video.height) : ''
@@ -399,13 +401,14 @@ export function ToolTranscriptResult(props: {
   return (
     <div className='tool-result' aria-live='polite'>
       <div className='tx-head'>
-        {props.result.cover_url ? (
+        {props.result.cover_url && !coverFailed ? (
           <img
             className='tx-cover'
             src={props.result.cover_url}
             alt={`@${handle}`}
             loading='lazy'
             decoding='async'
+            onError={() => setCoverFailed(true)}
           />
         ) : (
           <div className='tx-cover tx-cover-empty' aria-hidden='true'>
