@@ -308,4 +308,92 @@ describe('chatwoot integration bridge', () => {
     syncChatwootLocale('fr')
     expect(widgetState.setLocale).toHaveBeenLastCalledWith('fr')
   })
+
+  it('injects host frame stylesheet once and syncs color scheme on html theme class changes', async () => {
+    mountConfigScript(
+      JSON.stringify({
+        baseUrl: 'https://chat.example.com',
+        websiteToken: 'cw_token_abc',
+        darkMode: 'auto',
+      })
+    )
+
+    document.documentElement.classList.add('light')
+    document.documentElement.classList.remove('dark')
+
+    initChatwoot({ locale: 'zh-CN' })
+    flushIdleLoad()
+
+    expect(
+      document.querySelectorAll('#omnimux-chatwoot-host-style')
+    ).toHaveLength(1)
+    expect(
+      document.querySelector('#omnimux-chatwoot-host-style')?.textContent
+    ).toContain('#6757e7')
+
+    const iframePostMessages: Array<{ msg: unknown; origin: string }> = []
+    const iframe = document.createElement('iframe')
+    iframe.id = 'chatwoot_live_chat_widget'
+    Object.defineProperty(iframe, 'contentWindow', {
+      value: {
+        postMessage: (msg: unknown, origin: string) => {
+          iframePostMessages.push({ msg, origin })
+        },
+      },
+    })
+    document.body.append(iframe)
+
+    const setColorSpy = vi.fn()
+    const win = window as unknown as {
+      chatwootSettings?: { darkMode?: string }
+      chatwootSDK?: { run: (opts: unknown) => void }
+      $chatwoot?: {
+        darkMode?: string
+        setUser: () => void
+        setCustomAttributes: () => void
+        setLocale: () => void
+        setColorScheme?: (mode: string) => void
+        reset: () => void
+      }
+    }
+    expect(win.chatwootSettings?.darkMode).toBe('light')
+
+    win.chatwootSDK = { run: vi.fn() }
+    win.$chatwoot = {
+      setUser: vi.fn(),
+      setCustomAttributes: vi.fn(),
+      setLocale: vi.fn(),
+      setColorScheme: setColorSpy,
+      reset: vi.fn(),
+    }
+
+    document
+      .querySelector('#chatwoot-sdk-script')
+      ?.dispatchEvent(new Event('load'))
+    window.dispatchEvent(new Event('chatwoot:ready'))
+    expect(setColorSpy).toHaveBeenLastCalledWith('light')
+
+    document.documentElement.classList.remove('light')
+    document.documentElement.classList.add('dark')
+    await flushMicrotasks()
+    expect(setColorSpy).toHaveBeenLastCalledWith('dark')
+
+    // Fallback to direct iframe postMessage when $chatwoot.setColorScheme is absent.
+    delete win.$chatwoot.setColorScheme
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    await flushMicrotasks()
+    expect(iframePostMessages.at(-1)).toEqual({
+      msg: `chatwoot-widget:${JSON.stringify({
+        event: 'set-color-scheme',
+        darkMode: 'light',
+      })}`,
+      origin: 'https://chat.example.com',
+    })
+
+    iframe.remove()
+    document.documentElement.classList.remove('light', 'dark')
+    resetChatwootControllerForTest()
+    expect(document.querySelector('#omnimux-chatwoot-host-style')).toBeNull()
+  })
 })
