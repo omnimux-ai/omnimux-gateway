@@ -108,10 +108,45 @@ function aspect(size) {
   const p = sizeParts(size);
   return !p || p[0] <= 0 || p[1] <= 0 ? "16:9" : p[1] > p[0] ? "9:16" : "16:9";
 }
-function duration(req) {
-  let n = Number(req.duration);
-  if (!Number.isFinite(n) || n <= 0) n = 8;
+function isPresent(value) {
+  return value !== undefined && value !== null && !(typeof value === "string" && value.trim() === "");
+}
+function validateVeoDuration(raw) {
+  if (!isPresent(raw)) return undefined;
+  const n = typeof raw === "boolean" ? NaN : Number(raw);
+  if (n !== 4 && n !== 6 && n !== 8) throw new Error("seconds must be one of 4, 6, or 8");
   return n;
+}
+function validateVeoResolution(raw) {
+  if (!isPresent(raw)) return undefined;
+  const value = String(raw).trim().toLowerCase();
+  if (value !== "720p" && value !== "1080p" && value !== "4k") throw new Error("resolution must be one of 720p, 1080p, or 4k");
+  return value;
+}
+function outboundDuration(req) {
+  const metadata = req && req.metadata && typeof req.metadata === "object" && !Array.isArray(req.metadata) ? req.metadata : {};
+  const primaryRaw = req && isPresent(req.duration) ? req.duration : req && req.seconds;
+  const reqSeconds = validateVeoDuration(primaryRaw);
+  const metaSeconds = validateVeoDuration(metadata.durationSeconds);
+  if (reqSeconds !== undefined && metaSeconds !== undefined && reqSeconds !== metaSeconds) {
+    throw new Error("seconds and metadata.durationSeconds must match when both are provided");
+  }
+  return reqSeconds !== undefined ? reqSeconds : metaSeconds;
+}
+function outboundResolution(req) {
+  const metadata = req && req.metadata && typeof req.metadata === "object" && !Array.isArray(req.metadata) ? req.metadata : {};
+  const reqRes = validateVeoResolution(req && req.resolution);
+  const metaRes = validateVeoResolution(metadata.resolution);
+  if (reqRes !== undefined && metaRes !== undefined && reqRes !== metaRes) {
+    throw new Error("resolution and metadata.resolution must match when both are provided");
+  }
+  if (reqRes !== undefined) return reqRes;
+  if (metaRes !== undefined) return metaRes;
+  return req && req.size ? resolution(req.size) : undefined;
+}
+function duration(req) {
+  const n = outboundDuration(req);
+  return n === undefined ? 8 : n;
 }
 function region(ctx, model) {
   const setting = ctx.userSetting || {};
@@ -149,8 +184,11 @@ export function buildSubmitRequest(ctx) {
   const req = ctx.requestBody || {},
     metadata = Object.assign({}, req.metadata || {}),
     model = ctx.upstreamModel || "veo-3.0-generate-001";
-  if (Number(req.duration) > 0) metadata.durationSeconds = Number(req.duration);
-  if (!metadata.resolution && req.size) metadata.resolution = resolution(req.size);
+  const seconds = outboundDuration(req);
+  if (seconds !== undefined) metadata.durationSeconds = seconds;
+  else delete metadata.durationSeconds;
+  const res = outboundResolution(req);
+  if (res) metadata.resolution = res;
   if (!metadata.aspectRatio && req.size) metadata.aspectRatio = aspect(req.size);
   if (metadata.resolution) metadata.resolution = String(metadata.resolution).toLowerCase();
   metadata.sampleCount = 1;
@@ -201,7 +239,7 @@ export function extractUsage(ctx) {
   const metadata = req.metadata || {};
   return {
     seconds: duration(req),
-    resolution: String(metadata.resolution || resolution(req.size) || "720p").toLowerCase(),
+    resolution: outboundResolution(req) || "720p",
     generate_audio: metadata.generateAudio !== false,
   };
 }
@@ -272,13 +310,21 @@ export const protocols = {
       }
       if (!prompt && images.length === 0) throw new Error("input is required");
       if (images.length && !validImageInput(images[0])) throw new Error("input image must be a data URL or base64 value");
-      const metadata = Object.assign({}, req.metadata || {});
-      if (Object.prototype.hasOwnProperty.call(req, "resolution")) metadata.resolution = req.resolution;
+      const rawMeta = req.metadata || {};
+      validateVeoResolution(rawMeta.resolution);
+      const metadata = Object.assign({}, rawMeta);
+      if (Object.prototype.hasOwnProperty.call(req, "resolution")) {
+        validateVeoResolution(req.resolution);
+        metadata.resolution = req.resolution;
+      }
       const requestBody = { model: model, prompt: prompt, metadata: metadata };
       if (images.length) requestBody.images = images;
       if (Object.prototype.hasOwnProperty.call(req, "seconds")) requestBody.duration = req.seconds;
       else if (Object.prototype.hasOwnProperty.call(req, "duration")) requestBody.duration = req.duration;
       if (Object.prototype.hasOwnProperty.call(req, "size")) requestBody.size = req.size;
+      const validatedDuration = outboundDuration(requestBody);
+      if (validatedDuration !== undefined) requestBody.duration = validatedDuration;
+      outboundResolution(requestBody);
       return { kind: "submit", model: model, action: images.length ? "image_to_video" : "text_to_video", requestBody: requestBody };
     },
     renderEvents: function (ctx, task, previousState) {
@@ -338,6 +384,8 @@ protocols.openai_video = {
     if (ctx.body.kind === "json") {
       if (!ctx.body.value || Array.isArray(ctx.body.value)) throw new Error("JSON object required");
       req = Object.assign({}, ctx.body.value);
+      if (req.metadata !== undefined && (!req.metadata || typeof req.metadata !== "object" || Array.isArray(req.metadata)))
+        throw new Error("metadata must be an object");
     } else {
       const first = function (name) {
         const values = (ctx.body.fields || {})[name] || [];
@@ -366,20 +414,12 @@ protocols.openai_video = {
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("metadata must be a JSON object string");
         req.metadata = parsed;
       }
-      if (req.seconds !== undefined) req.seconds = Number(req.seconds);
-      else if (req.duration !== undefined) req.seconds = Number(req.duration);
+      if (isPresent(req.seconds)) req.seconds = Number(req.seconds);
+      else if (isPresent(req.duration)) req.seconds = Number(req.duration);
     }
-    const seconds = req.seconds === undefined ? req.duration : req.seconds;
-    if (seconds !== undefined) {
-      const n = Number(seconds);
-      if (n !== 4 && n !== 6 && n !== 8) throw new Error("seconds must be one of 4, 6, or 8");
-      req.duration = n;
-    }
-    const providedResolution = req.resolution !== undefined ? req.resolution : req.metadata && req.metadata.resolution;
-    if (providedResolution !== undefined && providedResolution !== "") {
-      const value = String(providedResolution).toLowerCase();
-      if (value !== "720p" && value !== "1080p" && value !== "4k") throw new Error("resolution must be one of 720p, 1080p, or 4k");
-    }
+    const duration = outboundDuration(req);
+    if (duration !== undefined) req.duration = duration;
+    outboundResolution(req);
     if (hasInputReferenceFile) {
       req.images = [{ __fileRef: "request_file:input_reference", encoding: "base64", maxBytes: 20971520 }];
     }

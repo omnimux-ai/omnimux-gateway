@@ -1012,3 +1012,61 @@ func TestDoubaoImageEndpointMappingKeepsDeclaredModel(t *testing.T) {
 		})
 	}
 }
+
+func TestDoubaoDurationBoundsRejectBypassPaths(t *testing.T) {
+	_, plugin := newDoubaoPlugin(t)
+	const v20 = "doubao-seedance-2-0-260128"
+
+	for _, invalid := range []any{3601, -5} {
+		t.Run("rejects invalid duration across all video entrypoints", func(t *testing.T) {
+			_, err := plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_responses", "decodeRequest"}, map[string]any{
+				"model": v20,
+				"body":  map[string]any{"kind": "json", "value": map[string]any{"model": v20, "input": "waves", "duration": invalid}},
+			})
+			require.ErrorContains(t, err, "seconds must be -1 or between 1 and 3600")
+
+			_, err = plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_responses", "decodeRequest"}, map[string]any{
+				"model": v20,
+				"body":  map[string]any{"kind": "json", "value": map[string]any{"model": v20, "input": "waves", "metadata": map[string]any{"duration": invalid}}},
+			})
+			require.ErrorContains(t, err, "seconds must be -1 or between 1 and 3600")
+
+			_, err = plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_video", "decodeRequest"}, map[string]any{
+				"model": v20,
+				"body":  map[string]any{"kind": "json", "value": map[string]any{"model": v20, "prompt": "waves", "metadata": map[string]any{"duration": invalid}}},
+			})
+			require.ErrorContains(t, err, "seconds must be -1 or between 1 and 3600")
+
+			_, err = plugin.Engine.CallPath(t.Context(), "native", []string{"createTask"}, map[string]any{
+				"body": map[string]any{"kind": "json", "value": map[string]any{"model": v20, "content": []any{map[string]any{"type": "text", "text": "waves"}}, "duration": invalid}},
+			})
+			require.ErrorContains(t, err, "seconds must be -1 or between 1 and 3600")
+
+			reqBody := map[string]any{"model": v20, "prompt": "waves", "metadata": map[string]any{"duration": invalid}}
+			_, err = plugin.Engine.Call(t.Context(), "buildSubmitRequest", map[string]any{
+				"baseUrl": doubaoBaseURL, "apiKey": "k", "upstreamModel": v20, "requestBody": reqBody,
+			})
+			require.ErrorContains(t, err, "seconds must be -1 or between 1 and 3600")
+
+			_, err = plugin.Engine.Call(t.Context(), "extractUsage", map[string]any{
+				"model": v20, "upstreamModel": v20, "requestBody": reqBody,
+			})
+			require.ErrorContains(t, err, "seconds must be -1 or between 1 and 3600")
+		})
+	}
+
+	t.Run("duration -1 remains allowed across responses and native", func(t *testing.T) {
+		val, err := plugin.Engine.CallPath(t.Context(), "protocols", []string{"openai_responses", "decodeRequest"}, map[string]any{
+			"model": v20,
+			"body":  map[string]any{"kind": "json", "value": map[string]any{"model": v20, "input": "waves", "duration": -1}},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, float64(-1), alibabaObject(t, val)["requestBody"].(map[string]any)["seconds"])
+
+		nativeVal, err := plugin.Engine.CallPath(t.Context(), "native", []string{"createTask"}, map[string]any{
+			"body": map[string]any{"kind": "json", "value": map[string]any{"model": v20, "content": []any{map[string]any{"type": "text", "text": "waves"}}, "duration": -1}},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, float64(-1), alibabaObject(t, nativeVal)["requestBody"].(map[string]any)["seconds"])
+	})
+}

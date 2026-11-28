@@ -89,23 +89,51 @@ function normalizeResolution(value, model) {
   return defaultResolution(model);
 }
 
+function presentValue(value) {
+  return value !== undefined && value !== null && !(typeof value === "string" && value.trim() === "");
+}
+
+function validateViduDurationValue(model, raw) {
+  if (!presentValue(raw)) return undefined;
+  const n = typeof raw === "boolean" ? NaN : Number(raw);
+  if (model === "viduq1") {
+    if (n !== 5) throw new Error("viduq1 duration must be 5");
+    return n;
+  }
+  if (model === "vidu2.0") {
+    if (n !== 4 && n !== 8) throw new Error("vidu2.0 duration must be 4 or 8");
+    return n;
+  }
+  if (isQ2Model(model)) {
+    if (!Number.isInteger(n) || n < 1 || n > 10) throw new Error("viduq2 duration must be between 1 and 10");
+    return n;
+  }
+  if (!Number.isInteger(n) || n <= 0 || n > 3600) throw new Error("seconds must be between 1 and 3600");
+  return n;
+}
+
 function outboundDuration(req, model) {
-  const n = Number(req && req.duration);
-  if (Number.isFinite(n) && n > 0) return n;
+  const metadata = req && req.metadata && typeof req.metadata === "object" && !Array.isArray(req.metadata) ? req.metadata : {};
+  const metaDuration = validateViduDurationValue(model, metadata.duration);
+  const reqDuration = validateViduDurationValue(model, req && (req.duration !== undefined ? req.duration : req.seconds));
+  if (metaDuration !== undefined) return metaDuration;
+  if (reqDuration !== undefined) return reqDuration;
   return defaultDuration(model);
 }
 
 function outboundResolution(req, model) {
-  if (req && req.resolution) return normalizeResolution(req.resolution, model);
-  const metadata = (req && req.metadata) || {};
-  if (metadata.resolution) return normalizeResolution(metadata.resolution, model);
-  if (req && req.size) return normalizeResolution(req.size, model);
+  const metadata = req && req.metadata && typeof req.metadata === "object" && !Array.isArray(req.metadata) ? req.metadata : {};
+  if (presentValue(metadata.resolution)) return normalizeResolution(metadata.resolution, model);
+  if (req && presentValue(req.resolution)) return normalizeResolution(req.resolution, model);
+  if (req && presentValue(req.size)) return normalizeResolution(req.size, model);
   return defaultResolution(model);
 }
 
 function hasViduImages(req, hasInputReferenceFile) {
   if (hasInputReferenceFile) return true;
+  const metadata = req && req.metadata && typeof req.metadata === "object" && !Array.isArray(req.metadata) ? req.metadata : {};
   if (Array.isArray(req && req.images) && req.images.length) return true;
+  if (Array.isArray(metadata.images) && metadata.images.length) return true;
   return Boolean(trimmed(req && req.input_reference) || trimmed(req && req.image));
 }
 
@@ -220,27 +248,26 @@ function pathFor(action) {
 }
 
 export function buildSubmitRequest(ctx) {
-  const req = ctx.requestBody;
+  const req = ctx.requestBody || {};
   const action = actionFor(req);
-  const metadata = req.metadata || {};
+  const metadata = req.metadata && typeof req.metadata === "object" && !Array.isArray(req.metadata) ? req.metadata : {};
   let model = ctx.upstreamModel || "viduq1";
   if (action === "reference_to_video" && model.includes("viduq2")) model = "viduq2";
-  const images = Array.isArray(req.images) ? req.images.map(filePlaceholder) : null;
-  const body = Object.assign(
-    {
-      model: model,
-      images: images,
-      prompt: req.prompt || null,
-      duration: outboundDuration(req, model),
-      resolution: outboundResolution(req, model),
-      movement_amplitude: "auto",
-    },
-    metadata
-  );
+  const duration = outboundDuration(req, model);
+  const resolution = outboundResolution(req, model);
+  const rawImages = Array.isArray(req.images) ? req.images : Array.isArray(metadata.images) ? metadata.images : null;
+  const images = rawImages ? rawImages.map(filePlaceholder) : null;
+  validateViduCombo(model, duration, resolution, Boolean(images && images.length));
+  const body = Object.assign({ movement_amplitude: "auto" }, metadata, {
+    model: model,
+    images: images,
+    prompt: req.prompt || metadata.prompt || null,
+    duration: duration,
+    resolution: resolution,
+  });
   delete body.action;
   if (!body.prompt) delete body.prompt;
   if (!body.bgm) delete body.bgm;
-  if (Array.isArray(body.images)) body.images = body.images.map(filePlaceholder);
   return {
     url: ctx.baseUrl + "/ent/v2" + pathFor(action),
     method: "POST",
@@ -335,7 +362,7 @@ export const protocols = {
       else if (Object.prototype.hasOwnProperty.call(req, "duration")) requestBody.duration = req.duration;
       if (Object.prototype.hasOwnProperty.call(req, "size")) requestBody.size = req.size;
       if (Object.prototype.hasOwnProperty.call(req, "metadata")) requestBody.metadata = req.metadata;
-      const duration = requestBody.duration === undefined ? undefined : Number(requestBody.duration);
+      const duration = outboundDuration(requestBody, model);
       validateViduCombo(model, duration, outboundResolution(requestBody, model), images.length > 0);
       return { kind: "submit", model: model, action: actionFor(requestBody), requestBody: requestBody };
     },
@@ -397,6 +424,8 @@ protocols.openai_video = {
     if (ctx.body.kind === "json") {
       if (!ctx.body.value || Array.isArray(ctx.body.value)) throw new Error("JSON object required");
       req = Object.assign({}, ctx.body.value);
+      if (req.metadata !== undefined && (!req.metadata || typeof req.metadata !== "object" || Array.isArray(req.metadata)))
+        throw new Error("metadata must be an object");
     } else {
       const first = function (name) {
         const values = (ctx.body.fields || {})[name] || [];
@@ -423,13 +452,13 @@ protocols.openai_video = {
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("metadata must be a JSON object string");
         req.metadata = parsed;
       }
-      if (req.seconds !== undefined) req.seconds = Number(req.seconds);
-      else if (req.duration !== undefined) req.seconds = Number(req.duration);
+      if (presentValue(req.seconds)) req.seconds = Number(req.seconds);
+      else if (presentValue(req.duration)) req.seconds = Number(req.duration);
     }
     const model = ctx.upstreamModel || ctx.model || req.model;
-    const seconds = req.seconds === undefined ? req.duration : req.seconds;
-    if (seconds !== undefined) req.duration = Number(seconds);
-    else req.duration = defaultDuration(model);
+    const seconds = presentValue(req.seconds) ? req.seconds : req.duration;
+    if (presentValue(seconds)) req.duration = Number(seconds);
+    req.duration = outboundDuration(req, model);
     if (hasInputReferenceFile) {
       req.images = [{ __fileRef: "request_file:input_reference", encoding: "dataUrl", maxBytes: 15728640 }];
     } else {
