@@ -271,3 +271,220 @@ func TestCopyChannelWithoutBodyRetainsLegacyCopy(t *testing.T) {
 	assert.Equal(t, origin.Balance, cloned.Balance)
 	assert.Equal(t, origin.UsedQuota, cloned.UsedQuota)
 }
+
+func tiktokShopCopyFixture(t *testing.T) model.Channel {
+	t.Helper()
+	routes := []dto.AdvancedCustomRoute{
+		{Models: []string{"tiktok-shop-search-v2"}, UpstreamPath: "/api/v1/tiktok/shop/web/fetch_search_products_list_v2", QueryMapping: map[string]string{"search_word": "search_word", "offset": "offset", "page_token": "page_token", "region": "region", "extra_param": "extra_param"}},
+		{Models: []string{"tiktok-shop-product-v3"}, UpstreamPath: "/api/v1/tiktok/shop/web/fetch_product_detail_v3", QueryMapping: map[string]string{"product_id": "product_id", "region": "region"}},
+		{Models: []string{"tiktok-shop-reviews-v2"}, UpstreamPath: "/api/v1/tiktok/shop/web/fetch_product_reviews_v2", QueryMapping: map[string]string{"product_id": "product_id", "page_start": "page_start", "sort_rule": "sort_rule", "filter_type": "filter_type", "filter_value": "filter_value", "region": "region"}},
+		{Models: []string{"tiktok-creator-search-videos"}, UpstreamPath: "/api/v1/tiktok/app/v3/fetch_creator_search_insights_videos", QueryMapping: map[string]string{"keyword": "keyword", "offset": "offset", "count": "count"}},
+		{Models: []string{"tiktok-shop-product-link"}, UpstreamPath: "/api/v1/tiktok/shop/web/fetch_product_id_by_share_link", QueryMapping: map[string]string{"share_link": "share_link"}},
+		{Models: []string{"tiktok-shop-product"}, UpstreamPath: "/api/v1/tiktok/shop/web/fetch_product_detail", QueryMapping: map[string]string{"product_id": "product_id", "seller_id": "seller_id", "region": "region"}},
+	}
+	models := []string{
+		"tiktok-shop-search-v2",
+		"tiktok-shop-product-v3",
+		"tiktok-shop-reviews-v2",
+		"tiktok-creator-search-videos",
+		"tiktok-shop-product-link",
+		"tiktok-shop-product",
+	}
+	for i := range 32 {
+		name := fmt.Sprintf("retired-%d", i)
+		models = append(models, name)
+		routes = append(routes, dto.AdvancedCustomRoute{Models: []string{name}, UpstreamPath: fmt.Sprintf("/api/v1/retired/%d", i)})
+	}
+	for i := range routes {
+		routes[i].IncomingPath = "/v1/chat/completions"
+		routes[i].UpstreamMethod = http.MethodGet
+		routes[i].Converter = "none"
+		routes[i].Auth = &dto.AdvancedCustomRouteAuth{Type: "header", Name: "Authorization", Value: "Bearer fake-route-private-value"}
+	}
+	channel := model.Channel{
+		Type: constant.ChannelTypeAdvancedCustom, Key: "fake-channel-private-value", Status: common.ChannelStatusManuallyDisabled,
+		Name: "Legacy data", Models: strings.Join(models, ","), Group: "auto,default", BaseURL: common.GetPointer("https://api.tikhub.io"),
+		Tag: common.GetPointer("legacy"), AutoBan: common.GetPointer(1), Balance: 12, UsedQuota: 123,
+		ModelMapping: common.GetPointer(`{"tiktok-shop-search-v2":"unrelated"}`), ParamOverride: common.GetPointer(`{"secret":"fake-override-private-value"}`),
+		HeaderOverride: common.GetPointer(`{"X-Extra":"fake-header-private-value"}`), StatusCodeMapping: common.GetPointer(`{"401":"200"}`),
+	}
+	channel.SetSetting(dto.ChannelSettings{SystemPrompt: "unrelated instruction", ForceFormat: true})
+	channel.SetOtherSettings(dto.ChannelOtherSettings{
+		ToolLossPolicy: "strict", UpstreamModelUpdateAutoSyncEnabled: true,
+		AdvancedCustom: &dto.AdvancedCustomConfig{Routes: routes, ModelByParam: map[string]dto.ParamModelRouting{"tiktok-shop-search-v2": {Param: "size", Rules: []dto.ParamModelRule{{AnyOf: []string{"large"}, Model: "unrelated"}}}}},
+	})
+	return channel
+}
+
+func TestCopyChannelTikTokShopNarrowsScopeAndKeepsCredentialsServerSide(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	origin := tiktokShopCopyFixture(t)
+	require.NoError(t, db.Create(&origin).Error)
+	before, err := common.Marshal(origin)
+	require.NoError(t, err)
+
+	recorder := performAccountMonitorCopy(t, origin.Id, `{"scope":"tiktok-shop"}`)
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			ID int `json:"id"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success, recorder.Body.String())
+	require.Positive(t, response.Data.ID)
+	assert.NotContains(t, recorder.Body.String(), "private-value")
+
+	var responseObject map[string]common.RawMessage
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &responseObject))
+	var resultObject map[string]common.RawMessage
+	require.NoError(t, common.Unmarshal(responseObject["data"], &resultObject))
+	assert.Len(t, resultObject, 1)
+
+	var cloned model.Channel
+	require.NoError(t, db.First(&cloned, response.Data.ID).Error)
+	assert.Equal(t, common.ChannelStatusManuallyDisabled, cloned.Status)
+	assert.Equal(t, "social-data-tikhub", cloned.Group)
+	assert.Equal(t, "data-api", cloned.GetTag())
+	require.NotNil(t, cloned.AutoBan)
+	assert.Equal(t, 0, *cloned.AutoBan)
+	assert.Contains(t, cloned.Name, "TikTok Shop")
+	assert.Equal(t, "tiktok-shop-search-v2,tiktok-shop-product-v3,tiktok-shop-reviews-v2,tiktok-creator-search-videos,tiktok-shop-product-link,tiktok-shop-product", cloned.Models)
+	assert.Equal(t, origin.Key, cloned.Key)
+	assert.Nil(t, cloned.ModelMapping)
+	assert.Nil(t, cloned.ParamOverride)
+	assert.Nil(t, cloned.HeaderOverride)
+	assert.Empty(t, cloned.GetStatusCodeMapping())
+	assert.Nil(t, cloned.Setting)
+	assert.Zero(t, cloned.Balance)
+	assert.Zero(t, cloned.UsedQuota)
+
+	var settings dto.ChannelOtherSettings
+	require.NoError(t, common.Unmarshal([]byte(cloned.OtherSettings), &settings))
+	require.NotNil(t, settings.AdvancedCustom)
+	assert.Empty(t, settings.AdvancedCustom.ModelByParam)
+	assert.Empty(t, settings.ToolLossPolicy)
+	assert.False(t, settings.UpstreamModelUpdateCheckEnabled)
+	assert.False(t, settings.UpstreamModelUpdateAutoSyncEnabled)
+	require.Len(t, settings.AdvancedCustom.Routes, 6)
+	for _, route := range settings.AdvancedCustom.Routes {
+		require.Len(t, route.Models, 1)
+		assert.Equal(t, http.MethodGet, route.UpstreamMethod)
+		assert.True(t, route.ShouldPassthroughResponse())
+		assert.Equal(t, "Bearer fake-route-private-value", route.Auth.Value)
+		assert.Empty(t, route.ResponseValidation)
+		assert.NotContains(t, route.QueryMapping, "extra_param")
+	}
+
+	var abilities []model.Ability
+	require.NoError(t, db.Where("channel_id = ?", cloned.Id).Find(&abilities).Error)
+	require.Len(t, abilities, 6)
+	for _, ability := range abilities {
+		assert.False(t, ability.Enabled)
+		assert.Equal(t, cloned.Group, ability.Group)
+	}
+
+	var saved model.Channel
+	require.NoError(t, db.First(&saved, origin.Id).Error)
+	after, err := common.Marshal(saved)
+	require.NoError(t, err)
+	assert.Equal(t, string(before), string(after), "copy must not change the source")
+}
+
+func TestCopyChannelTikTokShopRejectsUnsafeSourcesWithoutChangingThem(t *testing.T) {
+	for _, scenario := range []struct {
+		name   string
+		modify func(*model.Channel, *dto.ChannelOtherSettings)
+	}{
+		{"enabled", func(c *model.Channel, _ *dto.ChannelOtherSettings) { c.Status = common.ChannelStatusEnabled }},
+		{"wrong provider type", func(c *model.Channel, _ *dto.ChannelOtherSettings) { c.Type = constant.ChannelTypeOpenAI }},
+		{"unexpected base URL", func(c *model.Channel, _ *dto.ChannelOtherSettings) {
+			c.BaseURL = common.GetPointer("https://untrusted.example")
+		}},
+		{"missing model", func(c *model.Channel, _ *dto.ChannelOtherSettings) {
+			c.Models = strings.ReplaceAll(c.Models, "tiktok-shop-search-v2,", "")
+		}},
+		{"missing route", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes = s.AdvancedCustom.Routes[1:]
+		}},
+		{"duplicate route", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes = append(s.AdvancedCustom.Routes, s.AdvancedCustom.Routes[0])
+		}},
+		{"regex model", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes[6].Models = []string{"re:^tiktok-shop-"}
+		}},
+		{"shared model route", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes[0].Models = []string{"tiktok-shop-search-v2", "retired-extra"}
+		}},
+		{"wrong upstream path", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes[0].UpstreamPath = "/api/v1/unexpected"
+		}},
+		{"write method", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes[0].UpstreamMethod = http.MethodPost
+		}},
+		{"converter", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes[0].Converter = "openai_chat_completions_to_anthropic_messages"
+		}},
+		{"non-passthrough", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes[0].PassthroughResponse = common.GetPointer(false)
+		}},
+		{"nested identity mapping", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			s.AdvancedCustom.Routes[0].QueryMapping["search_word"] = "raw.search_word"
+		}},
+		{"missing required query field", func(_ *model.Channel, s *dto.ChannelOtherSettings) {
+			delete(s.AdvancedCustom.Routes[0].QueryMapping, "search_word")
+		}},
+		{"malformed transport settings", func(c *model.Channel, _ *dto.ChannelOtherSettings) {
+			c.Setting = common.GetPointer("invalid-private-value")
+		}},
+		{"task plugin binding", func(c *model.Channel, _ *dto.ChannelOtherSettings) {
+			c.SetSetting(dto.ChannelSettings{
+				TaskPluginKey: "sora",
+			})
+		}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			db := setupModelListControllerTestDB(t)
+			origin := tiktokShopCopyFixture(t)
+			var settings dto.ChannelOtherSettings
+			require.NoError(t, common.Unmarshal([]byte(origin.OtherSettings), &settings))
+			scenario.modify(&origin, &settings)
+			origin.SetOtherSettings(settings)
+			require.NoError(t, db.Create(&origin).Error)
+			before, err := common.Marshal(origin)
+			require.NoError(t, err)
+
+			recorder := performAccountMonitorCopy(t, origin.Id, `{"scope":"tiktok-shop"}`)
+			assert.Equal(t, http.StatusBadRequest, recorder.Code)
+			assert.Contains(t, recorder.Body.String(), `"success":false`)
+			assert.NotContains(t, recorder.Body.String(), "private-value")
+
+			var count int64
+			require.NoError(t, db.Model(&model.Channel{}).Count(&count).Error)
+			assert.EqualValues(t, 1, count)
+
+			var saved model.Channel
+			require.NoError(t, db.First(&saved, origin.Id).Error)
+			after, err := common.Marshal(saved)
+			require.NoError(t, err)
+			assert.Equal(t, string(before), string(after))
+		})
+	}
+	t.Run("malformed route settings", func(t *testing.T) {
+		db := setupModelListControllerTestDB(t)
+		origin := tiktokShopCopyFixture(t)
+		origin.OtherSettings = "invalid-private-value"
+		require.NoError(t, db.Create(&origin).Error)
+
+		recorder := performAccountMonitorCopy(t, origin.Id, `{"scope":"tiktok-shop"}`)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Contains(t, recorder.Body.String(), `"success":false`)
+		assert.NotContains(t, recorder.Body.String(), "private-value")
+
+		var saved model.Channel
+		require.NoError(t, db.First(&saved, origin.Id).Error)
+		assert.Equal(t, origin.OtherSettings, saved.OtherSettings)
+	})
+}
