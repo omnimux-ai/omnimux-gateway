@@ -64,8 +64,15 @@ describe('landing nav tools menu', () => {
     expect(within(menu).getByText('Agent')).toBeInTheDocument()
     const video = within(menu).getByRole('link', { name: 'TikTok 视频下载' })
     const photo = within(menu).getByRole('link', { name: 'TikTok 图文下载' })
+    const transcript = within(menu).getByRole('link', {
+      name: 'TikTok 字幕提取',
+    })
     expect(video).toHaveAttribute('href', '/zh/tools/tiktok-video-downloader')
     expect(photo).toHaveAttribute('href', '/zh/tools/tiktok-photo-downloader')
+    expect(transcript).toHaveAttribute(
+      'href',
+      '/zh/tools/tiktok-transcript-generator'
+    )
     // The two Agent entry pages hang off the same menu.
     expect(within(menu).getByRole('link', { name: 'CLI' })).toHaveAttribute(
       'href',

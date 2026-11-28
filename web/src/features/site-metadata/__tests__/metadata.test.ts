@@ -115,11 +115,11 @@ describe('public page metadata', () => {
     expect(urls).toEqual(
       Object.keys(fullManifest.pages).map((path) => `${brand.siteUrl}${path}`)
     )
-    expect(urls).toHaveLength(29)
+    expect(urls).toHaveLength(31)
     expect(sitemap).not.toContain('/influencer')
     expect([
       ...sitemap.matchAll(/<lastmod>2026-11-10<\/lastmod><\/url>/g),
-    ]).toHaveLength(29)
+    ]).toHaveLength(31)
   })
 
   it('states no subscription and paid trial packs on the homepage', () => {
@@ -248,10 +248,13 @@ describe('public page metadata', () => {
     for (const path of [
       '/zh/tools/tiktok-video-downloader',
       '/zh/tools/tiktok-photo-downloader',
+      '/zh/tools/tiktok-transcript-generator',
     ]) {
-      expect(manifest.pages[path].head).toContain(
-        '下载后可在 OmniMux 拆解并复刻为带货视频。'
-      )
+      if (path !== '/zh/tools/tiktok-transcript-generator') {
+        expect(manifest.pages[path].head).toContain(
+          '下载后可在 OmniMux 拆解并复刻为带货视频。'
+        )
+      }
       const head = new DOMParser().parseFromString(
         manifest.pages[path].head,
         'text/html'
@@ -261,6 +264,20 @@ describe('public page metadata', () => {
           .querySelector('meta[name="description"]')
           ?.getAttribute('content') ?? ''
       expect(description.length, path).toBeGreaterThanOrEqual(70)
+    }
+    for (const path of [
+      '/tools/tiktok-transcript-generator',
+      '/zh/tools/tiktok-transcript-generator',
+    ]) {
+      const head = new DOMParser().parseFromString(
+        manifest.pages[path].head,
+        'text/html'
+      )
+      expect(head.title.length, path).toBeLessThanOrEqual(60)
+      expect(
+        new TextEncoder().encode(head.title).length,
+        path
+      ).toBeLessThanOrEqual(60)
     }
   })
 
@@ -280,6 +297,8 @@ describe('public page metadata', () => {
       '/zh/tools/tiktok-video-downloader',
       '/tools/tiktok-photo-downloader',
       '/zh/tools/tiktok-photo-downloader',
+      '/tools/tiktok-transcript-generator',
+      '/zh/tools/tiktok-transcript-generator',
       '/cli',
       '/zh/cli',
       '/zh-tw/cli',
@@ -310,7 +329,7 @@ describe('public page metadata', () => {
       expect(page.summary).not.toMatch(/\bhidden\b|display:\s*none/)
       expect(page.summary).not.toContain('undefined')
     }
-    expect(titles.size).toBe(26)
+    expect(titles.size).toBe(28)
     expect(manifest.pages['/about'].summary).toContain(PRODUCT_DESCRIPTION)
     expect(manifest.pages['/about'].summary).not.toContain(
       'Put your character in any trend'
@@ -363,6 +382,10 @@ describe('public page metadata', () => {
       photo: [
         '/tools/tiktok-photo-downloader',
         '/zh/tools/tiktok-photo-downloader',
+      ],
+      transcript: [
+        '/tools/tiktok-transcript-generator',
+        '/zh/tools/tiktok-transcript-generator',
       ],
     }
     for (const [en, zh] of Object.values(paths)) {

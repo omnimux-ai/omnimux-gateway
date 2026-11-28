@@ -6,7 +6,7 @@ import {
   type ToolLocale,
 } from '../../omnimux-landing/desktop/tools/content'
 
-const TOOL_KINDS: ToolKind[] = ['video', 'photo']
+const TOOL_KINDS: ToolKind[] = ['video', 'photo', 'transcript']
 const TOOL_LOCALES: ToolLocale[] = ['en', 'zh-CN']
 
 describe('tool page related links', () => {

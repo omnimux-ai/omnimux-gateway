@@ -256,4 +256,219 @@ describe('TikTok tool resolve flow', () => {
     expect(toastError.mock.calls[0][0]).toMatch(/couldn't parse/i)
     expect(screen.queryByTestId('turnstile')).not.toBeInTheDocument()
   })
+
+  it('extracts native captions, switches tracks, toggles timestamps, searches, copies, and exports TXT/SRT/VTT', async () => {
+    api.get.mockResolvedValue(config({ pass_valid: true }))
+    api.post.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          kind: 'transcript',
+          id: '7470610564927032609',
+          author: { unique_id: 'mythicshadowws', nickname: 'M' },
+          description: 'Morning skincare demo desc',
+          created_at: 1739404800,
+          cover_url: '',
+          video: {
+            duration_ms: 15000,
+            width: 720,
+            height: 1280,
+            preview_url: '/api/tools/tiktok/file/video?u=v',
+            download_url: '/api/tools/tiktok/file/video?u=v&dl=1',
+          },
+          transcript: {
+            has_captions: true,
+            tracks: [
+              {
+                id: 'en-auto',
+                lang: 'eng-US',
+                language_code: 'en',
+                is_auto_generated: true,
+                cues: [
+                  { start_ms: 0, end_ms: 3200, text: 'First hook line' },
+                  { start_ms: 3200, end_ms: 7000, text: 'Second step serum' },
+                ],
+              },
+              {
+                id: 'es',
+                lang: 'spa-ES',
+                language_code: 'es',
+                is_auto_generated: false,
+                cues: [{ start_ms: 0, end_ms: 3200, text: 'Primera linea' }],
+              },
+            ],
+          },
+          quota: { used: 1, limit: 5 },
+        },
+      },
+    })
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const origClipboard = Object.getOwnPropertyDescriptor(
+      navigator,
+      'clipboard'
+    )
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    const origCreateObjectURL = URL.createObjectURL
+    const origRevokeObjectURL = URL.revokeObjectURL
+    const exportedContents: string[] = []
+    URL.createObjectURL = vi.fn((blob: Blob) => {
+      void blob.text().then((text) => exportedContents.push(text))
+      return 'blob:mock-transcript'
+    }) as typeof URL.createObjectURL
+    URL.revokeObjectURL = vi.fn()
+
+    try {
+      render(
+        <LandingLangProvider lang='en'>
+          <ToolForm kind='transcript' locale='en' />
+        </LandingLangProvider>
+      )
+      await screen.findByText('5/5')
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: VIDEO_URL },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /get transcript/i }))
+
+      await screen.findByText('First hook line')
+      expect(api.post).toHaveBeenCalledWith(
+        '/api/tools/tiktok/resolve',
+        expect.objectContaining({ kind: 'transcript', url: VIDEO_URL }),
+        expect.anything()
+      )
+
+      const esTrack = screen.getByRole('button', { name: /spanish/i })
+      expect(esTrack).toHaveAttribute('aria-pressed', 'false')
+      fireEvent.click(esTrack)
+      expect(esTrack).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByText('Primera linea')).toBeInTheDocument()
+
+      const enTrack = screen.getByRole('button', { name: /english/i })
+      fireEvent.click(enTrack)
+      expect(screen.getByText('First hook line')).toBeInTheDocument()
+
+      const plainBtn = screen.getByRole('button', { name: /plain/i })
+      fireEvent.click(plainBtn)
+      expect(
+        screen.getByText('First hook line Second step serum')
+      ).toBeInTheDocument()
+
+      const timeBtn = screen.getByRole('button', { name: /timestamp/i })
+      fireEvent.click(timeBtn)
+
+      const searchInput = screen.getByRole('searchbox')
+      fireEvent.change(searchInput, { target: { value: 'serum' } })
+      expect(screen.queryByText('First hook line')).not.toBeInTheDocument()
+      expect(
+        screen.getByText('serum', { selector: 'mark' })
+      ).toBeInTheDocument()
+
+      fireEvent.change(searchInput, { target: { value: '' } })
+      fireEvent.click(screen.getByRole('button', { name: /copy/i }))
+      expect(writeText).toHaveBeenCalledWith(
+        '[00:00] First hook line\n[00:03] Second step serum'
+      )
+      expect(
+        await screen.findByRole('button', { name: /copied/i })
+      ).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /download txt/i }))
+      fireEvent.click(screen.getByRole('button', { name: /download srt/i }))
+      fireEvent.click(screen.getByRole('button', { name: /download vtt/i }))
+
+      await waitFor(() => expect(exportedContents).toHaveLength(3))
+      expect(exportedContents[0]).toBe(
+        '[00:00] First hook line\n[00:03] Second step serum'
+      )
+      expect(exportedContents[1]).toContain(
+        '1\n00:00:00,000 --> 00:00:03,200\nFirst hook line\n'
+      )
+      expect(exportedContents[2]).toMatch(
+        /^WEBVTT\n\n00:00:00\.000 --> 00:00:03\.200\nFirst hook line\n/
+      )
+    } finally {
+      URL.createObjectURL = origCreateObjectURL
+      URL.revokeObjectURL = origRevokeObjectURL
+      if (origClipboard) {
+        Object.defineProperty(navigator, 'clipboard', origClipboard)
+      } else {
+        delete (navigator as { clipboard?: unknown }).clipboard
+      }
+    }
+  })
+
+  it('shows honest no-captions fallback when TikTok post has no caption tracks', async () => {
+    api.get.mockResolvedValue(config({ pass_valid: true }))
+    api.post.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          kind: 'transcript',
+          id: '7470610564927032609',
+          author: { unique_id: 'mythicshadowws', nickname: 'M' },
+          description: 'Morning skincare demo desc',
+          created_at: 1739404800,
+          cover_url: '',
+          video: {
+            duration_ms: 15000,
+            width: 720,
+            height: 1280,
+            preview_url: '/api/tools/tiktok/file/video?u=v',
+            download_url: '/api/tools/tiktok/file/video?u=v&dl=1',
+          },
+          transcript: {
+            has_captions: false,
+            tracks: [],
+          },
+          quota: { used: 1, limit: 5 },
+        },
+      },
+    })
+
+    render(
+      <LandingLangProvider lang='en'>
+        <ToolForm kind='transcript' locale='en' />
+      </LandingLangProvider>
+    )
+    await screen.findByText('5/5')
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: VIDEO_URL },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /get transcript/i }))
+
+    await screen.findByRole('link', { name: /download mp4/i })
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
+    expect(
+      screen.getAllByText('Morning skincare demo desc').length
+    ).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('link', { name: /download mp4/i })).toHaveAttribute(
+      'href',
+      '/api/tools/tiktok/file/video?u=v&dl=1'
+    )
+  })
+
+  it('offers Photo Downloader toast action when photo URL is submitted on transcript tool', async () => {
+    api.get.mockResolvedValue(config({ pass_valid: true }))
+    api.post.mockImplementation(() => rejectWith(409, 'wrong_kind_photo'))
+
+    render(
+      <LandingLangProvider lang='en'>
+        <ToolForm kind='transcript' locale='en' />
+      </LandingLangProvider>
+    )
+    await screen.findByText('5/5')
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: VIDEO_URL },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /get transcript/i }))
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1))
+    expect(toastError.mock.calls[0][1]?.action?.label).toBe(
+      'Go to Photo Downloader'
+    )
+  })
 })

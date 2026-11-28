@@ -110,6 +110,11 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
           label: toolsMenu.photo,
           icon: 'img' as IconName,
         },
+        {
+          href: TOOL_PATHS[toolLocale].transcript,
+          label: toolsMenu.transcript,
+          icon: 'subs' as IconName,
+        },
       ],
     },
     {

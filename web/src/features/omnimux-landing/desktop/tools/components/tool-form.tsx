@@ -28,7 +28,11 @@ import { useCopy } from '../../i18n/context'
 import { TOOL_PATHS, type ToolKind, type ToolLocale } from '../content'
 import type { ToolResult } from '../lib/api'
 import { useToolResolver, type ToolFailure } from '../lib/use-tool-resolver'
-import { ToolPhotoResult, ToolVideoResult } from './tool-result'
+import {
+  ToolPhotoResult,
+  ToolTranscriptResult,
+  ToolVideoResult,
+} from './tool-result'
 
 const canReadClipboard =
   typeof navigator !== 'undefined' &&
@@ -134,8 +138,14 @@ export function ToolForm(props: {
 
   const quotaTemplate = loggedIn ? copy.quotaUser : copy.quotaAnon
   const [quotaLead] = quotaTemplate.split('{remaining}')
-  const placeholder =
-    props.kind === 'video' ? copy.placeholderVideo : copy.placeholderPhoto
+  const placeholderByKind: Record<typeof props.kind, string> = {
+    photo: copy.placeholderPhoto,
+    transcript: copy.placeholderTranscript,
+    video: copy.placeholderVideo,
+  }
+  const placeholder = placeholderByKind[props.kind]
+  const submitLabel =
+    props.kind === 'transcript' ? copy.extractTranscript : copy.parse
   const siteKey = resolver.config?.turnstile_site_key ?? ''
 
   return (
@@ -205,7 +215,7 @@ export function ToolForm(props: {
             aria-describedby={blockedReason ? 'tool-go-reason' : undefined}
           >
             {busy ? <span className='tool-spin' aria-hidden='true' /> : null}
-            {resolver.phase === 'idle' ? (blockedLabel ?? copy.parse) : null}
+            {resolver.phase === 'idle' ? (blockedLabel ?? submitLabel) : null}
             {resolver.phase === 'verifying' ? copy.verifying : null}
             {resolver.phase === 'parsing' ? copy.parsing : null}
           </button>
@@ -244,6 +254,9 @@ export function ToolForm(props: {
       ) : null}
       {resolver.result?.kind === 'photo' ? (
         <ToolPhotoResult result={resolver.result} loggedIn={loggedIn} />
+      ) : null}
+      {resolver.result?.kind === 'transcript' ? (
+        <ToolTranscriptResult result={resolver.result} locale={props.locale} />
       ) : null}
     </>
   )

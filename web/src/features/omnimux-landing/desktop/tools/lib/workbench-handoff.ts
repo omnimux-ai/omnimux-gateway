@@ -54,7 +54,13 @@ export function prepareViralRecreate(
   writeMotionMode('recreate')
   // A leftover handoff from an earlier click must not fill this visit's slot.
   takeGuestHandoff()
-  if (!result || result.kind !== 'video' || !result.video) return { ok: true }
+  if (
+    !result ||
+    (result.kind !== 'video' && result.kind !== 'transcript') ||
+    !result.video
+  ) {
+    return { ok: true }
+  }
   const durationMs = result.video.duration_ms
   if (
     durationMs > 0 &&

@@ -88,11 +88,14 @@ export type ToolPageCopy = {
   kindAria: string
   kindVideo: string
   kindPhoto: string
+  kindTranscript: string
   inputLabel: string
   placeholderVideo: string
   placeholderPhoto: string
+  placeholderTranscript: string
   paste: string
   parse: string
+  extractTranscript: string
   parsing: string
   verifying: string
   /** `{remaining}` and `{limit}` are replaced. */
@@ -115,6 +118,31 @@ export type ToolPageCopy = {
   downloadZip: string
   zipLocked: string
   recreatePhotos: string
+  transcriptTracksAria: string
+  transcriptViewAria: string
+  transcriptAutoLabel: string
+  transcriptSourceBadge: string
+  transcriptNoCapBadge: string
+  transcriptVideoDownloader: string
+  transcriptModeTime: string
+  transcriptModePlain: string
+  transcriptSearchPlaceholder: string
+  transcriptCopy: string
+  transcriptCopied: string
+  transcriptCopyDesc: string
+  transcriptCueCopied: string
+  /** `{count}` is replaced. */
+  transcriptLinesCount: string
+  /** `{count}` is replaced. */
+  transcriptWordsCount: string
+  transcriptEmptyMatch: string
+  transcriptExportTxt: string
+  transcriptExportSrt: string
+  transcriptExportVtt: string
+  transcriptNoCapTitle: string
+  transcriptNoCapBody: string
+  transcriptOpenStudio: string
+  transcriptRecreate: string
   ctaTitle: string
   ctaBody: string
   ctaStart: string
@@ -169,6 +197,7 @@ export interface LandingCopy {
       group: string
       video: string
       photo: string
+      transcript: string
       agentGroup: string
       cli: string
       skills: string

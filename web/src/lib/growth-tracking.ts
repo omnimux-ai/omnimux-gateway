@@ -163,7 +163,7 @@ export const TOOL_CTA_PLACEMENTS = [
   'inline_secondary',
   'footer',
 ] as const
-export const TOOL_CTA_TOOLS = ['photo', 'video'] as const
+export const TOOL_CTA_TOOLS = ['photo', 'video', 'transcript'] as const
 export const TOOL_CTA_LOCALES = ['en', 'zh-CN'] as const
 
 export type ToolCtaId = (typeof TOOL_CTA_IDS)[number]

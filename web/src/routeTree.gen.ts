@@ -47,6 +47,7 @@ import { Route as SShareIdRouteImport } from './routes/s/$shareId'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as SkillsIndexRouteImport } from './routes/skills/index'
 import { Route as ToolsTiktokPhotoDownloaderRouteImport } from './routes/tools/tiktok-photo-downloader'
+import { Route as ToolsTiktokTranscriptGeneratorRouteImport } from './routes/tools/tiktok-transcript-generator'
 import { Route as ToolsTiktokVideoDownloaderRouteImport } from './routes/tools/tiktok-video-downloader'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
@@ -88,6 +89,7 @@ import { Route as ZhTwSkillsIndexRouteImport } from './routes/zh-tw/skills/index
 import { Route as ZhCliIndexRouteImport } from './routes/zh/cli/index'
 import { Route as ZhSkillsIndexRouteImport } from './routes/zh/skills/index'
 import { Route as ZhToolsTiktokPhotoDownloaderRouteImport } from './routes/zh/tools/tiktok-photo-downloader'
+import { Route as ZhToolsTiktokTranscriptGeneratorRouteImport } from './routes/zh/tools/tiktok-transcript-generator'
 import { Route as ZhToolsTiktokVideoDownloaderRouteImport } from './routes/zh/tools/tiktok-video-downloader'
 import { Route as AuthenticatedSystemSettingsAuthIndexRouteImport } from './routes/_authenticated/system-settings/auth/index'
 import { Route as AuthenticatedSystemSettingsAuthSectionRouteImport } from './routes/_authenticated/system-settings/auth/$section'
@@ -295,6 +297,12 @@ const ToolsTiktokPhotoDownloaderRoute =
   ToolsTiktokPhotoDownloaderRouteImport.update({
     id: '/tools/tiktok-photo-downloader',
     path: '/tools/tiktok-photo-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ToolsTiktokTranscriptGeneratorRoute =
+  ToolsTiktokTranscriptGeneratorRouteImport.update({
+    id: '/tools/tiktok-transcript-generator',
+    path: '/tools/tiktok-transcript-generator',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ToolsTiktokVideoDownloaderRoute =
@@ -528,6 +536,12 @@ const ZhToolsTiktokPhotoDownloaderRoute =
     path: '/zh/tools/tiktok-photo-downloader',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ZhToolsTiktokTranscriptGeneratorRoute =
+  ZhToolsTiktokTranscriptGeneratorRouteImport.update({
+    id: '/zh/tools/tiktok-transcript-generator',
+    path: '/zh/tools/tiktok-transcript-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ZhToolsTiktokVideoDownloaderRoute =
   ZhToolsTiktokVideoDownloaderRouteImport.update({
     id: '/zh/tools/tiktok-video-downloader',
@@ -659,6 +673,7 @@ export interface FileRoutesByFullPath {
   '/oauth/$provider': typeof OauthProviderRoute
   '/s/$shareId': typeof SShareIdRoute
   '/tools/tiktok-photo-downloader': typeof ToolsTiktokPhotoDownloaderRoute
+  '/tools/tiktok-transcript-generator': typeof ToolsTiktokTranscriptGeneratorRoute
   '/tools/tiktok-video-downloader': typeof ToolsTiktokVideoDownloaderRoute
   '/about/': typeof AboutIndexRoute
   '/ai-influencer-studio/': typeof AiInfluencerStudioIndexRoute
@@ -682,6 +697,7 @@ export interface FileRoutesByFullPath {
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/inspiration/models/$modelSlug': typeof InspirationModelsModelSlugRoute
   '/zh/tools/tiktok-photo-downloader': typeof ZhToolsTiktokPhotoDownloaderRoute
+  '/zh/tools/tiktok-transcript-generator': typeof ZhToolsTiktokTranscriptGeneratorRoute
   '/zh/tools/tiktok-video-downloader': typeof ZhToolsTiktokVideoDownloaderRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -753,6 +769,7 @@ export interface FileRoutesByTo {
   '/oauth/$provider': typeof OauthProviderRoute
   '/s/$shareId': typeof SShareIdRoute
   '/tools/tiktok-photo-downloader': typeof ToolsTiktokPhotoDownloaderRoute
+  '/tools/tiktok-transcript-generator': typeof ToolsTiktokTranscriptGeneratorRoute
   '/tools/tiktok-video-downloader': typeof ToolsTiktokVideoDownloaderRoute
   '/about': typeof AboutIndexRoute
   '/ai-influencer-studio': typeof AiInfluencerStudioIndexRoute
@@ -776,6 +793,7 @@ export interface FileRoutesByTo {
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/inspiration/models/$modelSlug': typeof InspirationModelsModelSlugRoute
   '/zh/tools/tiktok-photo-downloader': typeof ZhToolsTiktokPhotoDownloaderRoute
+  '/zh/tools/tiktok-transcript-generator': typeof ZhToolsTiktokTranscriptGeneratorRoute
   '/zh/tools/tiktok-video-downloader': typeof ZhToolsTiktokVideoDownloaderRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -852,6 +870,7 @@ export interface FileRoutesById {
   '/oauth/$provider': typeof OauthProviderRoute
   '/s/$shareId': typeof SShareIdRoute
   '/tools/tiktok-photo-downloader': typeof ToolsTiktokPhotoDownloaderRoute
+  '/tools/tiktok-transcript-generator': typeof ToolsTiktokTranscriptGeneratorRoute
   '/tools/tiktok-video-downloader': typeof ToolsTiktokVideoDownloaderRoute
   '/about/': typeof AboutIndexRoute
   '/ai-influencer-studio/': typeof AiInfluencerStudioIndexRoute
@@ -875,6 +894,7 @@ export interface FileRoutesById {
   '/_authenticated/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/inspiration/models/$modelSlug': typeof InspirationModelsModelSlugRoute
   '/zh/tools/tiktok-photo-downloader': typeof ZhToolsTiktokPhotoDownloaderRoute
+  '/zh/tools/tiktok-transcript-generator': typeof ZhToolsTiktokTranscriptGeneratorRoute
   '/zh/tools/tiktok-video-downloader': typeof ZhToolsTiktokVideoDownloaderRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -950,6 +970,7 @@ export interface FileRouteTypes {
     | '/oauth/$provider'
     | '/s/$shareId'
     | '/tools/tiktok-photo-downloader'
+    | '/tools/tiktok-transcript-generator'
     | '/tools/tiktok-video-downloader'
     | '/about/'
     | '/ai-influencer-studio/'
@@ -973,6 +994,7 @@ export interface FileRouteTypes {
     | '/usage-logs/audit'
     | '/inspiration/models/$modelSlug'
     | '/zh/tools/tiktok-photo-downloader'
+    | '/zh/tools/tiktok-transcript-generator'
     | '/zh/tools/tiktok-video-downloader'
     | '/channels/'
     | '/dashboard/'
@@ -1044,6 +1066,7 @@ export interface FileRouteTypes {
     | '/oauth/$provider'
     | '/s/$shareId'
     | '/tools/tiktok-photo-downloader'
+    | '/tools/tiktok-transcript-generator'
     | '/tools/tiktok-video-downloader'
     | '/about'
     | '/ai-influencer-studio'
@@ -1067,6 +1090,7 @@ export interface FileRouteTypes {
     | '/usage-logs/audit'
     | '/inspiration/models/$modelSlug'
     | '/zh/tools/tiktok-photo-downloader'
+    | '/zh/tools/tiktok-transcript-generator'
     | '/zh/tools/tiktok-video-downloader'
     | '/channels'
     | '/dashboard'
@@ -1142,6 +1166,7 @@ export interface FileRouteTypes {
     | '/oauth/$provider'
     | '/s/$shareId'
     | '/tools/tiktok-photo-downloader'
+    | '/tools/tiktok-transcript-generator'
     | '/tools/tiktok-video-downloader'
     | '/about/'
     | '/ai-influencer-studio/'
@@ -1165,6 +1190,7 @@ export interface FileRouteTypes {
     | '/_authenticated/usage-logs/audit'
     | '/inspiration/models/$modelSlug'
     | '/zh/tools/tiktok-photo-downloader'
+    | '/zh/tools/tiktok-transcript-generator'
     | '/zh/tools/tiktok-video-downloader'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
@@ -1231,6 +1257,7 @@ export interface RootRouteChildren {
   OauthProviderRoute: typeof OauthProviderRoute
   SShareIdRoute: typeof SShareIdRoute
   ToolsTiktokPhotoDownloaderRoute: typeof ToolsTiktokPhotoDownloaderRoute
+  ToolsTiktokTranscriptGeneratorRoute: typeof ToolsTiktokTranscriptGeneratorRoute
   ToolsTiktokVideoDownloaderRoute: typeof ToolsTiktokVideoDownloaderRoute
   AboutIndexRoute: typeof AboutIndexRoute
   AiInfluencerStudioIndexRoute: typeof AiInfluencerStudioIndexRoute
@@ -1243,6 +1270,7 @@ export interface RootRouteChildren {
   SkillsIndexRoute: typeof SkillsIndexRoute
   InspirationModelsModelSlugRoute: typeof InspirationModelsModelSlugRoute
   ZhToolsTiktokPhotoDownloaderRoute: typeof ZhToolsTiktokPhotoDownloaderRoute
+  ZhToolsTiktokTranscriptGeneratorRoute: typeof ZhToolsTiktokTranscriptGeneratorRoute
   ZhToolsTiktokVideoDownloaderRoute: typeof ZhToolsTiktokVideoDownloaderRoute
   EsCliIndexRoute: typeof EsCliIndexRoute
   EsSkillsIndexRoute: typeof EsSkillsIndexRoute
@@ -1523,6 +1551,13 @@ declare module '@tanstack/react-router' {
       path: '/tools/tiktok-photo-downloader'
       fullPath: '/tools/tiktok-photo-downloader'
       preLoaderRoute: typeof ToolsTiktokPhotoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/tiktok-transcript-generator': {
+      id: '/tools/tiktok-transcript-generator'
+      path: '/tools/tiktok-transcript-generator'
+      fullPath: '/tools/tiktok-transcript-generator'
+      preLoaderRoute: typeof ToolsTiktokTranscriptGeneratorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tools/tiktok-video-downloader': {
@@ -1810,6 +1845,13 @@ declare module '@tanstack/react-router' {
       path: '/zh/tools/tiktok-photo-downloader'
       fullPath: '/zh/tools/tiktok-photo-downloader'
       preLoaderRoute: typeof ZhToolsTiktokPhotoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh/tools/tiktok-transcript-generator': {
+      id: '/zh/tools/tiktok-transcript-generator'
+      path: '/zh/tools/tiktok-transcript-generator'
+      fullPath: '/zh/tools/tiktok-transcript-generator'
+      preLoaderRoute: typeof ZhToolsTiktokTranscriptGeneratorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/zh/tools/tiktok-video-downloader': {
@@ -2123,6 +2165,7 @@ const rootRouteChildren: RootRouteChildren = {
   OauthProviderRoute: OauthProviderRoute,
   SShareIdRoute: SShareIdRoute,
   ToolsTiktokPhotoDownloaderRoute: ToolsTiktokPhotoDownloaderRoute,
+  ToolsTiktokTranscriptGeneratorRoute: ToolsTiktokTranscriptGeneratorRoute,
   ToolsTiktokVideoDownloaderRoute: ToolsTiktokVideoDownloaderRoute,
   AboutIndexRoute: AboutIndexRoute,
   AiInfluencerStudioIndexRoute: AiInfluencerStudioIndexRoute,
@@ -2135,6 +2178,7 @@ const rootRouteChildren: RootRouteChildren = {
   SkillsIndexRoute: SkillsIndexRoute,
   InspirationModelsModelSlugRoute: InspirationModelsModelSlugRoute,
   ZhToolsTiktokPhotoDownloaderRoute: ZhToolsTiktokPhotoDownloaderRoute,
+  ZhToolsTiktokTranscriptGeneratorRoute: ZhToolsTiktokTranscriptGeneratorRoute,
   ZhToolsTiktokVideoDownloaderRoute: ZhToolsTiktokVideoDownloaderRoute,
   EsCliIndexRoute: EsCliIndexRoute,
   EsSkillsIndexRoute: EsSkillsIndexRoute,

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link, useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -102,39 +102,34 @@ export function TikTokToolPage(props: TikTokToolPageProps) {
 
 function ToolPageView(props: TikTokToolPageProps) {
   const { lang, copy } = useLanding()
-  const router = useRouter()
   const page = TOOL_PAGES[props.locale][props.kind]
   const tool = copy.toolPage
   // The parsed result is shown by the form and carried by the recreate band.
   const [resolved, setResolved] = useState<ToolResult | null>(null)
 
-  // The global page-metadata sync rewrites <title> after each navigation;
-  // re-assert this page's title once it has run (same as the homepage).
-  useEffect(
-    () =>
-      router.subscribe('onResolved', () => {
-        document.title = page.title
-        document.documentElement.lang = landingLangOption(lang).htmlLang
-      }),
-    [router, lang, page.title]
-  )
-
   useEffect(() => {
     const root = document.documentElement
     const previousBg = root.style.backgroundColor
-    const previousTitle = document.title
     const previousLang = root.lang
     root.style.backgroundColor = '#0C0B11'
     root.lang = landingLangOption(lang).htmlLang
-    document.title = page.title
     syncChatwootLocale(lang)
     return () => {
       root.style.backgroundColor = previousBg
       root.lang = previousLang
-      document.title = previousTitle
       syncChatwootLocale(previousLang)
     }
-  }, [lang, page.title])
+  }, [lang])
+
+  const tabMeta = (item: ToolKind) => {
+    if (item === 'video') {
+      return { icon: 'video' as const, label: tool.kindVideo }
+    }
+    if (item === 'photo') {
+      return { icon: 'img' as const, label: tool.kindPhoto }
+    }
+    return { icon: 'subs' as const, label: tool.kindTranscript }
+  }
 
   return (
     <div className='omc js'>
@@ -158,16 +153,19 @@ function ToolPageView(props: TikTokToolPageProps) {
               <h1 className='h1'>{page.h1}</h1>
               <p className='tool-sub'>{page.subtitle}</p>
               <nav className='c-tabs tool-kind' aria-label={tool.kindAria}>
-                {(['video', 'photo'] as const).map((item) => (
-                  <Link
-                    key={item}
-                    to={TOOL_PATHS[props.locale][item]}
-                    aria-current={item === props.kind ? 'page' : undefined}
-                  >
-                    <Icon name={item === 'video' ? 'video' : 'img'} />
-                    {item === 'video' ? tool.kindVideo : tool.kindPhoto}
-                  </Link>
-                ))}
+                {(['video', 'photo', 'transcript'] as const).map((item) => {
+                  const tab = tabMeta(item)
+                  return (
+                    <Link
+                      key={item}
+                      to={TOOL_PATHS[props.locale][item]}
+                      aria-current={item === props.kind ? 'page' : undefined}
+                    >
+                      <Icon name={tab.icon} />
+                      {tab.label}
+                    </Link>
+                  )
+                })}
               </nav>
               <ToolForm
                 key={props.kind}

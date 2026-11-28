@@ -40,6 +40,20 @@ export type ToolImage = {
   download_url: string
 }
 
+export type ToolTranscriptCue = {
+  start_ms: number
+  end_ms: number
+  text: string
+}
+
+export type ToolTranscriptTrack = {
+  id: string
+  lang: string
+  language_code: string
+  is_auto_generated: boolean
+  cues: ToolTranscriptCue[]
+}
+
 export type ToolResult = {
   kind: ToolKind
   id: string
@@ -56,6 +70,10 @@ export type ToolResult = {
     preview_url: string
     /** Attachment download of the same file. */
     download_url: string
+  }
+  transcript?: {
+    has_captions: boolean
+    tracks: ToolTranscriptTrack[]
   }
   images?: ToolImage[]
   zip_url?: string

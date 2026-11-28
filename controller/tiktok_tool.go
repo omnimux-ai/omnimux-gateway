@@ -374,6 +374,9 @@ type tiktokPost struct {
 	durationMs, width, height                        int
 	videoURL                                         string
 	images                                           []tiktokImage
+	captions                                         []tiktokCaptionTrack
+	transcripts                                      []tiktokTranscriptTrack
+	transcriptsLoaded                                bool
 }
 
 // tiktokPostUpstream calls the dedicated tiktok-video channel route and maps
@@ -489,6 +492,9 @@ func mapTikTokPost(root gjson.Result, awemeID string) (tiktokPost, bool) {
 	// play_addr is the clean (no end-card watermark) stream on the app API;
 	// download_addr carries TikTok's watermark and is only a fallback.
 	post.videoURL = firstHTTPURL(detail.Get("video.play_addr.url_list"), detail.Get("video.bit_rate.0.play_addr.url_list"), detail.Get("video.download_addr.url_list"))
+	if post.videoURL != "" {
+		post.captions = extractTikTokCaptionTracks(detail)
+	}
 	return post, post.videoURL != ""
 }
 
@@ -650,9 +656,13 @@ func ResolveTikTokTool(c *gin.Context) {
 		URL  string `json:"url"`
 		Kind string `json:"kind"`
 	}
-	if err := common.DecodeJson(io.LimitReader(c.Request.Body, 8<<10), &body); err != nil || (body.Kind != "video" && body.Kind != "photo") {
+	if err := common.DecodeJson(io.LimitReader(c.Request.Body, 8<<10), &body); err != nil || (body.Kind != "video" && body.Kind != "photo" && body.Kind != "transcript") {
 		tiktokToolFail(c, http.StatusBadRequest, "invalid_link")
 		return
+	}
+	expectedPostKind := "video"
+	if body.Kind == "photo" {
+		expectedPostKind = "photo"
 	}
 	link, ok := parseTikTokLink(body.URL)
 	if !ok {
@@ -691,7 +701,7 @@ func ResolveTikTokTool(c *gin.Context) {
 		}
 		link = resolved
 	}
-	if link.kind != body.Kind {
+	if link.kind != expectedPostKind {
 		tiktokToolFail(c, http.StatusConflict, "wrong_kind_"+link.kind)
 		return
 	}
@@ -700,6 +710,7 @@ func ResolveTikTokTool(c *gin.Context) {
 	cached, hit := tiktokToolCache.entries[link.id]
 	tiktokToolCache.Unlock()
 	post := cached.body
+	cacheExpires := cached.expires
 	if !hit || now.After(cached.expires) {
 		anonymous := c.GetInt("id") == 0
 		if anonymous {
@@ -723,16 +734,27 @@ func ResolveTikTokTool(c *gin.Context) {
 		if anonymous {
 			_, _ = tiktokToolCounters.incr(ctx, "tiktoktool:v1:global:"+tiktokToolDay(now), tiktokToolSecondsToMidnight(now))
 		}
+		cacheExpires = now.Add(tiktokToolCacheTTL)
 		tiktokToolCache.Lock()
 		if len(tiktokToolCache.entries) > 5000 {
 			tiktokToolCache.entries = map[string]tiktokToolCacheEntry{}
 		}
-		tiktokToolCache.entries[link.id] = tiktokToolCacheEntry{body: post, expires: now.Add(tiktokToolCacheTTL)}
+		tiktokToolCache.entries[link.id] = tiktokToolCacheEntry{body: post, expires: cacheExpires}
 		tiktokToolCache.Unlock()
 	}
-	if post.kind != body.Kind {
+	if post.kind != expectedPostKind {
 		tiktokToolFail(c, http.StatusConflict, "wrong_kind_"+post.kind)
 		return
+	}
+	if body.Kind == "transcript" && !post.transcriptsLoaded {
+		tracks := fetchTikTokTranscriptTracks(ctx, post.captions)
+		if ctx.Err() == nil {
+			post.transcripts = tracks
+			post.transcriptsLoaded = true
+			tiktokToolCache.Lock()
+			tiktokToolCache.entries[link.id] = tiktokToolCacheEntry{body: post, expires: cacheExpires}
+			tiktokToolCache.Unlock()
+		}
 	}
 	used, err = tiktokToolCounters.incr(ctx, quotaKey, tiktokToolSecondsToMidnight(now))
 	if err != nil {
@@ -745,7 +767,7 @@ func ResolveTikTokTool(c *gin.Context) {
 		handle = "tiktok"
 	}
 	data := gin.H{
-		"kind": post.kind, "id": post.id,
+		"kind": body.Kind, "id": post.id,
 		"author":      gin.H{"unique_id": post.uniqueID, "nickname": post.nickname},
 		"description": post.description, "created_at": post.createdAt,
 		"quota": gin.H{"used": min(used, int64(limit)), "limit": limit},
@@ -758,6 +780,16 @@ func ResolveTikTokTool(c *gin.Context) {
 		data["video"] = gin.H{
 			"duration_ms": post.durationMs, "width": post.width, "height": post.height,
 			"preview_url": videoPath, "download_url": videoPath + "&dl=1",
+		}
+		if body.Kind == "transcript" {
+			tracks := post.transcripts
+			if tracks == nil {
+				tracks = []tiktokTranscriptTrack{}
+			}
+			data["transcript"] = gin.H{
+				"has_captions": len(tracks) > 0,
+				"tracks":       tracks,
+			}
 		}
 	} else {
 		images := make([]gin.H, 0, len(post.images))
