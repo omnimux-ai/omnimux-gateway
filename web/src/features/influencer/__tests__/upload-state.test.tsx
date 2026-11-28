@@ -29,6 +29,14 @@ import { mockReferenceLayout } from './reference-layout-fixture'
 vi.mock('../lib/browser-video-metadata', () => ({
   readBrowserVideoMetadata: vi.fn(),
 }))
+vi.mock('../lib/media-thumbnails', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../lib/media-thumbnails')>()
+  return {
+    ...actual,
+    captureVideoPoster: vi.fn().mockResolvedValue(null),
+  }
+})
 const RAW_VIDEO_METADATA = {
   duration: 8,
   video_duration: 8,

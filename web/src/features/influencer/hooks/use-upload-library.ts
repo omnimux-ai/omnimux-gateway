@@ -113,7 +113,7 @@ export function useUploadLibrary() {
       ) {
         throw new Error('Could not prepare video')
       }
-      const poster = captureVideoPoster(file).catch(() => null)
+      const poster = captureVideoPoster(file, signal).catch(() => null)
       const stored = await uploadReferenceAsset(
         file,
         signal,
