@@ -1040,8 +1040,6 @@ export const es: LandingCopy = {
     extractTranscript: 'Extraer texto',
     parsing: 'Analizando',
     verifying: 'Verificando',
-    quotaAnon: 'Hoy {remaining}/{limit}',
-    quotaUser: 'Hoy {remaining}/{limit}',
     turnstileAria: 'Verificación de Cloudflare',
     unavailable: 'No disponible temporalmente',
     downloadMp4: 'Descargar MP4',

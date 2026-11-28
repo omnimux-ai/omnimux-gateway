@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { takeGuestHandoff } from '@/features/influencer/lib/guest'
@@ -87,7 +87,7 @@ function config() {
         enabled: true,
         turnstile_site_key: 'site',
         pass_valid: true,
-        quota: { used: 0, limit: 5 },
+        quota_exhausted: false,
         logged_in: false,
       },
     },
@@ -112,7 +112,7 @@ function videoResult(durationMs = 15000) {
           preview_url: MEDIA_PATH,
           download_url: `${MEDIA_PATH}&dl=1`,
         },
-        quota: { used: 1, limit: 5 },
+        quota_exhausted: false,
       },
     },
   }
@@ -133,7 +133,9 @@ function renderPage() {
 
 async function renderParsed() {
   renderPage()
-  await screen.findByText('5/5')
+  await act(async () => {
+    await Promise.resolve()
+  })
   fireEvent.change(screen.getByRole('textbox'), {
     target: { value: VIDEO_URL },
   })
@@ -157,7 +159,9 @@ describe('tool page hands the parsed video to the workbench', () => {
   it('lands Start recreating on the empty recreate slot without a handoff when nothing was parsed', async () => {
     serve()
     renderPage()
-    await screen.findByText('5/5')
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     fireEvent.click(screen.getByRole('link', { name: /start recreating/i }))
 

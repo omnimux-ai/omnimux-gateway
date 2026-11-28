@@ -1014,8 +1014,6 @@ export const ja: LandingCopy = {
     extractTranscript: '字幕を抽出',
     parsing: '解析中',
     verifying: '確認中',
-    quotaAnon: '本日 {remaining}/{limit}',
-    quotaUser: '本日 {remaining}/{limit}',
     turnstileAria: 'Cloudflare 認証',
     unavailable: '一時的に利用できません',
     downloadMp4: 'MP4 をダウンロード',

@@ -25,7 +25,6 @@ import {
   ToolRequestError,
   verifyToolTurnstile,
   type ToolConfig,
-  type ToolQuota,
   type ToolResult,
 } from './api'
 
@@ -89,7 +88,7 @@ export function useToolResolver(options: {
   onResult?: (result: ToolResult | null) => void
 }) {
   const [config, setConfig] = useState<ToolConfig | null>(null)
-  const [quota, setQuota] = useState<ToolQuota | null>(null)
+  const [quotaExhausted, setQuotaExhausted] = useState(false)
   const [result, setResult] = useState<ToolResult | null>(null)
   const [phase, setPhase] = useState<ToolPhase>('idle')
   /** Bumped to re-mount the Turnstile widget, which has no reset API. */
@@ -123,7 +122,7 @@ export function useToolResolver(options: {
         const next = await getToolConfig()
         if (cancelled) return
         setConfig(next)
-        setQuota(next.quota)
+        setQuotaExhausted(Boolean(next.quota_exhausted))
       } catch {
         /* The page stays usable; resolve reports its own failures. */
       }
@@ -137,9 +136,7 @@ export function useToolResolver(options: {
   const fail = useCallback((failure: ToolFailure) => {
     setPhase('idle')
     if (failure === 'quota_exceeded') {
-      setQuota((current) =>
-        current ? { used: current.limit, limit: current.limit } : current
-      )
+      setQuotaExhausted(true)
     }
     // The server says the tool is off: reflect it in the config the page
     // already renders from, so the button stops inviting a retry.
@@ -180,7 +177,7 @@ export function useToolResolver(options: {
       try {
         const data = await resolveToolLink(next.url, next.kind)
         showResult(data)
-        setQuota(data.quota)
+        setQuotaExhausted(Boolean(data.quota_exhausted))
         setPhase('idle')
       } catch (error) {
         const code = error instanceof ToolRequestError ? error.code : ''
@@ -244,7 +241,7 @@ export function useToolResolver(options: {
 
   return {
     config,
-    quota,
+    quotaExhausted,
     result,
     phase,
     challenge,

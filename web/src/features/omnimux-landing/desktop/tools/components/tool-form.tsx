@@ -118,9 +118,7 @@ export function ToolForm(props: {
 
   const resolver = useToolResolver({ onFailure, onResult: props.onResult })
   const loggedIn = resolver.config?.logged_in ?? Boolean(user)
-  const quota = resolver.quota
-  const remaining = quota ? Math.max(0, quota.limit - quota.used) : null
-  const exhausted = remaining === 0
+  const exhausted = resolver.quotaExhausted
   const unavailable = resolver.config?.enabled === false
   const busy = resolver.phase !== 'idle'
 
@@ -136,8 +134,6 @@ export function ToolForm(props: {
     blockedReason = loggedIn ? copy.errors.quotaUser : copy.errors.quotaAnon
   }
 
-  const quotaTemplate = loggedIn ? copy.quotaUser : copy.quotaAnon
-  const [quotaLead] = quotaTemplate.split('{remaining}')
   const placeholderByKind: Record<typeof props.kind, string> = {
     photo: copy.placeholderPhoto,
     transcript: copy.placeholderTranscript,
@@ -182,7 +178,6 @@ export function ToolForm(props: {
               value={value}
               placeholder={placeholder}
               aria-invalid={invalid}
-              aria-describedby='tool-quota'
               onChange={(event) => {
                 setValue(event.target.value)
                 setInvalid(false)
@@ -236,18 +231,6 @@ export function ToolForm(props: {
             />
           </div>
         ) : null}
-        <div className='tool-meta'>
-          <span id='tool-quota'>
-            {quota && remaining !== null ? (
-              <>
-                {quotaLead}
-                <b>
-                  {remaining}/{quota.limit}
-                </b>
-              </>
-            ) : null}
-          </span>
-        </div>
       </form>
       {resolver.result?.kind === 'video' ? (
         <ToolVideoResult result={resolver.result} />

@@ -957,8 +957,6 @@ export const en: LandingCopy = {
     extractTranscript: 'Get transcript',
     parsing: 'Parsing',
     verifying: 'Verifying',
-    quotaAnon: 'Today {remaining}/{limit}',
-    quotaUser: 'Today {remaining}/{limit}',
     turnstileAria: 'Cloudflare verification',
     unavailable: 'Temporarily unavailable',
     downloadMp4: 'Download MP4',

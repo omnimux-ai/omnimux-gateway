@@ -968,8 +968,6 @@ export const zhTW: LandingCopy = {
     extractTranscript: '提取字幕',
     parsing: '解析中',
     verifying: '驗證中',
-    quotaAnon: '今日 {remaining}/{limit}',
-    quotaUser: '今日 {remaining}/{limit}',
     turnstileAria: 'Cloudflare 人機驗證',
     unavailable: '暫不可用',
     downloadMp4: '下載 MP4',

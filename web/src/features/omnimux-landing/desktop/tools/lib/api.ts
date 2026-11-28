@@ -22,13 +22,11 @@ import type { ToolKind } from '../content'
 
 const BASE = '/api/tools/tiktok'
 
-export type ToolQuota = { used: number; limit: number }
-
 export type ToolConfig = {
   enabled: boolean
   turnstile_site_key: string
   pass_valid: boolean
-  quota: ToolQuota
+  quota_exhausted: boolean
   logged_in: boolean
 }
 
@@ -77,7 +75,7 @@ export type ToolResult = {
   }
   images?: ToolImage[]
   zip_url?: string
-  quota: ToolQuota
+  quota_exhausted: boolean
 }
 
 type Envelope<T> = {
