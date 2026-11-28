@@ -22,6 +22,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LandingLangProvider } from '@/features/omnimux-landing/desktop/i18n'
+import type { LandingLang } from '@/features/omnimux-landing/desktop/i18n/types'
 import {
   ToolPhotoResult,
   ToolVideoResult,
@@ -35,6 +36,7 @@ import type { ToolResult } from '@/features/omnimux-landing/desktop/tools/lib/ap
 import {
   FIRST_TOUCH_STORAGE_KEY,
   GROWTH_CAMPAIGN,
+  TOOL_CTA_LOCALES,
   captureFirstTouch,
   resetToolCtaThrottle,
 } from '../growth-tracking'
@@ -108,7 +110,7 @@ const photoResult = {
   ],
 } as unknown as ToolResult
 
-function inLanding(node: React.ReactNode, lang: 'en' | 'zh-CN' = 'en') {
+function inLanding(node: React.ReactNode, lang: LandingLang = 'en') {
   return render(<LandingLangProvider lang={lang}>{node}</LandingLangProvider>)
 }
 
@@ -152,6 +154,42 @@ describe('tool page CTAs report tool_cta_click', () => {
       placement: 'result_primary',
     })
   })
+
+  it.each(TOOL_CTA_LOCALES)(
+    'video and photo primary CTAs preserve %s locale on tool_cta_click',
+    (locale) => {
+      const videoView = inLanding(
+        <ToolVideoResult result={videoResult} />,
+        locale
+      )
+      fireEvent.click(
+        videoView.container.querySelector('a.btn-primary') as HTMLElement
+      )
+      expect(lastClick()).toMatchObject({
+        tool: 'video',
+        locale,
+        cta_id: 'workbench_recreate',
+        placement: 'result_primary',
+      })
+      videoView.unmount()
+      resetToolCtaThrottle()
+
+      const photoView = inLanding(
+        <ToolPhotoResult result={photoResult} loggedIn />,
+        locale
+      )
+      fireEvent.click(
+        photoView.container.querySelector('a.btn-primary') as HTMLElement
+      )
+      expect(lastClick()).toMatchObject({
+        tool: 'photo',
+        locale,
+        cta_id: 'workbench_recreate',
+        placement: 'result_primary',
+      })
+      photoView.unmount()
+    }
+  )
 
   it('photo result primary → workbench_recreate / result_primary', () => {
     inLanding(<ToolPhotoResult result={photoResult} loggedIn />)

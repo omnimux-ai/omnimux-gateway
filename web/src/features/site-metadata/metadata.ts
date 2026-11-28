@@ -28,6 +28,8 @@ export interface SiteBrand {
 export interface SearchPageFragments {
   head: string
   summary: string
+  /** Alternate locale URLs for sitemap generation; omitted from browser JSON. */
+  alternates?: { hreflang: string; path: string }[]
   /** Server-only complete documents; never serialize these into application JS. */
   documentHtml?: string
 }
@@ -311,7 +313,7 @@ export function createSearchPageManifest(
         brand
       ),
     },
-    // fork: TikTok tool pages (en + zh-CN). Copy is shared with the page UI.
+    // fork: TikTok tool pages across 6 locales. Copy is shared with the page UI.
     ...toolSearchPages(brand, { escapeHtml, paragraph, summary }),
     // fork: Agent CLI / Skills entry pages across 6 locales.
     ...agentSearchPages(brand, { escapeHtml, paragraph, summary }),
@@ -320,7 +322,11 @@ export function createSearchPageManifest(
     pages: Object.fromEntries(
       pages.map((page) => [
         page.path,
-        { head: renderHead(brand, page), summary: page.summary },
+        {
+          head: renderHead(brand, page),
+          summary: page.summary,
+          ...(page.alternates?.length ? { alternates: page.alternates } : {}),
+        },
       ])
     ),
     private: {
@@ -358,13 +364,21 @@ export function renderSearchSitemap(
   siteUrl: string,
   lastmod: string
 ): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${Object.entries(
     manifest.pages
   )
-    .map(
-      (path) =>
-        `  <url><loc>${escapeHtml(`${siteUrl}${path}`)}</loc><lastmod>${escapeHtml(lastmod)}</lastmod></url>`
-    )
+    .map(([path, page]) => {
+      const links = (page.alternates ?? [])
+        .map(
+          (alt) =>
+            `\n    <xhtml:link rel="alternate" hreflang="${escapeHtml(alt.hreflang)}" href="${escapeHtml(`${siteUrl}${alt.path}`)}" />`
+        )
+        .join('')
+      if (links) {
+        return `  <url><loc>${escapeHtml(`${siteUrl}${path}`)}</loc><lastmod>${escapeHtml(lastmod)}</lastmod>${links}\n  </url>`
+      }
+      return `  <url><loc>${escapeHtml(`${siteUrl}${path}`)}</loc><lastmod>${escapeHtml(lastmod)}</lastmod></url>`
+    })
     .join('\n')}\n</urlset>\n`
 }
 

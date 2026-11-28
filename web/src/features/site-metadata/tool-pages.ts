@@ -1,7 +1,8 @@
 import {
+  TOOL_LOCALE_TAGS as LOCALE_TAGS,
+  TOOL_LOCALES,
   TOOL_PAGES,
   type ToolKind,
-  type ToolLocale,
   type ToolPageContent,
 } from '../omnimux-landing/desktop/tools/content'
 import type { SearchPage, SiteBrand } from './metadata'
@@ -11,11 +12,6 @@ export interface ToolPageRenderers {
   escapeHtml: (value: string) => string
   paragraph: (text: string) => string
   summary: (title: string, body: string, brand: SiteBrand) => string
-}
-
-const LOCALE_TAGS: Record<ToolLocale, { hreflang: string; og: string }> = {
-  en: { hreflang: 'en', og: 'en_US' },
-  'zh-CN': { hreflang: 'zh-Hans', og: 'zh_CN' },
 }
 
 /**
@@ -30,13 +26,13 @@ export function toolSearchPages(
   const pages: (SearchPage & { path: string })[] = []
   for (const kind of ['video', 'photo', 'transcript'] as ToolKind[]) {
     const alternates = [
-      ...(Object.keys(TOOL_PAGES) as ToolLocale[]).map((locale) => ({
+      ...TOOL_LOCALES.map((locale) => ({
         hreflang: LOCALE_TAGS[locale].hreflang,
         path: TOOL_PAGES[locale][kind].path,
       })),
       { hreflang: 'x-default', path: TOOL_PAGES.en[kind].path },
     ]
-    for (const locale of Object.keys(TOOL_PAGES) as ToolLocale[]) {
+    for (const locale of TOOL_LOCALES) {
       const page = TOOL_PAGES[locale][kind]
       pages.push({
         path: page.path,
@@ -72,7 +68,7 @@ function toolBody(
       (link) =>
         `<a href="${escapeHtml(`${brand.siteUrl}${link.href}`)}">${escapeHtml(link.label)}</a>`
     )
-    .join(' · ')
+    .join(' | ')
   return `${paragraph(page.subtitle)}<ol>${steps}</ol><h2>FAQ</h2>${faq}<p>${related}</p>`
 }
 
@@ -120,8 +116,6 @@ function toolGraph(
         operatingSystem: 'Web',
         browserRequirements: 'Requires JavaScript',
         inLanguage,
-        isAccessibleForFree: true,
-        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
         publisher: {
           '@type': 'Organization',
           name: brand.brandName,

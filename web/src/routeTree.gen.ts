@@ -78,14 +78,26 @@ import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedWalletIndexRouteImport } from './routes/_authenticated/wallet/index'
 import { Route as EsCliIndexRouteImport } from './routes/es/cli/index'
 import { Route as EsSkillsIndexRouteImport } from './routes/es/skills/index'
+import { Route as EsToolsTiktokPhotoDownloaderRouteImport } from './routes/es/tools/tiktok-photo-downloader'
+import { Route as EsToolsTiktokTranscriptGeneratorRouteImport } from './routes/es/tools/tiktok-transcript-generator'
+import { Route as EsToolsTiktokVideoDownloaderRouteImport } from './routes/es/tools/tiktok-video-downloader'
 import { Route as IdCliIndexRouteImport } from './routes/id/cli/index'
 import { Route as IdSkillsIndexRouteImport } from './routes/id/skills/index'
+import { Route as IdToolsTiktokPhotoDownloaderRouteImport } from './routes/id/tools/tiktok-photo-downloader'
+import { Route as IdToolsTiktokTranscriptGeneratorRouteImport } from './routes/id/tools/tiktok-transcript-generator'
+import { Route as IdToolsTiktokVideoDownloaderRouteImport } from './routes/id/tools/tiktok-video-downloader'
 import { Route as InspirationModelsModelSlugRouteImport } from './routes/inspiration/models/$modelSlug'
 import { Route as JaCliIndexRouteImport } from './routes/ja/cli/index'
 import { Route as JaSkillsIndexRouteImport } from './routes/ja/skills/index'
+import { Route as JaToolsTiktokPhotoDownloaderRouteImport } from './routes/ja/tools/tiktok-photo-downloader'
+import { Route as JaToolsTiktokTranscriptGeneratorRouteImport } from './routes/ja/tools/tiktok-transcript-generator'
+import { Route as JaToolsTiktokVideoDownloaderRouteImport } from './routes/ja/tools/tiktok-video-downloader'
 import { Route as PricingModelIdIndexRouteImport } from './routes/pricing/$modelId/index'
 import { Route as ZhTwCliIndexRouteImport } from './routes/zh-tw/cli/index'
 import { Route as ZhTwSkillsIndexRouteImport } from './routes/zh-tw/skills/index'
+import { Route as ZhTwToolsTiktokPhotoDownloaderRouteImport } from './routes/zh-tw/tools/tiktok-photo-downloader'
+import { Route as ZhTwToolsTiktokTranscriptGeneratorRouteImport } from './routes/zh-tw/tools/tiktok-transcript-generator'
+import { Route as ZhTwToolsTiktokVideoDownloaderRouteImport } from './routes/zh-tw/tools/tiktok-video-downloader'
 import { Route as ZhCliIndexRouteImport } from './routes/zh/cli/index'
 import { Route as ZhSkillsIndexRouteImport } from './routes/zh/skills/index'
 import { Route as ZhToolsTiktokPhotoDownloaderRouteImport } from './routes/zh/tools/tiktok-photo-downloader'
@@ -479,6 +491,24 @@ const EsSkillsIndexRoute = EsSkillsIndexRouteImport.update({
   path: '/es/skills/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EsToolsTiktokPhotoDownloaderRoute =
+  EsToolsTiktokPhotoDownloaderRouteImport.update({
+    id: '/es/tools/tiktok-photo-downloader',
+    path: '/es/tools/tiktok-photo-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const EsToolsTiktokTranscriptGeneratorRoute =
+  EsToolsTiktokTranscriptGeneratorRouteImport.update({
+    id: '/es/tools/tiktok-transcript-generator',
+    path: '/es/tools/tiktok-transcript-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const EsToolsTiktokVideoDownloaderRoute =
+  EsToolsTiktokVideoDownloaderRouteImport.update({
+    id: '/es/tools/tiktok-video-downloader',
+    path: '/es/tools/tiktok-video-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const IdCliIndexRoute = IdCliIndexRouteImport.update({
   id: '/id/cli/',
   path: '/id/cli/',
@@ -489,6 +519,24 @@ const IdSkillsIndexRoute = IdSkillsIndexRouteImport.update({
   path: '/id/skills/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IdToolsTiktokPhotoDownloaderRoute =
+  IdToolsTiktokPhotoDownloaderRouteImport.update({
+    id: '/id/tools/tiktok-photo-downloader',
+    path: '/id/tools/tiktok-photo-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IdToolsTiktokTranscriptGeneratorRoute =
+  IdToolsTiktokTranscriptGeneratorRouteImport.update({
+    id: '/id/tools/tiktok-transcript-generator',
+    path: '/id/tools/tiktok-transcript-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IdToolsTiktokVideoDownloaderRoute =
+  IdToolsTiktokVideoDownloaderRouteImport.update({
+    id: '/id/tools/tiktok-video-downloader',
+    path: '/id/tools/tiktok-video-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const InspirationModelsModelSlugRoute =
   InspirationModelsModelSlugRouteImport.update({
     id: '/inspiration/models/$modelSlug',
@@ -505,6 +553,24 @@ const JaSkillsIndexRoute = JaSkillsIndexRouteImport.update({
   path: '/ja/skills/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JaToolsTiktokPhotoDownloaderRoute =
+  JaToolsTiktokPhotoDownloaderRouteImport.update({
+    id: '/ja/tools/tiktok-photo-downloader',
+    path: '/ja/tools/tiktok-photo-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const JaToolsTiktokTranscriptGeneratorRoute =
+  JaToolsTiktokTranscriptGeneratorRouteImport.update({
+    id: '/ja/tools/tiktok-transcript-generator',
+    path: '/ja/tools/tiktok-transcript-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const JaToolsTiktokVideoDownloaderRoute =
+  JaToolsTiktokVideoDownloaderRouteImport.update({
+    id: '/ja/tools/tiktok-video-downloader',
+    path: '/ja/tools/tiktok-video-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PricingModelIdIndexRoute = PricingModelIdIndexRouteImport.update({
   id: '/pricing/$modelId/',
   path: '/pricing/$modelId/',
@@ -520,6 +586,24 @@ const ZhTwSkillsIndexRoute = ZhTwSkillsIndexRouteImport.update({
   path: '/zh-tw/skills/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ZhTwToolsTiktokPhotoDownloaderRoute =
+  ZhTwToolsTiktokPhotoDownloaderRouteImport.update({
+    id: '/zh-tw/tools/tiktok-photo-downloader',
+    path: '/zh-tw/tools/tiktok-photo-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ZhTwToolsTiktokTranscriptGeneratorRoute =
+  ZhTwToolsTiktokTranscriptGeneratorRouteImport.update({
+    id: '/zh-tw/tools/tiktok-transcript-generator',
+    path: '/zh-tw/tools/tiktok-transcript-generator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ZhTwToolsTiktokVideoDownloaderRoute =
+  ZhTwToolsTiktokVideoDownloaderRouteImport.update({
+    id: '/zh-tw/tools/tiktok-video-downloader',
+    path: '/zh-tw/tools/tiktok-video-downloader',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ZhCliIndexRoute = ZhCliIndexRouteImport.update({
   id: '/zh/cli/',
   path: '/zh/cli/',
@@ -695,7 +779,19 @@ export interface FileRoutesByFullPath {
   '/models/$section': typeof AuthenticatedModelsSectionRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/es/tools/tiktok-photo-downloader': typeof EsToolsTiktokPhotoDownloaderRoute
+  '/es/tools/tiktok-transcript-generator': typeof EsToolsTiktokTranscriptGeneratorRoute
+  '/es/tools/tiktok-video-downloader': typeof EsToolsTiktokVideoDownloaderRoute
+  '/id/tools/tiktok-photo-downloader': typeof IdToolsTiktokPhotoDownloaderRoute
+  '/id/tools/tiktok-transcript-generator': typeof IdToolsTiktokTranscriptGeneratorRoute
+  '/id/tools/tiktok-video-downloader': typeof IdToolsTiktokVideoDownloaderRoute
   '/inspiration/models/$modelSlug': typeof InspirationModelsModelSlugRoute
+  '/ja/tools/tiktok-photo-downloader': typeof JaToolsTiktokPhotoDownloaderRoute
+  '/ja/tools/tiktok-transcript-generator': typeof JaToolsTiktokTranscriptGeneratorRoute
+  '/ja/tools/tiktok-video-downloader': typeof JaToolsTiktokVideoDownloaderRoute
+  '/zh-tw/tools/tiktok-photo-downloader': typeof ZhTwToolsTiktokPhotoDownloaderRoute
+  '/zh-tw/tools/tiktok-transcript-generator': typeof ZhTwToolsTiktokTranscriptGeneratorRoute
+  '/zh-tw/tools/tiktok-video-downloader': typeof ZhTwToolsTiktokVideoDownloaderRoute
   '/zh/tools/tiktok-photo-downloader': typeof ZhToolsTiktokPhotoDownloaderRoute
   '/zh/tools/tiktok-transcript-generator': typeof ZhToolsTiktokTranscriptGeneratorRoute
   '/zh/tools/tiktok-video-downloader': typeof ZhToolsTiktokVideoDownloaderRoute
@@ -791,7 +887,19 @@ export interface FileRoutesByTo {
   '/models/$section': typeof AuthenticatedModelsSectionRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/es/tools/tiktok-photo-downloader': typeof EsToolsTiktokPhotoDownloaderRoute
+  '/es/tools/tiktok-transcript-generator': typeof EsToolsTiktokTranscriptGeneratorRoute
+  '/es/tools/tiktok-video-downloader': typeof EsToolsTiktokVideoDownloaderRoute
+  '/id/tools/tiktok-photo-downloader': typeof IdToolsTiktokPhotoDownloaderRoute
+  '/id/tools/tiktok-transcript-generator': typeof IdToolsTiktokTranscriptGeneratorRoute
+  '/id/tools/tiktok-video-downloader': typeof IdToolsTiktokVideoDownloaderRoute
   '/inspiration/models/$modelSlug': typeof InspirationModelsModelSlugRoute
+  '/ja/tools/tiktok-photo-downloader': typeof JaToolsTiktokPhotoDownloaderRoute
+  '/ja/tools/tiktok-transcript-generator': typeof JaToolsTiktokTranscriptGeneratorRoute
+  '/ja/tools/tiktok-video-downloader': typeof JaToolsTiktokVideoDownloaderRoute
+  '/zh-tw/tools/tiktok-photo-downloader': typeof ZhTwToolsTiktokPhotoDownloaderRoute
+  '/zh-tw/tools/tiktok-transcript-generator': typeof ZhTwToolsTiktokTranscriptGeneratorRoute
+  '/zh-tw/tools/tiktok-video-downloader': typeof ZhTwToolsTiktokVideoDownloaderRoute
   '/zh/tools/tiktok-photo-downloader': typeof ZhToolsTiktokPhotoDownloaderRoute
   '/zh/tools/tiktok-transcript-generator': typeof ZhToolsTiktokTranscriptGeneratorRoute
   '/zh/tools/tiktok-video-downloader': typeof ZhToolsTiktokVideoDownloaderRoute
@@ -892,7 +1000,19 @@ export interface FileRoutesById {
   '/_authenticated/models/$section': typeof AuthenticatedModelsSectionRoute
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/es/tools/tiktok-photo-downloader': typeof EsToolsTiktokPhotoDownloaderRoute
+  '/es/tools/tiktok-transcript-generator': typeof EsToolsTiktokTranscriptGeneratorRoute
+  '/es/tools/tiktok-video-downloader': typeof EsToolsTiktokVideoDownloaderRoute
+  '/id/tools/tiktok-photo-downloader': typeof IdToolsTiktokPhotoDownloaderRoute
+  '/id/tools/tiktok-transcript-generator': typeof IdToolsTiktokTranscriptGeneratorRoute
+  '/id/tools/tiktok-video-downloader': typeof IdToolsTiktokVideoDownloaderRoute
   '/inspiration/models/$modelSlug': typeof InspirationModelsModelSlugRoute
+  '/ja/tools/tiktok-photo-downloader': typeof JaToolsTiktokPhotoDownloaderRoute
+  '/ja/tools/tiktok-transcript-generator': typeof JaToolsTiktokTranscriptGeneratorRoute
+  '/ja/tools/tiktok-video-downloader': typeof JaToolsTiktokVideoDownloaderRoute
+  '/zh-tw/tools/tiktok-photo-downloader': typeof ZhTwToolsTiktokPhotoDownloaderRoute
+  '/zh-tw/tools/tiktok-transcript-generator': typeof ZhTwToolsTiktokTranscriptGeneratorRoute
+  '/zh-tw/tools/tiktok-video-downloader': typeof ZhTwToolsTiktokVideoDownloaderRoute
   '/zh/tools/tiktok-photo-downloader': typeof ZhToolsTiktokPhotoDownloaderRoute
   '/zh/tools/tiktok-transcript-generator': typeof ZhToolsTiktokTranscriptGeneratorRoute
   '/zh/tools/tiktok-video-downloader': typeof ZhToolsTiktokVideoDownloaderRoute
@@ -992,7 +1112,19 @@ export interface FileRouteTypes {
     | '/models/$section'
     | '/usage-logs/$section'
     | '/usage-logs/audit'
+    | '/es/tools/tiktok-photo-downloader'
+    | '/es/tools/tiktok-transcript-generator'
+    | '/es/tools/tiktok-video-downloader'
+    | '/id/tools/tiktok-photo-downloader'
+    | '/id/tools/tiktok-transcript-generator'
+    | '/id/tools/tiktok-video-downloader'
     | '/inspiration/models/$modelSlug'
+    | '/ja/tools/tiktok-photo-downloader'
+    | '/ja/tools/tiktok-transcript-generator'
+    | '/ja/tools/tiktok-video-downloader'
+    | '/zh-tw/tools/tiktok-photo-downloader'
+    | '/zh-tw/tools/tiktok-transcript-generator'
+    | '/zh-tw/tools/tiktok-video-downloader'
     | '/zh/tools/tiktok-photo-downloader'
     | '/zh/tools/tiktok-transcript-generator'
     | '/zh/tools/tiktok-video-downloader'
@@ -1088,7 +1220,19 @@ export interface FileRouteTypes {
     | '/models/$section'
     | '/usage-logs/$section'
     | '/usage-logs/audit'
+    | '/es/tools/tiktok-photo-downloader'
+    | '/es/tools/tiktok-transcript-generator'
+    | '/es/tools/tiktok-video-downloader'
+    | '/id/tools/tiktok-photo-downloader'
+    | '/id/tools/tiktok-transcript-generator'
+    | '/id/tools/tiktok-video-downloader'
     | '/inspiration/models/$modelSlug'
+    | '/ja/tools/tiktok-photo-downloader'
+    | '/ja/tools/tiktok-transcript-generator'
+    | '/ja/tools/tiktok-video-downloader'
+    | '/zh-tw/tools/tiktok-photo-downloader'
+    | '/zh-tw/tools/tiktok-transcript-generator'
+    | '/zh-tw/tools/tiktok-video-downloader'
     | '/zh/tools/tiktok-photo-downloader'
     | '/zh/tools/tiktok-transcript-generator'
     | '/zh/tools/tiktok-video-downloader'
@@ -1188,7 +1332,19 @@ export interface FileRouteTypes {
     | '/_authenticated/models/$section'
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/usage-logs/audit'
+    | '/es/tools/tiktok-photo-downloader'
+    | '/es/tools/tiktok-transcript-generator'
+    | '/es/tools/tiktok-video-downloader'
+    | '/id/tools/tiktok-photo-downloader'
+    | '/id/tools/tiktok-transcript-generator'
+    | '/id/tools/tiktok-video-downloader'
     | '/inspiration/models/$modelSlug'
+    | '/ja/tools/tiktok-photo-downloader'
+    | '/ja/tools/tiktok-transcript-generator'
+    | '/ja/tools/tiktok-video-downloader'
+    | '/zh-tw/tools/tiktok-photo-downloader'
+    | '/zh-tw/tools/tiktok-transcript-generator'
+    | '/zh-tw/tools/tiktok-video-downloader'
     | '/zh/tools/tiktok-photo-downloader'
     | '/zh/tools/tiktok-transcript-generator'
     | '/zh/tools/tiktok-video-downloader'
@@ -1268,7 +1424,19 @@ export interface RootRouteChildren {
   RankingsIndexRoute: typeof RankingsIndexRoute
   SetupIndexRoute: typeof SetupIndexRoute
   SkillsIndexRoute: typeof SkillsIndexRoute
+  EsToolsTiktokPhotoDownloaderRoute: typeof EsToolsTiktokPhotoDownloaderRoute
+  EsToolsTiktokTranscriptGeneratorRoute: typeof EsToolsTiktokTranscriptGeneratorRoute
+  EsToolsTiktokVideoDownloaderRoute: typeof EsToolsTiktokVideoDownloaderRoute
+  IdToolsTiktokPhotoDownloaderRoute: typeof IdToolsTiktokPhotoDownloaderRoute
+  IdToolsTiktokTranscriptGeneratorRoute: typeof IdToolsTiktokTranscriptGeneratorRoute
+  IdToolsTiktokVideoDownloaderRoute: typeof IdToolsTiktokVideoDownloaderRoute
   InspirationModelsModelSlugRoute: typeof InspirationModelsModelSlugRoute
+  JaToolsTiktokPhotoDownloaderRoute: typeof JaToolsTiktokPhotoDownloaderRoute
+  JaToolsTiktokTranscriptGeneratorRoute: typeof JaToolsTiktokTranscriptGeneratorRoute
+  JaToolsTiktokVideoDownloaderRoute: typeof JaToolsTiktokVideoDownloaderRoute
+  ZhTwToolsTiktokPhotoDownloaderRoute: typeof ZhTwToolsTiktokPhotoDownloaderRoute
+  ZhTwToolsTiktokTranscriptGeneratorRoute: typeof ZhTwToolsTiktokTranscriptGeneratorRoute
+  ZhTwToolsTiktokVideoDownloaderRoute: typeof ZhTwToolsTiktokVideoDownloaderRoute
   ZhToolsTiktokPhotoDownloaderRoute: typeof ZhToolsTiktokPhotoDownloaderRoute
   ZhToolsTiktokTranscriptGeneratorRoute: typeof ZhToolsTiktokTranscriptGeneratorRoute
   ZhToolsTiktokVideoDownloaderRoute: typeof ZhToolsTiktokVideoDownloaderRoute
@@ -1770,6 +1938,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EsSkillsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/es/tools/tiktok-photo-downloader': {
+      id: '/es/tools/tiktok-photo-downloader'
+      path: '/es/tools/tiktok-photo-downloader'
+      fullPath: '/es/tools/tiktok-photo-downloader'
+      preLoaderRoute: typeof EsToolsTiktokPhotoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/es/tools/tiktok-transcript-generator': {
+      id: '/es/tools/tiktok-transcript-generator'
+      path: '/es/tools/tiktok-transcript-generator'
+      fullPath: '/es/tools/tiktok-transcript-generator'
+      preLoaderRoute: typeof EsToolsTiktokTranscriptGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/es/tools/tiktok-video-downloader': {
+      id: '/es/tools/tiktok-video-downloader'
+      path: '/es/tools/tiktok-video-downloader'
+      fullPath: '/es/tools/tiktok-video-downloader'
+      preLoaderRoute: typeof EsToolsTiktokVideoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/id/cli/': {
       id: '/id/cli/'
       path: '/id/cli'
@@ -1782,6 +1971,27 @@ declare module '@tanstack/react-router' {
       path: '/id/skills'
       fullPath: '/id/skills/'
       preLoaderRoute: typeof IdSkillsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/id/tools/tiktok-photo-downloader': {
+      id: '/id/tools/tiktok-photo-downloader'
+      path: '/id/tools/tiktok-photo-downloader'
+      fullPath: '/id/tools/tiktok-photo-downloader'
+      preLoaderRoute: typeof IdToolsTiktokPhotoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/id/tools/tiktok-transcript-generator': {
+      id: '/id/tools/tiktok-transcript-generator'
+      path: '/id/tools/tiktok-transcript-generator'
+      fullPath: '/id/tools/tiktok-transcript-generator'
+      preLoaderRoute: typeof IdToolsTiktokTranscriptGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/id/tools/tiktok-video-downloader': {
+      id: '/id/tools/tiktok-video-downloader'
+      path: '/id/tools/tiktok-video-downloader'
+      fullPath: '/id/tools/tiktok-video-downloader'
+      preLoaderRoute: typeof IdToolsTiktokVideoDownloaderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inspiration/models/$modelSlug': {
@@ -1805,6 +2015,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JaSkillsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ja/tools/tiktok-photo-downloader': {
+      id: '/ja/tools/tiktok-photo-downloader'
+      path: '/ja/tools/tiktok-photo-downloader'
+      fullPath: '/ja/tools/tiktok-photo-downloader'
+      preLoaderRoute: typeof JaToolsTiktokPhotoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ja/tools/tiktok-transcript-generator': {
+      id: '/ja/tools/tiktok-transcript-generator'
+      path: '/ja/tools/tiktok-transcript-generator'
+      fullPath: '/ja/tools/tiktok-transcript-generator'
+      preLoaderRoute: typeof JaToolsTiktokTranscriptGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ja/tools/tiktok-video-downloader': {
+      id: '/ja/tools/tiktok-video-downloader'
+      path: '/ja/tools/tiktok-video-downloader'
+      fullPath: '/ja/tools/tiktok-video-downloader'
+      preLoaderRoute: typeof JaToolsTiktokVideoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pricing/$modelId/': {
       id: '/pricing/$modelId/'
       path: '/pricing/$modelId'
@@ -1824,6 +2055,27 @@ declare module '@tanstack/react-router' {
       path: '/zh-tw/skills'
       fullPath: '/zh-tw/skills/'
       preLoaderRoute: typeof ZhTwSkillsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh-tw/tools/tiktok-photo-downloader': {
+      id: '/zh-tw/tools/tiktok-photo-downloader'
+      path: '/zh-tw/tools/tiktok-photo-downloader'
+      fullPath: '/zh-tw/tools/tiktok-photo-downloader'
+      preLoaderRoute: typeof ZhTwToolsTiktokPhotoDownloaderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh-tw/tools/tiktok-transcript-generator': {
+      id: '/zh-tw/tools/tiktok-transcript-generator'
+      path: '/zh-tw/tools/tiktok-transcript-generator'
+      fullPath: '/zh-tw/tools/tiktok-transcript-generator'
+      preLoaderRoute: typeof ZhTwToolsTiktokTranscriptGeneratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zh-tw/tools/tiktok-video-downloader': {
+      id: '/zh-tw/tools/tiktok-video-downloader'
+      path: '/zh-tw/tools/tiktok-video-downloader'
+      fullPath: '/zh-tw/tools/tiktok-video-downloader'
+      preLoaderRoute: typeof ZhTwToolsTiktokVideoDownloaderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/zh/cli/': {
@@ -2176,7 +2428,20 @@ const rootRouteChildren: RootRouteChildren = {
   RankingsIndexRoute: RankingsIndexRoute,
   SetupIndexRoute: SetupIndexRoute,
   SkillsIndexRoute: SkillsIndexRoute,
+  EsToolsTiktokPhotoDownloaderRoute: EsToolsTiktokPhotoDownloaderRoute,
+  EsToolsTiktokTranscriptGeneratorRoute: EsToolsTiktokTranscriptGeneratorRoute,
+  EsToolsTiktokVideoDownloaderRoute: EsToolsTiktokVideoDownloaderRoute,
+  IdToolsTiktokPhotoDownloaderRoute: IdToolsTiktokPhotoDownloaderRoute,
+  IdToolsTiktokTranscriptGeneratorRoute: IdToolsTiktokTranscriptGeneratorRoute,
+  IdToolsTiktokVideoDownloaderRoute: IdToolsTiktokVideoDownloaderRoute,
   InspirationModelsModelSlugRoute: InspirationModelsModelSlugRoute,
+  JaToolsTiktokPhotoDownloaderRoute: JaToolsTiktokPhotoDownloaderRoute,
+  JaToolsTiktokTranscriptGeneratorRoute: JaToolsTiktokTranscriptGeneratorRoute,
+  JaToolsTiktokVideoDownloaderRoute: JaToolsTiktokVideoDownloaderRoute,
+  ZhTwToolsTiktokPhotoDownloaderRoute: ZhTwToolsTiktokPhotoDownloaderRoute,
+  ZhTwToolsTiktokTranscriptGeneratorRoute:
+    ZhTwToolsTiktokTranscriptGeneratorRoute,
+  ZhTwToolsTiktokVideoDownloaderRoute: ZhTwToolsTiktokVideoDownloaderRoute,
   ZhToolsTiktokPhotoDownloaderRoute: ZhToolsTiktokPhotoDownloaderRoute,
   ZhToolsTiktokTranscriptGeneratorRoute: ZhToolsTiktokTranscriptGeneratorRoute,
   ZhToolsTiktokVideoDownloaderRoute: ZhToolsTiktokVideoDownloaderRoute,

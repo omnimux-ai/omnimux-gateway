@@ -164,7 +164,14 @@ export const TOOL_CTA_PLACEMENTS = [
   'footer',
 ] as const
 export const TOOL_CTA_TOOLS = ['photo', 'video', 'transcript'] as const
-export const TOOL_CTA_LOCALES = ['en', 'zh-CN'] as const
+export const TOOL_CTA_LOCALES = [
+  'en',
+  'zh-CN',
+  'zh-TW',
+  'ja',
+  'es',
+  'id',
+] as const
 
 export type ToolCtaId = (typeof TOOL_CTA_IDS)[number]
 export type ToolCtaVariant = (typeof TOOL_CTA_VARIANTS)[number]

@@ -28,7 +28,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { docsQuickstartUrl } from '../../../lib/landing-urls'
 import { AGENT_PATHS, type AgentLocale } from '../../agent/content'
 import { LANDING_LANGS, useLanding } from '../../i18n/context'
-import { TOOL_PATHS } from '../../tools/content'
+import { TOOL_PATHS, type ToolLocale } from '../../tools/content'
 import { CnAccountMenu } from './account-menu'
 import type { IconName } from './data'
 import { useDownload } from './download-context'
@@ -91,10 +91,8 @@ export function CnNav(props: { anchorBase?: string; current?: CnNavLinkKey }) {
   const nav = copy.nav
   const linkLabel = (key: CnNavLinkKey) => nav[key]
   const toolsMenu = nav.toolsMenu
-  // The TikTok tool pages only publish en and zh-CN; the Agent pages carry all
-  // six landing languages, so each menu group resolves its own locale.
-  const toolLocale: 'en' | 'zh-CN' =
-    lang === 'zh-CN' || lang === 'zh-TW' ? 'zh-CN' : 'en'
+  // Both TikTok tools and Agent entry pages carry all six landing languages.
+  const toolLocale: ToolLocale = lang
   const agentLocale: AgentLocale = lang
   const toolGroups = [
     {

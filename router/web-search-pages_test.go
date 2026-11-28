@@ -27,6 +27,10 @@ func searchPageTestManifest(t *testing.T) []byte {
 		"/acceptable-use": "Acceptable use", "/inspiration": "Inspiration", "/inspiration/tiktok": "TikTok Ad Library",
 		"/tools/tiktok-video-downloader": "TikTok Video Downloader", "/tools/tiktok-photo-downloader": "TikTok Photo Downloader", "/tools/tiktok-transcript-generator": "TikTok Transcript Generator",
 		"/zh/tools/tiktok-video-downloader": "TikTok 视频下载", "/zh/tools/tiktok-photo-downloader": "TikTok 图文下载", "/zh/tools/tiktok-transcript-generator": "TikTok 字幕提取",
+		"/zh-tw/tools/tiktok-video-downloader": "TikTok 影片下載", "/zh-tw/tools/tiktok-photo-downloader": "TikTok 圖文下載", "/zh-tw/tools/tiktok-transcript-generator": "TikTok 逐字稿工具",
+		"/ja/tools/tiktok-video-downloader": "TikTok 動画保存", "/ja/tools/tiktok-photo-downloader": "TikTok 画像保存", "/ja/tools/tiktok-transcript-generator": "TikTok 文字起こし",
+		"/es/tools/tiktok-video-downloader": "Descargar Video TikTok", "/es/tools/tiktok-photo-downloader": "Descargar Fotos TikTok", "/es/tools/tiktok-transcript-generator": "Transcribir TikTok",
+		"/id/tools/tiktok-video-downloader": "Download Video TikTok", "/id/tools/tiktok-photo-downloader": "Download Foto TikTok", "/id/tools/tiktok-transcript-generator": "Transkrip TikTok",
 		"/cli": "CLI", "/skills": "Skills",
 		"/zh/cli": "CLI 简体", "/zh/skills": "Skills 简体",
 		"/zh-tw/cli": "CLI 繁體", "/zh-tw/skills": "Skills 繁體",
@@ -380,17 +384,29 @@ func TestWebSearchPagesSetChineseRootLanguageForZhPaths(t *testing.T) {
 	outer := gin.New()
 	outer.NoRoute(pages.serve)
 	for path, lang := range map[string]string{
-		"/tools/tiktok-video-downloader":        "en",
-		"/tools/tiktok-transcript-generator":    "en",
-		"/zh/tools/tiktok-video-downloader":     "zh-Hans",
-		"/zh/tools/tiktok-transcript-generator": "zh-Hans",
-		"/cli":                                  "en",
-		"/zh/cli":                               "zh-Hans",
-		"/zh/skills":                            "zh-Hans",
-		"/zh-tw/cli":                            "zh-Hant",
-		"/ja/cli":                               "ja",
-		"/es/cli":                               "es",
-		"/id/cli":                               "id",
+		"/tools/tiktok-video-downloader":           "en",
+		"/tools/tiktok-transcript-generator":       "en",
+		"/zh/tools/tiktok-video-downloader":        "zh-Hans",
+		"/zh/tools/tiktok-transcript-generator":    "zh-Hans",
+		"/zh-tw/tools/tiktok-video-downloader":     "zh-Hant",
+		"/zh-tw/tools/tiktok-photo-downloader":     "zh-Hant",
+		"/zh-tw/tools/tiktok-transcript-generator": "zh-Hant",
+		"/ja/tools/tiktok-video-downloader":        "ja",
+		"/ja/tools/tiktok-photo-downloader":        "ja",
+		"/ja/tools/tiktok-transcript-generator":    "ja",
+		"/es/tools/tiktok-video-downloader":        "es",
+		"/es/tools/tiktok-photo-downloader":        "es",
+		"/es/tools/tiktok-transcript-generator":    "es",
+		"/id/tools/tiktok-video-downloader":        "id",
+		"/id/tools/tiktok-photo-downloader":        "id",
+		"/id/tools/tiktok-transcript-generator":    "id",
+		"/cli":                                     "en",
+		"/zh/cli":                                  "zh-Hans",
+		"/zh/skills":                               "zh-Hans",
+		"/zh-tw/cli":                               "zh-Hant",
+		"/ja/cli":                                  "ja",
+		"/es/cli":                                  "es",
+		"/id/cli":                                  "id",
 	} {
 		t.Run(path, func(t *testing.T) {
 			resp := performPluginRequest(outer, http.MethodGet, path)
@@ -401,6 +417,11 @@ func TestWebSearchPagesSetChineseRootLanguageForZhPaths(t *testing.T) {
 			}
 		})
 	}
+	t.Run("trailing slash redirect on localized tool route", func(t *testing.T) {
+		resp := performPluginRequest(outer, http.MethodGet, "/ja/tools/tiktok-transcript-generator/")
+		require.Equal(t, http.StatusMovedPermanently, resp.Code)
+		assert.Equal(t, "/ja/tools/tiktok-transcript-generator", resp.Header().Get("Location"))
+	})
 }
 
 // Public SEO HTML is edge-cacheable while private application shells and
