@@ -17,7 +17,7 @@ import (
 )
 
 // fork: only pages with public, route-specific content may be indexed.
-var publicSearchPagePaths = [...]string{"/", "/ai-influencer-studio", "/about", "/privacy", "/terms", "/refunds", "/acceptable-use", "/pricing", "/inspiration", "/guides", "/guides/create-ai-character", "/guides/recreate-video-with-your-character", "/tools/tiktok-video-downloader", "/tools/tiktok-photo-downloader", "/zh/tools/tiktok-video-downloader", "/zh/tools/tiktok-photo-downloader"}
+var publicSearchPagePaths = [...]string{"/", "/ai-influencer-studio", "/about", "/privacy", "/terms", "/refunds", "/acceptable-use", "/pricing", "/inspiration", "/guides", "/guides/create-ai-character", "/guides/recreate-video-with-your-character", "/tools/tiktok-video-downloader", "/tools/tiktok-photo-downloader", "/zh/tools/tiktok-video-downloader", "/zh/tools/tiktok-photo-downloader", "/cli", "/skills", "/zh/cli", "/zh/skills", "/zh-tw/cli", "/zh-tw/skills", "/ja/cli", "/ja/skills", "/es/cli", "/es/skills", "/id/cli", "/id/skills"}
 
 // fork: these editorial routes must never degrade to a successful application shell.
 var staticGuidePagePaths = map[string]bool{
@@ -99,10 +99,22 @@ func buildWebSearchPages(indexPage, manifestData []byte) (webSearchPages, error)
 		// fork: the desktop landing page is the omnimux.ai homepage, so every
 		// public page carries the desktop surface marker and pricing group.
 		body = desktopSurfaceShell(body)
-		// fork: /zh/ pages are Simplified Chinese documents; the shared shell
-		// is English, so the root language follows the path and matches hreflang="zh-Hans".
-		if strings.HasPrefix(path, "/zh/") {
-			body = []byte(strings.Replace(string(body), `<html lang="en"`, `<html lang="zh-Hans"`, 1))
+		// fork: localized public pages share the English shell; override the root
+		// language from the URL prefix so <html lang> matches hreflang.
+		for _, loc := range []struct {
+			prefix string
+			lang   string
+		}{
+			{"/zh/", "zh-Hans"},
+			{"/zh-tw/", "zh-Hant"},
+			{"/ja/", "ja"},
+			{"/es/", "es"},
+			{"/id/", "id"},
+		} {
+			if strings.HasPrefix(path, loc.prefix) {
+				body = []byte(strings.Replace(string(body), `<html lang="en"`, `<html lang="`+loc.lang+`"`, 1))
+				break
+			}
 		}
 		pages.public[path] = body
 	}

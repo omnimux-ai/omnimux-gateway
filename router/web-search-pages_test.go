@@ -21,7 +21,19 @@ const searchPageTestShell = `<!doctype html><html lang="en"><head><!--omnimux-pa
 func searchPageTestManifest(t *testing.T) []byte {
 	t.Helper()
 	pages := map[string]webSearchPage{}
-	for path, name := range map[string]string{"/": "Home", "/ai-influencer-studio": "AI Influencer Studio", "/pricing": "Pricing", "/about": "About", "/privacy": "Privacy", "/terms": "Terms", "/refunds": "Refunds", "/acceptable-use": "Acceptable use", "/inspiration": "Inspiration", "/tools/tiktok-video-downloader": "TikTok Video Downloader", "/tools/tiktok-photo-downloader": "TikTok Photo Downloader", "/zh/tools/tiktok-video-downloader": "TikTok 视频下载", "/zh/tools/tiktok-photo-downloader": "TikTok 图文下载"} {
+	for path, name := range map[string]string{
+		"/": "Home", "/ai-influencer-studio": "AI Influencer Studio", "/pricing": "Pricing",
+		"/about": "About", "/privacy": "Privacy", "/terms": "Terms", "/refunds": "Refunds",
+		"/acceptable-use": "Acceptable use", "/inspiration": "Inspiration",
+		"/tools/tiktok-video-downloader": "TikTok Video Downloader", "/tools/tiktok-photo-downloader": "TikTok Photo Downloader",
+		"/zh/tools/tiktok-video-downloader": "TikTok 视频下载", "/zh/tools/tiktok-photo-downloader": "TikTok 图文下载",
+		"/cli": "CLI", "/skills": "Skills",
+		"/zh/cli": "CLI 简体", "/zh/skills": "Skills 简体",
+		"/zh-tw/cli": "CLI 繁體", "/zh-tw/skills": "Skills 繁體",
+		"/ja/cli": "CLI 日本語", "/ja/skills": "Skills 日本語",
+		"/es/cli": "CLI ES", "/es/skills": "Skills ES",
+		"/id/cli": "CLI ID", "/id/skills": "Skills ID",
+	} {
 		pages[path] = webSearchPage{
 			Head:    fmt.Sprintf(`<title>%s | OmniMux</title><link rel="canonical" href="https://omnimux.ai%s" />`, name, path),
 			Summary: fmt.Sprintf(`<main><h1>%s page</h1><p>%s content</p></main>`, name, name),
@@ -145,7 +157,7 @@ func TestWebSearchPagesExcludePrivateAndUnknownPaths(t *testing.T) {
 	require.NoError(t, err)
 	outer := gin.New()
 	outer.NoRoute(pages.serve)
-	for _, path := range []string{"/console", "/console/characters?tab=photos", "/login", "/security", "/not-a-page", "/privacy-policy", "/user-agreement", "/PRICING"} {
+	for _, path := range []string{"/console", "/console/characters?tab=photos", "/login", "/cli/login", "/security", "/not-a-page", "/privacy-policy", "/user-agreement", "/PRICING"} {
 		t.Run(path, func(t *testing.T) {
 			response := performPluginRequest(outer, http.MethodGet, path)
 			require.Equal(t, http.StatusOK, response.Code)
@@ -169,6 +181,10 @@ func TestWebSearchPagesRedirectPublicTrailingSlash(t *testing.T) {
 	assert.Equal(t, http.StatusMovedPermanently, response.Code)
 	assert.Equal(t, "/about?source=search&lang=zh", response.Header().Get("Location"))
 	assert.Empty(t, response.Header().Get("X-Robots-Tag"))
+	agentRedirect := performPluginRequest(outer, http.MethodGet, "/zh/skills/?from=nav")
+	assert.Equal(t, http.StatusMovedPermanently, agentRedirect.Code)
+	assert.Equal(t, "/zh/skills?from=nav", agentRedirect.Header().Get("Location"))
+	assert.Empty(t, agentRedirect.Header().Get("X-Robots-Tag"))
 }
 
 func TestWebSearchPagesFailClosedWithoutManifest(t *testing.T) {
@@ -363,12 +379,26 @@ func TestWebSearchPagesSetChineseRootLanguageForZhPaths(t *testing.T) {
 	require.NoError(t, err)
 	outer := gin.New()
 	outer.NoRoute(pages.serve)
-	zh := performPluginRequest(outer, http.MethodGet, "/zh/tools/tiktok-video-downloader")
-	require.Equal(t, http.StatusOK, zh.Code)
-	assert.Contains(t, zh.Body.String(), `<html lang="zh-Hans"`)
-	assert.Contains(t, zh.Body.String(), "TikTok 视频下载 page")
-	en := performPluginRequest(outer, http.MethodGet, "/tools/tiktok-video-downloader")
-	assert.Contains(t, en.Body.String(), `<html lang="en"`)
+	for path, lang := range map[string]string{
+		"/tools/tiktok-video-downloader":    "en",
+		"/zh/tools/tiktok-video-downloader": "zh-Hans",
+		"/cli":                              "en",
+		"/zh/cli":                           "zh-Hans",
+		"/zh/skills":                        "zh-Hans",
+		"/zh-tw/cli":                        "zh-Hant",
+		"/ja/cli":                           "ja",
+		"/es/cli":                           "es",
+		"/id/cli":                           "id",
+	} {
+		t.Run(path, func(t *testing.T) {
+			resp := performPluginRequest(outer, http.MethodGet, path)
+			require.Equal(t, http.StatusOK, resp.Code)
+			assert.Contains(t, resp.Body.String(), `<html lang="`+lang+`"`)
+			if path == "/zh/tools/tiktok-video-downloader" {
+				assert.Contains(t, resp.Body.String(), "TikTok 视频下载 page")
+			}
+		})
+	}
 }
 
 // Public SEO HTML is edge-cacheable while private application shells and

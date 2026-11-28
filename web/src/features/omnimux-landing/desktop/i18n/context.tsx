@@ -39,7 +39,7 @@ export const LANDING_LANGS: readonly LandingLangOption[] = [
   { code: 'es', label: 'Español', short: 'ES', htmlLang: 'es' },
   { code: 'ja', label: '日本語', short: '日', htmlLang: 'ja' },
   { code: 'zh-TW', label: '繁體中文', short: '繁', htmlLang: 'zh-Hant' },
-  { code: 'zh-CN', label: '简体中文', short: '中', htmlLang: 'zh-CN' },
+  { code: 'zh-CN', label: '简体中文', short: '中', htmlLang: 'zh-Hans' },
 ]
 
 const copyLoaders: Record<LandingLang, () => Promise<LandingCopy>> = {
