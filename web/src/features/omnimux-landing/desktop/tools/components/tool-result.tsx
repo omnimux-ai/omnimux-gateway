@@ -22,7 +22,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { writeWorkbenchMode } from '@/features/influencer/lib/workbench-mode'
-import { trackToolCtaClick, type ToolCtaClick } from '@/lib/growth-tracking'
+import { trackToolCtaClick } from '@/lib/growth-tracking'
 
 import { Icon } from '../../components/cn/icons'
 import { useCopy, useLanding } from '../../i18n/context'
@@ -64,11 +64,6 @@ function ToolAuthor(props: { result: ToolResult; extra?: string }) {
   )
 }
 
-/** Tool pages render only English or Simplified Chinese. */
-function useToolCtaLocale(): ToolCtaClick['locale'] {
-  return useLanding().lang === 'zh-CN' ? 'zh-CN' : 'en'
-}
-
 function formatDuration(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000))
   const minutes = String(Math.floor(total / 60)).padStart(2, '0')
@@ -84,7 +79,7 @@ function formatFrame(width: number, height: number): string {
 
 export function ToolVideoResult(props: { result: ToolResult }) {
   const copy = useCopy().toolPage
-  const locale = useToolCtaLocale()
+  const locale = useLanding().lang
   const startRecreate = useViralRecreateEntry(props.result)
   const video = props.result.video
   if (!video) return null
@@ -157,7 +152,7 @@ export function ToolPhotoResult(props: {
 }) {
   const copy = useCopy().toolPage
   const navigate = useNavigate()
-  const locale = useToolCtaLocale()
+  const locale = useLanding().lang
   const images = props.result.images ?? []
   const count = copy.photoCount.replace('{count}', String(images.length))
   const zipUrl = props.result.zip_url

@@ -313,7 +313,7 @@ export function createSearchPageManifest(
         brand
       ),
     },
-    // fork: TikTok tool pages (en + zh-CN). Copy is shared with the page UI.
+    // fork: TikTok tool pages across 6 locales. Copy is shared with the page UI.
     ...toolSearchPages(brand, { escapeHtml, paragraph, summary }),
     // fork: Agent CLI / Skills entry pages across 6 locales.
     ...agentSearchPages(brand, { escapeHtml, paragraph, summary }),

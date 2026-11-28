@@ -21,7 +21,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { CnNav } from '../../desktop/components/cn/nav'
-import { LandingLangProvider } from '../../desktop/i18n'
+import { LANDING_COPIES, LandingLangProvider } from '../../desktop/i18n'
+import type { LandingLang } from '../../desktop/i18n/types'
+import { TOOL_PATHS } from '../../desktop/tools/content'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: (props: { to: string; children: React.ReactNode }) => (
@@ -36,7 +38,7 @@ vi.mock('@/hooks/use-sidebar-config', () => ({
   useIsSidebarModuleVisible: () => false,
 }))
 
-function renderNav() {
+function renderNav(lang: LandingLang = 'zh-CN') {
   // CnNav reads the sidebar visibility toggle through useStatus (React Query).
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -44,7 +46,7 @@ function renderNav() {
   return render(
     <QueryClientProvider client={queryClient}>
       <div className='omc'>
-        <LandingLangProvider lang='zh-CN'>
+        <LandingLangProvider lang={lang}>
           <CnNav />
         </LandingLangProvider>
       </div>
@@ -91,4 +93,25 @@ describe('landing nav tools menu', () => {
     renderNav()
     expect(screen.queryByRole('link', { name: 'For AI' })).toBeNull()
   })
+
+  it.each(['en', 'zh-CN', 'zh-TW', 'ja', 'es', 'id'] as const)(
+    'routes top tool menu links to localized paths for %s',
+    async (lang) => {
+      const view = renderNav(lang)
+      const trigger = screen.getByRole('button', {
+        name: new RegExp(LANDING_COPIES[lang].nav.tools),
+      })
+      fireEvent.mouseDown(trigger, { button: 0 })
+      fireEvent.click(trigger)
+
+      const menu = await screen.findByRole('menu', {}, { timeout: 2000 })
+      const hrefs = within(menu)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+      expect(hrefs).toContain(TOOL_PATHS[lang].video)
+      expect(hrefs).toContain(TOOL_PATHS[lang].photo)
+      expect(hrefs).toContain(TOOL_PATHS[lang].transcript)
+      view.unmount()
+    }
+  )
 })

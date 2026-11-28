@@ -244,8 +244,7 @@ describe('public page metadata', () => {
           .querySelector('meta[name="description"]')
           ?.getAttribute('content') ?? ''
       expect(description.length, path).toBeLessThanOrEqual(160)
-      // Tool-page titles are kept as-is here; their length is batch-3 work (I-17).
-      if (path !== '/' && !path.includes('/tools/')) {
+      if (path !== '/') {
         expect(head.title.length, path).toBeLessThanOrEqual(60)
         expect(
           new TextEncoder().encode(head.title).length,
@@ -496,6 +495,8 @@ describe('public page metadata', () => {
           'WebApplication',
           'FAQPage',
         ])
+        expect(graph['@graph'][0].inLanguage).toBe(hreflang)
+        expect(graph['@graph'][2].inLanguage).toBe(hreflang)
         expect(graph['@graph'][2]).not.toHaveProperty('isAccessibleForFree')
         expect(graph['@graph'][2]).not.toHaveProperty('offers')
         const faq =
