@@ -17,7 +17,7 @@ import (
 )
 
 // fork: only pages with public, route-specific content may be indexed.
-var publicSearchPagePaths = [...]string{"/", "/ai-influencer-studio", "/about", "/privacy", "/terms", "/refunds", "/acceptable-use", "/pricing", "/inspiration", "/inspiration/tiktok", "/guides", "/guides/create-ai-character", "/guides/recreate-video-with-your-character", "/tools/tiktok-video-downloader", "/tools/tiktok-photo-downloader", "/zh/tools/tiktok-video-downloader", "/zh/tools/tiktok-photo-downloader", "/cli", "/skills", "/zh/cli", "/zh/skills", "/zh-tw/cli", "/zh-tw/skills", "/ja/cli", "/ja/skills", "/es/cli", "/es/skills", "/id/cli", "/id/skills"}
+var publicSearchPagePaths = [...]string{"/", "/ai-influencer-studio", "/about", "/privacy", "/terms", "/refunds", "/acceptable-use", "/pricing", "/inspiration", "/inspiration/tiktok", "/guides", "/guides/create-ai-character", "/guides/recreate-video-with-your-character", "/tools/tiktok-video-downloader", "/tools/tiktok-photo-downloader", "/tools/tiktok-transcript-generator", "/zh/tools/tiktok-video-downloader", "/zh/tools/tiktok-photo-downloader", "/zh/tools/tiktok-transcript-generator", "/cli", "/skills", "/zh/cli", "/zh/skills", "/zh-tw/cli", "/zh-tw/skills", "/ja/cli", "/ja/skills", "/es/cli", "/es/skills", "/id/cli", "/id/skills"}
 
 // fork: these editorial routes must never degrade to a successful application shell.
 var staticGuidePagePaths = map[string]bool{

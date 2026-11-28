@@ -28,7 +28,7 @@ export function toolSearchPages(
   render: ToolPageRenderers
 ): (SearchPage & { path: string })[] {
   const pages: (SearchPage & { path: string })[] = []
-  for (const kind of ['video', 'photo'] as ToolKind[]) {
+  for (const kind of ['video', 'photo', 'transcript'] as ToolKind[]) {
     const alternates = [
       ...(Object.keys(TOOL_PAGES) as ToolLocale[]).map((locale) => ({
         hreflang: LOCALE_TAGS[locale].hreflang,

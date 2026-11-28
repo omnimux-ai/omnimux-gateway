@@ -21,7 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
 // it must stay plain data: no React/JSX and no '@/…' alias imports
 // (rsbuild.config.ts imports it with a relative path).
 
-export type ToolKind = 'video' | 'photo'
+export type ToolKind = 'video' | 'photo' | 'transcript'
 export type ToolLocale = 'en' | 'zh-CN'
 
 export interface ToolPageContent {
@@ -43,10 +43,12 @@ export const TOOL_PATHS: Record<ToolLocale, Record<ToolKind, string>> = {
   en: {
     video: '/tools/tiktok-video-downloader',
     photo: '/tools/tiktok-photo-downloader',
+    transcript: '/tools/tiktok-transcript-generator',
   },
   'zh-CN': {
     video: '/zh/tools/tiktok-video-downloader',
     photo: '/zh/tools/tiktok-photo-downloader',
+    transcript: '/zh/tools/tiktok-transcript-generator',
   },
 }
 
@@ -104,6 +106,60 @@ const ZH_FAQ: ToolPageContent['faq'] = [
   },
 ]
 
+const EN_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
+  {
+    q: 'Where do the transcripts come from?',
+    a: 'OmniMux reads the published WebVTT caption tracks included in a public TikTok video post. Both creator captions and TikTok auto captions appear when available.',
+  },
+  {
+    q: 'Why does a video show no native captions?',
+    a: 'Music-only clips, videos with captions disabled by the creator, and photo slideshows have no subtitle track on TikTok. In that case, you can copy the post description or save the MP4.',
+  },
+  {
+    q: 'Do I need to sign up or install anything?',
+    a: 'No. Single public links extract right in your browser, with a one-time Cloudflare check on the first parse.',
+  },
+  {
+    q: 'How many times can I use it per day?',
+    a: '5 times a day without an account and 50 times a day after signing in, shared across TikTok tools. The count resets at 00:00 UTC.',
+  },
+  {
+    q: 'Which transcript export formats are supported?',
+    a: 'Copy timestamped lines or plain text directly, or export standard TXT, SRT, and VTT subtitle files.',
+  },
+  {
+    q: 'Do you store the videos or captions I parse?',
+    a: 'We do not store the video files. Post metadata is cached briefly up to 30 minutes alongside daily request counts to prevent abuse. See the privacy policy for details.',
+  },
+]
+
+const ZH_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
+  {
+    q: '提取出的字幕从哪里获取？',
+    a: '直接读取公开 TikTok 视频附带的 WebVTT 原生字幕轨，涵盖作者上传字幕与平台生成的自动字幕。',
+  },
+  {
+    q: '为什么有些视频提示无原生字幕？',
+    a: '纯音乐、作者关闭字幕或图文帖在 TikTok 原始数据中不含字幕轨。此时页面会如实保留原帖配文复制与 MP4 下载入口。',
+  },
+  {
+    q: '需要注册或安装软件吗？',
+    a: '不需要。单条公开链接直接在浏览器完成提取，首次使用经过一次 Cloudflare 人机校验。',
+  },
+  {
+    q: '每天能用几次？',
+    a: '未登录每天 5 次，登录后每天 50 次，与站内 TikTok 下载工具共享每日次数，次日 0 点（UTC）重置。',
+  },
+  {
+    q: '支持哪些字幕导出格式？',
+    a: '支持直接复制时间轴或纯文本全文，也可以导出标准 TXT、SRT 与 VTT 字幕文件。',
+  },
+  {
+    q: '会保存我解析过的链接或视频吗？',
+    a: '不保存视频文件，仅短期记录请求次数与最多 30 分钟缓存结果用于限流防刷。详见隐私政策。',
+  },
+]
+
 export const TOOL_PAGES: Record<
   ToolLocale,
   Record<ToolKind, ToolPageContent>
@@ -135,6 +191,10 @@ export const TOOL_PAGES: Record<
       faq: EN_FAQ,
       related: [
         { label: 'TikTok Photo Downloader', href: TOOL_PATHS.en.photo },
+        {
+          label: 'TikTok Transcript Generator',
+          href: TOOL_PATHS.en.transcript,
+        },
         { label: 'AI Influencer Studio', href: '/ai-influencer-studio' },
       ],
     },
@@ -165,6 +225,41 @@ export const TOOL_PAGES: Record<
       faq: EN_FAQ,
       related: [
         { label: 'TikTok Video Downloader', href: TOOL_PATHS.en.video },
+        {
+          label: 'TikTok Transcript Generator',
+          href: TOOL_PATHS.en.transcript,
+        },
+        { label: 'AI Influencer Studio', href: '/ai-influencer-studio' },
+      ],
+    },
+    transcript: {
+      path: TOOL_PATHS.en.transcript,
+      title: 'TikTok Transcript Generator — Extract Captions | OmniMux',
+      description:
+        'Paste a public TikTok video link to extract timestamped captions, copy plain text, or export TXT, SRT, and VTT files in your browser.',
+      h1: 'TikTok Transcript Generator',
+      subtitle:
+        'Paste a public TikTok video link to extract captions with timestamps or plain text',
+      stepsTitle: 'Extract a TikTok transcript in 3 steps',
+      steps: [
+        {
+          title: 'Copy the video link',
+          body: 'On the TikTok video, tap Share → Copy link, or paste the share text.',
+        },
+        {
+          title: 'Extract captions',
+          body: 'Click Get transcript to load published TikTok caption tracks and switch languages.',
+        },
+        {
+          title: 'Copy or export',
+          body: 'Switch between timestamps and plain text, filter lines, or download TXT, SRT, and VTT.',
+        },
+      ],
+      faqTitle: 'FAQ',
+      faq: EN_TRANSCRIPT_FAQ,
+      related: [
+        { label: 'TikTok Video Downloader', href: TOOL_PATHS.en.video },
+        { label: 'TikTok Photo Downloader', href: TOOL_PATHS.en.photo },
         { label: 'AI Influencer Studio', href: '/ai-influencer-studio' },
       ],
     },
@@ -190,6 +285,7 @@ export const TOOL_PAGES: Record<
       faq: ZH_FAQ,
       related: [
         { label: 'TikTok 图文下载', href: TOOL_PATHS['zh-CN'].photo },
+        { label: 'TikTok 字幕提取', href: TOOL_PATHS['zh-CN'].transcript },
         { label: 'AI 网红工作室', href: '/ai-influencer-studio' },
       ],
     },
@@ -210,6 +306,37 @@ export const TOOL_PAGES: Record<
       faq: ZH_FAQ,
       related: [
         { label: 'TikTok 视频下载', href: TOOL_PATHS['zh-CN'].video },
+        { label: 'TikTok 字幕提取', href: TOOL_PATHS['zh-CN'].transcript },
+        { label: 'AI 网红工作室', href: '/ai-influencer-studio' },
+      ],
+    },
+    transcript: {
+      path: TOOL_PATHS['zh-CN'].transcript,
+      title: 'TikTok 字幕提取 — 导出 TXT 与 SRT | OmniMux',
+      description:
+        '粘贴公开 TikTok 视频链接，提取原生字幕与时间戳文稿，支持纯文本复制及 TXT、SRT、VTT 导出，便于拆解爆款脚本后在 OmniMux 复刻。',
+      h1: 'TikTok 字幕提取',
+      subtitle: '粘贴公开 TikTok 视频链接，提取多语种原生字幕与时间戳文稿',
+      stepsTitle: '三步提取 TikTok 视频字幕',
+      steps: [
+        {
+          title: '复制视频链接',
+          body: '在 TikTok 视频页点「分享」→「复制链接」，短链接和分享文案都能解析',
+        },
+        {
+          title: '提取字幕',
+          body: '粘贴链接后点「提取字幕」，读取视频附带的原生字幕轨',
+        },
+        {
+          title: '复制或导出',
+          body: '切换时间轴与纯文本视图，筛选台词并导出 TXT、SRT 或 VTT',
+        },
+      ],
+      faqTitle: '常见问题',
+      faq: ZH_TRANSCRIPT_FAQ,
+      related: [
+        { label: 'TikTok 视频下载', href: TOOL_PATHS['zh-CN'].video },
+        { label: 'TikTok 图文下载', href: TOOL_PATHS['zh-CN'].photo },
         { label: 'AI 网红工作室', href: '/ai-influencer-studio' },
       ],
     },

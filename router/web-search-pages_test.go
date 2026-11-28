@@ -25,8 +25,8 @@ func searchPageTestManifest(t *testing.T) []byte {
 		"/": "Home", "/ai-influencer-studio": "AI Influencer Studio", "/pricing": "Pricing",
 		"/about": "About", "/privacy": "Privacy", "/terms": "Terms", "/refunds": "Refunds",
 		"/acceptable-use": "Acceptable use", "/inspiration": "Inspiration", "/inspiration/tiktok": "TikTok Ad Library",
-		"/tools/tiktok-video-downloader": "TikTok Video Downloader", "/tools/tiktok-photo-downloader": "TikTok Photo Downloader",
-		"/zh/tools/tiktok-video-downloader": "TikTok 视频下载", "/zh/tools/tiktok-photo-downloader": "TikTok 图文下载",
+		"/tools/tiktok-video-downloader": "TikTok Video Downloader", "/tools/tiktok-photo-downloader": "TikTok Photo Downloader", "/tools/tiktok-transcript-generator": "TikTok Transcript Generator",
+		"/zh/tools/tiktok-video-downloader": "TikTok 视频下载", "/zh/tools/tiktok-photo-downloader": "TikTok 图文下载", "/zh/tools/tiktok-transcript-generator": "TikTok 字幕提取",
 		"/cli": "CLI", "/skills": "Skills",
 		"/zh/cli": "CLI 简体", "/zh/skills": "Skills 简体",
 		"/zh-tw/cli": "CLI 繁體", "/zh-tw/skills": "Skills 繁體",
@@ -380,15 +380,17 @@ func TestWebSearchPagesSetChineseRootLanguageForZhPaths(t *testing.T) {
 	outer := gin.New()
 	outer.NoRoute(pages.serve)
 	for path, lang := range map[string]string{
-		"/tools/tiktok-video-downloader":    "en",
-		"/zh/tools/tiktok-video-downloader": "zh-Hans",
-		"/cli":                              "en",
-		"/zh/cli":                           "zh-Hans",
-		"/zh/skills":                        "zh-Hans",
-		"/zh-tw/cli":                        "zh-Hant",
-		"/ja/cli":                           "ja",
-		"/es/cli":                           "es",
-		"/id/cli":                           "id",
+		"/tools/tiktok-video-downloader":        "en",
+		"/tools/tiktok-transcript-generator":    "en",
+		"/zh/tools/tiktok-video-downloader":     "zh-Hans",
+		"/zh/tools/tiktok-transcript-generator": "zh-Hans",
+		"/cli":                                  "en",
+		"/zh/cli":                               "zh-Hans",
+		"/zh/skills":                            "zh-Hans",
+		"/zh-tw/cli":                            "zh-Hant",
+		"/ja/cli":                               "ja",
+		"/es/cli":                               "es",
+		"/id/cli":                               "id",
 	} {
 		t.Run(path, func(t *testing.T) {
 			resp := performPluginRequest(outer, http.MethodGet, path)

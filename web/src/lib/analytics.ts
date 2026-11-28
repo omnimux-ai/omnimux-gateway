@@ -216,8 +216,10 @@ const staticPaths = new Set([
   '/agent',
   '/tools/tiktok-photo-downloader',
   '/tools/tiktok-video-downloader',
+  '/tools/tiktok-transcript-generator',
   '/zh/tools/tiktok-photo-downloader',
   '/zh/tools/tiktok-video-downloader',
+  '/zh/tools/tiktok-transcript-generator',
   ...Object.values(AGENT_PATHS).flatMap(({ cli, skills }) => [cli, skills]),
 ])
 
