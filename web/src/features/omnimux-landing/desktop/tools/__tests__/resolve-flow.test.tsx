@@ -21,11 +21,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LandingLangProvider } from '../../i18n'
 import { ToolForm } from '../components/tool-form'
+import { TranscriptInspirationStrip } from '../components/transcript-inspiration-strip'
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 const toastError = vi.hoisted(() => vi.fn())
 const turnstile = vi.hoisted(() => ({
   verify: undefined as undefined | ((token: string) => void),
+}))
+const authState = vi.hoisted(() => ({
+  user: null as { id: number } | null,
 }))
 
 vi.mock('@/lib/api', () => ({ api }))
@@ -44,7 +48,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 vi.mock('@/stores/auth-store', () => ({
   useAuthStore: (select: (state: unknown) => unknown) =>
-    select({ auth: { user: null } }),
+    select({ auth: { user: authState.user } }),
 }))
 vi.mock('@/components/turnstile', () => ({
   Turnstile: (props: { onVerify: (token: string) => void }) => {
@@ -116,6 +120,7 @@ function submit(url: string) {
 describe('TikTok tool resolve flow', () => {
   beforeEach(() => {
     turnstile.verify = undefined
+    authState.user = null
   })
   afterEach(() => {
     // reset, not clear: a leftover implementation would make the next case
@@ -382,6 +387,16 @@ describe('TikTok tool resolve flow', () => {
         expect.anything()
       )
 
+      const videoEl = screen.getByLabelText(
+        '@mythicshadowws'
+      ) as HTMLVideoElement
+      expect(videoEl.tagName).toBe('VIDEO')
+      const playMock = vi.fn().mockResolvedValue(undefined)
+      videoEl.play = playMock
+      fireEvent.click(screen.getByText('Second step serum'))
+      expect(videoEl.currentTime).toBeCloseTo(3.2, 3)
+
+      fireEvent.error(videoEl)
       const coverImg = screen.getByRole('img', { name: '@mythicshadowws' })
       fireEvent.error(coverImg)
       expect(
@@ -416,12 +431,17 @@ describe('TikTok tool resolve flow', () => {
       ).toBeInTheDocument()
 
       fireEvent.change(searchInput, { target: { value: '' } })
-      fireEvent.click(screen.getByRole('button', { name: /copy/i }))
+      const copyButtons = screen.getAllByRole('button', {
+        name: /^copy text$/i,
+      })
+      const mainCopyButton = copyButtons.at(-1)
+      expect(mainCopyButton).toBeDefined()
+      if (mainCopyButton) fireEvent.click(mainCopyButton)
       expect(writeText).toHaveBeenCalledWith(
         '[00:00] First hook line\n[00:03] Second step serum'
       )
       expect(
-        await screen.findByRole('button', { name: /copied/i })
+        await screen.findByRole('button', { name: /^copied$/i })
       ).toBeInTheDocument()
 
       fireEvent.click(screen.getByRole('button', { name: /download txt/i }))
@@ -522,5 +542,216 @@ describe('TikTok tool resolve flow', () => {
     expect(toastError.mock.calls[0][1]?.action?.label).toBe(
       'Go to Photo Downloader'
     )
+  })
+
+  it('preloads interactive Demo offline with synced tabs and Demo translation without POST calls', async () => {
+    api.get.mockResolvedValue(config())
+
+    render(
+      <LandingLangProvider lang='en'>
+        <ToolForm kind='transcript' locale='en' />
+      </LandingLangProvider>
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('@omnimux_studio')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Wait until you see how calm my morning skin looks after one week.'
+      )
+    ).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /^translate$/i }))
+    expect(
+      await screen.findByText(
+        'Espera a ver lo calmada que luce mi piel por la mañana tras una semana.'
+      )
+    ).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('tab', { name: /^breakdown$/i }))
+    expect(
+      await screen.findByRole('button', { name: /copy breakdown/i })
+    ).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('blocks anonymous AI translate and breakdown on parsed videos while serving signed-in AI calls', async () => {
+    const transcriptPayload = {
+      data: {
+        success: true,
+        data: {
+          kind: 'transcript',
+          id: '7470610564927032609',
+          author: { unique_id: 'mythicshadowws', nickname: 'M' },
+          description: 'Morning skincare demo desc',
+          created_at: 1739404800,
+          cover_url: '/api/tools/tiktok/file/image?u=c',
+          video: {
+            duration_ms: 15000,
+            width: 720,
+            height: 1280,
+            preview_url: '/api/tools/tiktok/file/video?u=v',
+            download_url: '/api/tools/tiktok/file/video?u=v&dl=1',
+          },
+          transcript: {
+            has_captions: true,
+            tracks: [
+              {
+                id: 'en-auto',
+                lang: 'eng-US',
+                language_code: 'en',
+                is_auto_generated: true,
+                cues: [{ start_ms: 0, end_ms: 3200, text: 'First hook line' }],
+              },
+            ],
+          },
+          quota_exhausted: false,
+        },
+      },
+    }
+
+    api.get.mockResolvedValue(config({ pass_valid: true, logged_in: false }))
+    api.post.mockResolvedValueOnce(transcriptPayload)
+
+    const { unmount } = render(
+      <LandingLangProvider lang='en'>
+        <ToolForm kind='transcript' locale='en' />
+      </LandingLangProvider>
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: VIDEO_URL },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /get transcript/i }))
+    await screen.findByText('First hook line')
+
+    fireEvent.click(screen.getByRole('button', { name: /^translate$/i }))
+    expect(toastError).toHaveBeenCalledTimes(1)
+    expect(api.post).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('tab', { name: /^breakdown$/i }))
+    expect(
+      await screen.findByRole('button', { name: /sign in to analyze/i })
+    ).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledTimes(1)
+    unmount()
+
+    vi.clearAllMocks()
+    authState.user = { id: 42 }
+    api.get.mockResolvedValue(config({ pass_valid: true, logged_in: true }))
+    api.post.mockImplementation((path: string) => {
+      if (path.endsWith('/resolve')) return Promise.resolve(transcriptPayload)
+      if (path.endsWith('/translate')) {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              target_lang: 'zh-CN',
+              cues: [{ start_ms: 0, end_ms: 3200, text: '第一句开场钩子' }],
+            },
+          },
+        })
+      }
+      if (path.endsWith('/breakdown')) {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              summary: 'Opening hook plus single benefit.',
+              sections: [
+                {
+                  stage: 'hook',
+                  label: 'Opening Contrast',
+                  start_ms: 0,
+                  end_ms: 3200,
+                  quote: 'First hook line',
+                  analysis: 'Stops scroll in first 3 seconds.',
+                },
+              ],
+            },
+          },
+        })
+      }
+      return Promise.reject(new Error(`Unexpected POST ${path}`))
+    })
+
+    render(
+      <LandingLangProvider lang='en'>
+        <ToolForm kind='transcript' locale='en' />
+      </LandingLangProvider>
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: VIDEO_URL },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /get transcript/i }))
+    await screen.findByText('First hook line')
+
+    fireEvent.click(screen.getByRole('button', { name: /^translate$/i }))
+    expect(await screen.findByText('第一句开场钩子')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /^breakdown$/i }))
+    expect(
+      await screen.findByText('Opening hook plus single benefit.')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Opening Contrast')).toBeInTheDocument()
+  })
+
+  it('loads public inspiration examples and sends picked TikTok URL to callback', async () => {
+    const onPickUrl = vi.fn()
+    api.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          items: [
+            {
+              id: 7,
+              title: 'Peptide Mist Hook Study',
+              caption: 'Morning glow test caption',
+              coverUrl: '/media/cover.jpg',
+              sourceUrl: VIDEO_URL,
+              category: 'Skincare',
+              duration: 18,
+              views: 124000,
+              creator: { handle: 'glowlab', name: 'Glow Lab' },
+            },
+            {
+              id: 8,
+              title: 'Instagram Reel Sample',
+              caption: 'Non-TikTok post should not expose TikTok load button',
+              coverUrl: '/media/ig.jpg',
+              sourceUrl: 'https://www.instagram.com/reel/abc123/',
+              category: 'Beauty',
+              duration: 21,
+              views: 88000,
+              creator: { handle: 'studio', name: 'Studio' },
+            },
+          ],
+        },
+      },
+    })
+
+    render(
+      <LandingLangProvider lang='en'>
+        <TranscriptInspirationStrip onPickUrl={onPickUrl} />
+      </LandingLangProvider>
+    )
+
+    const loadBtns = await screen.findAllByRole('button', {
+      name: /load link/i,
+    })
+    expect(loadBtns).toHaveLength(1)
+    expect(screen.getByText('Peptide Mist Hook Study')).toBeInTheDocument()
+    expect(screen.getByText('Instagram Reel Sample')).toBeInTheDocument()
+    fireEvent.click(loadBtns[0])
+    expect(onPickUrl).toHaveBeenCalledWith(VIDEO_URL)
   })
 })

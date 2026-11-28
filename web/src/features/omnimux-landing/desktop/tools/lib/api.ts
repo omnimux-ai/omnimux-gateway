@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
-import type { ToolKind } from '../content'
+import type { ToolKind, ToolLocale } from '../content'
 
 const BASE = '/api/tools/tiktok'
 
@@ -76,6 +76,46 @@ export type ToolResult = {
   images?: ToolImage[]
   zip_url?: string
   quota_exhausted: boolean
+}
+
+export type ToolTranslateResult = {
+  video_id: string
+  track_id: string
+  target_lang: ToolLocale
+  cues: ToolTranscriptCue[]
+}
+
+export type ToolBreakdownSection = {
+  stage: string
+  label: string
+  start_ms: number
+  end_ms: number
+  quote: string
+  analysis: string
+}
+
+export type ToolBreakdownResult = {
+  video_id: string
+  track_id: string
+  target_lang: ToolLocale
+  summary: string
+  sections: ToolBreakdownSection[]
+}
+
+export type PublicInspirationItem = {
+  id: number
+  type: string
+  title: string
+  caption: string
+  country: string
+  category: string
+  duration: number
+  views: number
+  trafficType: string
+  coverUrl: string | null
+  mediaUrls: string[]
+  sourceUrl: string | null
+  creator: { name: string; handle: string } | null
 }
 
 type Envelope<T> = {
@@ -156,4 +196,51 @@ export function resolveToolLink(
       { skipErrorHandler: true }
     )
   )
+}
+
+export function translateTikTokTranscript(
+  videoId: string,
+  trackId: string,
+  targetLang: ToolLocale
+): Promise<ToolTranslateResult> {
+  return callTool(
+    api.post<Envelope<ToolTranslateResult>>(
+      `${BASE}/translate`,
+      { video_id: videoId, track_id: trackId, target_lang: targetLang },
+      { skipErrorHandler: true }
+    )
+  )
+}
+
+export function breakdownTikTokTranscript(
+  videoId: string,
+  trackId: string,
+  targetLang: ToolLocale
+): Promise<ToolBreakdownResult> {
+  return callTool(
+    api.post<Envelope<ToolBreakdownResult>>(
+      `${BASE}/breakdown`,
+      { video_id: videoId, track_id: trackId, target_lang: targetLang },
+      { skipErrorHandler: true }
+    )
+  )
+}
+
+export async function fetchPublicTikTokInspirations(
+  pageSize = 12
+): Promise<PublicInspirationItem[]> {
+  try {
+    const response = await api.get<
+      Envelope<{ items?: PublicInspirationItem[] }>
+    >('/api/inspiration/v1/public/inspirations', {
+      params: { type: 'video', page: 1, page_size: pageSize, sort: 'hot' },
+      skipErrorHandler: true,
+      disableDuplicate: true,
+    })
+    return response?.data?.success && Array.isArray(response.data.data?.items)
+      ? response.data.data.items
+      : []
+  } catch {
+    return []
+  }
 }

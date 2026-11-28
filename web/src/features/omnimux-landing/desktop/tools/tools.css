@@ -453,46 +453,154 @@ For commercial licensing, please contact support@quantumnous.com
   padding-top: 0;
 }
 /* transcript workspace */
-.omc .tx-head {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: start;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--hair);
-}
-.omc .tx-cover {
-  width: 72px;
-  aspect-ratio: 9 / 14;
+.omc .tx-agent-strip {
+  max-width: 760px;
+  margin: 12px auto 0;
+  padding: 12px 16px;
   border-radius: 16px;
-  object-fit: cover;
   border: 1px solid var(--hair);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.omc .tx-agent-links {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.omc .tx-agent-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hair-2);
   background: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+}
+.omc .tx-agent-link:hover {
+  border-color: var(--hair-3);
+}
+.omc .tx-agent-link .ico {
+  width: 14px;
+  height: 14px;
+  color: var(--violet-hi);
+}
+.omc .tx-section {
+  max-width: 1040px;
+  margin: 32px auto 0;
+  text-align: left;
+}
+.omc .tx-section-head {
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto 24px;
+}
+.omc .tx-section-head .h2 {
+  font-size: clamp(24px, 3vw, 32px);
+}
+.omc .tx-section-sub {
+  margin-top: 8px;
+  font-size: 16px;
+  color: var(--fg-2);
+}
+.omc .tool-result.tx-workbench-wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.omc .tx-workbench {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.omc .tx-media-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.omc .tx-media-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  background: #000;
+}
+.omc .tx-video,
+.omc .tx-cover-poster {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.omc .tx-demo-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hair-2);
+  background: rgba(12, 11, 17, 0.84);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
 }
 .omc .tx-cover-empty {
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--fg-3);
+  background: var(--ink);
+}
+.omc .tx-cover-empty .ico {
+  width: 32px;
+  height: 32px;
+}
+.omc .tx-meta-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--hair);
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .omc .tx-who {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 .omc .tx-who b {
   font-size: 16px;
   font-weight: 600;
   color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .omc .tx-date {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--fg-3);
   font-variant-numeric: tabular-nums;
 }
 .omc .tx-chips {
-  margin-top: 8px;
+  margin-top: 0;
 }
 .omc .tool-chips .tx-badge-ok {
   color: var(--ok);
@@ -506,13 +614,99 @@ For commercial licensing, please contact support@quantumnous.com
   background: rgba(240, 163, 94, 0.08);
   font-family: var(--text);
 }
+.omc .tx-desc-clamp {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.omc .tx-stat-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hair);
+}
+.omc .tx-stat-list > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.omc .tx-stat-list dt {
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.omc .tx-stat-list dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.omc .tx-meta-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.omc .tx-right-pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.omc .tx-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--hair-2);
+  background: var(--ink);
+}
+.omc .tx-tab-script,
+.omc .tx-tab-breakdown {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease;
+}
+.omc .tx-tab-script[aria-selected='true'],
+.omc .tx-tab-breakdown[aria-selected='true'] {
+  background: var(--fg);
+  color: #16131f;
+  font-weight: 600;
+}
+.omc .tx-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.omc .tx-panel[hidden] {
+  display: none;
+}
+.omc .tx-panel-sub {
+  font-size: 13px;
+  color: var(--fg-2);
+}
 .omc .tx-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 16px 0 12px;
 }
 .omc .tx-tracks {
   display: flex;
@@ -520,8 +714,14 @@ For commercial licensing, please contact support@quantumnous.com
   flex-wrap: wrap;
   gap: 8px;
 }
+.omc .tx-view-groups {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .omc .tx-pill {
-  min-height: 40px;
+  min-height: 36px;
   padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--hair-2);
@@ -552,7 +752,7 @@ For commercial licensing, please contact support@quantumnous.com
   background: rgba(0, 0, 0, 0.25);
 }
 .omc .tx-view-toggle button {
-  min-height: 36px;
+  min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
   font-size: 13px;
@@ -567,7 +767,6 @@ For commercial licensing, please contact support@quantumnous.com
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 .omc .tx-search {
@@ -615,22 +814,35 @@ For commercial licensing, please contact support@quantumnous.com
   border-radius: 16px;
   background: var(--ink);
   padding: 8px;
-  max-height: 340px;
+  max-height: 380px;
   overflow-y: auto;
 }
-.omc .tx-cue {
+.omc .tx-cue-row {
   display: grid;
-  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 2px solid transparent;
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease;
+}
+.omc .tx-cue-row:hover {
+  background: var(--wash);
+}
+.omc .tx-cue-row[data-active='true'] {
+  background: rgba(171, 156, 255, 0.12);
+  border-left-color: var(--violet-hi);
+}
+.omc .tx-cue-btn {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
   gap: 12px;
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
-  border-radius: 8px;
-  transition: background-color 0.14s ease;
   align-items: baseline;
-}
-.omc .tx-cue:hover {
-  background: var(--wash);
 }
 .omc .tx-time {
   font-family: var(--mono);
@@ -640,15 +852,43 @@ For commercial licensing, please contact support@quantumnous.com
   font-weight: 600;
 }
 .omc .tx-line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.omc .tx-line-main {
   font-size: 14px;
   line-height: 1.65;
   color: var(--fg);
 }
-.omc .tx-line mark {
+.omc .tx-line-main mark {
   background: rgba(171, 156, 255, 0.26);
   color: var(--fg);
   border-radius: 8px;
   padding: 0 2px;
+}
+.omc .tx-cue-trans {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--violet-hi);
+}
+.omc .tx-cue-copy {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--fg-3);
+}
+.omc .tx-cue-copy:hover {
+  color: var(--fg);
+  background: var(--wash);
+}
+.omc .tx-cue-copy .ico {
+  width: 14px;
+  height: 14px;
 }
 .omc .tx-plain {
   padding: 16px;
@@ -657,24 +897,164 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--fg);
   user-select: text;
 }
+.omc .tx-plain-trans {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hair);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--violet-hi);
+}
 .omc .tx-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 16px;
-  padding-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid var(--hair);
 }
-.omc .tx-exports {
+.omc .tx-exports,
+.omc .tx-translate-wrap,
+.omc .tx-foot-cta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
+.omc .tx-lang-select {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hair-2);
+  background: var(--ink);
+  color: var(--fg);
+  font-size: 13px;
+}
+/* breakdown tab */
+.omc .tx-bd-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.omc .tx-bd-flow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.omc .tx-stage-pill {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hair-2);
+  background: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+}
+.omc .tx-stage-pill:hover {
+  border-color: var(--hair-3);
+}
+.omc .tx-bd-arrow {
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.omc .tx-bd-body {
+  padding: 12px;
+}
+.omc .tx-bd-summary {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--fg-2);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--hair);
+}
+.omc .tx-bd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.omc .tx-bd-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+}
+.omc .tx-bd-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.omc .tx-bd-card-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.omc .tx-bd-card-title h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.omc .tx-stage-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(171, 156, 255, 0.35);
+  background: rgba(171, 156, 255, 0.1);
+  color: var(--violet-hi);
+  font-size: 12px;
+  font-weight: 600;
+}
+.omc .tx-bd-time {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+.omc .tx-bd-quote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--hair-2);
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.omc .tx-bd-analysis {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg);
+}
+.omc .tx-bd-gate {
+  padding: 32px 24px;
+  border-radius: 16px;
+  border: 1px solid var(--hair);
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+.omc .tx-bd-gate .ico {
+  width: 24px;
+  height: 24px;
+  color: var(--violet-hi);
+}
+.omc .tx-bd-gate h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.omc .tx-bd-gate p {
+  max-width: 460px;
+  font-size: 14px;
+  color: var(--fg-2);
+}
 .omc .tx-fallback {
-  margin-top: 16px;
   padding: 16px;
   border-radius: 16px;
   background: var(--ink);
@@ -719,19 +1099,274 @@ For commercial licensing, please contact support@quantumnous.com
   gap: 12px;
   margin-top: 16px;
 }
+/* public inspiration carousel & feature grids */
+.omc .tx-insp-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.omc .tx-insp-head .h2 {
+  text-align: left;
+}
+.omc .tx-insp-sub {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--fg-2);
+}
+.omc .tx-insp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.omc .tx-insp-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  align-items: stretch;
+}
+.omc .tx-insp-media {
+  position: relative;
+  aspect-ratio: 9 / 14;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  background: var(--ink);
+}
+.omc .tx-insp-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.omc .tx-insp-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-3);
+}
+.omc .tx-insp-badges {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.omc .tx-insp-badges span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: rgba(8, 7, 12, 0.8);
+  color: var(--fg);
+}
+.omc .tx-insp-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.omc .tx-insp-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.omc .tx-insp-author {
+  font-weight: 600;
+  color: var(--fg);
+}
+.omc .tx-insp-cat {
+  color: var(--fg-3);
+}
+.omc .tx-insp-info h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.omc .tx-insp-info p {
+  font-size: 13px;
+  color: var(--fg-2);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.omc .tx-insp-acts {
+  margin-top: auto;
+  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.omc .tx-insp-pager {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.omc .tx-insp-range {
+  font-size: 13px;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+.omc .tx-insp-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.omc .tx-insp-nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--hair-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-2);
+}
+.omc .tx-insp-nav-btn:hover {
+  color: var(--fg);
+  border-color: var(--hair-3);
+}
+.omc .tx-insp-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.omc .tx-insp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hair-3);
+}
+.omc .tx-insp-dot[aria-current='true'] {
+  width: 20px;
+  background: var(--fg);
+}
+.omc .tx-sec-head {
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto 32px;
+}
+.omc .tx-sec-sub {
+  margin-top: 8px;
+  font-size: 16px;
+  color: var(--fg-2);
+}
+.omc .tx-cap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.omc .tx-cap-card {
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.omc .tx-cap-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--hair-2);
+  background: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--violet-hi);
+  margin-bottom: 4px;
+}
+.omc .tx-cap-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.omc .tx-cap-card p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+.omc .tx-who-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+}
+.omc .tx-who-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+}
+.omc .tx-who-idx {
+  font: 600 12px var(--mono);
+  color: var(--violet-hi);
+  padding-top: 4px;
+  flex: none;
+}
+.omc .tx-who-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.omc .tx-who-card p {
+  font-size: 14px;
+  color: var(--fg-2);
+  margin-top: 8px;
+  line-height: 1.55;
+}
 .omc .tool-result,
-.omc .tool-result :is(button, a, input) {
+.omc .tool-result :is(button, a, input, select) {
   scroll-margin-top: 96px;
 }
-@media (max-width: 640px) {
-  .omc .tx-head {
-    grid-template-columns: 60px minmax(0, 1fr);
+@media (max-width: 900px) {
+  .omc .tx-workbench {
+    grid-template-columns: 1fr;
   }
-  .omc .tx-head-dl {
-    grid-column: 1 / -1;
+  .omc .tx-media-pane {
+    max-width: 320px;
+    width: 100%;
+    margin-inline: auto;
+  }
+  .omc .tx-insp-grid,
+  .omc .tx-who-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .omc .tx-insp-card {
+    grid-template-columns: 88px minmax(0, 1fr);
   }
   .omc .tx-pill,
-  .omc .tx-view-toggle button {
+  .omc .tx-view-toggle button,
+  .omc .tx-tab-script,
+  .omc .tx-tab-breakdown,
+  .omc .tx-lang-select {
     min-height: 44px;
   }
 }

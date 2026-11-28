@@ -56,7 +56,7 @@ const EN_TRANSCRIPT_FAQ: ToolPageContent['faq'] = [
   },
   {
     q: 'Do I need to sign up or install anything?',
-    a: 'No. Single public links extract right in your browser, with a one-time Cloudflare check on the first parse.',
+    a: 'No. Public links extract right in your browser with a one-time Cloudflare check; signing in unlocks one-click AI translation and breakdown.',
   },
   {
     q: 'How many times can I use it per day?',

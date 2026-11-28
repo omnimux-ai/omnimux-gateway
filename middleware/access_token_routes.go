@@ -412,6 +412,10 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /pg/influencer/motion/options":    accessTokenSessionRule,
 	"POST /pg/influencer/recreate/analyze": accessTokenSessionRule,
 	"GET /pg/influencer/recreate/:task_id": accessTokenSessionRule,
+
+	// Browser-session-only TikTok transcript AI endpoints (no PAT access).
+	"POST /api/tools/tiktok/translate": accessTokenSessionRule,
+	"POST /api/tools/tiktok/breakdown": accessTokenSessionRule,
 }
 
 var (

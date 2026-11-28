@@ -294,6 +294,8 @@ func SetApiRouter(router *gin.Engine) {
 			// fork: tool-to-workbench — hand one parsed video to the workbench.
 			tiktokTool.POST("/handoff", anonymousRequestBodyLimit, controller.IssueTikTokToolHandoff)
 			tiktokTool.POST("/handoff/redeem", anonymousRequestBodyLimit, controller.RedeemTikTokToolHandoff)
+			tiktokTool.POST("/translate", anonymousRequestBodyLimit, controller.TranslateTikTokToolTranscript)
+			tiktokTool.POST("/breakdown", anonymousRequestBodyLimit, controller.BreakdownTikTokToolTranscript)
 		}
 
 		// Inspiration sidecar relay. Default off (INSPIRATION_ENABLED=false); fail-closed when unconfigured.

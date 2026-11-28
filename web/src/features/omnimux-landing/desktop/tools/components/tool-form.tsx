@@ -16,17 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useNavigate } from '@tanstack/react-router'
-import { useCallback, useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Turnstile } from '@/components/turnstile'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { AGENT_PATHS } from '../../agent/content'
 import { Icon } from '../../components/cn/icons'
 import { useCopy } from '../../i18n/context'
 import { TOOL_PATHS, type ToolKind, type ToolLocale } from '../content'
 import type { ToolResult } from '../lib/api'
+import { getTranscriptDemo } from '../lib/transcript-demo'
 import { useToolResolver, type ToolFailure } from '../lib/use-tool-resolver'
 import {
   ToolPhotoResult,
@@ -42,6 +44,7 @@ export function ToolForm(props: {
   kind: ToolKind
   locale: ToolLocale
   initialUrl?: string
+  externalUrl?: { url: string; nonce: number }
   /** Lets the page's recreate band hand the same result to the workbench. */
   onResult?: (result: ToolResult | null) => void
 }) {
@@ -51,6 +54,14 @@ export function ToolForm(props: {
   const user = useAuthStore((state) => state.auth.user)
   const [value, setValue] = useState(props.initialUrl ?? '')
   const [invalid, setInvalid] = useState(false)
+
+  const externalNonce = props.externalUrl?.nonce
+  const externalUrlValue = props.externalUrl?.url
+  useEffect(() => {
+    if (externalNonce === undefined || externalUrlValue === undefined) return
+    setValue(externalUrlValue)
+    setInvalid(false)
+  }, [externalNonce, externalUrlValue])
 
   const signIn = useCallback(() => {
     void navigate({
@@ -232,15 +243,60 @@ export function ToolForm(props: {
           </div>
         ) : null}
       </form>
+      {props.kind === 'transcript' ? (
+        <div className='tx-agent-strip'>
+          <span>{copy.transcriptAgentHint}</span>
+          <div className='tx-agent-links'>
+            <Link className='tx-agent-link' to={AGENT_PATHS[props.locale].cli}>
+              <Icon name='term' />
+              {copy.transcriptAgentCli}
+            </Link>
+            <Link
+              className='tx-agent-link'
+              to={AGENT_PATHS[props.locale].skills}
+            >
+              <Icon name='puzzle' />
+              {copy.transcriptAgentSkills}
+            </Link>
+          </div>
+        </div>
+      ) : null}
       {resolver.result?.kind === 'video' ? (
         <ToolVideoResult result={resolver.result} />
       ) : null}
       {resolver.result?.kind === 'photo' ? (
         <ToolPhotoResult result={resolver.result} loggedIn={loggedIn} />
       ) : null}
-      {resolver.result?.kind === 'transcript' ? (
-        <ToolTranscriptResult result={resolver.result} locale={props.locale} />
-      ) : null}
+      {props.kind === 'transcript' &&
+      (resolver.result === null || resolver.result.kind === 'transcript')
+        ? (() => {
+            const demo = getTranscriptDemo(props.locale)
+            return (
+              <section
+                className='tx-section'
+                aria-labelledby='tx-section-heading'
+              >
+                <div className='tx-section-head'>
+                  <h2 className='h2' id='tx-section-heading'>
+                    {copy.transcriptSectionTitle}
+                  </h2>
+                  <p className='tx-section-sub'>{copy.transcriptSectionSub}</p>
+                </div>
+                <ToolTranscriptResult
+                  result={resolver.result ?? demo.result}
+                  locale={props.locale}
+                  isDemo={!resolver.result}
+                  demoTranslationTarget={demo.translationTarget}
+                  demoTranslation={demo.translation}
+                  demoBreakdown={demo.breakdown}
+                  loggedIn={loggedIn}
+                  onRequireLogin={signIn}
+                  onResetDemo={resolver.resetResult}
+                />
+              </section>
+            )
+          })()
+        : null}
     </>
   )
 }
