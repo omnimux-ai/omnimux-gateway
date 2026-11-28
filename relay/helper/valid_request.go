@@ -52,8 +52,6 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		request, err = GetAndValidateRerankRequest(c)
 	case types.RelayFormatReader:
 		request, err = GetAndValidateReaderRequest(c)
-	case types.RelayFormatSystemOne:
-		request, err = GetAndValidateSystemOneRequest(c)
 	case types.RelayFormatOpenAIAudio:
 		request, err = GetAndValidAudioRequest(c, relayMode)
 	case types.RelayFormatOpenAIRealtime:
@@ -242,21 +240,6 @@ func GetAndValidateReaderRequest(c *gin.Context) (*dto.ReaderRequest, error) {
 		return nil, types.NewError(fmt.Errorf("url must start with http:// or https://"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
 	return readerRequest, nil
-}
-
-func GetAndValidateSystemOneRequest(c *gin.Context) (*dto.SystemOneRequest, error) {
-	var request *dto.SystemOneRequest
-	if err := common.UnmarshalBodyReusable(c, &request); err != nil {
-		logger.LogError(c, fmt.Sprintf("getAndValidateSystemOneRequest failed: %s", err.Error()))
-		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
-	}
-	if request == nil {
-		request = &dto.SystemOneRequest{}
-	}
-	if strings.TrimSpace(request.Model) == "" {
-		request.Model = "jev"
-	}
-	return request, nil
 }
 
 func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.EmbeddingRequest, error) {

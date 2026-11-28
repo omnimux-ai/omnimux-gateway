@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
+	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
@@ -268,4 +269,84 @@ func TestGemini4BuiltinBillingAndOverrides(t *testing.T) {
 			assert.Equal(t, `tier("custom", p * 9)`, actual)
 		})
 	}
+}
+
+func TestTypeSafeJevBuiltinBillingAndOverrides(t *testing.T) {
+	settings := config.GlobalConfig.Get("billing_setting").(*billing_setting.BillingSetting)
+	saved := *settings
+	savedRatios, savedPrices := ratio_setting.ModelRatio2JSONString(), ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() {
+		*settings = saved
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(savedRatios))
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(savedPrices))
+	})
+
+	schema := map[string]jsplugin.UsageFieldSchema{
+		"input_tokens": {Type: "number", Unit: "token"},
+	}
+	const wantExpr = `tier("base", u("input_tokens") * 0.042 / 1000000)`
+	require.NoError(t, billing_setting.SmokeTestTaskExpr(wantExpr, schema))
+
+	for _, name := range []string{"jev-1.14.0", "jev-1.13.0", "jev-latest", "jev-preview"} {
+		t.Run(name, func(t *testing.T) {
+			*settings = billing_setting.BillingSetting{
+				BillingMode:       map[string]string{},
+				BillingExpr:       map[string]string{},
+				PluginBillingExpr: map[string]string{},
+			}
+			require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{}`))
+			require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{}`))
+
+			assert.Equal(t, billing_setting.BillingModeTieredExpr, billing_setting.GetBillingMode(name))
+			expr, ok := billing_setting.ResolveTaskBillingExpr("typesafe", name, name)
+			require.True(t, ok)
+			assert.Equal(t, wantExpr, expr)
+
+			for _, tc := range []struct {
+				inputTokens int
+				wantQuota   int
+			}{
+				{100, 2},
+				{100000, 2100},
+				{65792, 1382},
+				{262400, 5510},
+			} {
+				res, err := billingexpr.ComputeTieredQuotaWithRequest(&billingexpr.BillingSnapshot{
+					ExprString:       expr,
+					ExprHash:         billingexpr.ExprHashString(expr),
+					GroupRatio:       1,
+					QuotaPerUnit:     500000,
+					ExprVersion:      1,
+					TaskUsageBilling: true,
+				}, billingexpr.TokenParams{}, billingexpr.RequestInput{Usage: map[string]any{"input_tokens": float64(tc.inputTokens)}})
+				require.NoError(t, err)
+				assert.Equal(t, tc.wantQuota, res.ActualQuotaAfterGroup)
+			}
+
+			settings.PluginBillingExpr["typesafe::"+name] = `tier("custom", u("input_tokens") * 0.1 / 1000000)`
+			override, ok := billing_setting.ResolveTaskBillingExpr("typesafe", name, name)
+			require.True(t, ok)
+			assert.Equal(t, `tier("custom", u("input_tokens") * 0.1 / 1000000)`, override)
+		})
+	}
+
+	t.Run("legacy jev alias falls back to jev-latest built-in expression", func(t *testing.T) {
+		*settings = billing_setting.BillingSetting{
+			BillingMode:       map[string]string{},
+			BillingExpr:       map[string]string{},
+			PluginBillingExpr: map[string]string{},
+		}
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"jev": 0.021}`))
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{}`))
+
+		expr, ok := billing_setting.ResolveTaskBillingExpr("typesafe", "jev", "jev-latest")
+		require.True(t, ok)
+		assert.Equal(t, wantExpr, expr)
+
+		settings.BillingMode["jev"] = billing_setting.BillingModeTieredExpr
+		settings.BillingExpr["jev"] = `tier("alias", u("input_tokens") * 0.084 / 1000000)`
+		custom, ok := billing_setting.ResolveTaskBillingExpr("typesafe", "jev", "jev-latest")
+		require.True(t, ok)
+		assert.Equal(t, `tier("alias", u("input_tokens") * 0.084 / 1000000)`, custom)
+	})
 }

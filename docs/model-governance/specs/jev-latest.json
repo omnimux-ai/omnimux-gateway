@@ -1,0 +1,69 @@
+{
+  "model_id": "jev-latest",
+  "family": "llm",
+  "vendor": "TypeSafe AI",
+  "vendor_model_id": "jev-1.14.0",
+  "capability": "System One judgment",
+  "operations": [
+    "judgment"
+  ],
+  "status": "partial",
+  "checked_at": "2026-11-27",
+  "context_window_tokens": 65536,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "streaming": false,
+  "tool_calling": false,
+  "sources": [
+    {
+      "claim": "jev-latest is TypeSafe's official alias pointing to the most recent stable release (currently jev-1.14.0).",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "The most recent stable, official release. The default in our client SDKs, and the name the examples in these docs use.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "Underlying model Jev 1.14 has a default 64k (65536) per-request context and 32k per-question context, expandable to 262k tokens via TypeSafe-Danger-Zone-Long-Context: true.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "64k per-request / 32k per-question",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "Jev reads natural-language text and PNG/JPEG images.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "Jev reads natural-language text, sent as a string, a JSON object, or an array of text values. It also reads PNG and JPEG images anywhere in the request.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "TypeSafe charges $0.042 per 1M input tokens ($42 per Btok) and output tokens are free.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "You pay per input token. Output tokens are free. A Btok is a billion tokens and an Mtok is a million tokens.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "OmniMux routes jev-latest through the embedded official typesafe@1.2.0 task plugin.",
+      "url": "repo:plugins/tasks/typesafe/plugin.js",
+      "quote": "const MODELS = [\"jev-1.14.0\", \"jev-1.13.0\", \"jev-latest\", \"jev-preview\"];",
+      "retrieved_at": "2026-11-27"
+    }
+  ],
+  "unknowns": [
+    "alias_target_stability: TypeSafe states that jev-latest moves when a new stable release ships and does not publish advance cutover dates.",
+    "max_output_tokens: System One models return structured typed answers rather than free-form token streams and TypeSafe docs publish no max_output_tokens limit."
+  ],
+  "notes": "Official stable alias currently pointing to jev-1.14.0, served via embedded official QuantumNous/new-api-plugins typesafe@1.2.0 plugin. Task billing expression: tier(\"base\", u(\"input_tokens\") * 0.042 / 1000000).",
+  "billing": {
+    "unit": "per_token",
+    "unit_label": {
+      "zh": "每百万词元",
+      "en": "per 1M tokens"
+    },
+    "pricing_basis": "reported_tokens",
+    "notes": {
+      "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。",
+      "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free."
+    }
+  }
+}

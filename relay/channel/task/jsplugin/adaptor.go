@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -98,6 +97,10 @@ type taskResult struct {
 }
 
 var taskArtifactKeyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$`)
+
+// gatewayCredentialHeaders carry the client's gateway credentials. Driver
+// hooks receive every other request header.
+var gatewayCredentialHeaders = []string{"Authorization", "Proxy-Authorization", "Cookie", "X-Api-Key", "X-Goog-Api-Key", "Mj-Api-Secret"}
 
 const maxTaskArtifacts = 64
 
@@ -180,7 +183,7 @@ func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInf
 			return taskErr
 		}
 	}
-	request, hasRequest := c.Get("task_request")
+	request, _ := c.Get("task_request")
 	if info.Action == "video_multi_ref" {
 		contract, _ := modelcontracts.For(info.OriginModelName)
 		if contract.GatewayProtocol != "openai_video" {
@@ -196,31 +199,11 @@ func (a *TaskAdaptor) validateRequest(c *gin.Context, info *relaycommon.RelayInf
 			}
 		}
 	}
-	hasUsageProfiles := len(a.plugin.Meta.UsageProfiles) > 0
-	if hasRequest && !hasUsageProfiles {
-		var err error
-		if a.isUnpinnedSeedanceFlashRequest(info) || a.isPinnedSeedanceOpenAIRequest(c) {
-			err = a.validateSeedanceFlashUsageRequest(request)
-		} else {
-			err = a.validateResolvedUsageRequest(request)
-		}
-		if err != nil {
-			return service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
-		}
-	}
 	if _, err := a.buildSubmit(c, info, estimateOnly); err != nil {
 		if estimateOnly {
 			return service.TaskErrorWrapperLocal(err, "generation_quote_unavailable", http.StatusServiceUnavailable)
 		}
 		return service.TaskErrorWrapperLocal(err, "plugin_request_invalid", http.StatusBadRequest)
-	}
-	// The descriptor may rewrite the model. Validate profiled requests against
-	// that final model before any quota calculation or upstream submission; an
-	// upstream endpoint ID without a profile keeps the client model's profile.
-	if hasRequest && hasUsageProfiles {
-		if err := a.validateResolvedUsageRequest(request, info.UpstreamModelName, info.OriginModelName); err != nil {
-			return service.TaskErrorWrapperLocal(err, "plugin_usage_invalid", http.StatusBadRequest)
-		}
 	}
 	return nil
 }
@@ -299,22 +282,6 @@ func prepareRawSeedanceFlashRequest(c *gin.Context, info *relaycommon.RelayInfo)
 	}
 	c.Set("task_request", raw)
 	return nil
-}
-
-// validateSeedanceFlashUsageRequest validates canonical duration/usage bounds
-// for Seedance 2.5 Flash requests running through the OpenAI-compatible Sora
-// plugin without applying Sora's fixed 4-dimension `size` enum (Flash uses
-// aspect ratios or 480p/720p pixel sizes validated by the plugin itself).
-func (a *TaskAdaptor) validateSeedanceFlashUsageRequest(request any) error {
-	baseSchema, _ := a.plugin.Meta.UsageForModels()
-	filtered := make(map[string]pluginruntime.UsageFieldSchema, len(baseSchema))
-	for key, field := range baseSchema {
-		if key == "size" {
-			continue
-		}
-		filtered[key] = field
-	}
-	return a.validateResolvedUsageValue(jsonValue(request), filtered)
 }
 
 // prepareOrderedVideoImages keeps verified bytes in request scope across
@@ -624,7 +591,7 @@ func encodeFilePlaceholder(placeholder map[string]any, form *multipart.Form, lim
 	header := files[index]
 	maxBytes := limit
 	if raw, exists := placeholder["maxBytes"]; exists {
-		n, ok := usageNumber(raw, false)
+		n, ok := usageNumber(raw)
 		if !ok || n <= 0 || n != math.Trunc(n) {
 			return "", fmt.Errorf("invalid file placeholder")
 		}
@@ -1662,6 +1629,12 @@ func (a *TaskAdaptor) submitContext(c *gin.Context, info *relaycommon.RelayInfo)
 					routeRequest.Query[key] = append([]string(nil), values...)
 				}
 			}
+			for name, values := range c.Request.Header {
+				name = http.CanonicalHeaderKey(name)
+				if len(values) > 0 && !slices.Contains(gatewayCredentialHeaders, name) {
+					requestHeaders[name] = values[0]
+				}
+			}
 			requestHeaders["Content-Type"] = c.GetHeader("Content-Type")
 			requestHeaders["Accept"] = c.GetHeader("Accept")
 			if strings.Contains(c.GetHeader("Content-Type"), "multipart/form-data") {
@@ -1770,48 +1743,6 @@ func (a *TaskAdaptor) usageRatios(ctx context.Context, models []string, hook str
 	return ratios, nil
 }
 
-func (a *TaskAdaptor) validateResolvedUsageRequest(request any, models ...string) error {
-	schema, _ := a.plugin.Meta.UsageForModels(models...)
-	return a.validateResolvedUsageValue(jsonValue(request), schema)
-}
-
-func (a *TaskAdaptor) validateResolvedUsageValue(value any, usageSchema map[string]pluginruntime.UsageFieldSchema) error {
-	switch typed := value.(type) {
-	case map[string]any:
-		for key, item := range typed {
-			limit, canonical := canonicalUsageLimit(key)
-			// A duration of -1 asks the vendor to pick the length. Plugins that
-			// declare duration-auto@1 reserve the longest duration for it and
-			// settle on the usage the vendor reports; usage facts stay
-			// non-negative.
-			if canonical && limit == relaycommon.MaxTaskDurationSeconds && a.plugin.Meta.AcceptsAutoDuration() {
-				if number, _ := usageNumber(item, true); number == -1 {
-					continue
-				}
-			}
-			if schema, declared := usageSchema[key]; declared {
-				if _, err := validateUsageValue(item, schema, true); err != nil {
-					return err
-				}
-			} else if canonical {
-				if err := validateUsageLimit(item, limit, true); err != nil {
-					return err
-				}
-			}
-			if err := a.validateResolvedUsageValue(item, usageSchema); err != nil {
-				return err
-			}
-		}
-	case []any:
-		for _, item := range typed {
-			if err := a.validateResolvedUsageValue(item, usageSchema); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // validatedUsageRatios returns the normalized facts in a new map because the
 // hook result may be a host value, such as the request body, that must stay
 // unchanged.
@@ -1822,7 +1753,7 @@ func (a *TaskAdaptor) validatedUsageRatios(facts map[string]any, models ...strin
 	for key, value := range facts {
 		validated[key] = value
 		if schema, declared := usageSchema[key]; declared {
-			number, err := validateUsageValue(value, schema, false)
+			number, err := validateUsageValue(value, schema)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1834,7 +1765,7 @@ func (a *TaskAdaptor) validatedUsageRatios(facts map[string]any, models ...strin
 			}
 			continue
 		}
-		number, numeric := usageNumber(value, false)
+		number, numeric := usageNumber(value)
 		if !numeric {
 			continue
 		}
@@ -1871,7 +1802,7 @@ func (a *TaskAdaptor) validatedCompletionUsageFacts(facts any, models ...string)
 	for key, value := range values {
 		validated[key] = value
 		if schema, declared := usageSchema[key]; declared {
-			number, err := validateUsageValue(value, schema, false)
+			number, err := validateUsageValue(value, schema)
 			if err != nil {
 				return nil, err
 			}
@@ -1881,7 +1812,7 @@ func (a *TaskAdaptor) validatedCompletionUsageFacts(facts any, models ...string)
 			continue
 		}
 		if limit, canonical := canonicalUsageLimit(key); canonical {
-			number, numeric := usageNumber(value, false)
+			number, numeric := usageNumber(value)
 			if !numeric {
 				return nil, fmt.Errorf("plugin usage value must be a number")
 			}
@@ -1893,13 +1824,13 @@ func (a *TaskAdaptor) validatedCompletionUsageFacts(facts any, models ...string)
 		}
 		switch key {
 		case "upstreamUnits", "completionTokens", "totalTokens":
-			number, numeric := usageNumber(value, false)
+			number, numeric := usageNumber(value)
 			if !numeric || math.IsNaN(number) || math.IsInf(number, 0) || number < 0 {
 				return nil, fmt.Errorf("plugin usage value must be a finite non-negative number")
 			}
 			validated[key] = float64(common.QuotaFromFloat(number))
 		default:
-			if number, numeric := usageNumber(value, false); numeric {
+			if number, numeric := usageNumber(value); numeric {
 				validated[key] = number
 			}
 		}
@@ -1907,7 +1838,7 @@ func (a *TaskAdaptor) validatedCompletionUsageFacts(facts any, models ...string)
 	return validated, nil
 }
 
-func validateUsageValue(value any, schema pluginruntime.UsageFieldSchema, allowNumericString bool) (float64, error) {
+func validateUsageValue(value any, schema pluginruntime.UsageFieldSchema) (float64, error) {
 	if len(schema.Enum) > 0 {
 		text, ok := value.(string)
 		if !ok {
@@ -1924,7 +1855,7 @@ func validateUsageValue(value any, schema pluginruntime.UsageFieldSchema, allowN
 		}
 		return 0, nil
 	}
-	number, ok := usageNumber(value, allowNumericString)
+	number, ok := usageNumber(value)
 	if !ok {
 		return 0, fmt.Errorf("plugin usage value must be a number")
 	}
@@ -1949,14 +1880,6 @@ func validateUsageValue(value any, schema pluginruntime.UsageFieldSchema, allowN
 	return number, nil
 }
 
-func validateUsageLimit(value any, limit int, allowNumericString bool) error {
-	number, ok := usageNumber(value, allowNumericString)
-	if !ok {
-		return fmt.Errorf("plugin usage value must be a number")
-	}
-	return validateUsageNumberLimit(number, limit)
-}
-
 func validateUsageNumberLimit(number float64, limit int) error {
 	if math.IsNaN(number) || math.IsInf(number, 0) || number < 0 {
 		return fmt.Errorf("plugin usage value must be a finite non-negative number")
@@ -1967,7 +1890,7 @@ func validateUsageNumberLimit(number float64, limit int) error {
 	return nil
 }
 
-func usageNumber(value any, allowNumericString bool) (float64, bool) {
+func usageNumber(value any) (float64, bool) {
 	switch number := value.(type) {
 	case float64:
 		return number, true
@@ -1975,12 +1898,6 @@ func usageNumber(value any, allowNumericString bool) (float64, bool) {
 		return float64(number), true
 	case int:
 		return float64(number), true
-	case string:
-		if !allowNumericString {
-			return 0, false
-		}
-		parsed, err := strconv.ParseFloat(strings.TrimSpace(number), 64)
-		return parsed, err == nil
 	default:
 		return 0, false
 	}

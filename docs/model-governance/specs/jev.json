@@ -8,34 +8,52 @@
     "judgment"
   ],
   "status": "partial",
-  "checked_at": "2026-09-27",
-  "context_window_tokens": null,
-  "input_modalities": null,
+  "checked_at": "2026-11-27",
+  "context_window_tokens": 65536,
+  "max_output_tokens": null,
+  "input_modalities": [
+    "text",
+    "image"
+  ],
+  "streaming": false,
+  "tool_calling": false,
   "sources": [
     {
-      "claim": "The direct System One probe submitted a Jev judgment task and received a successful response.",
-      "url": "repo:.reports/probes/channel-74-jev.json",
-      "quote": "直连 POST https://api.typesafe.ai/v1/systemone 真实提交 Noul 判定任务",
-      "retrieved_at": "2026-09-26"
+      "claim": "OmniMux routes legacy compatibility alias jev via channel model_mapping to jev-latest on the embedded official typesafe@1.2.0 task plugin.",
+      "url": "repo:plugins/tasks/typesafe/plugin.js",
+      "quote": "const MODELS = [\"jev-1.14.0\", \"jev-1.13.0\", \"jev-latest\", \"jev-preview\"];",
+      "retrieved_at": "2026-11-27"
     },
     {
-      "claim": "The verified upstream alias for Jev is jev-latest.",
-      "url": "repo:.reports/probes/channel-74-jev.json",
-      "quote": "jev-latest",
-      "retrieved_at": "2026-09-26"
+      "claim": "Target official alias jev-latest currently resolves to Jev 1.14 (jev-1.14.0).",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "The most recent stable, official release. The default in our client SDKs, and the name the examples in these docs use.",
+      "retrieved_at": "2026-11-27"
     },
     {
-      "claim": "TypeSafe's official pricing record lists input tokens at $0.042 per 1M tokens and output tokens free.",
-      "url": "repo:scripts/ops/model-audit-ledger.json",
-      "quote": "TypeSafe 官方定价表（$0.042/1M input tokens，output tokens 免费）",
-      "retrieved_at": "2026-09-26"
+      "claim": "Underlying model has a default 64k (65536) per-request context and 32k per-question context, expandable to 262k tokens via TypeSafe-Danger-Zone-Long-Context: true.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "64k per-request / 32k per-question",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "Jev reads natural-language text and PNG/JPEG images.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "Jev reads natural-language text, sent as a string, a JSON object, or an array of text values. It also reads PNG and JPEG images anywhere in the request.",
+      "retrieved_at": "2026-11-27"
+    },
+    {
+      "claim": "TypeSafe charges $0.042 per 1M input tokens ($42 per Btok) and output tokens are free.",
+      "url": "https://docs.typesafe.ai/models",
+      "quote": "You pay per input token. Output tokens are free. A Btok is a billion tokens and an Mtok is a million tokens.",
+      "retrieved_at": "2026-11-27"
     }
   ],
   "unknowns": [
-    "TypeSafe's cited model documentation does not establish a context window limit.",
-    "input_modalities: TypeSafe's cited model documentation does not establish supported input modalities."
+    "alias_target_stability: OmniMux compatibility alias mapped to jev-latest (which moves on new TypeSafe releases); keep jev mapped in channel model_mapping until callers migrate to jev-latest or jev-1.14.0.",
+    "max_output_tokens: System One models return structured typed answers rather than free-form token streams and TypeSafe docs publish no max_output_tokens limit."
   ],
-  "notes": "Capability claims are limited to the verified System One judgment probe. The TypeSafe model docs are indexed in scripts/ops/model-audit-ledger.json at https://docs.typesafe.ai/models (Models > Jev 1.13); no context-window, modality, streaming, or tool-calling limits are asserted. Pricing is descriptive: input tokens are $0.042 per 1M tokens and output tokens are free; ModelRatio is 0.021.",
+  "notes": "OmniMux backward-compatibility alias mapped to jev-latest on the embedded official QuantumNous/new-api-plugins typesafe@1.2.0 task plugin (POST /v1/systemone and POST /typesafe/v1/systemone). Resolves jev-latest task billing expression tier(\"base\", u(\"input_tokens\") * 0.042 / 1000000) via ResolveTaskBillingExpr.",
   "billing": {
     "unit": "per_token",
     "unit_label": {
@@ -43,7 +61,6 @@
       "en": "per 1M tokens"
     },
     "pricing_basis": "reported_tokens",
-    "model_ratio": 0.021,
     "notes": {
       "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。",
       "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free."

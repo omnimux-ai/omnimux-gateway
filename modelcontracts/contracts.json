@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "version": "678f821c69576ff4",
+  "version": "056e9e3faf6a3924",
   "defaults": {
     "chat": "gemini-3.8-flash",
     "speech_to_text": "whisper-1",
@@ -5389,7 +5389,7 @@
     "jev": {
       "model_id": "jev",
       "schemaVersion": "2.0",
-      "contractVersion": "09b71e2bb062d364",
+      "contractVersion": "89447e39eb22b724",
       "execution_status": "live",
       "family": "llm",
       "brand_id": "typesafe-ai",
@@ -5407,6 +5407,11 @@
               "slot": "prompt",
               "type": "text",
               "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false
             }
           ],
           "parameters": [],
@@ -5417,17 +5422,253 @@
       ],
       "unknowns": [
         "prompt_max_chars",
-        "context_window_tokens",
-        "input_modalities",
         "max_output_tokens"
       ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "tool_calling": false,
+      "streaming": false,
+      "context_window_tokens": 65536,
       "billing": {
         "unit": "per_token",
         "unit_label": {
           "en": "per 1M tokens",
           "zh": "每百万词元"
         },
-        "model_ratio": 0.021,
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free.",
+          "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。"
+        }
+      }
+    },
+    "jev-1.13.0": {
+      "model_id": "jev-1.13.0",
+      "schemaVersion": "2.0",
+      "contractVersion": "bbff31d1dd5a6ab7",
+      "execution_status": "live",
+      "family": "llm",
+      "brand_id": "typesafe-ai",
+      "brand_name": "TypeSafe AI",
+      "status": "partial",
+      "operation_ids": [
+        "chat"
+      ],
+      "operations": [
+        {
+          "id": "chat",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false
+            }
+          ],
+          "parameters": [],
+          "output": {
+            "type": "text"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars",
+        "max_output_tokens"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "tool_calling": false,
+      "streaming": false,
+      "context_window_tokens": 65536,
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free.",
+          "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。"
+        }
+      }
+    },
+    "jev-1.14.0": {
+      "model_id": "jev-1.14.0",
+      "schemaVersion": "2.0",
+      "contractVersion": "9ca0dd1ad58aaa58",
+      "execution_status": "live",
+      "family": "llm",
+      "brand_id": "typesafe-ai",
+      "brand_name": "TypeSafe AI",
+      "status": "partial",
+      "operation_ids": [
+        "chat"
+      ],
+      "operations": [
+        {
+          "id": "chat",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false
+            }
+          ],
+          "parameters": [],
+          "output": {
+            "type": "text"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars",
+        "max_output_tokens"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "tool_calling": false,
+      "streaming": false,
+      "context_window_tokens": 65536,
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free.",
+          "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。"
+        }
+      }
+    },
+    "jev-latest": {
+      "model_id": "jev-latest",
+      "schemaVersion": "2.0",
+      "contractVersion": "9864e402740e1f64",
+      "execution_status": "live",
+      "family": "llm",
+      "brand_id": "typesafe-ai",
+      "brand_name": "TypeSafe AI",
+      "status": "partial",
+      "operation_ids": [
+        "chat"
+      ],
+      "operations": [
+        {
+          "id": "chat",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false
+            }
+          ],
+          "parameters": [],
+          "output": {
+            "type": "text"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars",
+        "max_output_tokens"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "tool_calling": false,
+      "streaming": false,
+      "context_window_tokens": 65536,
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
+        "pricing_basis": "reported_tokens",
+        "notes": {
+          "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free.",
+          "zh": "按上游返回用量计费：输入词元 $0.042/百万词元，输出词元免费。"
+        }
+      }
+    },
+    "jev-preview": {
+      "model_id": "jev-preview",
+      "schemaVersion": "2.0",
+      "contractVersion": "e8e1c37b1b948487",
+      "execution_status": "live",
+      "family": "llm",
+      "brand_id": "typesafe-ai",
+      "brand_name": "TypeSafe AI",
+      "status": "partial",
+      "operation_ids": [
+        "chat"
+      ],
+      "operations": [
+        {
+          "id": "chat",
+          "executable": true,
+          "inputs": [
+            {
+              "slot": "prompt",
+              "type": "text",
+              "required": true
+            },
+            {
+              "slot": "image",
+              "type": "image",
+              "required": false
+            }
+          ],
+          "parameters": [],
+          "output": {
+            "type": "text"
+          }
+        }
+      ],
+      "unknowns": [
+        "prompt_max_chars",
+        "max_output_tokens"
+      ],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "tool_calling": false,
+      "streaming": false,
+      "context_window_tokens": 65536,
+      "billing": {
+        "unit": "per_token",
+        "unit_label": {
+          "en": "per 1M tokens",
+          "zh": "每百万词元"
+        },
         "pricing_basis": "reported_tokens",
         "notes": {
           "en": "Charged by reported usage: input tokens cost $0.042 per 1M tokens; output tokens are free.",

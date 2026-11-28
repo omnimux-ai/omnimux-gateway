@@ -40,6 +40,5 @@ const (
 	APITypeSub2API
 	APITypeNewAPI
 	APITypeElevenLabs
-	APITypeTypeSafe
 	APITypeDummy // this one is only for count, do not add any channel after this
 )

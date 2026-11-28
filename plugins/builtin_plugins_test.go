@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var expectedKeys = []string{"alibaba", "autodl", "doubao", "google", "hailuo", "jimeng", "kling", "sora", "sunoapi", "vertex-ai", "vidu", "xai"}
+var expectedKeys = []string{"alibaba", "autodl", "doubao", "google", "hailuo", "jimeng", "kling", "sora", "sunoapi", "typesafe", "vertex-ai", "vidu", "xai"}
 
 func TestBuiltInVendorPluginsDeclareNativeRoutesAndLegacyChannelTypes(t *testing.T) {
 	generation := jsplugin.DefaultRegistry.Generation()
@@ -41,6 +41,8 @@ func TestBuiltInVendorPluginsDeclareNativeRoutesAndLegacyChannelTypes(t *testing
 		{"POST", "/xai/v1/videos/edits", "xai", jsplugin.RouteTypeSubmit, "", "videoCreated"},
 		{"POST", "/xai/v1/videos/extensions", "xai", jsplugin.RouteTypeSubmit, "", "videoCreated"},
 		{"GET", "/xai/v1/videos/:request_id", "xai", jsplugin.RouteTypeQuery, "", "videoStatus"},
+		{"POST", "/v1/systemone", "typesafe", jsplugin.RouteTypeSubmit, "", "renderSystemOne"},
+		{"POST", "/typesafe/v1/systemone", "typesafe", jsplugin.RouteTypeSubmit, "", "renderSystemOne"},
 	}
 	for _, expected := range routes {
 		t.Run(expected.method+" "+expected.path, func(t *testing.T) {
@@ -51,6 +53,13 @@ func TestBuiltInVendorPluginsDeclareNativeRoutesAndLegacyChannelTypes(t *testing
 			require.Equal(t, expected.action, binding.Route.Action)
 			require.Equal(t, expected.renderer, binding.Route.Render)
 		})
+	}
+
+	for _, path := range []string{"/v1/systemone", "/typesafe/v1/systemone"} {
+		binding, found := generation.LookupDeclaredRoute("POST", path)
+		require.True(t, found)
+		require.NotNil(t, binding.Route.RetainResult)
+		assert.False(t, *binding.Route.RetainResult, path)
 	}
 
 	// The legacy Wan edit route serves both the wan2.5 image-list body and the
@@ -94,6 +103,8 @@ func TestBuiltInTaskPluginResponsesAndUsageContracts(t *testing.T) {
 	}
 	assert.Equal(t, expectedKeys, actualKeys)
 
+	nativeOnlyPlugins := map[string]bool{"typesafe": true}
+
 	for _, key := range expectedKeys {
 		t.Run(key, func(t *testing.T) {
 			_, found := generation.Get(key)
@@ -105,30 +116,34 @@ func TestBuiltInTaskPluginResponsesAndUsageContracts(t *testing.T) {
 			plugin, registerErr := registry.RegisterFactory(source, jsplugin.Options{Key: key})
 			require.NoError(t, registerErr)
 
-			var responsesClaim jsplugin.ProtocolClaim
-			foundResponses := false
-			for _, claim := range plugin.Meta.Protocols {
-				if claim.Name == "openai_responses" {
-					responsesClaim = claim
-					foundResponses = true
-					break
+			if !nativeOnlyPlugins[key] {
+				var responsesClaim jsplugin.ProtocolClaim
+				foundResponses := false
+				for _, claim := range plugin.Meta.Protocols {
+					if claim.Name == "openai_responses" {
+						responsesClaim = claim
+						foundResponses = true
+						break
+					}
 				}
-			}
-			require.True(t, foundResponses, "openai_responses claim must be present")
-			assert.Equal(t, []string{"stream", "sync", "background"}, responsesClaim.Supports)
-			for _, model := range plugin.Meta.Models {
-				binding, claimed := registry.Generation().LookupEndpoint("POST", "/v1/responses", model)
-				if len(responsesClaim.Models) > 0 && !slices.Contains(responsesClaim.Models, model) {
-					assert.False(t, claimed, model)
-					continue
+				require.True(t, foundResponses, "openai_responses claim must be present")
+				assert.Equal(t, []string{"stream", "sync", "background"}, responsesClaim.Supports)
+				for _, model := range plugin.Meta.Models {
+					binding, claimed := registry.Generation().LookupEndpoint("POST", "/v1/responses", model)
+					if len(responsesClaim.Models) > 0 && !slices.Contains(responsesClaim.Models, model) {
+						assert.False(t, claimed, model)
+						continue
+					}
+					require.True(t, claimed, model)
+					assert.Same(t, plugin, binding.Plugin)
 				}
-				require.True(t, claimed, model)
-				assert.Same(t, plugin, binding.Plugin)
-			}
-			for _, hook := range []string{"decodeRequest", "renderEvents", "renderFinal"} {
-				callable, callableErr := plugin.Engine.HasCallablePath(t.Context(), "protocols", "openai_responses", hook)
-				require.NoError(t, callableErr)
-				assert.True(t, callable, hook)
+				for _, hook := range []string{"decodeRequest", "renderEvents", "renderFinal"} {
+					callable, callableErr := plugin.Engine.HasCallablePath(t.Context(), "protocols", "openai_responses", hook)
+					require.NoError(t, callableErr)
+					assert.True(t, callable, hook)
+				}
+			} else {
+				assert.True(t, plugin.Meta.PreservesJSONOrder(), "native-only typesafe plugin must preserve JSON order")
 			}
 			for _, hook := range []string{"extractUsage", "extractUsageOnComplete"} {
 				assert.True(t, plugin.Engine.HasExport(hook), hook)
@@ -144,6 +159,9 @@ func TestBuiltInTaskPluginResponsesAndUsageContracts(t *testing.T) {
 func TestBuiltInResponsesDecodersEchoChannelMappedAlias(t *testing.T) {
 	bodyOverrides := map[string]map[string]any{}
 	for _, key := range expectedKeys {
+		if key == "typesafe" {
+			continue
+		}
 		t.Run(key, func(t *testing.T) {
 			source, sourceErr := Source(key)
 			require.NoError(t, sourceErr)
@@ -269,6 +287,10 @@ func TestBuiltInPluginsAddressNewAPIUpstreamOnNativeRoutes(t *testing.T) {
 			gatewayQuery:     "/xai/v1/videos/tid",
 		},
 	}
+	assert.True(t, func() bool {
+		p, ok := generation.Get("typesafe")
+		return ok && p.Meta.SupportsUpstream(jsplugin.UpstreamKindNewAPI)
+	}(), "typesafe must declare new_api to be bindable to a New API channel")
 	variants := []struct {
 		name      string
 		upstream  map[string]any

@@ -24,4 +24,11 @@ var builtinBillingExpr = map[string]string{
 	"gemini-4-hydrogen": `tier("standard", p * 1.5 + c * 7.5 + cr * 0.075)`,
 	"gemini-4-neon":     `tier("standard", p * 3 + c * 15 + cr * 0.15)`,
 	"gemini-4-carbon":   `tier("standard", p * 4 + c * 20 + cr * 0.2)`,
+	// https://docs.typesafe.ai/models (TypeSafe Jev, 2026-10-14).
+	// Billed per input token ($0.042 / 1M input tokens); output tokens are free.
+	// Served by the embedded typesafe task plugin (usageSchema: input_tokens).
+	"jev-1.14.0":  `tier("base", u("input_tokens") * 0.042 / 1000000)`,
+	"jev-1.13.0":  `tier("base", u("input_tokens") * 0.042 / 1000000)`,
+	"jev-latest":  `tier("base", u("input_tokens") * 0.042 / 1000000)`,
+	"jev-preview": `tier("base", u("input_tokens") * 0.042 / 1000000)`,
 }

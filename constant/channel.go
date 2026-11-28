@@ -64,10 +64,10 @@ const (
 	ChannelTypeFalAI          = 64 // fal.ai async queue (Minimax H3, etc.)
 	ChannelTypeTaskPlugin     = 65
 	ChannelTypeElevenLabs     = 66
-	ChannelTypeTypeSafe       = 67
+	ChannelTypeTypeSafe       = 67 // deprecated/reserved (migrated to Task Plugin "typesafe"; keep slot 67 so 68-69 do not shift)
 	ChannelTypeVLLM           = 68 // upstream 62, remapped: fork 61-67 are production-bound
 	ChannelTypeSGLang         = 69 // upstream 63, remapped: fork 61-67 are production-bound
-	ChannelTypeDummy          // this one is only for count, do not add any channel after this
+	ChannelTypeDummy               // this one is only for count, do not add any channel after this
 
 )
 
@@ -141,7 +141,7 @@ var ChannelBaseURLs = []string{
 	"https://queue.fal.run",                     //64 fal.ai
 	"",                                          //65 Task Plugin
 	"https://api.elevenlabs.io",                 //66 ElevenLabs
-	"https://api.typesafe.ai",                   //67 TypeSafe AI
+	"",                                          //67 deprecated/reserved (TypeSafe migrated to Task Plugin)
 	"",                                          //68 vLLM
 	"",                                          //69 SGLang
 }
