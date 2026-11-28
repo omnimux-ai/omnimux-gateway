@@ -24,6 +24,7 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 	compress := gzip.Gzip(gzip.DefaultCompression)
 	// fork: assemble all page types before injecting the existing Umami script.
 	searchManifest, manifestErr := assets.BuildFS.ReadFile("web/dist/search-pages.json")
+	staticSitemap, _ := assets.BuildFS.ReadFile("web/dist/sitemap.xml")
 	searchPages, pageErr := buildWebSearchPages(assets.IndexPage, searchManifest)
 	searchPages.injectUmami(os.Getenv("UMAMI_WEBSITE_ID"), os.Getenv("UMAMI_SCRIPT_URL"))
 	searchPages.injectChatwoot(
@@ -131,6 +132,9 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 				if isAPISubdomainHost(c.Request.Host, canonicalSiteURL) {
 					c.Header("X-Robots-Tag", "noindex, follow")
 					c.AbortWithStatus(http.StatusNotFound)
+				} else if len(staticSitemap) > 0 && (c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead) {
+					serveDynamicSitemap(c, staticSitemap, canonicalSiteURL, searchPages.catalog.get(canonicalSiteURL))
+					c.Abort()
 				}
 			default:
 				if strings.HasSuffix(c.Request.URL.Path, ".html") {

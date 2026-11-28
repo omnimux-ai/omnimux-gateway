@@ -115,11 +115,11 @@ describe('public page metadata', () => {
     expect(urls).toEqual(
       Object.keys(fullManifest.pages).map((path) => `${brand.siteUrl}${path}`)
     )
-    expect(urls).toHaveLength(28)
+    expect(urls).toHaveLength(29)
     expect(sitemap).not.toContain('/influencer')
     expect([
       ...sitemap.matchAll(/<lastmod>2026-11-10<\/lastmod><\/url>/g),
-    ]).toHaveLength(28)
+    ]).toHaveLength(29)
   })
 
   it('states no subscription and paid trial packs on the homepage', () => {
@@ -275,6 +275,7 @@ describe('public page metadata', () => {
       '/acceptable-use',
       '/pricing',
       '/inspiration',
+      '/inspiration/tiktok',
       '/tools/tiktok-video-downloader',
       '/zh/tools/tiktok-video-downloader',
       '/tools/tiktok-photo-downloader',
@@ -309,7 +310,7 @@ describe('public page metadata', () => {
       expect(page.summary).not.toMatch(/\bhidden\b|display:\s*none/)
       expect(page.summary).not.toContain('undefined')
     }
-    expect(titles.size).toBe(25)
+    expect(titles.size).toBe(26)
     expect(manifest.pages['/about'].summary).toContain(PRODUCT_DESCRIPTION)
     expect(manifest.pages['/about'].summary).not.toContain(
       'Put your character in any trend'
@@ -333,6 +334,24 @@ describe('public page metadata', () => {
     expect(pricing).toContain('Doubao ASR')
     expect(pricing).toContain('href="https://docs.omnimux.ai/en/quickstart"')
     expect(pricing).toContain('href="https://omnimux.ai/ai-influencer-studio"')
+  })
+
+  it('publishes CollectionPage structured data and summary for /inspiration/tiktok', () => {
+    const page = manifest.pages['/inspiration/tiktok']
+    const head = new DOMParser().parseFromString(page.head, 'text/html')
+    const graph = JSON.parse(
+      head.querySelector('script[type="application/ld+json"]')?.textContent ??
+        '{}'
+    ) as { '@graph': { '@type': string }[] }
+    expect(graph['@graph'].map((node) => node['@type'])).toEqual([
+      'CollectionPage',
+      'BreadcrumbList',
+    ])
+    expect(page.summary).toContain('<noscript>')
+    expect(page.summary).toContain(
+      translations.translation['TikTok Ad Library']
+    )
+    expect(page.summary).not.toContain(' · /inspiration')
   })
 
   it('links every TikTok tool page to its language alternates and publishes its FAQ', () => {
@@ -556,5 +575,67 @@ describe('public page metadata', () => {
     ).toHaveLength(1)
     expect(document.querySelector('#analytics')).not.toBeNull()
     expect(document.querySelector('meta[name="viewport"]')).not.toBeNull()
+  })
+
+  it('preserves matching server-rendered dynamic head unless quarantine or route navigation occurs', () => {
+    document.head.innerHTML = [
+      '<title>Seedance 2.5 Prompts (1,933+) | OmniMux</title>',
+      '<meta name="omnimux-server-head-path" content="/inspiration/models/seedance-2.5" />',
+      '<meta name="robots" content="index,follow" />',
+      '<link rel="canonical" href="https://omnimux.ai/inspiration/models/seedance-2.5" />',
+      '<script type="application/ld+json">{"@type":"CollectionPage"}</script>',
+    ].join('')
+    applyPageMetadata(manifest, '/inspiration/models/seedance-2.5', '')
+    expect(document.title).toBe('Seedance 2.5 Prompts (1,933+) | OmniMux')
+    expect(
+      document.querySelector('link[rel="canonical"]')?.getAttribute('href')
+    ).toBe('https://omnimux.ai/inspiration/models/seedance-2.5')
+    expect(
+      document.querySelector('meta[name="robots"]')?.getAttribute('content')
+    ).toBe('index,follow')
+    expect(
+      document.querySelector('script[type="application/ld+json"]')?.textContent
+    ).toBe('{"@type":"CollectionPage"}')
+
+    applyPageMetadata(
+      manifest,
+      '/inspiration/models/seedance-2.5',
+      '?quarantine=1'
+    )
+    expect(document.querySelector('link[rel="canonical"]')).toBeNull()
+    expect(
+      document.querySelector('meta[name="robots"]')?.getAttribute('content')
+    ).toBe('noindex,follow')
+    expect(
+      document.querySelector('meta[name="omnimux-server-head-path"]')
+    ).toBeNull()
+
+    document.head.innerHTML = [
+      '<title>Seedance 2.5 Prompts | OmniMux</title>',
+      '<meta name="omnimux-server-head-path" content="/inspiration/models/seedance-2.5" />',
+      '<link rel="canonical" href="https://omnimux.ai/inspiration/models/seedance-2.5" />',
+    ].join('')
+    applyPageMetadata(
+      manifest,
+      '/inspiration/models/seedance-2.5',
+      '?quarantine=true'
+    )
+    expect(
+      document.querySelector('meta[name="robots"]')?.getAttribute('content')
+    ).toBe('noindex,follow')
+
+    document.head.innerHTML = [
+      '<title>Seedance 2.5 Prompts | OmniMux</title>',
+      '<meta name="omnimux-server-head-path" content="/inspiration/models/seedance-2.5" />',
+      '<link rel="canonical" href="https://omnimux.ai/inspiration/models/seedance-2.5" />',
+    ].join('')
+    applyPageMetadata(manifest, '/about', '')
+    expect(document.title).toContain('About OmniMux')
+    expect(
+      document.querySelector('meta[name="omnimux-server-head-path"]')
+    ).toBeNull()
+    expect(
+      document.querySelector('link[rel="canonical"]')?.getAttribute('href')
+    ).toBe('https://omnimux.ai/about')
   })
 })
